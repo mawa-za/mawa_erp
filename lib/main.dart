@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/setup/setup_screen.dart';
 import 'features/auth/login_screen.dart';
+import 'features/auth/reset_password_screen.dart';
 import 'features/home/home_page.dart';
 
 void main() async {
@@ -22,7 +23,25 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const Initializer(),
+      onGenerateRoute: (settings) {
+        // Check for deep links/URL parameters (especially for Web)
+        final uri = Uri.base;
+        
+        // Handle /reset-password?token=...
+        if (uri.path.contains('reset-password')) {
+          final token = uri.queryParameters['token'];
+          if (token != null) {
+            return MaterialPageRoute(
+              builder: (context) => ResetPasswordScreen(token: token),
+            );
+          }
+        }
+
+        // Default to Initializer for any other route
+        return MaterialPageRoute(
+          builder: (context) => const Initializer(),
+        );
+      },
     );
   }
 }

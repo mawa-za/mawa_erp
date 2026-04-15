@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../main.dart'; // To access Initializer for logout navigation
+import '../auth/change_password_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -73,10 +74,34 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
         actions: [
-          IconButton(
-            onPressed: _showLogoutConfirmation,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'change_password') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+                );
+              } else if (value == 'logout') {
+                _showLogoutConfirmation();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'change_password',
+                child: ListTile(
+                  leading: Icon(Icons.lock_outline),
+                  title: Text('Change Password'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Logout'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),
