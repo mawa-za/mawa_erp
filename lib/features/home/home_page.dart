@@ -5,6 +5,7 @@ import '../../core/api_client.dart';
 import '../../main.dart'; // To access Initializer for logout navigation
 import '../auth/change_password_screen.dart';
 import '../auth/role_selection_screen.dart';
+import '../invoicing/screens/invoice_list_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -38,7 +39,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
     if (userId == null) return;
 
-    // Fetch roles again to ensure we have the latest list
     final response = await ApiClient().get('/user/$userId/role');
     
     if (response.statusCode == 200) {
@@ -52,8 +52,8 @@ class _MyHomePageState extends State<MyHomePage> {
               builder: (context) => RoleSelectionScreen(
                 roles: roleList,
                 onRoleSelected: () {
-                  Navigator.of(context).pop(); // Go back from selection screen
-                  _loadUserInfo(); // Refresh UI with new role
+                  Navigator.of(context).pop(); 
+                  _loadUserInfo();
                 },
               ),
             ),
@@ -160,26 +160,95 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Icon(Icons.account_circle, size: 80, color: Colors.deepPurple),
-            const SizedBox(height: 16),
-            Text(
-              'Welcome, ${_displayName ?? 'User'}',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            if (_selectedRole != null) ...[
-              const SizedBox(height: 8),
-              Chip(
-                label: Text(_selectedRole!),
-                backgroundColor: Colors.deepPurple.withOpacity(0.1),
-                labelStyle: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const Icon(Icons.account_circle, size: 80, color: Colors.deepPurple),
+              const SizedBox(height: 16),
+              Text(
+                'Welcome, ${_displayName ?? 'User'}',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              if (_selectedRole != null) ...[
+                const SizedBox(height: 8),
+                Chip(
+                  label: Text(_selectedRole!),
+                  backgroundColor: Colors.deepPurple.withOpacity(0.1),
+                  labelStyle: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold),
+                ),
+              ],
+              const SizedBox(height: 48),
+              _buildFeatureCard(
+                context,
+                title: 'Invoicing',
+                description: 'Manage and view your invoices',
+                icon: Icons.receipt_long,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const InvoiceListScreen()),
+                  );
+                },
               ),
             ],
-            const SizedBox(height: 24),
-            const Text('You are now logged in.'),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 32, color: Colors.deepPurple),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );
