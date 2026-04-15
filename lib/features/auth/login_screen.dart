@@ -65,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('accessToken', data['accessToken']);
         await prefs.setString('refreshToken', data['refreshToken']);
 
-        // Fetch roles (removed /v2/ from path)
+        // Fetch roles
         final rolesResponse = await ApiClient().get('/user/$userId/role');
         if (rolesResponse.statusCode == 200) {
           final List<dynamic> roles = jsonDecode(rolesResponse.body);
@@ -77,7 +77,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 MaterialPageRoute(
                   builder: (context) => RoleSelectionScreen(
                     roles: roleList,
-                    onRoleSelected: widget.onLoggedIn,
+                    onRoleSelected: () {
+                      widget.onLoggedIn();
+                      // Popping the RoleSelectionScreen will reveal the Home Page
+                      // which is now being shown by the Initializer.
+                      Navigator.of(context).pop();
+                    },
                   ),
                 ),
               );
@@ -140,6 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 48),
                   TextFormField(
                     controller: _usernameController,
+                    textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'Username',
                       border: OutlineInputBorder(
@@ -152,6 +158,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                   TextFormField(
                     controller: _passwordController,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _login(),
                     decoration: InputDecoration(
                       labelText: 'Password',
                       border: OutlineInputBorder(
