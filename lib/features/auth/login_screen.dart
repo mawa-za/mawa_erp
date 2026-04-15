@@ -73,15 +73,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
           if (roleList.length > 1) {
             if (mounted) {
+              // Ensure we use the proper navigation flow for Role Selection
+              // On mobile, we push it as a full-screen route
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => RoleSelectionScreen(
                     roles: roleList,
                     onRoleSelected: () {
                       widget.onLoggedIn();
-                      // Popping the RoleSelectionScreen will reveal the Home Page
-                      // which is now being shown by the Initializer.
-                      Navigator.of(context).pop();
                     },
                   ),
                 ),
