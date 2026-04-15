@@ -6,6 +6,7 @@ import '../../main.dart';
 import '../auth/change_password_screen.dart';
 import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
+import '../membership/screens/member_list_screen.dart';
 import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -151,9 +152,14 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
-    if (wc.id.toLowerCase().contains('invoic')) {
+    final id = wc.id.toLowerCase();
+    if (id.contains('invoic')) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const InvoiceListScreen()),
+      );
+    } else if (id.contains('membership')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const MemberListScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
