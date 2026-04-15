@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoggedIn;
@@ -133,7 +134,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                     validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
                   ),
-                  const SizedBox(height: 32),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                        );
+                      },
+                      child: const Text('Forgot Password?'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   _isLoading
                       ? const CircularProgressIndicator()
                       : ElevatedButton(
