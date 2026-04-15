@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
-import '../../main.dart'; // To access Initializer for logout navigation
+import '../../main.dart';
 import '../auth/change_password_screen.dart';
 import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
+import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -18,6 +19,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   String? _displayName;
   String? _selectedRole;
+  List<Workcenter> _workcenters = [];
+  bool _isLoadingWorkcenters = true;
 
   @override
   void initState() {
@@ -27,10 +30,34 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('selectedRole');
     setState(() {
       _displayName = prefs.getString('displayName');
-      _selectedRole = prefs.getString('selectedRole');
+      _selectedRole = role;
     });
+    if (role != null) {
+      _fetchWorkcenters(role);
+    }
+  }
+
+  Future<void> _fetchWorkcenters(String role) async {
+    setState(() => _isLoadingWorkcenters = true);
+    try {
+      final response = await ApiClient().get('/role/$role/workcenter');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
+          // Sort by position as provided in the sample response
+          _workcenters.sort((a, b) => a.position.compareTo(b.position));
+          _isLoadingWorkcenters = false;
+        });
+      } else {
+        setState(() => _isLoadingWorkcenters = false);
+      }
+    } catch (e) {
+      setState(() => _isLoadingWorkcenters = false);
+    }
   }
 
   Future<void> _changeRole() async {
@@ -110,6 +137,35 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  IconData _getIconData(String id) {
+    switch (id.toLowerCase()) {
+      case 'membership':
+      case 'membership-approval':
+        return Icons.people;
+      case 'claim':
+      case 'claim-approval':
+        return Icons.request_quote;
+      case 'group-society':
+        return Icons.groups;
+      case 'invoicing':
+        return Icons.receipt_long;
+      default:
+        return Icons.apps;
+    }
+  }
+
+  void _navigateToWorkcenter(Workcenter wc) {
+    if (wc.id.toLowerCase().contains('invoic')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const InvoiceListScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${wc.description} feature coming soon')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -159,61 +215,69 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              const Icon(Icons.account_circle, size: 80, color: Colors.deepPurple),
-              const SizedBox(height: 16),
-              Text(
-                'Welcome, ${_displayName ?? 'User'}',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              if (_selectedRole != null) ...[
-                const SizedBox(height: 8),
-                Chip(
-                  label: Text(_selectedRole!),
-                  backgroundColor: Colors.deepPurple.withOpacity(0.1),
-                  labelStyle: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold),
-                ),
-              ],
-              const SizedBox(height: 48),
-              _buildFeatureCard(
-                context,
-                title: 'Invoicing',
-                description: 'Manage and view your invoices',
-                icon: Icons.receipt_long,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const InvoiceListScreen()),
-                  );
-                },
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: <Widget>[
+            const Icon(Icons.account_circle, size: 80, color: Colors.deepPurple),
+            const SizedBox(height: 16),
+            Text(
+              'Welcome, ${_displayName ?? 'User'}',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            if (_selectedRole != null) ...[
+              const SizedBox(height: 8),
+              Chip(
+                label: Text(_selectedRole!),
+                backgroundColor: Colors.deepPurple.withOpacity(0.1),
+                labelStyle: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold),
               ),
             ],
-          ),
+            const SizedBox(height: 32),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Workcenters',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _isLoadingWorkcenters
+                ? const Center(child: CircularProgressIndicator())
+                : _workcenters.isEmpty
+                    ? const Text('No workcenters assigned to this role.')
+                    : GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.1,
+                        ),
+                        itemCount: _workcenters.length,
+                        itemBuilder: (context, index) {
+                          final wc = _workcenters[index];
+                          return _buildWorkcenterTile(wc);
+                        },
+                      ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildFeatureCard(
-    BuildContext context, {
-    required String title,
-    required String description,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildWorkcenterTile(Workcenter wc) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: onTap,
+        onTap: () => _navigateToWorkcenter(wc),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
@@ -221,32 +285,21 @@ class _MyHomePageState extends State<MyHomePage> {
                   color: Colors.deepPurple.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 32, color: Colors.deepPurple),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
+                child: Icon(
+                  _getIconData(wc.id),
+                  size: 32,
+                  color: Colors.deepPurple,
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+              const SizedBox(height: 12),
+              Text(
+                wc.description,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ),
