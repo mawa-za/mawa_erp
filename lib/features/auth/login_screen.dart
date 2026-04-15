@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/api_client.dart';
 import '../../core/config.dart';
 import 'forgot_password_screen.dart';
+import 'role_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoggedIn;
@@ -55,14 +57,40 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final userId = data['userId'];
 
-        await prefs.setString('userId', data['userId']);
+        await prefs.setString('userId', userId);
         await prefs.setString('username', data['username']);
         await prefs.setString('displayName', data['displayName']);
         await prefs.setString('accessToken', data['accessToken']);
         await prefs.setString('refreshToken', data['refreshToken']);
 
-        widget.onLoggedIn();
+        // Fetch roles (removed /v2/ from path)
+        final rolesResponse = await ApiClient().get('/user/$userId/role');
+        if (rolesResponse.statusCode == 200) {
+          final List<dynamic> roles = jsonDecode(rolesResponse.body);
+          final List<String> roleList = roles.cast<String>();
+
+          if (roleList.length > 1) {
+            if (mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => RoleSelectionScreen(
+                    roles: roleList,
+                    onRoleSelected: widget.onLoggedIn,
+                  ),
+                ),
+              );
+            }
+          } else if (roleList.length == 1) {
+            await prefs.setString('selectedRole', roleList.first);
+            widget.onLoggedIn();
+          } else {
+            widget.onLoggedIn();
+          }
+        } else {
+          widget.onLoggedIn();
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login failed: ${response.statusCode}')),
@@ -73,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text('Error: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

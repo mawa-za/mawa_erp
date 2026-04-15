@@ -92,7 +92,8 @@ class ApiClient {
 
       if (refreshToken == null) return false;
 
-      final url = Uri.parse('https://$host/v2/refresh-token');
+      // Removed /v2/ from refresh-token endpoint
+      final url = Uri.parse('https://$host/refresh-token');
       final response = await http.post(
         url,
         headers: {
@@ -123,6 +124,5 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
-    // Note: Navigation to login usually handled by UI observing state or on next restart
   }
 }
