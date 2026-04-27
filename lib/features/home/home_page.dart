@@ -7,6 +7,7 @@ import '../auth/change_password_screen.dart';
 import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
+import '../payments/screens/payment_request_list_screen.dart';
 import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -143,7 +144,7 @@ class _MyHomePageState extends State<MyHomePage> {
       case 'claim-approval':
         return Icons.request_quote_outlined;
       case 'group-society':
-        return Icons.groups_outlined;
+        return Icons.groups;
       case 'invoicing':
         return Icons.receipt_long_outlined;
       default:
@@ -153,6 +154,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _navigateToWorkcenter(Workcenter wc) {
     final id = wc.id.toLowerCase();
+    final description = wc.description.toLowerCase();
+
     if (id.contains('invoic')) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const InvoiceListScreen()),
@@ -160,6 +163,10 @@ class _MyHomePageState extends State<MyHomePage> {
     } else if (id.contains('membership')) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const MemberListScreen()),
+      );
+    } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

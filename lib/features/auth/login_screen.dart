@@ -80,7 +80,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   builder: (context) => RoleSelectionScreen(
                     roles: roleList,
                     onRoleSelected: () {
-                      widget.onLoggedIn();
+                      Navigator.of(context).pop(); // Go back from role selection
+                      widget.onLoggedIn(); // Proceed to home
                     },
                   ),
                 ),
