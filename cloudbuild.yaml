@@ -1,0 +1,21 @@
+steps:
+  # Docker Build
+  #  - name: 'gcr.io/cloud-builders/docker'
+  #    args: ['build', '-t',
+  #           'gcr.io/mawa-162022/github.com/raaretag-za/mawa:$BRANCH_NAME',
+  #           '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t',
+           'us-central1-docker.pkg.dev/mawa-162022/mawa-repo/mawa:$BRANCH_NAME',
+           '.']
+  # Docker Push
+  #  - name: 'gcr.io/cloud-builders/docker'
+  #    args: ['push',
+  #           'gcr.io/mawa-162022/github.com/raretag-za/mawa:$BRANCH_NAME']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push',
+           'us-central1-docker.pkg.dev/mawa-162022/mawa-repo/mawa:$BRANCH_NAME']
+
+options:
+  logging: CLOUD_LOGGING_ONLY
