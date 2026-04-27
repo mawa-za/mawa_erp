@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class Config {
-  static const String env = String.fromEnvironment('ENV', defaultValue: 'dev');
+  static const String env = String.fromEnvironment('env', defaultValue: 'dev');
 
   static String get apiHost {
     if (kIsWeb) {

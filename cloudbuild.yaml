@@ -6,7 +6,7 @@ steps:
   #           '.']
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t',
-           'us-central1-docker.pkg.dev/mawa-162022/mawa-repo/mawa:$BRANCH_NAME',
+           'us-central1-docker.pkg.dev/mawa-162022/mawa-repo/mawa_erp:$BRANCH_NAME',
            '.']
   # Docker Push
   #  - name: 'gcr.io/cloud-builders/docker'
@@ -15,7 +15,7 @@ steps:
 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push',
-           'us-central1-docker.pkg.dev/mawa-162022/mawa-repo/mawa:$BRANCH_NAME']
+           'us-central1-docker.pkg.dev/mawa-162022/mawa-repo/mawa_erp:$BRANCH_NAME']
 
 options:
   logging: CLOUD_LOGGING_ONLY
