@@ -88,3 +88,29 @@ class PaymentRequestDetail {
     );
   }
 }
+
+class BankReport {
+  final String instructionId;
+  final String groupStatus;
+  final Map<String, dynamic> groupHeader;
+  final Map<String, dynamic> originalGroupHeader;
+  final List<dynamic> statusReasonInformation;
+
+  BankReport({
+    required this.instructionId,
+    required this.groupStatus,
+    required this.groupHeader,
+    required this.originalGroupHeader,
+    required this.statusReasonInformation,
+  });
+
+  factory BankReport.fromJson(Map<String, dynamic> json) {
+    return BankReport(
+      instructionId: json['instructionId'] ?? '',
+      groupStatus: json['groupStatus'] ?? '',
+      groupHeader: json['groupHeader'] ?? {},
+      originalGroupHeader: json['originalGroupHeader'] ?? {},
+      statusReasonInformation: json['statusReasonInformation'] ?? [],
+    );
+  }
+}

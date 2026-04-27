@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
+import '../../../core/widgets/attachment_section.dart';
 import '../models/payment_request.dart';
 
 class PaymentRequestDetailScreen extends StatefulWidget {
@@ -14,31 +15,40 @@ class PaymentRequestDetailScreen extends StatefulWidget {
 class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen> {
   bool _isLoading = true;
   PaymentRequestDetail? _detail;
+  BankReport? _bankReport;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchDetail();
+    _fetchData();
   }
 
-  Future<void> _fetchDetail() async {
+  Future<void> _fetchData() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      final response = await ApiClient().get('/v2/payment-request/${widget.paymentId}');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final detailResponse = await ApiClient().get('/v2/payment-request/${widget.paymentId}');
+
+      if (detailResponse.statusCode == 200) {
+        final detailData = jsonDecode(detailResponse.body);
+        _detail = PaymentRequestDetail.fromJson(detailData);
+
+        // Fetch Bank Report
+        final bankResponse = await ApiClient().get('/v2/payment-request/${widget.paymentId}/bank-report');
+        if (bankResponse.statusCode == 200) {
+          _bankReport = BankReport.fromJson(jsonDecode(bankResponse.body));
+        }
+
         setState(() {
-          _detail = PaymentRequestDetail.fromJson(data);
           _isLoading = false;
         });
       } else {
         setState(() {
-          _error = 'Failed to load details: ${response.statusCode}';
+          _error = 'Failed to load details: ${detailResponse.statusCode}';
           _isLoading = false;
         });
       }
@@ -69,7 +79,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           children: [
             Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: _fetchDetail, child: const Text('Retry')),
+            ElevatedButton(onPressed: _fetchData, child: const Text('Retry')),
           ],
         ),
       );
@@ -102,6 +112,13 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Partner Number', _detail!.recipient['number'] ?? ''),
             _buildInfoRow('Status', _detail!.recipient['status']?['description'] ?? ''),
           ]),
+
+          if (_bankReport != null) ...[
+            const SizedBox(height: 24),
+            _buildSectionTitle('Bank Report Status'),
+            _buildBankReportCard(),
+          ],
+
           const SizedBox(height: 24),
           _buildSectionTitle('Audit Trail'),
           _buildInfoCard([
@@ -110,8 +127,62 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               _buildInfoRow('Responsible', '${_detail!.employeeResponsible!['name2'] ?? ''} ${_detail!.employeeResponsible!['name1'] ?? ''}'),
             _buildInfoRow('Instruction ID', _detail!.instructionId, isSmall: true),
           ]),
+          const SizedBox(height: 24),
+          AttachmentSection(objectId: widget.paymentId),
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBankReportCard() {
+    final report = _bankReport!;
+    final bool isRejected = report.groupStatus == 'RJCT';
+
+    return Card(
+      elevation: 0,
+      color: isRejected ? Colors.red.shade50 : Colors.green.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isRejected ? Colors.red.shade200 : Colors.green.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(isRejected ? Icons.error_outline : Icons.check_circle_outline,
+                     color: isRejected ? Colors.red : Colors.green),
+                const SizedBox(width: 8),
+                Text(
+                  isRejected ? 'Bank Rejected (RJCT)' : 'Bank Accepted (${report.groupStatus})',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isRejected ? Colors.red : Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(),
+            _buildInfoRow('Initiating Party', report.groupHeader['initiatingPartyName'] ?? '', isDark: true),
+            _buildInfoRow('Message ID', report.groupHeader['messageId'] ?? '', isSmall: true, isDark: true),
+            _buildInfoRow('Creation Time', report.groupHeader['creationDateTime'] ?? '', isDark: true),
+
+            if (report.statusReasonInformation.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Reason:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ...report.statusReasonInformation.map((info) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '${info['reason']}: ${info['additionalInformation']}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+              )),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -177,7 +248,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isSmall = false}) {
+  Widget _buildInfoRow(String label, String value, {bool isSmall = false, bool isDark = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -185,7 +256,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         children: [
           Expanded(
             flex: 2,
-            child: Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+            child: Text(label, style: TextStyle(color: isDark ? Colors.black54 : Colors.grey.shade600, fontSize: 13)),
           ),
           Expanded(
             flex: 3,
@@ -194,7 +265,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: isSmall ? 11 : 14,
-                color: Colors.black87,
+                color: isDark ? Colors.black : Colors.black87,
               ),
               textAlign: TextAlign.right,
             ),
