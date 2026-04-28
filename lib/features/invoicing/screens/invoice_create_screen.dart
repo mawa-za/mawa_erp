@@ -9,6 +9,7 @@ class InvoiceItemDraft {
   final TextEditingController descriptionController;
   final TextEditingController amountController;
   final TextEditingController quantityController;
+  final TextEditingController discountController;
   String? productId;
   ProductType? selectedType;
   List<Product> availableProducts = [];
@@ -20,19 +21,22 @@ class InvoiceItemDraft {
     String description = '',
     String amount = '',
     String quantity = '1',
+    String discount = '0',
     this.productId,
     this.selectedType,
     this.applyVat = true,
   })  : productController = TextEditingController(text: product),
         descriptionController = TextEditingController(text: description),
         amountController = TextEditingController(text: amount),
-        quantityController = TextEditingController(text: quantity);
+        quantityController = TextEditingController(text: quantity),
+        discountController = TextEditingController(text: discount);
 
   void dispose() {
     productController.dispose();
     descriptionController.dispose();
     amountController.dispose();
     quantityController.dispose();
+    discountController.dispose();
   }
 }
 
@@ -236,7 +240,10 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     if (!item.applyVat) return 0.0;
     final qty = double.tryParse(item.quantityController.text) ?? 0;
     final price = double.tryParse(item.amountController.text) ?? 0;
-    final lineAmount = qty * price;
+    final discount = double.tryParse(item.discountController.text) ?? 0;
+    
+    final discountedPrice = price * (1 - (discount / 100));
+    final lineAmount = qty * discountedPrice;
 
     if (_isVatInclusive) {
       final lineExcVat = lineAmount / (1 + (_vatRate / 100));
@@ -255,11 +262,13 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     for (var item in _items) {
       final qty = double.tryParse(item.quantityController.text) ?? 0;
       final price = double.tryParse(item.amountController.text) ?? 0;
+      final discount = double.tryParse(item.discountController.text) ?? 0;
       
       // Skip empty lines in total calculation
       if (item.productController.text.isEmpty && price == 0) continue;
 
-      final lineAmount = qty * price;
+      final discountedPrice = price * (1 - (discount / 100));
+      final lineAmount = qty * discountedPrice;
       subtotal += lineAmount;
 
       if (item.applyVat) {
@@ -330,13 +339,16 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
       final List<Map<String, dynamic>> itemsPayload = filledItems.map((item) {
         final qty = double.tryParse(item.quantityController.text) ?? 0;
         final price = double.tryParse(item.amountController.text) ?? 0;
+        final discount = double.tryParse(item.discountController.text) ?? 0;
+
         return {
           "productId": item.productId,
           "code": item.productController.text,
           "description": item.descriptionController.text,
           "quantity": qty,
           "unitPrice": price,
-          "lineTotal": qty * price,
+          "discountPercentage": discount,
+          "lineTotal": qty * (price * (1 - (discount / 100))),
         };
       }).toList();
 
@@ -432,7 +444,8 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
+                          _buildItemHeaderRow(),
                           ...List.generate(_items.length, (index) => _buildItemForm(index)),
                           const SizedBox(height: 100), // Space for bottom summary
                         ],
@@ -461,6 +474,39 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildItemHeaderRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(8),
+          topRight: Radius.circular(8),
+        ),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 18, child: Text('#', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const Expanded(flex: 25, child: Text('CATEGORY', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const SizedBox(width: 4),
+          const Expanded(flex: 30, child: Text('PRODUCT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const SizedBox(width: 4),
+          const Expanded(flex: 40, child: Text('DESCRIPTION', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const SizedBox(width: 4),
+          const Expanded(flex: 25, child: Text('PRICE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const SizedBox(width: 4),
+          const SizedBox(width: 30, child: Text('QTY', textAlign: TextAlign.center, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const SizedBox(width: 4),
+          const SizedBox(width: 35, child: Text('DISC%', textAlign: TextAlign.center, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const SizedBox(width: 4),
+          const Expanded(flex: 20, child: Text('VAT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          const SizedBox(width: 28), // Space for delete icon
+        ],
+      ),
     );
   }
 
@@ -666,21 +712,23 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border(
+          left: BorderSide(color: Colors.grey.shade300),
+          right: BorderSide(color: Colors.grey.shade300),
+          bottom: BorderSide(color: Colors.grey.shade300),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Index
           SizedBox(
-            width: 14,
+            width: 18,
             child: Text('${index + 1}', 
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[400])),
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey[400])),
           ),
           
           // Category
@@ -688,11 +736,11 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           const SizedBox(width: 4),
           
           // Product
-          Expanded(flex: 35, child: _buildProductSearchForItem(item)),
+          Expanded(flex: 30, child: _buildProductSearchForItem(item)),
           const SizedBox(width: 4),
           
           // Description
-          Expanded(flex: 50, child: TextFormField(
+          Expanded(flex: 40, child: TextFormField(
             controller: item.descriptionController,
             style: const TextStyle(fontSize: 10),
             decoration: InputDecoration(
@@ -704,8 +752,8 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           )),
           const SizedBox(width: 4),
           
-          // Price + VAT
-          Expanded(flex: 30, child: Column(
+          // Price
+          Expanded(flex: 25, child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -722,17 +770,17 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (_) => setState(() {}),
               ),
-              if (item.applyVat)
-                Text('VAT:${lineVat.toStringAsFixed(1)}', 
-                  style: const TextStyle(fontSize: 7, color: Colors.green, height: 1.0)),
+              Text('VAT:${lineVat.toStringAsFixed(1)}', 
+                style: const TextStyle(fontSize: 7, color: Colors.green, height: 1.0, fontWeight: FontWeight.bold)),
             ],
           )),
           const SizedBox(width: 4),
           
           // Qty
-          SizedBox(width: 32, child: TextFormField(
+          SizedBox(width: 30, child: TextFormField(
             controller: item.quantityController,
             style: const TextStyle(fontSize: 10),
+            textAlign: TextAlign.center,
             decoration: InputDecoration(
               hintText: 'Qty',
               isDense: true,
@@ -742,24 +790,48 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
             keyboardType: TextInputType.number,
             onChanged: (_) => setState(() {}),
           )),
-          
-          // VAT Check
-          SizedBox(
-            width: 24,
-            child: Checkbox(
-              value: item.applyVat,
-              onChanged: (val) => setState(() => item.applyVat = val ?? true),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
+          const SizedBox(width: 4),
+
+          // Discount %
+          SizedBox(width: 35, child: TextFormField(
+            controller: item.discountController,
+            style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+            decoration: InputDecoration(
+              hintText: '%',
+              suffixText: '%',
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
             ),
-          ),
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+          )),
+          const SizedBox(width: 4),
+
+          // VAT (Read Only Column)
+          Expanded(flex: 20, child: Container(
+            height: 28, // Matches input height
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'V:${lineVat.toStringAsFixed(1)}',
+              style: const TextStyle(fontSize: 8, color: Colors.green, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+          )),
           
           // Delete
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red, size: 14),
             onPressed: () => _removeItem(index),
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+            constraints: const BoxConstraints(minWidth: 28, maxWidth: 28),
             visualDensity: VisualDensity.compact,
           ),
         ],
