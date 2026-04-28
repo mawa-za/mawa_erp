@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice.dart';
+import 'invoice_detail_screen.dart';
 
 class InvoiceListScreen extends StatefulWidget {
   const InvoiceListScreen({super.key});
@@ -29,7 +30,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     });
 
     try {
-      final response = await ApiClient().get('/invoice');
+      final response = await ApiClient().get('/v2/invoice');
       
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -86,7 +87,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(_error!, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _fetchInvoices,
@@ -109,16 +112,24 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         final invoice = _invoices[index];
         return ListTile(
           leading: const CircleAvatar(
-            child: Icon(Icons.description),
+            child: Icon(Icons.receipt_long),
           ),
           title: Text(
             invoice.customerName,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          subtitle: Text(
-            'Date: ${DateFormat('yyyy-MM-dd').format(invoice.date)}',
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Ref: ${invoice.transactionNumber}'),
+              Text(
+                'Date: ${DateFormat('yyyy-MM-dd').format(invoice.date)}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
           ),
           trailing: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -129,11 +140,16 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                   fontSize: 16,
                 ),
               ),
+              const SizedBox(height: 4),
               _buildStatusChip(invoice.status),
             ],
           ),
           onTap: () {
-            // TODO: Navigate to invoice details
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => InvoiceDetailScreen(invoiceId: invoice.id),
+              ),
+            );
           },
         );
       },
@@ -142,14 +158,17 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
 
   Widget _buildStatusChip(String status) {
     Color color;
-    switch (status.toLowerCase()) {
-      case 'paid':
+    switch (status.toUpperCase()) {
+      case 'PAID':
         color = Colors.green;
         break;
-      case 'overdue':
+      case 'OVERDUE':
         color = Colors.red;
         break;
-      case 'draft':
+      case 'NEW':
+        color = Colors.blue;
+        break;
+      case 'DRAFT':
         color = Colors.grey;
         break;
       default:
