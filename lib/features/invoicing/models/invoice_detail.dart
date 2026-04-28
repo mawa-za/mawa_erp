@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 class InvoiceDetail {
   final String id;
   final String number;
+  final String reference;
   final String customerName;
   final String customerNumber;
   final DateTime invoiceDate;
@@ -14,6 +15,7 @@ class InvoiceDetail {
   InvoiceDetail({
     required this.id,
     required this.number,
+    required this.reference,
     required this.customerName,
     required this.customerNumber,
     required this.invoiceDate,
@@ -64,6 +66,7 @@ class InvoiceDetail {
     return InvoiceDetail(
       id: json['id'] ?? '',
       number: json['number'] ?? '',
+      reference: json['reference'] ?? '',
       customerName: fullName.isEmpty ? 'Unknown' : fullName,
       customerNumber: customer['number'] ?? '',
       invoiceDate: parsedDate,

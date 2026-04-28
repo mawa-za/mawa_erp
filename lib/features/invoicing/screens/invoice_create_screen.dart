@@ -120,6 +120,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Partner? _selectedPartner;
   DateTime _invoiceDate = DateTime.now();
   DateTime _dueDate = DateTime.now().add(const Duration(days: 30));
+  final _referenceController = TextEditingController();
   
   // Product Types Global List
   List<ProductType> _productTypes = [];
@@ -149,8 +150,19 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         setState(() {
           _productTypes = data.map((json) => ProductType.fromJson(json)).toList();
           _isLoadingTypes = false;
-          _addItem();
+          // Add 4 default items
+          for (int i = 0; i < 4; i++) {
+            _items.add(InvoiceItemDraft(
+              selectedType: _productTypes.isNotEmpty ? _productTypes.first : null,
+            ));
+          }
         });
+        // Load products for the default items
+        for (var item in _items) {
+          if (item.selectedType != null) {
+            _loadProductsForItem(item);
+          }
+        }
       }
     } catch (e) {
       setState(() => _isLoadingTypes = false);
@@ -243,6 +255,10 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     for (var item in _items) {
       final qty = double.tryParse(item.quantityController.text) ?? 0;
       final price = double.tryParse(item.amountController.text) ?? 0;
+      
+      // Skip empty lines in total calculation
+      if (item.productController.text.isEmpty && price == 0) continue;
+
       final lineAmount = qty * price;
       subtotal += lineAmount;
 
@@ -282,9 +298,22 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     if (!_formKey.currentState!.validate() || _selectedPartner == null) {
       if (_selectedPartner == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a customer')),
+          const SnackBar(content: Text('Please select a customer'), behavior: SnackBarBehavior.floating),
         );
       }
+      return;
+    }
+
+    // Filter out items that have no product and zero price
+    final List<InvoiceItemDraft> filledItems = _items.where((item) {
+      final price = double.tryParse(item.amountController.text) ?? 0;
+      return item.productController.text.isNotEmpty || price > 0;
+    }).toList();
+
+    if (filledItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one item'), behavior: SnackBarBehavior.floating),
+      );
       return;
     }
 
@@ -298,7 +327,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
       final String isoDueDate = _dueDate.toUtc().toIso8601String();
       final totals = _calculateTotals();
       
-      final List<Map<String, dynamic>> itemsPayload = _items.map((item) {
+      final List<Map<String, dynamic>> itemsPayload = filledItems.map((item) {
         final qty = double.tryParse(item.quantityController.text) ?? 0;
         final price = double.tryParse(item.amountController.text) ?? 0;
         return {
@@ -316,6 +345,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         "salesRepresentative": userId,
         "dueDate": isoDueDate,
         "invoiceDate": isoInvoiceDate,
+        "reference": _referenceController.text,
         "paymentTerms": "IMMEDIATE",
         "pricing": {
           "totalExcVat": totals['totalExcVat'],
@@ -336,7 +366,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invoice created successfully')),
+            const SnackBar(content: Text('Invoice created successfully'), behavior: SnackBarBehavior.floating),
           );
           Navigator.of(context).pop(true);
         }
@@ -346,7 +376,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {
@@ -359,8 +389,11 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Create Invoice'),
+        title: const Text('Create Invoice', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
+        centerTitle: true,
       ),
       body: _isLoadingTypes 
           ? const Center(child: CircularProgressIndicator())
@@ -370,84 +403,218 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionTitle('Customer Search'),
-                          _buildCustomerSearch(),
-                          if (_selectedPartner != null) ...[
-                            const SizedBox(height: 8),
-                            Card(
-                              elevation: 0,
-                              color: colorScheme.primaryContainer.withOpacity(0.2),
-                              child: ListTile(
-                                leading: const Icon(Icons.person),
-                                title: Text(_selectedPartner!.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text('ID: ${_selectedPartner!.identityNumber} | No: ${_selectedPartner!.number}'),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () => setState(() => _selectedPartner = null),
-                                ),
-                              ),
-                            ),
-                          ],
+                          _buildSectionHeader(Icons.person, 'Customer Information'),
+                          const SizedBox(height: 8),
+                          _buildCustomerSection(colorScheme),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(child: _buildInvoiceDatePicker()),
-                              const SizedBox(width: 8),
-                              Expanded(child: _buildDueDatePicker()),
-                            ],
-                          ),
+
+                          _buildSectionHeader(Icons.description, 'General Details'),
+                          const SizedBox(height: 8),
+                          _buildGeneralDetailsCard(colorScheme),
                           const SizedBox(height: 16),
-                          _buildVatToggle(),
-                          const SizedBox(height: 16),
+
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _buildSectionTitle('Invoice Items'),
+                              _buildSectionHeader(Icons.list_alt, 'Invoice Items'),
                               TextButton.icon(
                                 onPressed: _addItem,
-                                icon: const Icon(Icons.add_circle_outline, size: 20),
-                                label: const Text('Add Item'),
-                                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                                icon: const Icon(Icons.add, size: 16),
+                                label: const Text('Add Item', style: TextStyle(fontSize: 12)),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                  visualDensity: VisualDensity.compact,
+                                ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 4),
                           ...List.generate(_items.length, (index) => _buildItemForm(index)),
+                          const SizedBox(height: 100), // Space for bottom summary
                         ],
                       ),
                     ),
                   ),
-                  _buildBottomSummary(),
+                  _buildBottomSummary(colorScheme),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildVatToggle() {
-    return Container(
-      height: 45,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 6),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCustomerSection(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        _buildCustomerSearch(),
+        if (_selectedPartner != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colorScheme.primaryContainer.withOpacity(0.3)),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              leading: CircleAvatar(
+                radius: 14,
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                child: const Icon(Icons.person, size: 16),
+              ),
+              title: Text(
+                _selectedPartner!.fullName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              subtitle: Text(
+                'No: ${_selectedPartner!.number} • ID: ${_selectedPartner!.identityNumber}',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () => setState(() => _selectedPartner = null),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGeneralDetailsCard(ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: Column(
+          children: [
+            TextFormField(
+              controller: _referenceController,
+              style: const TextStyle(fontSize: 12),
+              decoration: InputDecoration(
+                labelText: 'Reference',
+                prefixIcon: const Icon(Icons.tag, size: 16),
+                filled: true,
+                fillColor: Colors.grey[50],
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _buildDatePickerField('Invoice Date', _invoiceDate, (date) => setState(() => _invoiceDate = date))),
+                const SizedBox(width: 8),
+                Expanded(child: _buildDatePickerField('Due Date', _dueDate, (date) => setState(() => _dueDate = date))),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _buildVatPricingRow(colorScheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePickerField(String label, DateTime date, Function(DateTime) onPicked) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.grey)),
+        const SizedBox(height: 4),
+        InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: date,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2101),
+            );
+            if (picked != null) onPicked(picked);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.calendar_month, size: 14, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  DateFormat('yyyy-MM-dd').format(date),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVatPricingRow(ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colorScheme.secondaryContainer.withOpacity(0.2)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('VAT Pricing', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           Row(
             children: [
-              const Text('Excl', style: TextStyle(fontSize: 11)),
-              Switch(
+              Icon(Icons.percent, size: 14, color: colorScheme.secondary),
+              const SizedBox(width: 6),
+              const Text('VAT Pricing', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
+            ],
+          ),
+          Row(
+            children: [
+              Text('Excl.', style: TextStyle(fontSize: 10, color: !_isVatInclusive ? colorScheme.secondary : Colors.grey)),
+              Switch.adaptive(
                 value: _isVatInclusive,
                 onChanged: (val) => setState(() => _isVatInclusive = val),
-                activeColor: Theme.of(context).colorScheme.primary,
+                activeColor: colorScheme.primary,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              const Text('Incl', style: TextStyle(fontSize: 11)),
+              Text('Incl.', style: TextStyle(fontSize: 10, color: _isVatInclusive ? colorScheme.secondary : Colors.grey)),
             ],
           ),
         ],
@@ -455,33 +622,32 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-    );
-  }
-
   Widget _buildCustomerSearch() {
     return SearchAnchor(
-      builder: (BuildContext context, SearchController controller) {
+      builder: (context, controller) {
         return SearchBar(
           controller: controller,
-          padding: const WidgetStatePropertyAll<EdgeInsets>(EdgeInsets.symmetric(horizontal: 16.0)),
           onTap: () => controller.openView(),
           onChanged: (_) => controller.openView(),
-          leading: const Icon(Icons.search),
-          hintText: 'Search customer...',
-          elevation: const WidgetStatePropertyAll(1),
-          constraints: const BoxConstraints(minHeight: 45, maxHeight: 45),
+          leading: Icon(Icons.search, color: Theme.of(context).colorScheme.primary, size: 18),
+          hintText: 'Search for a customer...',
+          elevation: const WidgetStatePropertyAll(0),
+          side: WidgetStatePropertyAll(BorderSide(color: Colors.grey.shade300)),
+          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          constraints: const BoxConstraints(minHeight: 36, maxHeight: 36),
+          textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 12)),
         );
       },
-      suggestionsBuilder: (BuildContext context, SearchController controller) async {
+      suggestionsBuilder: (context, controller) async {
         final partners = await _searchPartners(controller.text);
+        if (partners.isEmpty) return [const ListTile(title: Text('No customers found'))];
         return partners.map((partner) {
           return ListTile(
-            title: Text(partner.fullName),
-            subtitle: Text('No: ${partner.number} | ID: ${partner.identityNumber}'),
+            dense: true,
+            leading: const CircleAvatar(radius: 14, child: Icon(Icons.person, size: 16)),
+            title: Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+            subtitle: Text('No: ${partner.number}', style: const TextStyle(fontSize: 10)),
             onTap: () {
               setState(() {
                 _selectedPartner = partner;
@@ -497,140 +663,125 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Widget _buildItemForm(int index) {
     final item = _items[index];
     final lineVat = _calculateLineVat(item);
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.shade200),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Text('Item ${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const Spacer(),
-                const Text('VAT', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Checkbox(
-                  value: item.applyVat,
-                  onChanged: (val) {
-                    setState(() {
-                      item.applyVat = val ?? true;
-                    });
-                  },
-                  visualDensity: VisualDensity.compact,
-                ),
-                if (_items.length > 1)
-                  InkWell(
-                    onTap: () => _removeItem(index),
-                    child: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 18),
-                  ),
-              ],
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Index
+          SizedBox(
+            width: 14,
+            child: Text('${index + 1}', 
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[400])),
+          ),
+          
+          // Category
+          Expanded(flex: 25, child: _buildItemCategoryDropdown(item)),
+          const SizedBox(width: 4),
+          
+          // Product
+          Expanded(flex: 35, child: _buildProductSearchForItem(item)),
+          const SizedBox(width: 4),
+          
+          // Description
+          Expanded(flex: 50, child: TextFormField(
+            controller: item.descriptionController,
+            style: const TextStyle(fontSize: 10),
+            decoration: InputDecoration(
+              hintText: 'Description',
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _buildItemCategoryDropdown(item),
+          )),
+          const SizedBox(width: 4),
+          
+          // Price + VAT
+          Expanded(flex: 30, child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: item.amountController,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: 'Price',
+                  prefixText: 'R',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 3,
-                  child: _buildProductSearchForItem(item),
-                ),
-              ],
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() {}),
+              ),
+              if (item.applyVat)
+                Text('VAT:${lineVat.toStringAsFixed(1)}', 
+                  style: const TextStyle(fontSize: 7, color: Colors.green, height: 1.0)),
+            ],
+          )),
+          const SizedBox(width: 4),
+          
+          // Qty
+          SizedBox(width: 32, child: TextFormField(
+            controller: item.quantityController,
+            style: const TextStyle(fontSize: 10),
+            decoration: InputDecoration(
+              hintText: 'Qty',
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
             ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    controller: item.descriptionController,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        controller: item.amountController,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: const InputDecoration(
-                          labelText: 'Price',
-                          prefixText: 'R ',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        onChanged: (v) => setState(() {}),
-                        validator: (v) => v?.isEmpty ?? true ? 'Req' : null,
-                      ),
-                      if (item.applyVat)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, left: 2),
-                          child: Text(
-                            'VAT: R ${lineVat.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 1,
-                  child: TextFormField(
-                    controller: item.quantityController,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      labelText: 'Qty',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => setState(() {}),
-                    validator: (v) => v?.isEmpty ?? true ? 'Req' : null,
-                  ),
-                ),
-              ],
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+          )),
+          
+          // VAT Check
+          SizedBox(
+            width: 24,
+            child: Checkbox(
+              value: item.applyVat,
+              onChanged: (val) => setState(() => item.applyVat = val ?? true),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
             ),
-          ],
-        ),
+          ),
+          
+          // Delete
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.red, size: 14),
+            onPressed: () => _removeItem(index),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildItemCategoryDropdown(InvoiceItemDraft item) {
     return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(4),
-        color: Colors.grey.shade50,
+        border: Border.all(color: Colors.grey.shade300),
+        color: Colors.white,
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<ProductType>(
           isExpanded: true,
           value: item.selectedType,
-          style: const TextStyle(fontSize: 12, color: Colors.black),
-          hint: const Text('Category', style: TextStyle(fontSize: 12)),
+          style: const TextStyle(fontSize: 9, color: Colors.black),
+          hint: const Text('Cat', style: TextStyle(fontSize: 9)),
           items: _productTypes.map((type) {
             return DropdownMenuItem(value: type, child: Text(type.description, overflow: TextOverflow.ellipsis));
           }).toList(),
@@ -656,19 +807,19 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           controller: controller,
           onTap: () => controller.openView(),
           onChanged: (_) => controller.openView(),
-          hintText: item.productController.text.isEmpty ? 'Search Product...' : item.productController.text,
-          leading: const Icon(Icons.inventory_2_outlined, size: 16),
+          hintText: item.productController.text.isEmpty ? 'Product' : item.productController.text,
           elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: WidgetStatePropertyAll(Colors.grey.shade50),
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
           side: WidgetStatePropertyAll(BorderSide(color: Colors.grey.shade300)),
-          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8)),
-          constraints: const BoxConstraints(minHeight: 40, maxHeight: 40),
-          textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 13)),
+          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(4))),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
+          constraints: const BoxConstraints(minHeight: 28, maxHeight: 28),
+          textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 9)),
         );
       },
       suggestionsBuilder: (context, controller) {
         if (item.isLoadingProducts) {
-          return [const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()))];
+          return [const Center(child: Padding(padding: EdgeInsets.all(4.0), child: CircularProgressIndicator(strokeWidth: 2)))];
         }
 
         final query = controller.text.toLowerCase();
@@ -677,14 +828,14 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           p.description.toLowerCase().contains(query)
         ).toList();
 
-        if (filtered.isEmpty) {
-          return [const ListTile(title: Text('No products found'))];
-        }
+        if (filtered.isEmpty) return [const ListTile(title: Text('No products found', style: TextStyle(fontSize: 10)))];
 
         return filtered.map((p) {
           return ListTile(
-            title: Text(p.description, style: const TextStyle(fontSize: 13)),
-            subtitle: Text('Code: ${p.code} | R ${p.price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11)),
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            title: Text(p.description, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            subtitle: Text('Code: ${p.code} • R ${p.price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 9)),
             onTap: () {
               setState(() {
                 item.productId = p.id;
@@ -700,139 +851,67 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     );
   }
 
-  Widget _buildBottomSummary() {
+  Widget _buildBottomSummary(ColorScheme colorScheme) {
     final totals = _calculateTotals();
-    final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4))
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSummaryRow('Net Total (Excl. VAT)', 'R ${totals['totalExcVat']!.toStringAsFixed(2)}'),
-          _buildSummaryRow('Total VAT', 'R ${totals['vatAmount']!.toStringAsFixed(2)}'),
-          const Divider(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Grand Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              Text('R ${totals['totalIncVat']!.toStringAsFixed(2)}', 
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _createInvoice,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                elevation: 0,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(child: _buildSummaryLine('Subtotal', totals['totalExcVat']!)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildSummaryLine('VAT', totals['vatAmount']!)),
+              ],
+            ),
+            const Divider(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Grand Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                Text(
+                  'R ${totals['totalIncVat']!.toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: colorScheme.primary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: FilledButton(
+                onPressed: _isSubmitting ? null : _createInvoice,
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 1,
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('CREATE INVOICE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
               ),
-              child: _isSubmitting 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('SUBMIT INVOICE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInvoiceDatePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSummaryLine(String label, double value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text('Invoice Date', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: () async {
-            final DateTime? picked = await showDatePicker(
-              context: context,
-              initialDate: _invoiceDate,
-              firstDate: DateTime(2000),
-              lastDate: DateTime(2101),
-            );
-            if (picked != null && picked != _invoiceDate) {
-              setState(() => _invoiceDate = picked);
-            }
-          },
-          child: Container(
-            height: 45,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(DateFormat('yyyy-MM-dd').format(_invoiceDate), style: const TextStyle(fontSize: 12)),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDueDatePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Due Date', style: TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: () async {
-            final DateTime? picked = await showDatePicker(
-              context: context,
-              initialDate: _dueDate,
-              firstDate: DateTime(2000),
-              lastDate: DateTime(2101),
-            );
-            if (picked != null && picked != _dueDate) {
-              setState(() => _dueDate = picked);
-            }
-          },
-          child: Container(
-            height: 45,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.event_outlined, size: 14, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(DateFormat('yyyy-MM-dd').format(_dueDate), style: const TextStyle(fontSize: 12)),
-              ],
-            ),
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+        Text('R ${value.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -842,6 +921,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     for (var item in _items) {
       item.dispose();
     }
+    _referenceController.dispose();
     super.dispose();
   }
 }

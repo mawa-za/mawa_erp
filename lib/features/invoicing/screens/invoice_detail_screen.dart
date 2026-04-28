@@ -98,6 +98,13 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         children: [
           _buildHeader(detail, colorScheme),
           const SizedBox(height: 24),
+          _buildSectionTitle('Invoice Details'),
+          _buildInfoCard([
+            _buildInfoRow('Invoice Number', detail.number),
+            if (detail.reference.isNotEmpty)
+              _buildInfoRow('Reference', detail.reference),
+          ]),
+          const SizedBox(height: 24),
           _buildSectionTitle('Customer Information'),
           _buildInfoCard([
             _buildInfoRow('Name', detail.customerName),

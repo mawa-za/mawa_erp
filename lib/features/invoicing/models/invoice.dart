@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 class Invoice {
   final String id;
   final String transactionNumber;
+  final String reference;
   final String customerName;
   final DateTime date;
   final DateTime? dueDate;
@@ -12,6 +13,7 @@ class Invoice {
   Invoice({
     required this.id,
     required this.transactionNumber,
+    required this.reference,
     required this.customerName,
     required this.date,
     this.dueDate,
@@ -20,11 +22,12 @@ class Invoice {
   });
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
-    // Format: "Feb 20, 2025, 12:00:00 AM"
+    // Robust date parsing
     DateTime parsedDate;
     try {
       final dateStr = json['creationDate'] ?? '';
-      parsedDate = DateFormat('MMM d, yyyy, hh:mm:ss a').parse(dateStr);
+      parsedDate = DateTime.tryParse(dateStr) ?? 
+                  DateFormat('MMM d, yyyy, hh:mm:ss a').parse(dateStr);
     } catch (e) {
       parsedDate = DateTime.now();
     }
@@ -32,7 +35,9 @@ class Invoice {
     DateTime? parsedDueDate;
     try {
       if (json['dueDate'] != null) {
-        parsedDueDate = DateFormat('MMM d, yyyy, hh:mm:ss a').parse(json['dueDate']);
+        final dueDateStr = json['dueDate'];
+        parsedDueDate = DateTime.tryParse(dueDateStr) ?? 
+                      DateFormat('MMM d, yyyy, hh:mm:ss a').parse(dueDateStr);
       }
     } catch (e) {
       parsedDueDate = null;
@@ -41,6 +46,7 @@ class Invoice {
     return Invoice(
       id: json['id'] ?? '',
       transactionNumber: json['transactionNumber'] ?? '',
+      reference: json['reference'] ?? '',
       customerName: json['customer'] ?? 'Unknown Customer',
       date: parsedDate,
       dueDate: parsedDueDate,
