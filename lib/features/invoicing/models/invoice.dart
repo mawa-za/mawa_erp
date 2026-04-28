@@ -5,6 +5,7 @@ class Invoice {
   final String transactionNumber;
   final String customerName;
   final DateTime date;
+  final DateTime? dueDate;
   final double amount;
   final String status;
 
@@ -13,6 +14,7 @@ class Invoice {
     required this.transactionNumber,
     required this.customerName,
     required this.date,
+    this.dueDate,
     required this.amount,
     required this.status,
   });
@@ -27,11 +29,21 @@ class Invoice {
       parsedDate = DateTime.now();
     }
 
+    DateTime? parsedDueDate;
+    try {
+      if (json['dueDate'] != null) {
+        parsedDueDate = DateFormat('MMM d, yyyy, hh:mm:ss a').parse(json['dueDate']);
+      }
+    } catch (e) {
+      parsedDueDate = null;
+    }
+
     return Invoice(
       id: json['id'] ?? '',
       transactionNumber: json['transactionNumber'] ?? '',
       customerName: json['customer'] ?? 'Unknown Customer',
       date: parsedDate,
+      dueDate: parsedDueDate,
       amount: (json['amount'] ?? 0.0).toDouble(),
       status: json['status'] ?? 'Draft',
     );

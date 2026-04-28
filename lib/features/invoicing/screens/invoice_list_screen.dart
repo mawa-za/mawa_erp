@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice.dart';
+import 'invoice_create_screen.dart';
 import 'invoice_detail_screen.dart';
 
 class InvoiceListScreen extends StatefulWidget {
@@ -66,11 +67,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       ),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Implement create invoice
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create Invoice feature coming soon')),
+        onPressed: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()),
           );
+          if (result == true) {
+            _fetchInvoices();
+          }
         },
         child: const Icon(Icons.add),
       ),
@@ -122,9 +125,28 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Ref: ${invoice.transactionNumber}'),
-              Text(
-                'Date: ${DateFormat('yyyy-MM-dd').format(invoice.date)}',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              Row(
+                children: [
+                  Text(
+                    'Date: ${DateFormat('yyyy-MM-dd').format(invoice.date)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  if (invoice.dueDate != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      'Due: ${DateFormat('yyyy-MM-dd').format(invoice.dueDate!)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
+                            ? Colors.red
+                            : Colors.grey[600],
+                        fontWeight: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),

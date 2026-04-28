@@ -104,6 +104,13 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             _buildInfoRow('Number', detail.customerNumber),
           ]),
           const SizedBox(height: 24),
+          if (detail.dueDate != null) ...[
+            _buildSectionTitle('Payment Information'),
+            _buildInfoCard([
+              _buildInfoRow('Due Date', DateFormat('yyyy-MM-dd').format(detail.dueDate!)),
+            ]),
+            const SizedBox(height: 24),
+          ],
           _buildSectionTitle('Items'),
           ...detail.items.map((item) => _buildItemTile(item)),
           const Divider(height: 32),

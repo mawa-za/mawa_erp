@@ -6,6 +6,7 @@ class InvoiceDetail {
   final String customerName;
   final String customerNumber;
   final DateTime invoiceDate;
+  final DateTime? dueDate;
   final String status;
   final List<InvoiceItem> items;
   final List<InvoiceAmount> amounts;
@@ -16,6 +17,7 @@ class InvoiceDetail {
     required this.customerName,
     required this.customerNumber,
     required this.invoiceDate,
+    this.dueDate,
     required this.status,
     required this.items,
     required this.amounts,
@@ -50,12 +52,22 @@ class InvoiceDetail {
       parsedDate = DateTime.now();
     }
 
+    DateTime? parsedDueDate;
+    try {
+      if (json['dueDate'] != null) {
+        parsedDueDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(json['dueDate']);
+      }
+    } catch (e) {
+      parsedDueDate = null;
+    }
+
     return InvoiceDetail(
       id: json['id'] ?? '',
       number: json['number'] ?? '',
       customerName: fullName.isEmpty ? 'Unknown' : fullName,
       customerNumber: customer['number'] ?? '',
       invoiceDate: parsedDate,
+      dueDate: parsedDueDate,
       status: json['status']?['description'] ?? json['status']?['code'] ?? 'Unknown',
       items: (json['items'] as List? ?? [])
           .map((i) => InvoiceItem.fromJson(i))
