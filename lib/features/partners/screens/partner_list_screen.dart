@@ -36,15 +36,15 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
 
     try {
       // Updated to the new endpoint /v2/partner
-      // Including query parameters as requested
-      final query = _searchController.text;
+      // Including query parameters as requested: always include query and role even if blank
       String path = '/v2/partner';
       
-      final Map<String, String> params = {};
-      if (query.isNotEmpty) params['query'] = query;
-      // Note: role could be added here if we had a role filter
+      final Map<String, String> params = {
+        'query': _searchController.text,
+        'role': '',
+      };
       
-      final uri = Uri.parse(path).replace(queryParameters: params.isNotEmpty ? params : null);
+      final uri = Uri.parse(path).replace(queryParameters: params);
       final response = await ApiClient().get(uri.toString());
       
       if (response.statusCode == 200) {
