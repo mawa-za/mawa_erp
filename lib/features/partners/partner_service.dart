@@ -50,4 +50,38 @@ class PartnerService {
       rethrow;
     }
   }
+
+  Future<List<PartnerContact>> getPartnerContacts(String partnerId) async {
+    try {
+      final response = await ApiClient().get('/v2/partner/$partnerId/contact');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => PartnerContact.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load partner contacts: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> addPartnerContact(String partnerId, String type, String value) async {
+    try {
+      final payload = {
+        'partner': partnerId,
+        'type': type,
+        'value': value,
+      };
+      final response = await ApiClient().post(
+        '/v2/partner/$partnerId/contact',
+        body: payload,
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to add partner contact: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
