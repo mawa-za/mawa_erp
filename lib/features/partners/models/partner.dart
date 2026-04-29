@@ -111,21 +111,33 @@ class Partner {
 
 class PartnerAddress {
   final String id;
+  final String? objectId;
   final String type; // POSTAL, RESIDENTIAL, OFFICE
   final String line1;
   final String line2;
+  final String line3;
+  final String line4;
+  final String suburb;
+  final String town;
   final String city;
   final String state;
+  final String province;
   final String postalCode;
   final String country;
 
   PartnerAddress({
     this.id = '',
+    this.objectId,
     required this.type,
     required this.line1,
     this.line2 = '',
+    this.line3 = '',
+    this.line4 = '',
+    this.suburb = '',
+    this.town = '',
     required this.city,
-    required this.state,
+    this.state = '',
+    this.province = '',
     required this.postalCode,
     this.country = 'South Africa',
   });
@@ -133,11 +145,17 @@ class PartnerAddress {
   factory PartnerAddress.fromJson(Map<String, dynamic> json) {
     return PartnerAddress(
       id: json['id'] ?? '',
+      objectId: json['objectId'],
       type: json['type'] ?? 'RESIDENTIAL',
       line1: json['line1'] ?? '',
       line2: json['line2'] ?? '',
+      line3: json['line3'] ?? '',
+      line4: json['line4'] ?? '',
+      suburb: json['suburb'] ?? '',
+      town: json['town'] ?? '',
       city: json['city'] ?? '',
-      state: json['state'] ?? '',
+      state: json['state'] ?? json['province'] ?? '',
+      province: json['province'] ?? json['state'] ?? '',
       postalCode: json['postalCode'] ?? '',
       country: json['country'] ?? 'South Africa',
     );
@@ -146,11 +164,16 @@ class PartnerAddress {
   Map<String, dynamic> toJson() {
     return {
       if (id.isNotEmpty) 'id': id,
+      if (objectId != null) 'objectId': objectId,
       'type': type,
       'line1': line1,
       'line2': line2,
+      'line3': line3,
+      'line4': line4,
+      'suburb': suburb,
+      'town': town,
       'city': city,
-      'state': state,
+      'province': province.isNotEmpty ? province : state,
       'postalCode': postalCode,
       'country': country,
     };
