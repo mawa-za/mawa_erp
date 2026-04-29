@@ -52,14 +52,29 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Memberships'),
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, size: 22),
             onPressed: _fetchMembers,
+            tooltip: 'Refresh',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _buildBody(),
@@ -102,23 +117,28 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: _members.length,
-      separatorBuilder: (context, index) => const Divider(),
+      separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFEEEEEE)),
       itemBuilder: (context, index) {
         final member = _members[index];
         return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            child: Text(member.firstName[0] + member.lastName[0]),
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
+            child: Text(
+              (member.firstName.isNotEmpty ? member.firstName[0] : '') + 
+              (member.lastName.isNotEmpty ? member.lastName[0] : ''),
+              style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+            ),
           ),
           title: Text(
             member.fullName,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ID: ${member.memberNumber}'),
-              Text(member.email, style: const TextStyle(fontSize: 12)),
+              Text('ID: ${member.memberNumber}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              Text(member.email, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             ],
           ),
           trailing: _buildStatusChip(member.status),
@@ -151,7 +171,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
+        border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
         status,

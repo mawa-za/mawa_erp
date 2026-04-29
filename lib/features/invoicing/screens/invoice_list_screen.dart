@@ -60,14 +60,24 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Invoices', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Invoices'),
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 2,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, size: 20),
+            icon: const Icon(Icons.refresh, size: 22),
             onPressed: _fetchInvoices,
+            tooltip: 'Refresh',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _buildBody(colorScheme),
