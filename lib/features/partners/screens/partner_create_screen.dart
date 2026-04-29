@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/partner.dart';
 
@@ -19,9 +20,15 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   final _name1Controller = TextEditingController(); // Last Name / Org Name
   final _name2Controller = TextEditingController(); // First Name
   final _name3Controller = TextEditingController(); // Middle Name
+  final _name4Controller = TextEditingController();
   final _identityController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _titleController = TextEditingController();
+  final _maritalStatusController = TextEditingController();
+  final _genderController = TextEditingController();
+  final _languageController = TextEditingController();
+  DateTime? _birthDate;
 
   final List<PartnerAddress> _addresses = [];
   final List<String> _types = ['INDIVIDUAL', 'ORGANISATION', 'GROUP'];
@@ -35,14 +42,38 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       _name1Controller.text = p.name1;
       _name2Controller.text = p.name2;
       _name3Controller.text = p.name3;
+      _name4Controller.text = p.name4 ?? '';
       _identityController.text = p.identityNumber;
       _emailController.text = p.email;
       _phoneController.text = p.phone;
+      _titleController.text = p.title ?? '';
+      _maritalStatusController.text = p.maritalStatus ?? '';
+      _genderController.text = p.gender ?? '';
+      _languageController.text = p.language ?? '';
+      if (p.birthDate != null) {
+        try {
+          _birthDate = DateTime.parse(p.birthDate!);
+        } catch (_) {}
+      }
       _addresses.addAll(p.addresses);
     } else {
       _selectedType = 'INDIVIDUAL';
       // Add a default address
       _addresses.add(PartnerAddress(type: 'RESIDENTIAL', line1: '', city: '', state: '', postalCode: ''));
+    }
+  }
+
+  Future<void> _selectBirthDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(1990),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _birthDate) {
+      setState(() {
+        _birthDate = picked;
+      });
     }
   }
 
@@ -56,9 +87,15 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       'name1': _name1Controller.text,
       'name2': _selectedType == 'INDIVIDUAL' ? _name2Controller.text : '',
       'name3': _selectedType == 'INDIVIDUAL' ? _name3Controller.text : '',
+      'name4': _name4Controller.text,
       'identityNumber': _identityController.text,
       'email': _emailController.text,
       'phone': _phoneController.text,
+      'title': _titleController.text,
+      'birthDate': _birthDate?.toIso8601String(),
+      'maritalStatus': _maritalStatusController.text,
+      'gender': _genderController.text,
+      'language': _languageController.text,
       'addresses': _addresses.map((a) => a.toJson()).toList(),
     };
 
@@ -132,6 +169,10 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               _buildSectionHeader(Icons.person_outline, 'Basic Details'),
               const SizedBox(height: 12),
               _buildBasicDetailsFields(),
+              const SizedBox(height: 24),
+              _buildSectionHeader(Icons.info_outline, 'Demographics & Language'),
+              const SizedBox(height: 12),
+              _buildDemographicsFields(),
               const SizedBox(height: 24),
               _buildSectionHeader(Icons.contact_mail_outlined, 'Contact Information'),
               const SizedBox(height: 12),
@@ -229,6 +270,8 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         child: Column(
           children: [
             if (_selectedType == 'INDIVIDUAL') ...[
+              _buildTextField(_titleController, 'Title (e.g. Mr, Ms)', Icons.person_outline),
+              const SizedBox(height: 16),
               _buildTextField(_name2Controller, 'First Name', Icons.person_outline),
               const SizedBox(height: 16),
               _buildTextField(_name3Controller, 'Middle Name (Optional)', Icons.person_outline),
@@ -238,7 +281,36 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               _buildTextField(_name1Controller, _selectedType == 'ORGANISATION' ? 'Organisation Name' : 'Group Name', Icons.business_outlined),
             ],
             const SizedBox(height: 16),
+            _buildTextField(_name4Controller, 'Alternative/Trading Name (Optional)', Icons.badge_outlined),
+            const SizedBox(height: 16),
             _buildTextField(_identityController, _selectedType == 'INDIVIDUAL' ? 'Identity Number' : 'Registration Number', Icons.badge_outlined),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDemographicsFields() {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(_birthDate == null ? 'Birth Date' : 'Birth Date: ${DateFormat('yyyy-MM-dd').format(_birthDate!)}'),
+              trailing: const Icon(Icons.calendar_today, size: 20),
+              onTap: _selectBirthDate,
+            ),
+            const Divider(),
+            _buildTextField(_genderController, 'Gender', Icons.wc_outlined),
+            const SizedBox(height: 16),
+            _buildTextField(_maritalStatusController, 'Marital Status', Icons.favorite_outline),
+            const SizedBox(height: 16),
+            _buildTextField(_languageController, 'Preferred Language', Icons.language_outlined),
           ],
         ),
       ),
@@ -337,7 +409,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       decoration: _inputDecoration(label, icon),
       keyboardType: keyboardType,
       style: const TextStyle(fontSize: 14),
-      validator: (val) => (val == null || val.isEmpty) && label != 'Middle Name (Optional)' ? 'Required' : null,
+      validator: (val) {
+        if (label == 'Middle Name (Optional)' || label == 'Alternative/Trading Name (Optional)') return null;
+        if (val == null || val.isEmpty) return 'Required';
+        return null;
+      },
     );
   }
 
@@ -366,9 +442,14 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     _name1Controller.dispose();
     _name2Controller.dispose();
     _name3Controller.dispose();
+    _name4Controller.dispose();
     _identityController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _titleController.dispose();
+    _maritalStatusController.dispose();
+    _genderController.dispose();
+    _languageController.dispose();
     super.dispose();
   }
 }

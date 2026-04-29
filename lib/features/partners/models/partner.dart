@@ -7,13 +7,15 @@ class Partner {
   final String name1; // Last Name / Organisation Name
   final String name2; // First Name
   final String name3; // Middle Name
+  final String? name4;
   final String identityNumber;
   final String? idType;
   final String status;
   final String? title;
   final String? birthDate;
-  final String? gender;
   final String? maritalStatus;
+  final String? gender;
+  final String? language;
   final String email;
   final String phone;
   final List<PartnerAddress> addresses;
@@ -26,13 +28,15 @@ class Partner {
     required this.name1,
     required this.name2,
     required this.name3,
+    this.name4,
     required this.identityNumber,
     this.idType,
     required this.status,
     this.title,
     this.birthDate,
-    this.gender,
     this.maritalStatus,
+    this.gender,
+    this.language,
     this.email = '',
     this.phone = '',
     this.addresses = const [],
@@ -53,21 +57,24 @@ class Partner {
     final titleObj = json['title'] as Map<String, dynamic>?;
     final genderObj = json['gender'] as Map<String, dynamic>?;
     final maritalStatusObj = json['maritalStatus'] as Map<String, dynamic>?;
+    final languageObj = json['language'] as Map<String, dynamic>?;
 
     return Partner(
       id: json['id'] ?? '',
       number: json['number'] ?? '',
-      type: typeObj?['code'] ?? 'INDIVIDUAL',
+      type: typeObj?['code'] ?? json['type']?.toString() ?? 'INDIVIDUAL',
       name1: json['name1'] ?? '',
       name2: json['name2'] ?? '',
       name3: json['name3'] ?? '',
+      name4: json['name4'],
       identityNumber: identityObj?['number'] ?? json['identityNumber'] ?? '',
       idType: (identityObj?['type'] as Map?)?['description'] ?? '',
       status: statusObj?['description'] ?? json['status']?.toString() ?? 'Active',
-      title: titleObj?['description'] ?? '',
+      title: titleObj?['description'] ?? json['title'] ?? '',
       birthDate: json['birthDate'],
-      gender: genderObj?['description'] ?? '',
-      maritalStatus: maritalStatusObj?['description'] ?? '',
+      gender: genderObj?['description'] ?? json['gender'] ?? '',
+      maritalStatus: maritalStatusObj?['description'] ?? json['maritalStatus'] ?? '',
+      language: languageObj?['description'] ?? json['language'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       addresses: (json['addresses'] as List? ?? [])
@@ -87,7 +94,13 @@ class Partner {
       'name1': name1,
       'name2': name2,
       'name3': name3,
+      if (name4 != null) 'name4': name4,
       'identityNumber': identityNumber,
+      'title': title,
+      'birthDate': birthDate,
+      'maritalStatus': maritalStatus,
+      'gender': gender,
+      'language': language,
       'email': email,
       'phone': phone,
       'addresses': addresses.map((a) => a.toJson()).toList(),
