@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
 
 class PartnerCreateScreen extends StatefulWidget {
@@ -24,10 +25,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   final _identityController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _titleController = TextEditingController();
-  final _maritalStatusController = TextEditingController();
-  final _genderController = TextEditingController();
-  final _languageController = TextEditingController();
+
+  String? _selectedTitle;
+  String? _selectedMaritalStatus;
+  String? _selectedGender;
+  String? _selectedLanguage;
   DateTime? _birthDate;
 
   final List<PartnerAddress> _addresses = [];
@@ -46,10 +48,10 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       _identityController.text = p.identityNumber;
       _emailController.text = p.email;
       _phoneController.text = p.phone;
-      _titleController.text = p.title ?? '';
-      _maritalStatusController.text = p.maritalStatus ?? '';
-      _genderController.text = p.gender ?? '';
-      _languageController.text = p.language ?? '';
+      _selectedTitle = p.title;
+      _selectedMaritalStatus = p.maritalStatus;
+      _selectedGender = p.gender;
+      _selectedLanguage = p.language;
       if (p.birthDate != null) {
         try {
           _birthDate = DateTime.parse(p.birthDate!);
@@ -91,11 +93,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       'identityNumber': _identityController.text,
       'email': _emailController.text,
       'phone': _phoneController.text,
-      'title': _titleController.text,
+      'title': _selectedTitle,
       'birthDate': _birthDate?.toIso8601String(),
-      'maritalStatus': _maritalStatusController.text,
-      'gender': _genderController.text,
-      'language': _languageController.text,
+      'maritalStatus': _selectedMaritalStatus,
+      'gender': _selectedGender,
+      'language': _selectedLanguage,
       'addresses': _addresses.map((a) => a.toJson()).toList(),
     };
 
@@ -270,7 +272,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         child: Column(
           children: [
             if (_selectedType == 'INDIVIDUAL') ...[
-              _buildTextField(_titleController, 'Title (e.g. Mr, Ms)', Icons.person_outline),
+              AppDropdownField(
+                field: 'TITLE',
+                label: 'Title',
+                icon: Icons.person_outline,
+                value: _selectedTitle,
+                onChanged: (val) => setState(() => _selectedTitle = val),
+              ),
               const SizedBox(height: 16),
               _buildTextField(_name2Controller, 'First Name', Icons.person_outline),
               const SizedBox(height: 16),
@@ -306,11 +314,29 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               onTap: _selectBirthDate,
             ),
             const Divider(),
-            _buildTextField(_genderController, 'Gender', Icons.wc_outlined),
+            AppDropdownField(
+              field: 'GENDER',
+              label: 'Gender',
+              icon: Icons.wc_outlined,
+              value: _selectedGender,
+              onChanged: (val) => setState(() => _selectedGender = val),
+            ),
             const SizedBox(height: 16),
-            _buildTextField(_maritalStatusController, 'Marital Status', Icons.favorite_outline),
+            AppDropdownField(
+              field: 'MARITAL-STATUS',
+              label: 'Marital Status',
+              icon: Icons.favorite_outline,
+              value: _selectedMaritalStatus,
+              onChanged: (val) => setState(() => _selectedMaritalStatus = val),
+            ),
             const SizedBox(height: 16),
-            _buildTextField(_languageController, 'Preferred Language', Icons.language_outlined),
+            AppDropdownField(
+              field: 'LANGUAGE',
+              label: 'Preferred Language',
+              icon: Icons.language_outlined,
+              value: _selectedLanguage,
+              onChanged: (val) => setState(() => _selectedLanguage = val),
+            ),
           ],
         ),
       ),
@@ -359,10 +385,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
+            AppDropdownField(
+              field: 'ADDRESS-TYPE',
+              label: 'Address Type',
+              icon: Icons.home_outlined,
               value: addr.type,
-              decoration: _inputDecoration('Address Type', Icons.home_outlined),
-              items: ['RESIDENTIAL', 'POSTAL', 'OFFICE'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _addresses[index] = _updateAddress(addr, type: val));
               },
@@ -446,10 +473,6 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     _identityController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _titleController.dispose();
-    _maritalStatusController.dispose();
-    _genderController.dispose();
-    _languageController.dispose();
     super.dispose();
   }
 }

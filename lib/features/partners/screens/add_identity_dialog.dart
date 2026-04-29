@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner_identity.dart';
 
 class AddIdentityDialog extends StatefulWidget {
@@ -15,12 +16,10 @@ class AddIdentityDialog extends StatefulWidget {
 class _AddIdentityDialogState extends State<AddIdentityDialog> {
   final _formKey = GlobalKey<FormState>();
   final _numberController = TextEditingController();
-  String _selectedType = 'ID';
+  String? _selectedType = 'SA-ID';
   DateTime? _validFrom;
   DateTime? _validTo;
   bool _isSubmitting = false;
-
-  final List<String> _identityTypes = ['ID', 'PASSPORT', 'REGISTRATION', 'VAT', 'TAX'];
 
   Future<void> _selectDate(BuildContext context, bool isValidFrom) async {
     final DateTime? picked = await showDatePicker(
@@ -47,7 +46,7 @@ class _AddIdentityDialogState extends State<AddIdentityDialog> {
 
     final identity = PartnerIdentity(
       partner: widget.partnerId,
-      type: _selectedType,
+      type: _selectedType ?? '',
       number: _numberController.text,
       validFrom: _validFrom,
       validTo: _validTo,
@@ -87,16 +86,21 @@ class _AddIdentityDialogState extends State<AddIdentityDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
+              AppDropdownField(
+                field: 'ID-TYPE',
+                label: 'Identity Type',
                 value: _selectedType,
-                decoration: const InputDecoration(labelText: 'Identity Type'),
-                items: _identityTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                onChanged: (val) => setState(() => _selectedType = val!),
+                onChanged: (val) => setState(() => _selectedType = val),
+                validator: (val) => val == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _numberController,
-                decoration: const InputDecoration(labelText: 'Identity Number'),
+                decoration: const InputDecoration(
+                  labelText: 'Identity Number',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
                 validator: (val) => val == null || val.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
