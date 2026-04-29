@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
+import 'invoice_create_screen.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
   final String invoiceId;
@@ -63,6 +64,22 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         title: Text(_detail?.number ?? 'Invoice Details', style: const TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         centerTitle: true,
+        actions: [
+          if (_detail != null)
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => InvoiceCreateScreen(existingInvoice: _detail),
+                  ),
+                );
+                if (result == true) {
+                  _fetchInvoiceDetails();
+                }
+              },
+            ),
+        ],
       ),
       body: _buildBody(colorScheme),
     );

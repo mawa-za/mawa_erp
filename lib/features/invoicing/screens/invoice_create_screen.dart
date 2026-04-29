@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
+import '../models/invoice_detail.dart';
 
 class InvoiceItemDraft {
   final TextEditingController productController;
@@ -59,8 +60,8 @@ class Partner {
 
   factory Partner.fromJson(Map<String, dynamic> json) {
     return Partner(
-      id: json['partnerId'] ?? '',
-      number: json['partnerNo'] ?? '',
+      id: json['partnerId'] ?? json['id'] ?? '',
+      number: json['partnerNo'] ?? json['number'] ?? '',
       firstName: json['name2'] ?? '',
       lastName: json['name1'] ?? '',
       identityNumber: json['identityNumber'] ?? '',
@@ -110,7 +111,8 @@ class ProductType {
 }
 
 class InvoiceCreateScreen extends StatefulWidget {
-  const InvoiceCreateScreen({super.key});
+  final InvoiceDetail? existingInvoice;
+  const InvoiceCreateScreen({super.key, this.existingInvoice});
 
   @override
   State<InvoiceCreateScreen> createState() => _InvoiceCreateScreenState();
@@ -144,6 +146,36 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   void initState() {
     super.initState();
     _fetchProductTypes();
+    if (widget.existingInvoice != null) {
+      _loadExistingInvoice();
+    }
+  }
+
+  void _loadExistingInvoice() {
+    final inv = widget.existingInvoice!;
+    _invoiceDate = inv.invoiceDate;
+    _dueDate = inv.dueDate ?? DateTime.now().add(const Duration(days: 30));
+    _referenceController.text = inv.reference;
+    _selectedPartner = Partner(
+      id: inv.customerId ?? '',
+      number: inv.customerNumber,
+      firstName: '',
+      lastName: inv.customerName,
+      identityNumber: '',
+    );
+    
+    // Clear initial empty items if any, then add existing
+    _items.clear();
+    for (var item in inv.items) {
+      _items.add(InvoiceItemDraft(
+        product: item.productCode,
+        description: item.productName,
+        amount: item.unitPrice.toString(),
+        quantity: item.quantity.toString(),
+        discount: item.discountPercentage.toString(),
+        productId: item.productId,
+      ));
+    }
   }
 
   Future<void> _fetchProductTypes() async {
@@ -154,14 +186,18 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         setState(() {
           _productTypes = data.map((json) => ProductType.fromJson(json)).toList();
           _isLoadingTypes = false;
-          // Add 4 default items
-          for (int i = 0; i < 4; i++) {
-            _items.add(InvoiceItemDraft(
-              selectedType: _productTypes.isNotEmpty ? _productTypes.first : null,
-            ));
+          
+          if (widget.existingInvoice == null) {
+            // Add 4 default items only if creating new
+            for (int i = 0; i < 4; i++) {
+              _items.add(InvoiceItemDraft(
+                selectedType: _productTypes.isNotEmpty ? _productTypes.first : null,
+              ));
+            }
           }
         });
-        // Load products for the default items
+        
+        // Load products for items
         for (var item in _items) {
           if (item.selectedType != null) {
             _loadProductsForItem(item);
@@ -303,7 +339,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     };
   }
 
-  Future<void> _createInvoice() async {
+  Future<void> _saveInvoice() async {
     if (!_formKey.currentState!.validate() || _selectedPartner == null) {
       if (_selectedPartner == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -373,17 +409,19 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         "transactionSubType": "STANDARD"
       };
 
-      final response = await ApiClient().post('/v2/invoice', body: payload);
+      final response = widget.existingInvoice == null 
+        ? await ApiClient().post('/v2/invoice', body: payload)
+        : await ApiClient().post('/v2/invoice/${widget.existingInvoice!.id}', body: payload);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invoice created successfully'), behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text('Invoice ${widget.existingInvoice == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
           );
           Navigator.of(context).pop(true);
         }
       } else {
-        throw Exception('Failed to create invoice: ${response.statusCode}');
+        throw Exception('Failed to save invoice: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
@@ -403,9 +441,17 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Create Invoice', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.existingInvoice == null ? 'Create Invoice' : 'Edit Invoice'),
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 2,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        centerTitle: false,
       ),
       body: _isLoadingTypes 
           ? const Center(child: CircularProgressIndicator())
@@ -784,7 +830,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
             decoration: InputDecoration(
               hintText: 'Qty',
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
             ),
             keyboardType: TextInputType.number,
@@ -962,14 +1008,14 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
               width: double.infinity,
               height: 44,
               child: FilledButton(
-                onPressed: _isSubmitting ? null : _createInvoice,
+                onPressed: _isSubmitting ? null : _saveInvoice,
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 1,
                 ),
                 child: _isSubmitting
                     ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('CREATE INVOICE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    : Text(widget.existingInvoice == null ? 'CREATE INVOICE' : 'SAVE CHANGES', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

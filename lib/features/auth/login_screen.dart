@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/config.dart';
+import '../../core/services/field_service.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
 
@@ -65,6 +66,9 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('accessToken', data['accessToken']);
         await prefs.setString('refreshToken', data['refreshToken']);
 
+        // Prefetch field options for future use
+        _prefetchFieldOptions();
+
         // Fetch roles
         final rolesResponse = await ApiClient().get('/user/$userId/role');
         if (rolesResponse.statusCode == 200) {
@@ -73,15 +77,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
           if (roleList.length > 1) {
             if (mounted) {
-              // Ensure we use the proper navigation flow for Role Selection
-              // On mobile, we push it as a full-screen route
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => RoleSelectionScreen(
                     roles: roleList,
                     onRoleSelected: () {
-                      Navigator.of(context).pop(); // Go back from role selection
-                      widget.onLoggedIn(); // Proceed to home
+                      Navigator.of(context).pop();
+                      widget.onLoggedIn();
                     },
                   ),
                 ),
@@ -108,6 +110,13 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _prefetchFieldOptions() {
+    // Fire and forget, FieldService handles caching
+    FieldService().getOptions().catchError((e) {
+      debugPrint('Failed to prefetch field options: $e');
+    });
   }
 
   @override
