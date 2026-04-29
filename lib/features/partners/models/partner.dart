@@ -54,18 +54,28 @@ class Partner {
   }
 
   factory Partner.fromJson(Map<String, dynamic> json) {
-    final typeObj = json['type'] as Map<String, dynamic>?;
-    final identityObj = json['identity'] as Map<String, dynamic>?;
-    final statusObj = json['status'] as Map<String, dynamic>?;
-    final titleObj = json['title'] as Map<String, dynamic>?;
-    final genderObj = json['gender'] as Map<String, dynamic>?;
-    final maritalStatusObj = json['maritalStatus'] as Map<String, dynamic>?;
-    final languageObj = json['language'] as Map<String, dynamic>?;
+    Map<String, dynamic>? asMap(dynamic value) {
+      return value is Map<String, dynamic> ? value : null;
+    }
+
+    final typeObj = asMap(json['type']);
+    final identityObj = asMap(json['identity']);
+    final statusObj = asMap(json['status']);
+    final titleObj = asMap(json['title']);
+    final genderObj = asMap(json['gender']);
+    final maritalStatusObj = asMap(json['maritalStatus']);
+    final languageObj = asMap(json['language']);
 
     final id = json['id'] ?? json['partnerId'] ?? '';
     final number = json['number'] ?? json['partnerNo'] ?? '';
-    final type = typeObj?['code'] ?? json['partnerType'] ?? json['type']?.toString() ?? 'INDIVIDUAL';
     
+    // Determine type: check typeObj code, then partnerType field, then type field (which might be string)
+    String type = typeObj?['code'] ?? json['partnerType'] ?? '';
+    if (type.isEmpty && json['type'] != null && json['type'] is String) {
+      type = json['type'];
+    }
+    if (type.isEmpty) type = 'INDIVIDUAL';
+
     List<String> roles = [];
     if (json['roles'] is List) {
       roles = (json['roles'] as List).map((r) => r.toString()).toList();
@@ -74,18 +84,15 @@ class Partner {
       roles = [json['partnerRole'].toString()];
     }
 
-    // Handle birthDate formatting if it's in the "MMM dd, yyyy, hh:mm:ss a" format
+    // Handle birthDate formatting
     String? rawBirthDate = json['birthDate'];
     String? formattedBirthDate = rawBirthDate;
     if (rawBirthDate != null && rawBirthDate.contains(',')) {
       try {
-        // Sample: "May 26, 1980, 12:00:00 AM"
         final format = DateFormat("MMM d, yyyy, hh:mm:ss a");
         final date = format.parse(rawBirthDate);
         formattedBirthDate = date.toIso8601String();
-      } catch (e) {
-        // If parsing fails, keep the original string
-      }
+      } catch (_) {}
     }
 
     return Partner(
@@ -98,12 +105,12 @@ class Partner {
       name4: json['name4'],
       identityNumber: identityObj?['number'] ?? json['identityNumber'] ?? '',
       idType: (identityObj?['type'] as Map?)?['description'] ?? json['identityType'] ?? '',
-      status: statusObj?['code'] ?? statusObj?['description'] ?? json['status']?.toString() ?? 'ACTIVE',
-      title: titleObj?['code'] ?? titleObj?['description'] ?? json['title'] ?? '',
+      status: statusObj?['code'] ?? statusObj?['description'] ?? (json['status'] is String ? json['status'] : 'ACTIVE'),
+      title: titleObj?['code'] ?? titleObj?['description'] ?? (json['title'] is String ? json['title'] : ''),
       birthDate: formattedBirthDate,
-      gender: genderObj?['code'] ?? genderObj?['description'] ?? json['gender'] ?? '',
-      maritalStatus: maritalStatusObj?['code'] ?? maritalStatusObj?['description'] ?? json['maritalStatus'] ?? '',
-      language: languageObj?['description'] ?? json['language'] ?? '',
+      gender: genderObj?['code'] ?? genderObj?['description'] ?? (json['gender'] is String ? json['gender'] : ''),
+      maritalStatus: maritalStatusObj?['code'] ?? maritalStatusObj?['description'] ?? (json['maritalStatus'] is String ? json['maritalStatus'] : ''),
+      language: languageObj?['description'] ?? (json['language'] is String ? json['language'] : ''),
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       addresses: (json['addresses'] as List? ?? [])
