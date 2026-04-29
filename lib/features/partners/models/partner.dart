@@ -61,10 +61,20 @@ class Partner {
     final maritalStatusObj = json['maritalStatus'] as Map<String, dynamic>?;
     final languageObj = json['language'] as Map<String, dynamic>?;
 
+    // Handle both /partner/v2 (complex) and /v2/partner (flat) formats
+    final id = json['id'] ?? json['partnerId'] ?? '';
+    final number = json['number'] ?? json['partnerNo'] ?? '';
+    final type = typeObj?['code'] ?? json['partnerType'] ?? json['type']?.toString() ?? 'INDIVIDUAL';
+    
+    List<String> roles = (json['roles'] as List? ?? []).map((r) => r.toString()).toList();
+    if (roles.isEmpty && json['partnerRole'] != null) {
+      roles = [json['partnerRole'].toString()];
+    }
+
     return Partner(
-      id: json['id'] ?? '',
-      number: json['number'] ?? '',
-      type: typeObj?['code'] ?? json['type']?.toString() ?? 'INDIVIDUAL',
+      id: id,
+      number: number,
+      type: type,
       name1: json['name1'] ?? '',
       name2: json['name2'] ?? '',
       name3: json['name3'] ?? '',
@@ -85,7 +95,7 @@ class Partner {
       identities: (json['identities'] as List? ?? [])
           .map((i) => PartnerIdentity.fromJson(i))
           .toList(),
-      roles: (json['roles'] as List? ?? []).map((r) => r.toString()).toList(),
+      roles: roles,
     );
   }
 

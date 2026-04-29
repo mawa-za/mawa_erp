@@ -17,6 +17,8 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
   List<Partner> _partners = [];
   String? _error;
   String _selectedType = 'ALL';
+  final TextEditingController _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
 
   final List<String> _types = ['ALL', 'INDIVIDUAL', 'ORGANISATION', 'GROUP'];
 
@@ -33,17 +35,29 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
     });
 
     try {
-      String path = '/partner/v2';
-      if (_selectedType != 'ALL') {
-        path += '?type=$_selectedType';
-      }
-
-      final response = await ApiClient().get(path);
+      // Updated to the new endpoint /v2/partner
+      // Including query parameters as requested
+      final query = _searchController.text;
+      String path = '/v2/partner';
+      
+      final Map<String, String> params = {};
+      if (query.isNotEmpty) params['query'] = query;
+      // Note: role could be added here if we had a role filter
+      
+      final uri = Uri.parse(path).replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await ApiClient().get(uri.toString());
       
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        final allPartners = data.map((json) => Partner.fromJson(json)).toList();
+        
         setState(() {
-          _partners = data.map((json) => Partner.fromJson(json)).toList();
+          if (_selectedType == 'ALL') {
+            _partners = allPartners;
+          } else {
+            // "split after api response" - local filtering by type
+            _partners = allPartners.where((p) => p.type == _selectedType).toList();
+          }
           _isLoading = false;
         });
       } else {
@@ -88,6 +102,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
       ),
       body: Column(
         children: [
+          _buildSearchBar(),
           _buildTypeFilter(),
           Expanded(child: _buildBody(colorScheme)),
         ],
@@ -102,6 +117,43 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           }
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        decoration: InputDecoration(
+          hintText: 'Search partners...',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 20),
+                  onPressed: () {
+                    _searchController.clear();
+                    _fetchPartners();
+                  },
+                )
+              : null,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          fillColor: Colors.grey[100],
+          filled: true,
+        ),
+        onSubmitted: (_) => _fetchPartners(),
       ),
     );
   }
@@ -274,8 +326,10 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
 
   Widget _buildStatusChip(String status) {
     Color color = Colors.grey;
-    if (status.toUpperCase() == 'ACTIVE') color = Colors.green;
-    if (status.toUpperCase() == 'INACTIVE') color = Colors.red;
+    final s = status.toUpperCase();
+    if (s == 'ACTIVE') color = Colors.green;
+    else if (s == 'INACTIVE') color = Colors.red;
+    else if (s == 'DECEASED') color = Colors.purple;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -285,9 +339,16 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
-        status.toUpperCase(),
+        s,
         style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 }
