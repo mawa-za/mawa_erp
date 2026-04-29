@@ -6,6 +6,7 @@ import '../models/partner.dart';
 import '../models/partner_identity.dart';
 import 'partner_create_screen.dart';
 import 'add_identity_dialog.dart';
+import 'add_address_dialog.dart';
 
 class PartnerDetailScreen extends StatefulWidget {
   final String partnerId;
@@ -60,6 +61,17 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AddIdentityDialog(partnerId: widget.partnerId),
+    );
+
+    if (result == true) {
+      _fetchPartnerDetails();
+    }
+  }
+
+  Future<void> _showAddAddressDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AddAddressDialog(partnerId: widget.partnerId),
     );
 
     if (result == true) {
@@ -167,7 +179,17 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           else
             ...partner.identities.map((identity) => _buildIdentityCard(identity, colorScheme)),
           const SizedBox(height: 24),
-          _buildSectionHeader(Icons.location_on_outlined, 'Addresses'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSectionHeader(Icons.location_on_outlined, 'Addresses'),
+              TextButton.icon(
+                onPressed: _showAddAddressDialog,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Address'),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           if (partner.addresses.isEmpty)
             const Padding(
@@ -339,7 +361,11 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
                   const SizedBox(height: 4),
                   Text(addr.line1, style: const TextStyle(fontSize: 13)),
                   if (addr.line2.isNotEmpty) Text(addr.line2, style: const TextStyle(fontSize: 13)),
-                  Text('${addr.city}, ${addr.state} ${addr.postalCode}', style: const TextStyle(fontSize: 13)),
+                  if (addr.line3.isNotEmpty) Text(addr.line3, style: const TextStyle(fontSize: 13)),
+                  if (addr.line4.isNotEmpty) Text(addr.line4, style: const TextStyle(fontSize: 13)),
+                  if (addr.suburb.isNotEmpty || addr.town.isNotEmpty)
+                    Text('${addr.suburb}${addr.suburb.isNotEmpty && addr.town.isNotEmpty ? ", " : ""}${addr.town}', style: const TextStyle(fontSize: 13)),
+                  Text('${addr.city}, ${addr.province.isNotEmpty ? addr.province : addr.state} ${addr.postalCode}', style: const TextStyle(fontSize: 13)),
                   Text(addr.country, style: const TextStyle(fontSize: 13, color: Colors.grey)),
                 ],
               ),
