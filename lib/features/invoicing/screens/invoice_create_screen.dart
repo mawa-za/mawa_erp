@@ -441,9 +441,17 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.existingInvoice == null ? 'Create Invoice' : 'Edit Invoice', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.existingInvoice == null ? 'Create Invoice' : 'Edit Invoice'),
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 2,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        centerTitle: false,
       ),
       body: _isLoadingTypes 
           ? const Center(child: CircularProgressIndicator())

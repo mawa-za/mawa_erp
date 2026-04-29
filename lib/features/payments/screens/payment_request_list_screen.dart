@@ -70,14 +70,29 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Payment Requests'),
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, size: 22),
             onPressed: _fetchPayments,
+            tooltip: 'Refresh',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -91,7 +106,8 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
 
   Widget _buildStatusFilter() {
     return Container(
-      height: 60,
+      height: 50,
+      color: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -102,8 +118,15 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
           final isSelected = _selectedStatus == status;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(status.replaceAll('-', ' '), style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
+            child: ChoiceChip(
+              label: Text(
+                status.replaceAll('-', ' '), 
+                style: TextStyle(
+                  fontSize: 11, 
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.white : Colors.black87
+                )
+              ),
               selected: isSelected,
               onSelected: (selected) {
                 if (selected) {
@@ -112,7 +135,10 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
                 }
               },
               selectedColor: Theme.of(context).colorScheme.primary,
-              checkmarkColor: Colors.white,
+              backgroundColor: Colors.grey[100],
+              side: BorderSide.none,
+              showCheckmark: false,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
           );
         },
@@ -139,42 +165,73 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
     }
 
     if (_payments.isEmpty) {
-      return const Center(child: Text('No payment requests found.'));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.payments_outlined, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text('No payment requests found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+          ],
+        ),
+      );
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       itemCount: _payments.length,
-      separatorBuilder: (context, index) => const Divider(),
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final payment = _payments[index];
-        return ListTile(
-          title: Text(payment.recipient, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${payment.paymentReason} - ${payment.reference}'),
-              Text('Due: ${payment.dueDate}', style: const TextStyle(fontSize: 12)),
-            ],
+        return Card(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
           ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'R ${payment.amount.toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              _buildStatusChip(payment.status),
-            ],
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text(payment.recipient, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text('${payment.paymentReason} - ${payment.reference}', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today, size: 10, color: Colors.grey[400]),
+                    const SizedBox(width: 4),
+                    Text('Due: ${payment.dueDate}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  ],
+                ),
+              ],
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'R ${payment.amount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900, 
+                    fontSize: 15,
+                    color: Theme.of(context).colorScheme.primary
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _buildStatusChip(payment.status),
+              ],
+            ),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => PaymentRequestDetailScreen(paymentId: payment.id),
+                ),
+              );
+            },
           ),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => PaymentRequestDetailScreen(paymentId: payment.id),
-              ),
-            );
-          },
         );
       },
     );
@@ -202,12 +259,12 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
         status,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
       ),
     );
   }

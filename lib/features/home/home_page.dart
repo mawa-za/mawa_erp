@@ -8,6 +8,7 @@ import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
+import '../partners/screens/partner_list_screen.dart';
 import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -147,6 +148,8 @@ class _MyHomePageState extends State<MyHomePage> {
         return Icons.groups;
       case 'invoicing':
         return Icons.receipt_long_outlined;
+      case 'business-partner':
+        return Icons.contact_page_outlined;
       default:
         return Icons.grid_view_outlined;
     }
@@ -167,6 +170,10 @@ class _MyHomePageState extends State<MyHomePage> {
     } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()),
+      );
+    } else if (id.contains('partner') || description.contains('partner')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const PartnerListScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
