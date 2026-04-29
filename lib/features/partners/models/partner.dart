@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'partner_identity.dart';
 
 class Partner {
@@ -61,31 +62,47 @@ class Partner {
     final maritalStatusObj = json['maritalStatus'] as Map<String, dynamic>?;
     final languageObj = json['language'] as Map<String, dynamic>?;
 
-    // Handle both /partner/v2 (complex) and /v2/partner (flat) formats
     final id = json['id'] ?? json['partnerId'] ?? '';
     final number = json['number'] ?? json['partnerNo'] ?? '';
     final type = typeObj?['code'] ?? json['partnerType'] ?? json['type']?.toString() ?? 'INDIVIDUAL';
     
-    List<String> roles = (json['roles'] as List? ?? []).map((r) => r.toString()).toList();
+    List<String> roles = [];
+    if (json['roles'] is List) {
+      roles = (json['roles'] as List).map((r) => r.toString()).toList();
+    }
     if (roles.isEmpty && json['partnerRole'] != null) {
       roles = [json['partnerRole'].toString()];
+    }
+
+    // Handle birthDate formatting if it's in the "MMM dd, yyyy, hh:mm:ss a" format
+    String? rawBirthDate = json['birthDate'];
+    String? formattedBirthDate = rawBirthDate;
+    if (rawBirthDate != null && rawBirthDate.contains(',')) {
+      try {
+        // Sample: "May 26, 1980, 12:00:00 AM"
+        final format = DateFormat("MMM d, yyyy, hh:mm:ss a");
+        final date = format.parse(rawBirthDate);
+        formattedBirthDate = date.toIso8601String();
+      } catch (e) {
+        // If parsing fails, keep the original string
+      }
     }
 
     return Partner(
       id: id,
       number: number,
       type: type,
-      name1: json['name1'] ?? '',
-      name2: json['name2'] ?? '',
-      name3: json['name3'] ?? '',
+      name1: (json['name1'] ?? '').toString().trim(),
+      name2: (json['name2'] ?? '').toString().trim(),
+      name3: (json['name3'] ?? '').toString().trim(),
       name4: json['name4'],
       identityNumber: identityObj?['number'] ?? json['identityNumber'] ?? '',
-      idType: (identityObj?['type'] as Map?)?['description'] ?? '',
-      status: statusObj?['description'] ?? json['status']?.toString() ?? 'Active',
-      title: titleObj?['description'] ?? json['title'] ?? '',
-      birthDate: json['birthDate'],
-      gender: genderObj?['description'] ?? json['gender'] ?? '',
-      maritalStatus: maritalStatusObj?['description'] ?? json['maritalStatus'] ?? '',
+      idType: (identityObj?['type'] as Map?)?['description'] ?? json['identityType'] ?? '',
+      status: statusObj?['code'] ?? statusObj?['description'] ?? json['status']?.toString() ?? 'ACTIVE',
+      title: titleObj?['code'] ?? titleObj?['description'] ?? json['title'] ?? '',
+      birthDate: formattedBirthDate,
+      gender: genderObj?['code'] ?? genderObj?['description'] ?? json['gender'] ?? '',
+      maritalStatus: maritalStatusObj?['code'] ?? maritalStatusObj?['description'] ?? json['maritalStatus'] ?? '',
       language: languageObj?['description'] ?? json['language'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
@@ -119,6 +136,7 @@ class Partner {
       'addresses': addresses.map((a) => a.toJson()).toList(),
       'identities': identities.map((i) => i.toJson()).toList(),
       'roles': roles,
+      'status': status,
     };
   }
 }
