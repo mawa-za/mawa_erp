@@ -6,6 +6,7 @@ class InvoiceDetail {
   final String reference;
   final String customerName;
   final String customerNumber;
+  final String? customerId;
   final DateTime invoiceDate;
   final DateTime? dueDate;
   final String status;
@@ -18,6 +19,7 @@ class InvoiceDetail {
     required this.reference,
     required this.customerName,
     required this.customerNumber,
+    this.customerId,
     required this.invoiceDate,
     this.dueDate,
     required this.status,
@@ -49,7 +51,12 @@ class InvoiceDetail {
     DateTime parsedDate;
     try {
       final dateStr = json['invoiceDate'] ?? '';
-      parsedDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(dateStr);
+      // Try multiple formats as the API might return ISO or this custom format
+      try {
+        parsedDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(dateStr);
+      } catch (_) {
+        parsedDate = DateTime.parse(dateStr);
+      }
     } catch (e) {
       parsedDate = DateTime.now();
     }
@@ -57,7 +64,11 @@ class InvoiceDetail {
     DateTime? parsedDueDate;
     try {
       if (json['dueDate'] != null) {
-        parsedDueDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(json['dueDate']);
+        try {
+          parsedDueDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(json['dueDate']);
+        } catch (_) {
+          parsedDueDate = DateTime.parse(json['dueDate']);
+        }
       }
     } catch (e) {
       parsedDueDate = null;
@@ -69,6 +80,7 @@ class InvoiceDetail {
       reference: json['reference'] ?? '',
       customerName: fullName.isEmpty ? 'Unknown' : fullName,
       customerNumber: customer['number'] ?? '',
+      customerId: customer['id'],
       invoiceDate: parsedDate,
       dueDate: parsedDueDate,
       status: json['status']?['description'] ?? json['status']?['code'] ?? 'Unknown',
@@ -83,28 +95,34 @@ class InvoiceDetail {
 }
 
 class InvoiceItem {
+  final String? productId;
   final String productName;
   final String productCode;
   final double quantity;
   final double unitPrice;
   final double lineTotal;
+  final double discountPercentage;
 
   InvoiceItem({
+    this.productId,
     required this.productName,
     required this.productCode,
     required this.quantity,
     required this.unitPrice,
     required this.lineTotal,
+    this.discountPercentage = 0,
   });
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
     final product = json['product'] ?? {};
     return InvoiceItem(
+      productId: product['id'],
       productName: product['description'] ?? 'Unknown Product',
       productCode: product['code'] ?? '',
       quantity: (json['quantity'] ?? 0.0).toDouble(),
       unitPrice: (json['unitPrice'] ?? 0.0).toDouble(),
       lineTotal: (json['lineTotal'] ?? 0.0).toDouble(),
+      discountPercentage: (json['discountPercentage'] ?? 0.0).toDouble(),
     );
   }
 }

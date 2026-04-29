@@ -129,9 +129,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: _buildSectionHeader(Icons.list_alt, 'Invoice Overview'),
         ),
+        _buildListHeaderRow(),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
             itemCount: _invoices.length,
             itemBuilder: (context, index) {
               final invoice = _invoices[index];
@@ -161,10 +162,31 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     );
   }
 
+  Widget _buildListHeaderRow() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(width: 44), // Match icon + padding
+          Expanded(child: Text('CUSTOMER / REFERENCE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+          SizedBox(width: 8),
+          Text('DATE / DUE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          SizedBox(width: 100, child: Text('AMOUNT / STATUS', textAlign: TextAlign.right, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInvoiceCard(Invoice invoice, ColorScheme colorScheme) {
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
@@ -197,66 +219,78 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                   children: [
                     Text(
                       invoice.customerName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Ref: ${invoice.transactionNumber}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today, size: 10, color: Colors.grey[400]),
-                        const SizedBox(width: 4),
-                        Text(
-                          DateFormat('yyyy-MM-dd').format(invoice.date),
-                          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                        ),
-                        if (invoice.dueDate != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.timer_outlined, 
-                            size: 10, 
-                            color: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
-                                ? Colors.red[300]
-                                : Colors.grey[400]
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            DateFormat('yyyy-MM-dd').format(invoice.dueDate!),
-                            style: TextStyle(
-                              fontSize: 11, 
-                              color: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
-                                  ? Colors.red[700]
-                                  : Colors.grey[500],
-                              fontWeight: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ],
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'R ${invoice.amount.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                      color: colorScheme.primary,
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 10, color: Colors.grey[400]),
+                      const SizedBox(width: 4),
+                      Text(
+                        DateFormat('yyyy-MM-dd').format(invoice.date),
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  _buildStatusChip(invoice.status),
+                  if (invoice.dueDate != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.timer_outlined, 
+                          size: 10, 
+                          color: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
+                              ? Colors.red[300]
+                              : Colors.grey[400]
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('yyyy-MM-dd').format(invoice.dueDate!),
+                          style: TextStyle(
+                            fontSize: 10, 
+                            color: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
+                                ? Colors.red[700]
+                                : Colors.grey[500],
+                            fontWeight: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 100,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'R ${invoice.amount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildStatusChip(invoice.status),
+                  ],
+                ),
               ),
             ],
           ),
@@ -293,7 +327,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       ),
       child: Text(
         status.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
       ),
     );
   }
