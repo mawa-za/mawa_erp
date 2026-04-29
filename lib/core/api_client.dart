@@ -9,16 +9,18 @@ class ApiClient {
   factory ApiClient() => _instance;
   ApiClient._internal();
 
+  bool _isRefreshing = false;
+
   Future<String?> _getApiHost() async {
     if (kIsWeb) return Config.apiHost;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('api_host');
+    return prefs.getString('api_host') ?? Config.apiHost;
   }
 
   Future<String?> _getTenantId() async {
     if (kIsWeb) return Config.webTenant;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('tenant');
+    return prefs.getString('tenant') ?? Config.webTenant;
   }
 
   Future<Map<String, String>> _getHeaders() async {
@@ -49,10 +51,9 @@ class ApiClient {
       body: body != null ? jsonEncode(body) : null,
     );
 
-    if (response.statusCode == 401) {
+    if (response.statusCode == 401 && !_isRefreshing) {
       final success = await _refreshToken();
       if (success) {
-        // Retry with new token
         final newHeaders = await _getHeaders();
         response = await http.post(
           url,
@@ -72,7 +73,7 @@ class ApiClient {
 
     var response = await http.get(url, headers: headers);
 
-    if (response.statusCode == 401) {
+    if (response.statusCode == 401 && !_isRefreshing) {
       final success = await _refreshToken();
       if (success) {
         final newHeaders = await _getHeaders();
@@ -84,15 +85,18 @@ class ApiClient {
   }
 
   Future<bool> _refreshToken() async {
+    _isRefreshing = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       final refreshToken = prefs.getString('refreshToken');
       final host = await _getApiHost();
       final tenantId = await _getTenantId();
 
-      if (refreshToken == null) return false;
+      if (refreshToken == null) {
+        _isRefreshing = false;
+        return false;
+      }
 
-      // Removed /v2/ from refresh-token endpoint
       final url = Uri.parse('https://$host/refresh-token');
       final response = await http.post(
         url,
@@ -109,13 +113,15 @@ class ApiClient {
         final data = jsonDecode(response.body);
         await prefs.setString('accessToken', data['accessToken']);
         await prefs.setString('refreshToken', data['refreshToken']);
+        _isRefreshing = false;
         return true;
       } else {
-        // Refresh failed, maybe log out user
         await _handleLogout();
+        _isRefreshing = false;
         return false;
       }
     } catch (e) {
+      _isRefreshing = false;
       return false;
     }
   }

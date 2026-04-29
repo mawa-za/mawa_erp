@@ -22,14 +22,7 @@ class Config {
 
   static String get webTenant {
     if (kIsWeb) {
-      final host = Uri.base.host;
-      if (host.contains('localhost')) {
-        return 'dev.app.mawa.co.za';
-      }
-      final parts = host.split('.');
-      if (parts.isNotEmpty) {
-        return parts[0];
-      }
+      return Uri.base.host;
     }
     return '';
   }
