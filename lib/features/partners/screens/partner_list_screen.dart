@@ -85,7 +85,6 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           ),
           const SizedBox(width: 8),
         ],
-       Matthew
       ),
       body: Column(
         children: [
