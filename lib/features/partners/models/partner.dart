@@ -6,6 +6,12 @@ class Partner {
   final String name2; // First Name
   final String name3; // Middle Name
   final String identityNumber;
+  final String? idType;
+  final String status;
+  final String? title;
+  final String? birthDate;
+  final String? gender;
+  final String? maritalStatus;
   final String email;
   final String phone;
   final List<PartnerAddress> addresses;
@@ -18,6 +24,12 @@ class Partner {
     required this.name2,
     required this.name3,
     required this.identityNumber,
+    this.idType,
+    required this.status,
+    this.title,
+    this.birthDate,
+    this.gender,
+    this.maritalStatus,
     this.email = '',
     this.phone = '',
     this.addresses = const [],
@@ -31,14 +43,27 @@ class Partner {
   }
 
   factory Partner.fromJson(Map<String, dynamic> json) {
+    final typeObj = json['type'] as Map<String, dynamic>?;
+    final identityObj = json['identity'] as Map<String, dynamic>?;
+    final statusObj = json['status'] as Map<String, dynamic>?;
+    final titleObj = json['title'] as Map<String, dynamic>?;
+    final genderObj = json['gender'] as Map<String, dynamic>?;
+    final maritalStatusObj = json['maritalStatus'] as Map<String, dynamic>?;
+
     return Partner(
-      id: json['id'] ?? json['partnerId'] ?? '',
-      number: json['number'] ?? json['partnerNo'] ?? '',
-      type: json['type'] ?? 'INDIVIDUAL',
+      id: json['id'] ?? '',
+      number: json['number'] ?? '',
+      type: typeObj?['code'] ?? 'INDIVIDUAL',
       name1: json['name1'] ?? '',
       name2: json['name2'] ?? '',
       name3: json['name3'] ?? '',
-      identityNumber: json['identityNumber'] ?? '',
+      identityNumber: identityObj?['number'] ?? json['identityNumber'] ?? '',
+      idType: (identityObj?['type'] as Map?)?['description'] ?? '',
+      status: statusObj?['description'] ?? json['status']?.toString() ?? 'Active',
+      title: titleObj?['description'] ?? '',
+      birthDate: json['birthDate'],
+      gender: genderObj?['description'] ?? '',
+      maritalStatus: maritalStatusObj?['description'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       addresses: (json['addresses'] as List? ?? [])

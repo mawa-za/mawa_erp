@@ -33,7 +33,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
     });
 
     try {
-      String path = '/v2/partner';
+      String path = '/partner';
       if (_selectedType != 'ALL') {
         path += '?type=$_selectedType';
       }
@@ -249,13 +249,44 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
                       'No: ${partner.number} • ${partner.type}',
                       style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
+                    if (partner.identityNumber.isNotEmpty)
+                      Text(
+                        'ID: ${partner.identityNumber}',
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _buildStatusChip(partner.status),
+                  const SizedBox(height: 4),
+                  const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                ],
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color = Colors.grey;
+    if (status.toUpperCase() == 'ACTIVE') color = Colors.green;
+    if (status.toUpperCase() == 'INACTIVE') color = Colors.red;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold),
       ),
     );
   }
