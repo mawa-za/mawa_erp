@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/partner.dart';
 import '../models/partner_identity.dart';
+import '../partner_service.dart';
 import 'partner_create_screen.dart';
 import 'add_identity_dialog.dart';
 import 'add_address_dialog.dart';
@@ -21,6 +22,8 @@ class PartnerDetailScreen extends StatefulWidget {
 class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
   bool _isLoading = true;
   Partner? _partner;
+  List<PartnerRole> _detailedRoles = [];
+  List<PartnerIdentity> _detailedIdentities = [];
   String? _error;
 
   @override
@@ -40,8 +43,16 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
+        final partner = Partner.fromJson(data);
+        
+        // Fetch detailed roles and identities separately
+        final roles = await PartnerService().getPartnerRoles(widget.partnerId);
+        final identities = await PartnerService().getPartnerIdentities(widget.partnerId);
+        
         setState(() {
-          _partner = Partner.fromJson(data);
+          _partner = partner;
+          _detailedRoles = roles;
+          _detailedIdentities = identities;
           _isLoading = false;
         });
       } else {
@@ -182,7 +193,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          if (partner.roles.isEmpty)
+          if (_detailedRoles.isEmpty)
             const Padding(
               padding: EdgeInsets.only(left: 8.0),
               child: Text('No roles assigned.', style: TextStyle(fontSize: 13, color: Colors.grey)),
@@ -190,10 +201,14 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           else
             Wrap(
               spacing: 8,
-              children: partner.roles.map((role) => Chip(
-                label: Text(role, style: const TextStyle(fontSize: 12)),
-                backgroundColor: colorScheme.secondaryContainer.withOpacity(0.3),
-                side: BorderSide.none,
+              runSpacing: 8,
+              children: _detailedRoles.map((role) => Tooltip(
+                message: 'Valid: ${role.validFrom ?? "N/A"} to ${role.validTo ?? "N/A"}',
+                child: Chip(
+                  label: Text(role.description, style: const TextStyle(fontSize: 12)),
+                  backgroundColor: colorScheme.secondaryContainer.withOpacity(0.3),
+                  side: BorderSide.none,
+                ),
               )).toList(),
             ),
           const SizedBox(height: 24),
@@ -213,13 +228,13 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          if (partner.identities.isEmpty)
+          if (_detailedIdentities.isEmpty)
             const Padding(
               padding: EdgeInsets.only(left: 8.0),
               child: Text('No additional identities recorded.', style: TextStyle(fontSize: 13, color: Colors.grey)),
             )
           else
-            ...partner.identities.map((identity) => _buildIdentityCard(identity, colorScheme)),
+            ..._detailedIdentities.map((identity) => _buildIdentityCard(identity, colorScheme)),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

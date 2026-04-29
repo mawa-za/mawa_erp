@@ -69,7 +69,6 @@ class Partner {
     final id = json['id'] ?? json['partnerId'] ?? '';
     final number = json['number'] ?? json['partnerNo'] ?? '';
     
-    // Determine type: check typeObj code, then partnerType field, then type field (which might be string)
     String type = typeObj?['code'] ?? json['partnerType'] ?? '';
     if (type.isEmpty && json['type'] != null && json['type'] is String) {
       type = json['type'];
@@ -84,7 +83,6 @@ class Partner {
       roles = [json['partnerRole'].toString()];
     }
 
-    // Handle birthDate formatting
     String? rawBirthDate = json['birthDate'];
     String? formattedBirthDate = rawBirthDate;
     if (rawBirthDate != null && rawBirthDate.contains(',')) {
@@ -216,5 +214,28 @@ class PartnerAddress {
       'postalCode': postalCode,
       'country': country,
     };
+  }
+}
+
+class PartnerRole {
+  final String id;
+  final String description;
+  final String? validFrom;
+  final String? validTo;
+
+  PartnerRole({
+    required this.id,
+    required this.description,
+    this.validFrom,
+    this.validTo,
+  });
+
+  factory PartnerRole.fromJson(Map<String, dynamic> json) {
+    return PartnerRole(
+      id: json['id'] ?? '',
+      description: json['description'] ?? '',
+      validFrom: json['validFrom'],
+      validTo: json['validTo'],
+    );
   }
 }
