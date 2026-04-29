@@ -7,6 +7,7 @@ import '../models/partner_identity.dart';
 import 'partner_create_screen.dart';
 import 'add_identity_dialog.dart';
 import 'add_address_dialog.dart';
+import 'add_role_dialog.dart';
 
 class PartnerDetailScreen extends StatefulWidget {
   final String partnerId;
@@ -72,6 +73,20 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AddAddressDialog(partnerId: widget.partnerId),
+    );
+
+    if (result == true) {
+      _fetchPartnerDetails();
+    }
+  }
+
+  Future<void> _showManageRolesDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AddRoleDialog(
+        partnerId: widget.partnerId,
+        currentRoles: _partner?.roles ?? [],
+      ),
     );
 
     if (result == true) {
@@ -154,6 +169,33 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeaderCard(partner, colorScheme),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSectionHeader(Icons.admin_panel_settings_outlined, 'Roles'),
+              TextButton.icon(
+                onPressed: _showManageRolesDialog,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Manage Roles'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (partner.roles.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(left: 8.0),
+              child: Text('No roles assigned.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              children: partner.roles.map((role) => Chip(
+                label: Text(role, style: const TextStyle(fontSize: 12)),
+                backgroundColor: colorScheme.secondaryContainer.withOpacity(0.3),
+                side: BorderSide.none,
+              )).toList(),
+            ),
           const SizedBox(height: 24),
           _buildSectionHeader(Icons.info_outline, 'General Information'),
           const SizedBox(height: 8),

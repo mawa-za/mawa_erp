@@ -33,7 +33,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
     });
 
     try {
-      String path = '/partner';
+      String path = '/v2/partner';
       if (_selectedType != 'ALL') {
         path += '?type=$_selectedType';
       }

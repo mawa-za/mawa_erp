@@ -20,6 +20,7 @@ class Partner {
   final String phone;
   final List<PartnerAddress> addresses;
   final List<PartnerIdentity> identities;
+  final List<String> roles;
 
   Partner({
     required this.id,
@@ -41,6 +42,7 @@ class Partner {
     this.phone = '',
     this.addresses = const [],
     this.identities = const [],
+    this.roles = const [],
   });
 
   String get fullName {
@@ -83,6 +85,7 @@ class Partner {
       identities: (json['identities'] as List? ?? [])
           .map((i) => PartnerIdentity.fromJson(i))
           .toList(),
+      roles: (json['roles'] as List? ?? []).map((r) => r.toString()).toList(),
     );
   }
 
@@ -105,6 +108,7 @@ class Partner {
       'phone': phone,
       'addresses': addresses.map((a) => a.toJson()).toList(),
       'identities': identities.map((i) => i.toJson()).toList(),
+      'roles': roles,
     };
   }
 }
