@@ -1,3 +1,5 @@
+import 'partner_identity.dart';
+
 class Partner {
   final String id;
   final String number;
@@ -15,6 +17,7 @@ class Partner {
   final String email;
   final String phone;
   final List<PartnerAddress> addresses;
+  final List<PartnerIdentity> identities;
 
   Partner({
     required this.id,
@@ -33,6 +36,7 @@ class Partner {
     this.email = '',
     this.phone = '',
     this.addresses = const [],
+    this.identities = const [],
   });
 
   String get fullName {
@@ -69,6 +73,9 @@ class Partner {
       addresses: (json['addresses'] as List? ?? [])
           .map((a) => PartnerAddress.fromJson(a))
           .toList(),
+      identities: (json['identities'] as List? ?? [])
+          .map((i) => PartnerIdentity.fromJson(i))
+          .toList(),
     );
   }
 
@@ -84,6 +91,7 @@ class Partner {
       'email': email,
       'phone': phone,
       'addresses': addresses.map((a) => a.toJson()).toList(),
+      'identities': identities.map((i) => i.toJson()).toList(),
     };
   }
 }

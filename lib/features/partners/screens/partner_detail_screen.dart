@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/partner.dart';
+import '../models/partner_identity.dart';
 import 'partner_create_screen.dart';
+import 'add_identity_dialog.dart';
 
 class PartnerDetailScreen extends StatefulWidget {
   final String partnerId;
@@ -50,6 +53,17 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         _error = 'An error occurred: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _showAddIdentityDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AddIdentityDialog(partnerId: widget.partnerId),
+    );
+
+    if (result == true) {
+      _fetchPartnerDetails();
     }
   }
 
@@ -132,6 +146,26 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           _buildSectionHeader(Icons.info_outline, 'General Information'),
           const SizedBox(height: 8),
           _buildGeneralInfoCard(partner, colorScheme),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSectionHeader(Icons.badge_outlined, 'Identities'),
+              TextButton.icon(
+                onPressed: _showAddIdentityDialog,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Identity'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (partner.identities.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(left: 8.0),
+              child: Text('No additional identities recorded.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            )
+          else
+            ...partner.identities.map((identity) => _buildIdentityCard(identity, colorScheme)),
           const SizedBox(height: 24),
           _buildSectionHeader(Icons.location_on_outlined, 'Addresses'),
           const SizedBox(height: 8),
@@ -228,7 +262,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildInfoRow(Icons.badge_outlined, 'Identity/Reg Number', partner.identityNumber.isEmpty ? 'N/A' : partner.identityNumber),
+            _buildInfoRow(Icons.badge_outlined, 'Primary Identity', partner.identityNumber.isEmpty ? 'N/A' : partner.identityNumber),
             const Divider(height: 24),
             _buildInfoRow(Icons.email_outlined, 'Email Address', partner.email.isEmpty ? 'N/A' : partner.email),
             const Divider(height: 24),
@@ -255,6 +289,30 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildIdentityCard(PartnerIdentity identity, ColorScheme colorScheme) {
+    final dateFormat = DateFormat('yyyy-MM-dd');
+    String validity = 'No expiry';
+    if (identity.validFrom != null || identity.validTo != null) {
+      final from = identity.validFrom != null ? dateFormat.format(identity.validFrom!) : '...';
+      final to = identity.validTo != null ? dateFormat.format(identity.validTo!) : '...';
+      validity = '$from to $to';
+    }
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        leading: Icon(Icons.badge_outlined, color: colorScheme.primary),
+        title: Text('${identity.type}: ${identity.number}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        subtitle: Text('Validity: $validity', style: const TextStyle(fontSize: 12)),
+      ),
     );
   }
 
