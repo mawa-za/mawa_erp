@@ -239,3 +239,39 @@ class PartnerRole {
     );
   }
 }
+
+class PartnerContact {
+  final String? partner;
+  final String type; // TELEPHONE, EMAIL-ADDRESS
+  final String value;
+  final String? validFrom;
+  final String? validTo;
+
+  PartnerContact({
+    this.partner,
+    required this.type,
+    required this.value,
+    this.validFrom,
+    this.validTo,
+  });
+
+  factory PartnerContact.fromJson(Map<String, dynamic> json) {
+    return PartnerContact(
+      partner: json['partner'],
+      type: json['type'] ?? '',
+      value: json['value'] ?? '',
+      validFrom: json['validFrom'],
+      validTo: json['validTo'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (partner != null) 'partner': partner,
+      'type': type,
+      'value': value,
+      if (validFrom != null) 'validFrom': validFrom,
+      if (validTo != null) 'validTo': validTo,
+    };
+  }
+}
