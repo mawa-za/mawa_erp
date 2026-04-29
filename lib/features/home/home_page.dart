@@ -151,6 +151,7 @@ class _MyHomePageState extends State<MyHomePage> {
       case 'business-partner':
         return Icons.contact_page_outlined;
       default:
+        if (id.toLowerCase().contains('report')) return Icons.analytics_outlined;
         return Icons.grid_view_outlined;
     }
   }
@@ -190,6 +191,9 @@ class _MyHomePageState extends State<MyHomePage> {
     final colorScheme = Theme.of(context).colorScheme;
     final double screenWidth = MediaQuery.of(context).size.width;
     final int crossAxisCount = (screenWidth / 160).floor().clamp(2, 8);
+
+    final modules = _workcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
+    final reports = _workcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
 
     return Scaffold(
       backgroundColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -247,92 +251,94 @@ class _MyHomePageState extends State<MyHomePage> {
           const SizedBox(width: 16),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: colorScheme.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              children: [
-                _buildCategoryTab('Dashboard', true),
-                const SizedBox(width: 24),
-                _buildCategoryTab('All Modules', false),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoadingWorkcenters
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Welcome back, ${_displayName?.split(' ').first ?? 'User'}',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w300,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.0,
-                          ),
-                          itemCount: _workcenters.length,
-                          itemBuilder: (context, index) {
-                            final wc = _workcenters[index];
-                            return _buildWorkcenterTile(wc);
-                          },
-                        ),
-                      ],
+      body: _isLoadingWorkcenters
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome back, ${_displayName?.split(' ').first ?? 'User'}',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w300,
+                      color: colorScheme.onSurface,
                     ),
                   ),
-          ),
-        ],
-      ),
+                  const SizedBox(height: 32),
+                  
+                  if (modules.isNotEmpty) ...[
+                    _buildSectionHeader('Operational Modules'),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.0,
+                      ),
+                      itemCount: modules.length,
+                      itemBuilder: (context, index) {
+                        return _buildWorkcenterTile(modules[index], colorScheme);
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+
+                  if (reports.isNotEmpty) ...[
+                    _buildSectionHeader('Reports & Analytics'),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.0,
+                      ),
+                      itemCount: reports.length,
+                      itemBuilder: (context, index) {
+                        return _buildWorkcenterTile(reports[index], colorScheme, isReport: true);
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildCategoryTab(String label, bool isSelected) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildSectionHeader(String title) {
+    return Row(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.6),
+        Container(
+          width: 4,
+          height: 16,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
-        if (isSelected)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            height: 3,
-            width: 24,
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
           ),
+        ),
       ],
     );
   }
 
-  Widget _buildWorkcenterTile(Workcenter wc) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildWorkcenterTile(Workcenter wc, ColorScheme colorScheme, {bool isReport = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -355,13 +361,13 @@ class _MyHomePageState extends State<MyHomePage> {
                 Icon(
                   _getIconData(wc.id),
                   size: 32,
-                  color: colorScheme.primary,
+                  color: isReport ? Colors.orange[700] : colorScheme.primary,
                 ),
                 const Spacer(),
                 Text(
                   wc.description,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: colorScheme.onSurface.withOpacity(0.8),
                   ),
