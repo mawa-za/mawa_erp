@@ -1,6 +1,8 @@
+import 'package:intl/intl.dart';
+
 class PartnerIdentity {
   final String? partner;
-  final String type;
+  final String type; // Description or Code of the identity type
   final String number;
   final DateTime? validFrom;
   final DateTime? validTo;
@@ -14,12 +16,37 @@ class PartnerIdentity {
   });
 
   factory PartnerIdentity.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is String) {
+        try {
+          return DateTime.parse(value);
+        } catch (_) {
+          try {
+            // Handle "Sep 9, 2024" format
+            return DateFormat("MMM d, yyyy").parse(value);
+          } catch (_) {
+            return null;
+          }
+        }
+      }
+      return null;
+    }
+
+    String typeValue = '';
+    final typeJson = json['type'];
+    if (typeJson is Map) {
+      typeValue = typeJson['description'] ?? typeJson['code'] ?? '';
+    } else if (typeJson is String) {
+      typeValue = typeJson;
+    }
+
     return PartnerIdentity(
       partner: json['partner'],
-      type: json['type'] ?? '',
+      type: typeValue,
       number: json['number'] ?? '',
-      validFrom: json['validFrom'] != null ? DateTime.parse(json['validFrom']) : null,
-      validTo: json['validTo'] != null ? DateTime.parse(json['validTo']) : null,
+      validFrom: parseDate(json['validFrom']),
+      validTo: parseDate(json['validTo']),
     );
   }
 

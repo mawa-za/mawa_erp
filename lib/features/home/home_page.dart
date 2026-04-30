@@ -8,6 +8,8 @@ import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
+import '../settings/screens/settings_screen.dart';
+import '../settings/screens/user_list_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import 'models/workcenter.dart';
 
@@ -23,7 +25,10 @@ class _MyHomePageState extends State<MyHomePage> {
   String? _displayName;
   String? _selectedRole;
   List<Workcenter> _workcenters = [];
+  List<Workcenter> _filteredWorkcenters = [];
   bool _isLoadingWorkcenters = true;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -40,6 +45,8 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     if (role != null) {
       _fetchWorkcenters(role);
+    } else {
+      setState(() => _isLoadingWorkcenters = false);
     }
   }
 
@@ -52,6 +59,7 @@ class _MyHomePageState extends State<MyHomePage> {
         setState(() {
           _workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
           _workcenters.sort((a, b) => a.position.compareTo(b.position));
+          _filteredWorkcenters = _workcenters;
           _isLoadingWorkcenters = false;
         });
       } else {
@@ -60,6 +68,20 @@ class _MyHomePageState extends State<MyHomePage> {
     } catch (e) {
       setState(() => _isLoadingWorkcenters = false);
     }
+  }
+
+  void _applySearch(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredWorkcenters = _workcenters;
+      } else {
+        final lowercaseQuery = query.toLowerCase();
+        _filteredWorkcenters = _workcenters.where((wc) {
+          return wc.description.toLowerCase().contains(lowercaseQuery) ||
+                 wc.id.toLowerCase().contains(lowercaseQuery);
+        }).toList();
+      }
+    });
   }
 
   Future<void> _changeRole() async {
@@ -137,50 +159,37 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   IconData _getIconData(String id) {
-    switch (id.toLowerCase()) {
-      case 'membership':
-      case 'membership-approval':
-        return Icons.people_outline;
-      case 'claim':
-      case 'claim-approval':
-        return Icons.request_quote_outlined;
-      case 'group-society':
-        return Icons.groups;
-      case 'invoicing':
-        return Icons.receipt_long_outlined;
-      case 'business-partner':
-        return Icons.contact_page_outlined;
-      default:
-        return Icons.grid_view_outlined;
-    }
+    final lowerId = id.toLowerCase();
+    if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_outline;
+    if (lowerId.contains('claim') || lowerId.contains('payment')) return Icons.request_quote_outlined;
+    if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups;
+    if (lowerId.contains('invoic')) return Icons.receipt_long_outlined;
+    if (lowerId.contains('partner')) return Icons.contact_page_outlined;
+    if (lowerId.contains('user')) return Icons.person_outline;
+    if (lowerId.contains('setting')) return Icons.settings_outlined;
+    if (lowerId.contains('report')) return Icons.analytics_outlined;
+    return Icons.grid_view_outlined;
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
     final id = wc.id.toLowerCase();
     final description = wc.description.toLowerCase();
 
-    if (id.contains('invoic')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const InvoiceListScreen()),
-      );
-    } else if (id.contains('membership')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const MemberListScreen()),
-      );
+    if (id.contains('invoic') || description.contains('invoic')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
+    } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
     } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()),
-      );
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('partner') || description.contains('partner')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const PartnerListScreen()),
-      );
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
+    } else if (id.contains('user')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const UserListScreen()));
+    } else if (id.contains('setting') || description.contains('setting')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemSettingsScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${wc.description} feature coming soon'),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -191,6 +200,9 @@ class _MyHomePageState extends State<MyHomePage> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final int crossAxisCount = (screenWidth / 160).floor().clamp(2, 8);
 
+    final modules = _filteredWorkcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
+    final reports = _filteredWorkcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
+
     return Scaffold(
       backgroundColor: colorScheme.surfaceVariant.withOpacity(0.3),
       appBar: AppBar(
@@ -198,12 +210,13 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
         centerTitle: false,
-        title: const Text(
-          'Mawa ERP',
-          style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5),
-        ),
+        title: const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5)),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.search), 
+            onPressed: () => _searchFocusNode.requestFocus(),
+            tooltip: 'Search modules',
+          ),
           IconButton(icon: const Icon(Icons.notifications_none), onPressed: () {}),
           const SizedBox(width: 8),
           Center(
@@ -220,9 +233,7 @@ class _MyHomePageState extends State<MyHomePage> {
               onSelected: (value) {
                 if (value == 'change_role') _changeRole();
                 if (value == 'change_password') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
-                  );
+                  Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ChangePasswordScreen()));
                 }
                 if (value == 'logout') _showLogoutConfirmation();
               },
@@ -247,100 +258,115 @@ class _MyHomePageState extends State<MyHomePage> {
           const SizedBox(width: 16),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: colorScheme.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              children: [
-                _buildCategoryTab('Dashboard', true),
-                const SizedBox(width: 24),
-                _buildCategoryTab('All Modules', false),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoadingWorkcenters
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Welcome back, ${_displayName?.split(' ').first ?? 'User'}',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w300,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.0,
-                          ),
-                          itemCount: _workcenters.length,
-                          itemBuilder: (context, index) {
-                            final wc = _workcenters[index];
-                            return _buildWorkcenterTile(wc);
-                          },
-                        ),
-                      ],
-                    ),
+      body: _isLoadingWorkcenters
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome back, ${_displayName?.split(' ').first ?? 'User'}',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w300, color: colorScheme.onSurface),
                   ),
-          ),
-        ],
+                  const SizedBox(height: 24),
+                  
+                  _buildSearchBar(colorScheme),
+                  const SizedBox(height: 32),
+                  
+                  if (modules.isNotEmpty) ...[
+                    _buildSectionHeader('Operational Modules'),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.0,
+                      ),
+                      itemCount: modules.length,
+                      itemBuilder: (context, index) => _buildWorkcenterTile(modules[index], colorScheme),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+
+                  if (reports.isNotEmpty) ...[
+                    _buildSectionHeader('Reports & Analytics'),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.0,
+                      ),
+                      itemCount: reports.length,
+                      itemBuilder: (context, index) => _buildWorkcenterTile(reports[index], colorScheme, isReport: true),
+                    ),
+                  ],
+
+                  if (_filteredWorkcenters.isEmpty && _searchController.text.isNotEmpty)
+                    Center(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 48),
+                          Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text('No matching modules found', style: TextStyle(color: Colors.grey[600])),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSearchBar(ColorScheme colorScheme) {
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      onChanged: _applySearch,
+      decoration: InputDecoration(
+        hintText: 'Search modules and reports...',
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _searchController.text.isNotEmpty
+          ? IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                _searchController.clear();
+                _applySearch('');
+              },
+            )
+          : null,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16),
       ),
     );
   }
 
-  Widget _buildCategoryTab(String label, bool isSelected) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildSectionHeader(String title) {
+    return Row(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.6),
-          ),
-        ),
-        if (isSelected)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            height: 3,
-            width: 24,
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+        Icon(Icons.arrow_right, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 4),
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
       ],
     );
   }
 
-  Widget _buildWorkcenterTile(Workcenter wc) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildWorkcenterTile(Workcenter wc, ColorScheme colorScheme, {bool isReport = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Material(
         color: Colors.transparent,
@@ -352,19 +378,11 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  _getIconData(wc.id),
-                  size: 32,
-                  color: colorScheme.primary,
-                ),
+                Icon(_getIconData(wc.id), size: 32, color: isReport ? Colors.orange[700] : colorScheme.primary),
                 const Spacer(),
                 Text(
                   wc.description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface.withOpacity(0.8),
-                  ),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorScheme.onSurface.withOpacity(0.8)),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -374,5 +392,12 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 }
