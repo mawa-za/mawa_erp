@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/membership.dart';
 import '../services/membership_service.dart';
 import 'add_member_screen.dart';
+import 'membership_detail_screen.dart';
 
 class MemberListScreen extends StatefulWidget {
   const MemberListScreen({super.key});
@@ -214,7 +215,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
       ),
       child: InkWell(
         onTap: () {
-          // TODO: Navigate to Details
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => MembershipDetailScreen(membershipId: membership.transactionId),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
