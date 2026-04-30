@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
+import '../models/premium.dart';
 import '../services/membership_service.dart';
 import '../../../core/widgets/attachment_section.dart';
 
@@ -17,6 +18,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   bool _isLoading = true;
   MembershipDetail? _detail;
   List<Dependent> _dependents = [];
+  List<Premium> _premiums = [];
   String? _error;
 
   @override
@@ -34,11 +36,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     try {
       final detail = await MembershipService().getMembershipDetail(widget.membershipId);
       final dependents = await MembershipService().getMembershipDependents(widget.membershipId);
-      
+      final premiums = await MembershipService().getMembershipPremiums(widget.membershipId);
+
       if (mounted) {
         setState(() {
           _detail = detail;
           _dependents = dependents;
+          _premiums = premiums;
           _isLoading = false;
         });
       }
@@ -121,6 +125,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildProductList(detail.products, colorScheme),
           const SizedBox(height: 16),
           _buildSalesRepCard(detail.salesRepresentative, colorScheme),
+          const SizedBox(height: 16),
+          _buildPremiumSection(colorScheme),
           const SizedBox(height: 16),
           _buildDependentsSection(colorScheme),
           const SizedBox(height: 16),
@@ -242,6 +248,65 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPremiumSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('PAID PREMIUMS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+        ),
+        if (_premiums.isEmpty)
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(
+                child: Text('No paid premiums found', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              ),
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _premiums.length,
+            itemBuilder: (context, index) {
+              final premium = _premiums[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                child: ListTile(
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.green.withOpacity(0.1),
+                    child: const Icon(Icons.receipt_long, size: 16, color: Colors.green),
+                  ),
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Period: ${premium.membershipPeriod}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text('R ${premium.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 14)),
+                    ],
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Receipt: ${premium.receiptNumber} (${premium.tenderType.description})', style: const TextStyle(fontSize: 11)),
+                      Text('Date: ${premium.creationDate} ${premium.creationTime}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 

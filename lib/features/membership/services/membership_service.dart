@@ -3,6 +3,7 @@ import '../../../core/api_client.dart';
 import '../models/membership.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
+import '../models/premium.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
@@ -57,6 +58,20 @@ class MembershipService {
         return data.map((json) => Dependent.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load membership dependents: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Premium>> getMembershipPremiums(String membershipId) async {
+    try {
+      final response = await ApiClient().get('/v2/premium?membershipId=$membershipId');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Premium.fromJson(Map<String, dynamic>.from(json))).toList();
+      } else {
+        throw Exception('Failed to load paid premiums: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
