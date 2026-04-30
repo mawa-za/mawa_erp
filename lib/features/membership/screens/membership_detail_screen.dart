@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
+import '../models/dependent.dart';
 import '../services/membership_service.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
@@ -14,15 +15,16 @@ class MembershipDetailScreen extends StatefulWidget {
 class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   bool _isLoading = true;
   MembershipDetail? _detail;
+  List<Dependent> _dependents = [];
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchDetail();
+    _fetchData();
   }
 
-  Future<void> _fetchDetail() async {
+  Future<void> _fetchData() async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -30,9 +32,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
     try {
       final detail = await MembershipService().getMembershipDetail(widget.membershipId);
+      final dependents = await MembershipService().getMembershipDependents(widget.membershipId);
+      
       if (mounted) {
         setState(() {
           _detail = detail;
+          _dependents = dependents;
           _isLoading = false;
         });
       }
@@ -60,7 +65,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchDetail,
+            onPressed: _fetchData,
           ),
         ],
       ),
@@ -69,6 +74,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           : _error != null
               ? _buildErrorWidget(colorScheme)
               : _buildContent(colorScheme),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // TODO: Implement add dependent
+        },
+        label: const Text('Add Dependent'),
+        icon: const Icon(Icons.person_add_outlined),
+      ),
     );
   }
 
@@ -85,7 +97,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             const SizedBox(height: 8),
             Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 24),
-            ElevatedButton(onPressed: _fetchDetail, child: const Text('RETRY')),
+            ElevatedButton(onPressed: _fetchData, child: const Text('RETRY')),
           ],
         ),
       ),
@@ -105,9 +117,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 16),
           _buildMembershipInfoCard(detail, colorScheme),
           const SizedBox(height: 16),
+          _buildDependentsSection(colorScheme),
+          const SizedBox(height: 16),
           _buildProductList(detail.products, colorScheme),
           const SizedBox(height: 16),
           _buildSalesRepCard(detail.salesRepresentative, colorScheme),
+          const SizedBox(height: 80), // Space for FAB
         ],
       ),
     );
@@ -177,7 +192,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               children: [
                 CircleAvatar(
                   backgroundColor: colorScheme.primaryContainer,
-                  child: Text(member.firstName[0], style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
+                  child: Text(member.firstName.isNotEmpty ? member.firstName[0] : '?', 
+                    style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -223,6 +239,61 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDependentsSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('DEPENDENTS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+        ),
+        if (_dependents.isEmpty)
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(
+                child: Text('No dependents found', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              ),
+            ),
+          )
+        else
+          ..._dependents.map((dependent) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: ExpansionTile(
+              leading: CircleAvatar(
+                radius: 16,
+                backgroundColor: colorScheme.secondaryContainer,
+                child: Text(dependent.firstName.isNotEmpty ? dependent.firstName[0] : '?', 
+                  style: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+              title: Text('${dependent.title?.description ?? ''} ${dependent.fullName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Text('No: ${dependent.number}', style: const TextStyle(fontSize: 12)),
+              trailing: _buildStatusChip(dependent.status?.description ?? 'Active', isCompact: true),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
+                    children: [
+                      const Divider(),
+                      _buildInfoRow(Icons.badge_outlined, 'Identity', '${dependent.identity?.type.description ?? 'ID'}: ${dependent.identity?.number ?? 'N/A'}'),
+                      const SizedBox(height: 4),
+                      _buildInfoRow(Icons.cake_outlined, 'Birth Date', dependent.birthDate ?? 'N/A'),
+                      const SizedBox(height: 4),
+                      _buildInfoRow(Icons.wc_outlined, 'Gender/Marital', '${dependent.gender?.description ?? 'N/A'} / ${dependent.maritalStatus?.description ?? 'N/A'}'),
+                    ],
+                  ),
+                )
+              ],
+            ),
+          )),
+      ],
     );
   }
 

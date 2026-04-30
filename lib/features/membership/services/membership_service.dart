@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../models/membership.dart';
 import '../models/membership_detail.dart';
+import '../models/dependent.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
@@ -42,6 +43,20 @@ class MembershipService {
         return MembershipDetail.fromJson(data);
       } else {
         throw Exception('Failed to load membership details: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Dependent>> getMembershipDependents(String id) async {
+    try {
+      final response = await ApiClient().get('/v2/membership/$id/dependent');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Dependent.fromJson(Map<String, dynamic>.from(json))).toList();
+      } else {
+        throw Exception('Failed to load membership dependents: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
