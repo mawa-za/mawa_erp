@@ -37,6 +37,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       final detail = await MembershipService().getMembershipDetail(widget.membershipId);
       final dependents = await MembershipService().getMembershipDependents(widget.membershipId);
       final premiums = await MembershipService().getMembershipPremiums(widget.membershipId);
+      
+      // Sort premiums by period DESC
+      premiums.sort((a, b) => b.membershipPeriod.compareTo(a.membershipPeriod));
 
       if (mounted) {
         setState(() {
@@ -252,14 +255,14 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildPremiumSection(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('PAID PREMIUMS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
-        ),
-        if (_premiums.isEmpty)
+    if (_premiums.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 8),
+            child: Text('PAID PREMIUMS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+          ),
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
@@ -269,45 +272,113 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 child: Text('No paid premiums found', style: TextStyle(color: Colors.grey, fontSize: 13)),
               ),
             ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _premiums.length,
-            itemBuilder: (context, index) {
-              final premium = _premiums[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-                child: ListTile(
-                  dense: true,
-                  leading: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Colors.green.withOpacity(0.1),
-                    child: const Icon(Icons.receipt_long, size: 16, color: Colors.green),
-                  ),
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Period: ${premium.membershipPeriod}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text('R ${premium.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 14)),
-                    ],
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Receipt: ${premium.receiptNumber} (${premium.tenderType.description})', style: const TextStyle(fontSize: 11)),
-                      Text('Date: ${premium.creationDate} ${premium.creationTime}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                    ],
-                  ),
-                ),
-              );
-            },
           ),
+        ],
+      );
+    }
+
+    // Group premiums by year
+    final Map<String, List<Premium>> groupedPremiums = {};
+    for (var premium in _premiums) {
+      final year = premium.membershipPeriod.length >= 4 
+          ? premium.membershipPeriod.substring(0, 4) 
+          : 'Other';
+      if (!groupedPremiums.containsKey(year)) {
+        groupedPremiums[year] = [];
+      }
+      groupedPremiums[year]!.add(premium);
+    }
+
+    final sortedYears = groupedPremiums.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 8),
+              child: Text('PAID PREMIUMS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 4, bottom: 8),
+              child: Text('${_premiums.length} Total', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            ),
+          ],
+        ),
+        ...sortedYears.map((year) {
+          final yearPremiums = groupedPremiums[year]!;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.shade200),
+            ),
+            child: ExpansionTile(
+              initiallyExpanded: year == sortedYears.first,
+              shape: const RoundedRectangleBorder(side: BorderSide.none),
+              collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+              leading: CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.green.withOpacity(0.1),
+                child: Text(year.substring(2), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+              ),
+              title: Text('$year Premiums', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Text('${yearPremiums.length} payments', style: const TextStyle(fontSize: 12)),
+              children: [
+                const Divider(height: 1),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: yearPremiums.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1, indent: 16, endIndent: 16),
+                  itemBuilder: (context, index) {
+                    final premium = yearPremiums[index];
+                    return ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      title: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_formatPeriod(premium.membershipPeriod), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          Text('R ${premium.amount.toStringAsFixed(2)}', 
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 14)),
+                        ],
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Receipt: ${premium.receiptNumber} • ${premium.tenderType.description}', style: const TextStyle(fontSize: 11)),
+                          Text('${premium.creationDate} ${premium.creationTime}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.check_circle, size: 14, color: Colors.green),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        }),
       ],
     );
+  }
+
+  String _formatPeriod(String period) {
+    if (period.length != 6) return period;
+    final year = period.substring(0, 4);
+    final month = period.substring(4, 6);
+    final monthName = _getMonthName(int.tryParse(month) ?? 0);
+    return '$monthName $year';
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (month < 1 || month > 12) return 'Month $month';
+    return months[month - 1];
   }
 
   Widget _buildDependentsSection(ColorScheme colorScheme) {
