@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../services/membership_service.dart';
+import '../../../core/widgets/attachment_section.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -117,11 +118,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 16),
           _buildMembershipInfoCard(detail, colorScheme),
           const SizedBox(height: 16),
-          _buildDependentsSection(colorScheme),
-          const SizedBox(height: 16),
           _buildProductList(detail.products, colorScheme),
           const SizedBox(height: 16),
           _buildSalesRepCard(detail.salesRepresentative, colorScheme),
+          const SizedBox(height: 16),
+          _buildDependentsSection(colorScheme),
+          const SizedBox(height: 16),
+          _buildAttachmentSection(detail.id),
           const SizedBox(height: 80), // Space for FAB
         ],
       ),
@@ -324,6 +327,20 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           ),
         )),
       ],
+    );
+  }
+
+  Widget _buildAttachmentSection(String membershipId) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: AttachmentSection(objectId: membershipId),
+      ),
     );
   }
 
