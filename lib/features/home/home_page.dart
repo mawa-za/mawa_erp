@@ -159,36 +159,25 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   IconData _getIconData(String id) {
-    switch (id.toLowerCase()) {
-      case 'membership':
-      case 'membership-approval':
-        return Icons.people_outline;
-      case 'claim':
-      case 'claim-approval':
-        return Icons.request_quote_outlined;
-      case 'group-society':
-        return Icons.groups;
-      case 'invoicing':
-        return Icons.receipt_long_outlined;
-      case 'business-partner':
-        return Icons.contact_page_outlined;
-      case 'user':
-        return Icons.person_outline;
-      case 'setting':
-        return Icons.settings_outlined;
-      default:
-        if (id.toLowerCase().contains('report')) return Icons.analytics_outlined;
-        return Icons.grid_view_outlined;
-    }
+    final lowerId = id.toLowerCase();
+    if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_outline;
+    if (lowerId.contains('claim') || lowerId.contains('payment')) return Icons.request_quote_outlined;
+    if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups;
+    if (lowerId.contains('invoic')) return Icons.receipt_long_outlined;
+    if (lowerId.contains('partner')) return Icons.contact_page_outlined;
+    if (lowerId.contains('user')) return Icons.person_outline;
+    if (lowerId.contains('setting')) return Icons.settings_outlined;
+    if (lowerId.contains('report')) return Icons.analytics_outlined;
+    return Icons.grid_view_outlined;
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
     final id = wc.id.toLowerCase();
     final description = wc.description.toLowerCase();
 
-    if (id.contains('invoic')) {
+    if (id.contains('invoic') || description.contains('invoic')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
-    } else if (id.contains('membership')) {
+    } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
     } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));

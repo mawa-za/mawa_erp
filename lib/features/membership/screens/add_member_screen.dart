@@ -1,6 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../../core/api_client.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/membership_service.dart';
+import '../../partners/models/partner.dart';
+import '../../../core/widgets/partner_search_dropdown.dart';
+import '../../../core/widgets/app_dropdown.dart';
 
 class AddMemberScreen extends StatefulWidget {
   const AddMemberScreen({super.key});
@@ -11,48 +15,58 @@ class AddMemberScreen extends StatefulWidget {
 
 class _AddMemberScreenState extends State<AddMemberScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _memberNumberController = TextEditingController();
   bool _isLoading = false;
 
-  Future<void> _saveMember() async {
+  // Form Fields
+  Partner? _selectedMember;
+  Partner? _selectedRep;
+  String? _selectedMembershipType;
+  String? _selectedProduct;
+  String? _selectedCreationType;
+  String? _selectedSalesArea;
+  DateTime _dateJoined = DateTime.now();
+
+  Future<void> _saveMembership() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedMember == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a member')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final response = await ApiClient().post(
-        '/member',
-        body: {
-          'firstName': _firstNameController.text.trim(),
-          'lastName': _lastNameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'memberNumber': _memberNumberController.text.trim(),
-          'status': 'Active', // Default status
-        },
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Member created successfully')),
-          );
-          Navigator.of(context).pop(true); // Return true to indicate a refresh is needed
-        }
-      } else {
-        final error = jsonDecode(response.body);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${error['message'] ?? response.statusCode}')),
-          );
-        }
+      final payload = {
+        "memberId": _selectedMember!.id,
+        "salesRepresentativeId": _selectedRep?.id ?? userId,
+        "membershipType": _selectedMembershipType,
+        "productId": _selectedProduct,
+        "creationType": _selectedCreationType,
+        "salesArea": _selectedSalesArea,
+        "dateJoined": _dateJoined.toUtc().toIso8601String(),
+        // Optional fields from schema:
+        // "previousInsurerId": "",
+        // "lastReceiptDate": "",
+        // "currentMembershipId": ""
+      };
+
+      await MembershipService().createMembership(payload);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Membership created successfully')),
+        );
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -61,87 +75,149 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   }
 
   @override
-  void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _memberNumberController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Member'),
+        title: const Text('Link Membership'),
+        elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _firstNameController,
-                decoration: const InputDecoration(
-                  labelText: 'First Name',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+              _buildSectionTitle('Primary Information'),
+              const SizedBox(height: 16),
+              PartnerSearchDropdown(
+                role: 'MEMBER',
+                label: 'Select Member',
+                onPartnerSelected: (p) => setState(() => _selectedMember = p),
+                validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _lastNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Last Name',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+              PartnerSearchDropdown(
+                role: 'EMPLOYEE',
+                label: 'Sales Representative (Optional)',
+                onPartnerSelected: (p) => setState(() => _selectedRep = p),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionTitle('Membership Details'),
+              const SizedBox(height: 16),
+              AppDropdownField(
+                field: 'MEMBERSHIP-TYPE',
+                label: 'Membership Type',
+                icon: Icons.card_membership_outlined,
+                value: _selectedMembershipType,
+                onChanged: (v) => setState(() => _selectedMembershipType = v),
+                validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email Address',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) return 'Required';
-                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                    return 'Invalid email format';
-                  }
-                  return null;
-                },
+              AppDropdownField(
+                field: 'PRODUCT',
+                label: 'Product',
+                icon: Icons.inventory_2_outlined,
+                value: _selectedProduct,
+                onChanged: (v) => setState(() => _selectedProduct = v),
+                validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _memberNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'Member Number',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.badge_outlined),
-                ),
-                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+              Row(
+                children: [
+                  Expanded(
+                    child: AppDropdownField(
+                      field: 'CREATION-TYPE',
+                      label: 'Creation Type',
+                      value: _selectedCreationType,
+                      onChanged: (v) => setState(() => _selectedCreationType = v),
+                      validator: (v) => v == null ? 'Required' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: AppDropdownField(
+                      field: 'SALES-AREA',
+                      label: 'Sales Area',
+                      value: _selectedSalesArea,
+                      onChanged: (v) => setState(() => _selectedSalesArea = v),
+                      validator: (v) => v == null ? 'Required' : null,
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 16),
+              _buildDatePickerField('Date Joined', _dateJoined, (date) => setState(() => _dateJoined = date)),
               const SizedBox(height: 32),
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
-                      onPressed: _saveMember,
+                      onPressed: _saveMembership,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('CREATE MEMBER', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text('LINK MEMBERSHIP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                     ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[600],
+            letterSpacing: 1.2,
+          ),
+        ),
+        const Divider(),
+      ],
+    );
+  }
+
+  Widget _buildDatePickerField(String label, DateTime date, Function(DateTime) onPicked) {
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: date,
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2101),
+        );
+        if (picked != null) onPicked(picked);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade400),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month_outlined, size: 20, color: Colors.grey),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                Text(
+                  DateFormat('yyyy-MM-dd').format(date),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
