@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../models/membership.dart';
+import '../models/membership_detail.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
@@ -27,6 +28,20 @@ class MembershipService {
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to create membership: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<MembershipDetail> getMembershipDetail(String id) async {
+    try {
+      final response = await ApiClient().get('/v2/membership/$id');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return MembershipDetail.fromJson(data);
+      } else {
+        throw Exception('Failed to load membership details: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
