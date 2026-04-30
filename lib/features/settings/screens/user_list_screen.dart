@@ -13,8 +13,10 @@ class UserListScreen extends StatefulWidget {
 
 class _UserListScreenState extends State<UserListScreen> {
   bool _isLoading = true;
-  List<User> _users = [];
+  List<User> _allUsers = [];
+  List<User> _filteredUsers = [];
   String? _error;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -31,8 +33,10 @@ class _UserListScreenState extends State<UserListScreen> {
       final users = await UserService().getUsers();
       if (mounted) {
         setState(() {
-          _users = users;
+          _allUsers = users;
+          _filteredUsers = users;
           _isLoading = false;
+          _applySearch(_searchController.text);
         });
       }
     } catch (e) {
@@ -43,6 +47,20 @@ class _UserListScreenState extends State<UserListScreen> {
         });
       }
     }
+  }
+
+  void _applySearch(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredUsers = _allUsers;
+      } else {
+        final lowercaseQuery = query.toLowerCase();
+        _filteredUsers = _allUsers.where((user) {
+          return user.username.toLowerCase().contains(lowercaseQuery) ||
+                 (user.email?.toLowerCase().contains(lowercaseQuery) ?? false);
+        }).toList();
+      }
+    });
   }
 
   @override
@@ -63,39 +81,20 @@ class _UserListScreenState extends State<UserListScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, size: 64, color: colorScheme.error.withOpacity(0.5)),
-                        const SizedBox(height: 16),
-                        Text('Failed to load users', style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 8),
-                        Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
-                        const SizedBox(height: 24),
-                        FilledButton.icon(
-                          onPressed: _fetchUsers,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('RETRY'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _users.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final user = _users[index];
-                    return _buildUserCard(user, colorScheme);
-                  },
-                ),
+      body: Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? _buildErrorWidget(colorScheme)
+                    : _filteredUsers.isEmpty
+                        ? _buildEmptyWidget()
+                        : _buildUserList(colorScheme),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.of(context).push(
@@ -106,6 +105,91 @@ class _UserListScreenState extends State<UserListScreen> {
         },
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _applySearch,
+        decoration: InputDecoration(
+          hintText: 'Search users...',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 20),
+                  onPressed: () {
+                    _searchController.clear();
+                    _applySearch('');
+                  },
+                )
+              : null,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          fillColor: Colors.grey[100],
+          filled: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget(ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: colorScheme.error.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            Text('Failed to load users', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _fetchUsers,
+              icon: const Icon(Icons.refresh),
+              label: const Text('RETRY'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.person_search_outlined, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text('No users found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserList(ColorScheme colorScheme) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _filteredUsers.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final user = _filteredUsers[index];
+        return _buildUserCard(user, colorScheme);
+      },
     );
   }
 
