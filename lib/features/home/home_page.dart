@@ -255,6 +255,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                               ],
                             ),
                           ),
+                        const SizedBox(height: 40),
+                        _buildFooter(),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -593,6 +596,24 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Center(
+      child: Column(
+        children: [
+          Text(
+            '© 2025 Mawa ERP',
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'v1.0.0+1',
+            style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w300),
+          ),
+        ],
       ),
     );
   }
