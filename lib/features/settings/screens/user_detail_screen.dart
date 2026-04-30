@@ -16,7 +16,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   List<String> _roles = [];
   String? _error;
 
-  // This would ideally come from an API (e.g., GET /role)
   final List<String> _availableRoles = [
     'SYSTEM-ADMINISTRATOR',
     'MEMBERSHIP-MAINTAINER',
@@ -33,17 +32,22 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 
   Future<void> _fetchUserDetails() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      final user = await UserService().getUser(widget.userId);
-      final roles = await UserService().getUserRoles(widget.userId);
+      // Fetch user and roles in parallel
+      final results = await Future.wait([
+        UserService().getUser(widget.userId),
+        UserService().getUserRoles(widget.userId),
+      ]);
+
       if (mounted) {
         setState(() {
-          _user = user;
-          _roles = roles;
+          _user = results[0] as User;
+          _roles = results[1] as List<String>;
           _isLoading = false;
         });
       }
@@ -87,8 +91,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Manage User Roles'),
-          content: SingleChildScrollView(
-            child: ListBody(
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
               children: _availableRoles.map((role) {
                 final isSelected = selectedRoles.contains(role);
                 return CheckboxListTile(
@@ -186,7 +192,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             Icon(Icons.error_outline, size: 64, color: colorScheme.error.withOpacity(0.5)),
             const SizedBox(height: 16),
             Text('Failed to load user', style: Theme.of(context).textTheme.titleMedium),
-            Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
             const SizedBox(height: 24),
             FilledButton.icon(onPressed: _fetchUserDetails, icon: const Icon(Icons.refresh), label: const Text('RETRY')),
           ],
@@ -259,6 +266,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   Widget _buildHeaderCard(User user, ColorScheme colorScheme) {
     final bool isActive = user.status.toUpperCase() == 'ACTIVE';
+    final String initial = user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -271,7 +280,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.white24,
-            child: Text(user.username[0].toUpperCase(), style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(initial, style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 16),
           Expanded(

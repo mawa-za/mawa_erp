@@ -12,9 +12,9 @@ class UserService {
       final response = await ApiClient().get('/v2/user');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => User.fromJson(json)).toList();
+        return data.map((json) => User.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load users');
+        throw Exception('Failed to load users: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -25,9 +25,9 @@ class UserService {
     try {
       final response = await ApiClient().get('/v2/user/$userId');
       if (response.statusCode == 200) {
-        return User.fromJson(jsonDecode(response.body));
+        return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
-        throw Exception('Failed to load user: ${response.body}');
+        throw Exception('Failed to load user: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -39,12 +39,12 @@ class UserService {
       final response = await ApiClient().get('/v2/user/$userId/role');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.cast<String>();
+        return data.map((e) => e.toString()).toList();
       } else {
-        throw Exception('Failed to load user roles: ${response.body}');
+        return [];
       }
     } catch (e) {
-      rethrow;
+      return [];
     }
   }
 

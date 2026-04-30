@@ -27,16 +27,18 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] ?? '',
-      username: json['username'] ?? '',
-      email: json['email'],
-      cellphone: json['cellphone'],
-      type: json['type'] ?? '',
-      status: json['status'] ?? '',
-      partner: json['partner'] != null ? Partner.fromJson(json['partner']) : null,
-      passwordStatus: json['passwordStatus'],
-      validFrom: json['validFrom'],
-      validTo: json['validTo'],
+      id: (json['id'] ?? '').toString(),
+      username: (json['username'] ?? '').toString(),
+      email: json['email']?.toString(),
+      cellphone: json['cellphone']?.toString(),
+      type: (json['type'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      partner: json['partner'] != null && json['partner'] is Map
+          ? Partner.fromJson(Map<String, dynamic>.from(json['partner']))
+          : null,
+      passwordStatus: json['passwordStatus']?.toString(),
+      validFrom: json['validFrom']?.toString(),
+      validTo: json['validTo']?.toString(),
     );
   }
 

@@ -55,75 +55,76 @@ class Partner {
 
   factory Partner.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic>? asMap(dynamic value) {
-      return value is Map<String, dynamic> ? value : null;
+      if (value == null) return null;
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return null;
     }
 
-    final typeObj = asMap(json['type']);
-    final identityObj = asMap(json['identity']);
-    final statusObj = asMap(json['status']);
-    final titleObj = asMap(json['title']);
-    final genderObj = asMap(json['gender']);
-    final maritalStatusObj = asMap(json['maritalStatus']);
-    final languageObj = asMap(json['language']);
+    String getStringFromObj(dynamic obj, {String key = 'code'}) {
+      if (obj == null) return '';
+      if (obj is String) return obj;
+      if (obj is Map) return (obj[key] ?? obj['description'] ?? '').toString();
+      return obj.toString();
+    }
 
-    final id = json['id'] ?? json['partnerId'] ?? '';
-    final number = json['number'] ?? json['partnerNo'] ?? '';
+    final id = (json['id'] ?? json['partnerId'] ?? '').toString();
+    final number = (json['number'] ?? json['partnerNo'] ?? '').toString();
     
-    String type = typeObj?['code'] ?? json['partnerType'] ?? '';
-    if (type.isEmpty && json['type'] != null && json['type'] is String) {
-      type = json['type'];
-    }
-    if (type.isEmpty) type = 'INDIVIDUAL';
+    final type = getStringFromObj(json['type']);
+    final status = getStringFromObj(json['status']);
+    final title = getStringFromObj(json['title']);
+    final gender = getStringFromObj(json['gender']);
+    final maritalStatus = getStringFromObj(json['maritalStatus']);
+    final language = getStringFromObj(json['language'], key: 'description');
+
+    final identityObj = asMap(json['identity']);
 
     List<String> roles = [];
     if (json['roles'] is List) {
       roles = (json['roles'] as List).map((r) => r.toString()).toList();
-    }
-    if (roles.isEmpty && json['partnerRole'] != null) {
+    } else if (json['partnerRole'] != null) {
       roles = [json['partnerRole'].toString()];
     }
 
-    String? rawBirthDate = json['birthDate'];
-    String? formattedBirthDate = rawBirthDate;
-    if (rawBirthDate != null && rawBirthDate.contains(',')) {
+    String? parseDate(String? rawDate) {
+      if (rawDate == null || rawDate.isEmpty) return null;
+      if (!rawDate.contains(',')) return rawDate;
       try {
-        // Try short format first (e.g., Jan 23, 1995)
-        final format = DateFormat("MMM d, yyyy");
-        final date = format.parse(rawBirthDate);
-        formattedBirthDate = date.toIso8601String();
+        // Try short format: Jan 23, 1995
+        return DateFormat("MMM d, yyyy").parse(rawDate.trim()).toIso8601String();
       } catch (_) {
         try {
-          // Try long format (e.g., Sep 5, 2024, 12:00:00 AM)
-          final format = DateFormat("MMM d, yyyy, hh:mm:ss a");
-          final date = format.parse(rawBirthDate);
-          formattedBirthDate = date.toIso8601String();
-        } catch (_) {}
+          // Try long format: Sep 5, 2024, 12:00:00 AM
+          return DateFormat("MMM d, yyyy, hh:mm:ss a").parse(rawDate.trim()).toIso8601String();
+        } catch (_) {
+          return rawDate;
+        }
       }
     }
 
     return Partner(
       id: id,
       number: number,
-      type: type,
+      type: type.isEmpty ? 'INDIVIDUAL' : type,
       name1: (json['name1'] ?? '').toString().trim(),
       name2: (json['name2'] ?? '').toString().trim(),
       name3: (json['name3'] ?? '').toString().trim(),
-      name4: json['name4'],
-      identityNumber: identityObj?['number'] ?? json['identityNumber'] ?? '',
-      idType: (identityObj?['type'] as Map?)?['description'] ?? json['identityType'] ?? '',
-      status: statusObj?['code'] ?? statusObj?['description'] ?? (json['status'] is String ? json['status'] : 'ACTIVE'),
-      title: titleObj?['code'] ?? titleObj?['description'] ?? (json['title'] is String ? json['title'] : ''),
-      birthDate: formattedBirthDate,
-      gender: genderObj?['code'] ?? genderObj?['description'] ?? (json['gender'] is String ? json['gender'] : ''),
-      maritalStatus: maritalStatusObj?['code'] ?? maritalStatusObj?['description'] ?? (json['maritalStatus'] is String ? json['maritalStatus'] : ''),
-      language: languageObj?['description'] ?? (json['language'] is String ? json['language'] : ''),
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
+      name4: json['name4']?.toString(),
+      identityNumber: (identityObj?['number'] ?? json['identityNumber'] ?? '').toString(),
+      idType: getStringFromObj(identityObj?['type'], key: 'description'),
+      status: status.isEmpty ? 'ACTIVE' : status,
+      title: title,
+      birthDate: parseDate(json['birthDate']?.toString()),
+      gender: gender,
+      maritalStatus: maritalStatus,
+      language: language,
+      email: (json['email'] ?? '').toString(),
+      phone: (json['phone'] ?? json['cellphone'] ?? '').toString(),
       addresses: (json['addresses'] as List? ?? [])
-          .map((a) => PartnerAddress.fromJson(a))
+          .map((a) => PartnerAddress.fromJson(Map<String, dynamic>.from(a)))
           .toList(),
       identities: (json['identities'] as List? ?? [])
-          .map((i) => PartnerIdentity.fromJson(i))
+          .map((i) => PartnerIdentity.fromJson(Map<String, dynamic>.from(i)))
           .toList(),
       roles: roles,
     );
@@ -157,7 +158,7 @@ class Partner {
 class PartnerAddress {
   final String id;
   final String? objectId;
-  final String type; // POSTAL, RESIDENTIAL, OFFICE
+  final String type; 
   final String line1;
   final String line2;
   final String line3;
@@ -189,20 +190,20 @@ class PartnerAddress {
 
   factory PartnerAddress.fromJson(Map<String, dynamic> json) {
     return PartnerAddress(
-      id: json['id'] ?? '',
-      objectId: json['objectId'],
-      type: json['type'] ?? 'RESIDENTIAL',
-      line1: json['line1'] ?? '',
-      line2: json['line2'] ?? '',
-      line3: json['line3'] ?? '',
-      line4: json['line4'] ?? '',
-      suburb: json['suburb'] ?? '',
-      town: json['town'] ?? '',
-      city: json['city'] ?? '',
-      state: json['state'] ?? json['province'] ?? '',
-      province: json['province'] ?? json['state'] ?? '',
-      postalCode: json['postalCode'] ?? '',
-      country: json['country'] ?? 'South Africa',
+      id: (json['id'] ?? '').toString(),
+      objectId: json['objectId']?.toString(),
+      type: (json['type'] ?? 'RESIDENTIAL').toString(),
+      line1: (json['line1'] ?? '').toString(),
+      line2: (json['line2'] ?? '').toString(),
+      line3: (json['line3'] ?? '').toString(),
+      line4: (json['line4'] ?? '').toString(),
+      suburb: (json['suburb'] ?? '').toString(),
+      town: (json['town'] ?? '').toString(),
+      city: (json['city'] ?? '').toString(),
+      state: (json['state'] ?? json['province'] ?? '').toString(),
+      province: (json['province'] ?? json['state'] ?? '').toString(),
+      postalCode: (json['postalCode'] ?? '').toString(),
+      country: (json['country'] ?? 'South Africa').toString(),
     );
   }
 
@@ -240,17 +241,17 @@ class PartnerRole {
 
   factory PartnerRole.fromJson(Map<String, dynamic> json) {
     return PartnerRole(
-      id: json['id'] ?? '',
-      description: json['description'] ?? '',
-      validFrom: json['validFrom'],
-      validTo: json['validTo'],
+      id: (json['id'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      validFrom: json['validFrom']?.toString(),
+      validTo: json['validTo']?.toString(),
     );
   }
 }
 
 class PartnerContact {
   final String? partner;
-  final String type; // TELEPHONE, EMAIL-ADDRESS
+  final String type; 
   final String value;
   final String? validFrom;
   final String? validTo;
@@ -265,11 +266,11 @@ class PartnerContact {
 
   factory PartnerContact.fromJson(Map<String, dynamic> json) {
     return PartnerContact(
-      partner: json['partner'],
-      type: json['type'] ?? '',
-      value: json['value'] ?? '',
-      validFrom: json['validFrom'],
-      validTo: json['validTo'],
+      partner: json['partner']?.toString(),
+      type: (json['type'] ?? '').toString(),
+      value: (json['value'] ?? '').toString(),
+      validFrom: json['validFrom']?.toString(),
+      validTo: json['validTo']?.toString(),
     );
   }
 
