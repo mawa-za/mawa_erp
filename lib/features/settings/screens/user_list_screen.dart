@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
+import 'user_detail_screen.dart';
+import 'user_create_screen.dart';
 
 class UserListScreen extends StatefulWidget {
   const UserListScreen({super.key});
@@ -96,7 +98,11 @@ class _UserListScreenState extends State<UserListScreen> {
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Implement Add User
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const UserCreateScreen()),
+          ).then((value) {
+            if (value == true) _fetchUsers();
+          });
         },
         child: const Icon(Icons.add),
       ),
@@ -104,7 +110,6 @@ class _UserListScreenState extends State<UserListScreen> {
   }
 
   Widget _buildUserCard(User user, ColorScheme colorScheme) {
-    final bool isActive = user.status.toUpperCase() == 'ACTIVE';
     final String initials = user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U';
 
     return Container(
@@ -166,21 +171,16 @@ class _UserListScreenState extends State<UserListScreen> {
                   user.type,
                   style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
-                if (user.cellphone != null) ...[
-                  const SizedBox(width: 12),
-                  const Icon(Icons.phone_outlined, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    user.cellphone!,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                ],
               ],
             ),
           ],
         ),
         onTap: () {
-          // TODO: Navigate to User Details
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => UserDetailScreen(userId: user.id),
+            ),
+          ).then((_) => _fetchUsers());
         },
       ),
     );

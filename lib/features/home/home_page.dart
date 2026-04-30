@@ -9,6 +9,7 @@ import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
+import '../settings/screens/user_list_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import 'models/workcenter.dart';
 
@@ -153,6 +154,8 @@ class _MyHomePageState extends State<MyHomePage> {
         return Icons.receipt_long_outlined;
       case 'business-partner':
         return Icons.contact_page_outlined;
+      case 'user':
+        return Icons.person_outline;
       case 'setting':
         return Icons.settings_outlined;
       default:
@@ -181,9 +184,13 @@ class _MyHomePageState extends State<MyHomePage> {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const PartnerListScreen()),
       );
+    } else if (id.contains('user')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const UserListScreen()),
+      );
     } else if (id.contains('setting') || description.contains('setting')) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => SystemSettingsScreen()),
+        MaterialPageRoute(builder: (context) => const SystemSettingsScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

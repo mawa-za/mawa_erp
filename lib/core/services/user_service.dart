@@ -21,6 +21,47 @@ class UserService {
     }
   }
 
+  Future<User> getUser(String userId) async {
+    try {
+      final response = await ApiClient().get('/v2/user/$userId');
+      if (response.statusCode == 200) {
+        return User.fromJson(jsonDecode(response.body));
+      } else {
+        throw Exception('Failed to load user: ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<String>> getUserRoles(String userId) async {
+    try {
+      final response = await ApiClient().get('/v2/user/$userId/role');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<String>();
+      } else {
+        throw Exception('Failed to load user roles: ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateUserRoles(String userId, List<String> roles) async {
+    try {
+      final response = await ApiClient().post(
+        '/v2/user/$userId/role',
+        body: roles,
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to update user roles: ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> createUser({
     required String username,
     required String password,
