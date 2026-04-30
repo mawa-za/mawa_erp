@@ -8,6 +8,7 @@ import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
+import '../settings/screens/settings_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import 'models/workcenter.dart';
 
@@ -40,6 +41,8 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     if (role != null) {
       _fetchWorkcenters(role);
+    } else {
+      setState(() => _isLoadingWorkcenters = false);
     }
   }
 
@@ -150,6 +153,8 @@ class _MyHomePageState extends State<MyHomePage> {
         return Icons.receipt_long_outlined;
       case 'business-partner':
         return Icons.contact_page_outlined;
+      case 'setting':
+        return Icons.settings_outlined;
       default:
         if (id.toLowerCase().contains('report')) return Icons.analytics_outlined;
         return Icons.grid_view_outlined;
@@ -175,6 +180,10 @@ class _MyHomePageState extends State<MyHomePage> {
     } else if (id.contains('partner') || description.contains('partner')) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => const PartnerListScreen()),
+      );
+    } else if (id.contains('setting') || description.contains('setting')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => SystemSettingsScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -314,15 +323,8 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildSectionHeader(String title) {
     return Row(
       children: [
-        Container(
-          width: 4,
-          height: 16,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 12),
+        Icon(Icons.arrow_right, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 4),
         Text(
           title,
           style: const TextStyle(
