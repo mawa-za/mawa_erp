@@ -41,11 +41,15 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
         setState(() {
           _partners = partners;
           _isLoading = false;
-          if (widget.initialPartnerId != null) {
-            _selectedPartner = _partners.firstWhere(
-              (p) => p.id == widget.initialPartnerId,
-              orElse: () => _partners.first,
-            );
+          
+          if (widget.initialPartnerId != null && _partners.isNotEmpty) {
+            try {
+              _selectedPartner = _partners.firstWhere(
+                (p) => p.id == widget.initialPartnerId,
+              );
+            } catch (_) {
+              _selectedPartner = null;
+            }
           }
         });
       }
@@ -62,11 +66,23 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: LinearProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: LinearProgressIndicator(),
+      );
     }
 
     if (_error != null) {
-      return Text('Error: $_error', style: const TextStyle(color: Colors.red));
+      return ListTile(
+        title: Text('Error loading partners: $_error', style: const TextStyle(color: Colors.red, fontSize: 12)),
+        trailing: IconButton(icon: const Icon(Icons.refresh), onPressed: _loadPartners),
+      );
+    }
+
+    if (_partners.isEmpty) {
+      return const ListTile(
+        title: Text('No employees found to link', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+      );
     }
 
     return DropdownButtonFormField<Partner>(
@@ -75,17 +91,22 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
         labelText: widget.label,
         prefixIcon: const Icon(Icons.person_search_outlined),
         border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
+      isExpanded: true,
       items: _partners.map((partner) {
-        return DropdownMenuItem(
+        return DropdownMenuItem<Partner>(
           value: partner,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              Text(partner.number, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-            ],
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(partner.number, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -94,10 +115,13 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
         widget.onPartnerSelected(newValue);
       },
       validator: widget.validator,
-      isExpanded: true,
       selectedItemBuilder: (context) {
         return _partners.map((partner) {
-          return Text(partner.fullName, overflow: TextOverflow.ellipsis);
+          return Text(
+            partner.fullName, 
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14),
+          );
         }).toList();
       },
     );

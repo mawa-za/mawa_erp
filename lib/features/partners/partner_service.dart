@@ -8,9 +8,9 @@ class PartnerService {
   factory PartnerService() => _instance;
   PartnerService._internal();
 
-  Future<List<Partner>> getPartnersByRole(String role) async {
+  Future<List<Partner>> getPartnersByRole(String role, {String query = ''}) async {
     try {
-      final response = await ApiClient().get('/v2/partner?role=$role');
+      final response = await ApiClient().get('/v2/partner?query=$query&role=$role');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Partner.fromJson(json)).toList();

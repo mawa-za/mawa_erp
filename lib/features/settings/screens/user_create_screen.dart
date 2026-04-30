@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/user_service.dart';
+import '../../../core/widgets/partner_search_dropdown.dart';
 
 class UserCreateScreen extends StatefulWidget {
   const UserCreateScreen({super.key});
@@ -14,8 +15,8 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
   final _passwordController = TextEditingController();
   final _emailController = TextEditingController();
   final _cellphoneController = TextEditingController();
-  final _partnerIdController = TextEditingController();
   
+  String? _selectedPartnerId;
   String _selectedUserType = 'INTERNAL';
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -24,6 +25,12 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
 
   Future<void> _saveUser() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedPartnerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a business partner'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -33,7 +40,7 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
         email: _emailController.text.trim(),
         cellphone: _cellphoneController.text.trim(),
         userType: _selectedUserType,
-        partnerId: _partnerIdController.text.trim(),
+        partnerId: _selectedPartnerId!,
       );
       
       if (mounted) {
@@ -132,15 +139,15 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
                     onChanged: (v) => setState(() => _selectedUserType = v!),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _partnerIdController,
-                    decoration: const InputDecoration(
-                      labelText: 'Partner ID',
-                      hintText: 'Link to a business partner',
-                      prefixIcon: Icon(Icons.link_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) => v == null || v.isEmpty ? 'Partner ID is required' : null,
+                  PartnerSearchDropdown(
+                    role: 'EMPLOYEE',
+                    label: 'Business Partner (Employee)',
+                    onPartnerSelected: (partner) {
+                      setState(() {
+                        _selectedPartnerId = partner?.id;
+                      });
+                    },
+                    validator: (partner) => partner == null ? 'Please select a partner' : null,
                   ),
                   const SizedBox(height: 32),
                   FilledButton.icon(

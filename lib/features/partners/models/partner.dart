@@ -87,10 +87,18 @@ class Partner {
     String? formattedBirthDate = rawBirthDate;
     if (rawBirthDate != null && rawBirthDate.contains(',')) {
       try {
-        final format = DateFormat("MMM d, yyyy, hh:mm:ss a");
+        // Try short format first (e.g., Jan 23, 1995)
+        final format = DateFormat("MMM d, yyyy");
         final date = format.parse(rawBirthDate);
         formattedBirthDate = date.toIso8601String();
-      } catch (_) {}
+      } catch (_) {
+        try {
+          // Try long format (e.g., Sep 5, 2024, 12:00:00 AM)
+          final format = DateFormat("MMM d, yyyy, hh:mm:ss a");
+          final date = format.parse(rawBirthDate);
+          formattedBirthDate = date.toIso8601String();
+        } catch (_) {}
+      }
     }
 
     return Partner(
