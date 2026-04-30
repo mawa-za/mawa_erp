@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/payment_request.dart';
 import 'payment_request_detail_screen.dart';
+import 'payment_request_create_screen.dart';
 
 class PaymentRequestListScreen extends StatefulWidget {
   const PaymentRequestListScreen({super.key});
@@ -100,6 +101,18 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
           _buildStatusFilter(),
           Expanded(child: _buildBody()),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const PaymentRequestCreateScreen()),
+          );
+          if (result == true) {
+            _fetchPayments();
+          }
+        },
+        label: const Text('New Request'),
+        icon: const Icon(Icons.add),
       ),
     );
   }

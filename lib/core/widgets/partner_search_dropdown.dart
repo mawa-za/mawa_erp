@@ -23,107 +23,123 @@ class PartnerSearchDropdown extends StatefulWidget {
 }
 
 class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
-  List<Partner> _partners = [];
-  bool _isLoading = true;
-  String? _error;
   Partner? _selectedPartner;
+  final SearchController _searchController = SearchController();
 
   @override
   void initState() {
     super.initState();
-    _loadPartners();
+    if (widget.initialPartnerId != null) {
+      _loadInitialPartner();
+    }
   }
 
-  Future<void> _loadPartners() async {
+  Future<void> _loadInitialPartner() async {
     try {
-      final partners = await PartnerService().getPartnersByRole(widget.role);
-      if (mounted) {
-        setState(() {
-          _partners = partners;
-          _isLoading = false;
-          
-          if (widget.initialPartnerId != null && _partners.isNotEmpty) {
-            try {
-              _selectedPartner = _partners.firstWhere(
-                (p) => p.id == widget.initialPartnerId,
-              );
-            } catch (_) {
-              _selectedPartner = null;
-            }
-          }
-        });
-      }
+      // Logic for initial partner loading could go here
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
+      debugPrint('Error loading initial partner: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.0),
-        child: LinearProgressIndicator(),
-      );
-    }
-
-    if (_error != null) {
-      return ListTile(
-        title: Text('Error loading partners: $_error', style: const TextStyle(color: Colors.red, fontSize: 12)),
-        trailing: IconButton(icon: const Icon(Icons.refresh), onPressed: _loadPartners),
-      );
-    }
-
-    if (_partners.isEmpty) {
-      return const ListTile(
-        title: Text('No employees found to link', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
-      );
-    }
-
-    return DropdownButtonFormField<Partner>(
-      value: _selectedPartner,
-      decoration: InputDecoration(
-        labelText: widget.label,
-        prefixIcon: const Icon(Icons.person_search_outlined),
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      ),
-      isExpanded: true,
-      items: _partners.map((partner) {
-        return DropdownMenuItem<Partner>(
-          value: partner,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 300),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(partner.number, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: (Partner? newValue) {
-        setState(() => _selectedPartner = newValue);
-        widget.onPartnerSelected(newValue);
-      },
+    return FormField<Partner>(
       validator: widget.validator,
-      selectedItemBuilder: (context) {
-        return _partners.map((partner) {
-          return Text(
-            partner.fullName, 
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 14),
-          );
-        }).toList();
+      initialValue: _selectedPartner,
+      builder: (FormFieldState<Partner> state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SearchAnchor(
+              searchController: _searchController,
+              builder: (context, controller) {
+                return SearchBar(
+                  controller: controller,
+                  onTap: () => controller.openView(),
+                  onChanged: (_) => controller.openView(),
+                  hintText: _selectedPartner?.fullName ?? widget.label,
+                  leading: const Icon(Icons.person_search_outlined),
+                  trailing: [
+                    if (_selectedPartner != null)
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          setState(() {
+                            _selectedPartner = null;
+                            _searchController.clear();
+                          });
+                          widget.onPartnerSelected(null);
+                          state.didChange(null);
+                        },
+                      ),
+                  ],
+                  elevation: const WidgetStatePropertyAll(0),
+                  shape: WidgetStatePropertyAll(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      side: BorderSide(color: state.hasError ? Colors.red : Colors.grey.shade400),
+                    ),
+                  ),
+                  backgroundColor: const WidgetStatePropertyAll(Colors.white),
+                  constraints: const BoxConstraints(minHeight: 48, maxHeight: 48),
+                );
+              },
+              suggestionsBuilder: (context, controller) async {
+                final query = controller.text;
+                try {
+                  final partners = await PartnerService().getPartnersByRole(widget.role, query: query);
+                  
+                  if (partners.isEmpty) {
+                    return [
+                      ListTile(
+                        title: Text('No ${widget.label.toLowerCase()} found'),
+                      )
+                    ];
+                  }
+
+                  return partners.map((partner) {
+                    return ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.person, size: 20)),
+                      title: Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('No: ${partner.number} • ${partner.identityNumber}'),
+                      onTap: () {
+                        setState(() {
+                          _selectedPartner = partner;
+                          _searchController.text = partner.fullName;
+                          controller.closeView(partner.fullName);
+                        });
+                        widget.onPartnerSelected(partner);
+                        state.didChange(partner);
+                      },
+                    );
+                  }).toList();
+                } catch (e) {
+                  return [
+                    ListTile(
+                      title: Text('Error loading partners: $e', style: const TextStyle(color: Colors.red)),
+                    )
+                  ];
+                }
+              },
+            ),
+            if (state.hasError)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 8),
+                child: Text(
+                  state.errorText!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12),
+                ),
+              ),
+          ],
+        );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 }

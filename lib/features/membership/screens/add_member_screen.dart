@@ -28,9 +28,10 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
 
   Future<void> _saveMembership() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedMember == null) {
+    
+    if (_selectedMember == null || _selectedRep == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a member')),
+        const SnackBar(content: Text('Please select both a customer and a sales representative')),
       );
       return;
     }
@@ -38,21 +39,14 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId') ?? '';
-
       final payload = {
         "memberId": _selectedMember!.id,
-        "salesRepresentativeId": _selectedRep?.id ?? userId,
+        "salesRepresentativeId": _selectedRep!.id,
         "membershipType": _selectedMembershipType,
         "productId": _selectedProduct,
         "creationType": _selectedCreationType,
         "salesArea": _selectedSalesArea,
         "dateJoined": _dateJoined.toUtc().toIso8601String(),
-        // Optional fields from schema:
-        // "previousInsurerId": "",
-        // "lastReceiptDate": "",
-        // "currentMembershipId": ""
       };
 
       await MembershipService().createMembership(payload);
@@ -91,16 +85,17 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
               _buildSectionTitle('Primary Information'),
               const SizedBox(height: 16),
               PartnerSearchDropdown(
-                role: 'MEMBER',
-                label: 'Select Member',
+                role: 'CUSTOMER',
+                label: 'Select Customer',
                 onPartnerSelected: (p) => setState(() => _selectedMember = p),
                 validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
               PartnerSearchDropdown(
                 role: 'EMPLOYEE',
-                label: 'Sales Representative (Optional)',
+                label: 'Sales Representative',
                 onPartnerSelected: (p) => setState(() => _selectedRep = p),
+                validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 24),
               _buildSectionTitle('Membership Details'),
