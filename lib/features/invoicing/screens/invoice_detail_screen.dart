@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
-import 'invoice_create_screen.dart';
+import 'invoice_create_screen.dart' hide Partner;
 
 class InvoiceDetailScreen extends StatefulWidget {
   final String invoiceId;

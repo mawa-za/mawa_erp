@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
+import '../../partners/models/partner.dart';
 
 class InvoiceItemDraft {
   final TextEditingController productController;
@@ -38,34 +39,6 @@ class InvoiceItemDraft {
     amountController.dispose();
     quantityController.dispose();
     discountController.dispose();
-  }
-}
-
-class Partner {
-  final String id;
-  final String number;
-  final String firstName;
-  final String lastName;
-  final String identityNumber;
-
-  Partner({
-    required this.id,
-    required this.number,
-    required this.firstName,
-    required this.lastName,
-    required this.identityNumber,
-  });
-
-  String get fullName => '$firstName $lastName';
-
-  factory Partner.fromJson(Map<String, dynamic> json) {
-    return Partner(
-      id: json['partnerId'] ?? json['id'] ?? '',
-      number: json['partnerNo'] ?? json['number'] ?? '',
-      firstName: json['name2'] ?? '',
-      lastName: json['name1'] ?? '',
-      identityNumber: json['identityNumber'] ?? '',
-    );
   }
 }
 
@@ -156,13 +129,11 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     _invoiceDate = inv.invoiceDate;
     _dueDate = inv.dueDate ?? DateTime.now().add(const Duration(days: 30));
     _referenceController.text = inv.reference;
-    _selectedPartner = Partner(
-      id: inv.customerId ?? '',
-      number: inv.customerNumber,
-      firstName: '',
-      lastName: inv.customerName,
-      identityNumber: '',
-    );
+    
+    // Fetch full partner details to have complete object for the UI
+    if (inv.customerId != null && inv.customerId!.isNotEmpty) {
+      _fetchPartnerDetails(inv.customerId!);
+    }
     
     // Clear initial empty items if any, then add existing
     _items.clear();
@@ -175,6 +146,20 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         discount: item.discountPercentage.toString(),
         productId: item.productId,
       ));
+    }
+  }
+
+  Future<void> _fetchPartnerDetails(String partnerId) async {
+    try {
+      final response = await ApiClient().get('/v2/partner/$partnerId');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _selectedPartner = Partner.fromJson(data);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching partner details for edit: $e');
     }
   }
 
