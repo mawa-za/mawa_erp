@@ -123,6 +123,8 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
     setState(() => _isSubmitting = true);
 
     try {
+      final bool isEFT = _selectedPaymentMethod == 'EFT';
+
       final payload = {
         "recipientId": _selectedRecipient!.id,
         "paymentReason": _selectedPaymentReason,
@@ -133,14 +135,14 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         "paymentMethod": _selectedPaymentMethod,
         "employeeResponsibleId": _selectedEmployee?.id,
         "branch": _selectedBranch,
-        "bankAccount": {
+        "bankAccount": isEFT ? {
           "objectId": _selectedRecipient!.id,
           "accountHolder": _accountHolderController.text,
           "bankName": _bankNameController.text,
           "accountNumber": _accountNumberController.text,
           "branchCode": _branchCodeController.text,
           "accountType": _selectedAccountType
-        }
+        } : null
       };
 
       await PaymentRequestService().createPaymentRequest(payload);
@@ -381,6 +383,8 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   }
 
   Widget _buildBankDetailsCard(ColorScheme colorScheme) {
+    final bool isEFT = _selectedPaymentMethod == 'EFT';
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -389,26 +393,26 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildTextField(_accountHolderController, 'Account Holder', Icons.account_circle_outlined),
+            _buildTextField(_accountHolderController, 'Account Holder', Icons.account_circle_outlined, isRequired: isEFT),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildTextField(_bankNameController, 'Bank Name', Icons.account_balance)),
+                Expanded(child: _buildTextField(_bankNameController, 'Bank Name', Icons.account_balance, isRequired: isEFT)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField(_branchCodeController, 'Branch Code', Icons.numbers)),
+                Expanded(child: _buildTextField(_branchCodeController, 'Branch Code', Icons.numbers, isRequired: isEFT)),
               ],
             ),
             const SizedBox(height: 16),
-            _buildTextField(_accountNumberController, 'Account Number', Icons.numbers),
+            _buildTextField(_accountNumberController, 'Account Number', Icons.numbers, isRequired: isEFT),
             const SizedBox(height: 16),
-            _buildDropdown('Account Type', _selectedAccountType, _accountTypeOptions, (val) => setState(() => _selectedAccountType = val)),
+            _buildDropdown('Account Type', _selectedAccountType, _accountTypeOptions, (val) => setState(() => _selectedAccountType = val), isRequired: isEFT),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool isRequired = true}) {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
@@ -418,11 +422,16 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         isDense: true,
       ),
       keyboardType: keyboardType,
-      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+      validator: (val) {
+        if (isRequired && (val == null || val.isEmpty)) {
+          return 'Required';
+        }
+        return null;
+      },
     );
   }
 
-  Widget _buildDropdown(String label, String? value, List<FieldOption> options, Function(String?) onChanged) {
+  Widget _buildDropdown(String label, String? value, List<FieldOption> options, Function(String?) onChanged, {bool isRequired = true}) {
     return DropdownButtonFormField<String>(
       value: value,
       decoration: InputDecoration(
@@ -436,7 +445,12 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         child: Text(opt.description, style: const TextStyle(fontSize: 14)),
       )).toList(),
       onChanged: onChanged,
-      validator: (val) => val == null ? 'Required' : null,
+      validator: (val) {
+        if (isRequired && val == null) {
+          return 'Required';
+        }
+        return null;
+      },
     );
   }
 

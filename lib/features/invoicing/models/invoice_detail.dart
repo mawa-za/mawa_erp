@@ -10,8 +10,15 @@ class InvoiceDetail {
   final DateTime invoiceDate;
   final DateTime? dueDate;
   final String status;
+  final String currency;
   final List<InvoiceItem> items;
-  final List<InvoiceAmount> amounts;
+  final List<InvoicePayment> payments;
+  final int subtotalCents;
+  final int taxCents;
+  final int discountCents;
+  final int totalCents;
+  final int paidCents;
+  final int balanceCents;
 
   InvoiceDetail({
     required this.id,
@@ -24,38 +31,40 @@ class InvoiceDetail {
     this.dueDate,
     required this.status,
     required this.items,
-    required this.amounts,
+    this.payments = const [],
+    this.currency = 'ZAR',
+    this.subtotalCents = 0,
+    this.taxCents = 0,
+    this.discountCents = 0,
+    this.totalCents = 0,
+    this.paidCents = 0,
+    this.balanceCents = 0,
   });
 
-  double get totalAmount {
-    return amounts.firstWhere(
-      (a) => a.code == 'TOTAL-INC-VAT',
-      orElse: () => InvoiceAmount(code: 'TOTAL', description: 'Total', amount: 0),
-    ).amount;
-  }
-
-  double get vatAmount {
-    return amounts.firstWhere(
-      (a) => a.code == 'VAT-AMOUNT',
-      orElse: () => InvoiceAmount(code: 'VAT', description: 'VAT', amount: 0),
-    ).amount;
-  }
+  double get totalAmount => totalCents / 100.0;
+  double get vatAmount => taxCents / 100.0;
+  double get subtotalAmount => subtotalCents / 100.0;
+  double get discountAmount => discountCents / 100.0;
+  double get paidAmount => paidCents / 100.0;
+  double get balanceAmount => balanceCents / 100.0;
 
   factory InvoiceDetail.fromJson(Map<String, dynamic> json) {
     final customer = json['customer'] ?? {};
-    final name1 = customer['name1'] ?? '';
-    final name2 = customer['name2'] ?? '';
-    final name3 = customer['name3'] ?? '';
+    final partner = json['partner'] ?? {};
+
+    // Support both old and new customer field structures
+    final name1 = customer['name1'] ?? partner['name1'] ?? '';
+    final name2 = customer['name2'] ?? partner['name2'] ?? '';
+    final name3 = customer['name3'] ?? partner['name3'] ?? '';
     final fullName = [name1, name2, name3].where((s) => s.isNotEmpty).join(' ');
 
     DateTime parsedDate;
     try {
       final dateStr = json['invoiceDate'] ?? '';
-      // Try multiple formats as the API might return ISO or this custom format
       try {
-        parsedDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(dateStr);
-      } catch (_) {
         parsedDate = DateTime.parse(dateStr);
+      } catch (_) {
+        parsedDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(dateStr);
       }
     } catch (e) {
       parsedDate = DateTime.now();
@@ -65,9 +74,9 @@ class InvoiceDetail {
     try {
       if (json['dueDate'] != null) {
         try {
-          parsedDueDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(json['dueDate']);
-        } catch (_) {
           parsedDueDate = DateTime.parse(json['dueDate']);
+        } catch (_) {
+          parsedDueDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(json['dueDate']);
         }
       }
     } catch (e) {
@@ -76,25 +85,33 @@ class InvoiceDetail {
 
     return InvoiceDetail(
       id: json['id'] ?? '',
-      number: json['number'] ?? '',
-      reference: json['reference'] ?? '',
+      number: json['invoiceNo'] ?? json['number'] ?? '',
+      reference: json['externalRef'] ?? json['reference'] ?? '',
       customerName: fullName.isEmpty ? 'Unknown' : fullName,
-      customerNumber: customer['number'] ?? '',
-      customerId: customer['id'],
+      customerNumber: customer['number'] ?? partner['partnerNo'] ?? '',
+      customerId: json['partnerId'] ?? customer['id'],
       invoiceDate: parsedDate,
       dueDate: parsedDueDate,
-      status: json['status']?['description'] ?? json['status']?['code'] ?? 'Unknown',
-      items: (json['items'] as List? ?? [])
+      status: json['status'] ?? 'Unknown',
+      currency: json['currency'] ?? 'ZAR',
+      items: (json['lines'] as List? ?? json['items'] as List? ?? [])
           .map((i) => InvoiceItem.fromJson(i))
           .toList(),
-      amounts: (json['amounts'] as List? ?? [])
-          .map((a) => InvoiceAmount.fromJson(a))
+      payments: (json['payments'] as List? ?? [])
+          .map((p) => InvoicePayment.fromJson(p))
           .toList(),
+      subtotalCents: json['subtotalCents'] ?? 0,
+      taxCents: json['taxCents'] ?? 0,
+      discountCents: json['discountCents'] ?? 0,
+      totalCents: json['totalCents'] ?? 0,
+      paidCents: json['paidCents'] ?? 0,
+      balanceCents: json['balanceCents'] ?? 0,
     );
   }
 }
 
 class InvoiceItem {
+  final String id;
   final String? productId;
   final String productName;
   final String productCode;
@@ -102,8 +119,14 @@ class InvoiceItem {
   final double unitPrice;
   final double lineTotal;
   final double discountPercentage;
+  final int unitPriceCents;
+  final int discountCents;
+  final int taxCents;
+  final int subtotalCents;
+  final int totalCents;
 
   InvoiceItem({
+    required this.id,
     this.productId,
     required this.productName,
     required this.productCode,
@@ -111,39 +134,68 @@ class InvoiceItem {
     required this.unitPrice,
     required this.lineTotal,
     this.discountPercentage = 0,
+    this.unitPriceCents = 0,
+    this.discountCents = 0,
+    this.taxCents = 0,
+    this.subtotalCents = 0,
+    this.totalCents = 0,
   });
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
     final product = json['product'] ?? {};
     return InvoiceItem(
-      productId: product['id'],
-      productName: product['description'] ?? 'Unknown Product',
+      id: json['id'] ?? '',
+      productId: json['productId'] ?? product['id'],
+      productName: json['description'] ?? product['description'] ?? 'Unknown Product',
       productCode: product['code'] ?? '',
       quantity: (json['quantity'] ?? 0.0).toDouble(),
-      unitPrice: (json['unitPrice'] ?? 0.0).toDouble(),
-      lineTotal: (json['lineTotal'] ?? 0.0).toDouble(),
+      unitPrice: json['unitPriceCents'] != null 
+          ? json['unitPriceCents'] / 100.0 
+          : (json['unitPrice'] ?? 0.0).toDouble(),
+      lineTotal: json['totalCents'] != null 
+          ? json['totalCents'] / 100.0 
+          : (json['lineTotal'] ?? 0.0).toDouble(),
       discountPercentage: (json['discountPercentage'] ?? 0.0).toDouble(),
+      unitPriceCents: json['unitPriceCents'] ?? 0,
+      discountCents: json['discountCents'] ?? 0,
+      taxCents: json['taxCents'] ?? 0,
+      subtotalCents: json['subtotalCents'] ?? 0,
+      totalCents: json['totalCents'] ?? 0,
     );
   }
 }
 
-class InvoiceAmount {
-  final String code;
-  final String description;
-  final double amount;
+class InvoicePayment {
+  final String id;
+  final DateTime paymentDate;
+  final int amountCents;
+  final String paymentMethod;
+  final String referenceNo;
 
-  InvoiceAmount({
-    required this.code,
-    required this.description,
-    required this.amount,
+  InvoicePayment({
+    required this.id,
+    required this.paymentDate,
+    required this.amountCents,
+    required this.paymentMethod,
+    required this.referenceNo,
   });
 
-  factory InvoiceAmount.fromJson(Map<String, dynamic> json) {
-    final type = json['type'] ?? {};
-    return InvoiceAmount(
-      code: type['code'] ?? '',
-      description: type['description'] ?? '',
-      amount: (json['amount'] ?? 0.0).toDouble(),
+  double get amount => amountCents / 100.0;
+
+  factory InvoicePayment.fromJson(Map<String, dynamic> json) {
+    DateTime parsedDate;
+    try {
+      parsedDate = DateTime.parse(json['paymentDate'] ?? '');
+    } catch (e) {
+      parsedDate = DateTime.now();
+    }
+
+    return InvoicePayment(
+      id: json['id'] ?? '',
+      paymentDate: parsedDate,
+      amountCents: json['amountCents'] ?? 0,
+      paymentMethod: json['paymentMethod'] ?? '',
+      referenceNo: json['referenceNo'] ?? '',
     );
   }
 }
