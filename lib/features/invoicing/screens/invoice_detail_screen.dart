@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
-import 'invoice_create_screen.dart';
+import '../../partners/models/partner.dart';
+import '../services/invoice_service.dart';
+import 'invoice_create_screen.dart' hide Partner;
 
 class InvoiceDetailScreen extends StatefulWidget {
   final String invoiceId;
@@ -16,7 +19,10 @@ class InvoiceDetailScreen extends StatefulWidget {
 
 class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   bool _isLoading = true;
+  bool _isPrinting = false;
+  bool _isSendingEmail = false;
   InvoiceDetail? _detail;
+  Partner? _partner;
   String? _error;
 
   @override
@@ -36,8 +42,18 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
+        final detail = InvoiceDetail.fromJson(data);
+
         setState(() {
-          _detail = InvoiceDetail.fromJson(data);
+          _detail = detail;
+        });
+
+        // Fetch full partner details if partnerId is available
+        if (detail.customerId != null && detail.customerId!.isNotEmpty) {
+          await _fetchPartnerDetails(detail.customerId!);
+        }
+
+        setState(() {
           _isLoading = false;
         });
       } else {
@@ -54,6 +70,113 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
+  Future<void> _fetchPartnerDetails(String partnerId) async {
+    try {
+      final response = await ApiClient().get('/v2/partner/$partnerId');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _partner = Partner.fromJson(data);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching partner details: $e');
+    }
+  }
+
+  Future<void> _handlePrint() async {
+    if (_detail == null) return;
+
+    setState(() => _isPrinting = true);
+    try {
+      final pdfBytes = await InvoiceService().getInvoicePdf(_detail!.id);
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'Invoice_${_detail!.number}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error downloading PDF: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
+      }
+    }
+  }
+
+  Future<void> _handleEmail() async {
+    if (_detail == null) return;
+
+    final String initialEmail = _partner?.email ?? '';
+    final TextEditingController emailController = TextEditingController(text: initialEmail);
+
+    final String? email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send Invoice via Email', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter the recipient email address:', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(
+                labelText: 'Email Address',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                prefixIcon: const Icon(Icons.email_outlined),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final email = emailController.text.trim();
+              if (email.isEmpty || !email.contains('@')) {
+                return;
+              }
+              Navigator.pop(context, email);
+            },
+            child: const Text('SEND'),
+          ),
+        ],
+      ),
+    );
+
+    if (email == null) return;
+
+    setState(() => _isSendingEmail = true);
+    try {
+      await InvoiceService().sendInvoiceEmail(_detail!.id, email: email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invoice emailed successfully'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error emailing invoice: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingEmail = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -65,9 +188,30 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          if (_detail != null)
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20),
+          if (_detail != null) ...[
+            TextButton.icon(
+              onPressed: _isSendingEmail ? null : _handleEmail,
+              icon: _isSendingEmail 
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.email_outlined, size: 18),
+              label: const Text('EMAIL'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _isPrinting ? null : _handlePrint,
+              icon: _isPrinting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.print, size: 18),
+              label: const Text('PRINT'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+            TextButton.icon(
               onPressed: () async {
                 final result = await Navigator.of(context).push(
                   MaterialPageRoute(
@@ -78,7 +222,15 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   _fetchInvoiceDetails();
                 }
               },
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('EDIT'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
+            const SizedBox(width: 8),
+          ],
         ],
       ),
       body: _buildBody(colorScheme),
@@ -136,6 +288,13 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                 const SizedBox(height: 8),
                 _buildItemHeaderRow(),
                 ...detail.items.asMap().entries.map((entry) => _buildItemRow(entry.key, entry.value)),
+
+                if (detail.payments.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildSectionHeader(Icons.payment, 'Payment History'),
+                  const SizedBox(height: 8),
+                  ...detail.payments.map((p) => _buildPaymentRow(p, colorScheme)),
+                ],
                 const SizedBox(height: 24),
               ],
             ),
@@ -165,30 +324,76 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   }
 
   Widget _buildCustomerCard(InvoiceDetail detail, ColorScheme colorScheme) {
+    final customerName = _partner?.fullName ?? detail.customerName;
+    final customerNumber = _partner?.number ?? detail.customerNumber;
+    final email = _partner?.email;
+    final phone = _partner?.phone;
+
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colorScheme.primaryContainer.withOpacity(0.3)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        dense: true,
-        leading: CircleAvatar(
-          radius: 18,
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          child: const Icon(Icons.person, size: 20),
-        ),
-        title: Text(
-          detail.customerName,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        subtitle: Text(
-          'No: ${detail.customerNumber}',
-          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-        ),
-        trailing: _buildStatusChip(detail.status),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            dense: true,
+            leading: CircleAvatar(
+              radius: 18,
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              child: const Icon(Icons.person, size: 20),
+            ),
+            title: Text(
+              customerName,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            subtitle: Text(
+              'No: $customerNumber',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+            trailing: _buildStatusChip(detail.status),
+          ),
+          if (email != null && email.isNotEmpty || phone != null && phone.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+              child: Row(
+                children: [
+                  if (email != null && email.isNotEmpty) ...[
+                    const Icon(Icons.email_outlined, size: 12, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(child: Text(email, style: const TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis)),
+                  ],
+                  if (phone != null && phone.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.phone_outlined, size: 12, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(phone, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ],
+              ),
+            ),
+          if (_partner != null && _partner!.addresses.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 12, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${_partner!.addresses.first.line1}, ${_partner!.addresses.first.city}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -312,6 +517,36 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
   }
 
+  Widget _buildPaymentRow(InvoicePayment payment, ColorScheme colorScheme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(payment.paymentMethod, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                Text(DateFormat('yyyy-MM-dd HH:mm').format(payment.paymentDate), style: const TextStyle(fontSize: 9, color: Colors.grey)),
+              ],
+            ),
+          ),
+          Text(payment.referenceNo, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          const SizedBox(width: 8),
+          Text('R ${payment.amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.green)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBottomSummary(InvoiceDetail detail, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -328,22 +563,45 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           children: [
             Row(
               children: [
-                Expanded(child: _buildSummaryLine('VAT', detail.vatAmount)),
+                Expanded(child: _buildSummaryLine('Subtotal', detail.subtotalAmount)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildSummaryLine('Subtotal', detail.totalAmount - detail.vatAmount)),
+                Expanded(child: _buildSummaryLine('VAT', detail.vatAmount)),
               ],
             ),
+            if (detail.discountAmount > 0)
+              _buildSummaryLine('Discount', detail.discountAmount, color: Colors.red),
             const Divider(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Grand Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text('Total Amount', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 Text(
                   'R ${detail.totalAmount.toStringAsFixed(2)}',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: colorScheme.primary),
                 ),
               ],
             ),
+            if (detail.paidAmount > 0) ...[
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Paid', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
+                  Text('R ${detail.paidAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Balance Due', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                  Text(
+                    'R ${detail.balanceAmount.toStringAsFixed(2)}',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: colorScheme.primary),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
           ],
         ),
@@ -351,12 +609,12 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildSummaryLine(String label, double value) {
+  Widget _buildSummaryLine(String label, double value, {Color? color}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500)),
-        Text('R ${value.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+        Text('R ${value.toStringAsFixed(2)}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
       ],
     );
   }
@@ -369,6 +627,9 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         break;
       case 'NEW':
         color = Colors.blue;
+        break;
+      case 'DRAFT':
+        color = Colors.grey;
         break;
       default:
         color = Colors.orange;

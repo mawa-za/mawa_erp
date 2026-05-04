@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
+import '../../partners/models/partner.dart';
 
 class InvoiceItemDraft {
   final TextEditingController productController;
@@ -38,34 +39,6 @@ class InvoiceItemDraft {
     amountController.dispose();
     quantityController.dispose();
     discountController.dispose();
-  }
-}
-
-class Partner {
-  final String id;
-  final String number;
-  final String firstName;
-  final String lastName;
-  final String identityNumber;
-
-  Partner({
-    required this.id,
-    required this.number,
-    required this.firstName,
-    required this.lastName,
-    required this.identityNumber,
-  });
-
-  String get fullName => '$firstName $lastName';
-
-  factory Partner.fromJson(Map<String, dynamic> json) {
-    return Partner(
-      id: json['partnerId'] ?? json['id'] ?? '',
-      number: json['partnerNo'] ?? json['number'] ?? '',
-      firstName: json['name2'] ?? '',
-      lastName: json['name1'] ?? '',
-      identityNumber: json['identityNumber'] ?? '',
-    );
   }
 }
 
@@ -156,13 +129,11 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     _invoiceDate = inv.invoiceDate;
     _dueDate = inv.dueDate ?? DateTime.now().add(const Duration(days: 30));
     _referenceController.text = inv.reference;
-    _selectedPartner = Partner(
-      id: inv.customerId ?? '',
-      number: inv.customerNumber,
-      firstName: '',
-      lastName: inv.customerName,
-      identityNumber: '',
-    );
+    
+    // Fetch full partner details to have complete object for the UI
+    if (inv.customerId != null && inv.customerId!.isNotEmpty) {
+      _fetchPartnerDetails(inv.customerId!);
+    }
     
     // Clear initial empty items if any, then add existing
     _items.clear();
@@ -175,6 +146,20 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         discount: item.discountPercentage.toString(),
         productId: item.productId,
       ));
+    }
+  }
+
+  Future<void> _fetchPartnerDetails(String partnerId) async {
+    try {
+      final response = await ApiClient().get('/v2/partner/$partnerId');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _selectedPartner = Partner.fromJson(data);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching partner details for edit: $e');
     }
   }
 
@@ -293,23 +278,24 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     double totalVatAmount = 0;
     double totalIncVat = 0;
     double totalExcVat = 0;
-    double subtotal = 0;
+    double totalDiscount = 0;
 
     for (var item in _items) {
       final qty = double.tryParse(item.quantityController.text) ?? 0;
       final price = double.tryParse(item.amountController.text) ?? 0;
-      final discount = double.tryParse(item.discountController.text) ?? 0;
+      final discountPercent = double.tryParse(item.discountController.text) ?? 0;
       
-      // Skip empty lines in total calculation
       if (item.productController.text.isEmpty && price == 0) continue;
 
-      final discountedPrice = price * (1 - (discount / 100));
-      final lineAmount = qty * discountedPrice;
-      subtotal += lineAmount;
+      final grossLineAmount = qty * price;
+      final discountAmount = grossLineAmount * (discountPercent / 100);
+      final netLineAmount = grossLineAmount - discountAmount;
+      
+      totalDiscount += discountAmount;
 
       if (item.applyVat) {
         if (_isVatInclusive) {
-          final lineIncVat = lineAmount;
+          final lineIncVat = netLineAmount;
           final lineExcVat = lineIncVat / (1 + (_vatRate / 100));
           final lineVat = lineIncVat - lineExcVat;
           
@@ -317,7 +303,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           totalExcVat += lineExcVat;
           totalVatAmount += lineVat;
         } else {
-          final lineExcVat = lineAmount;
+          final lineExcVat = netLineAmount;
           final lineVat = lineExcVat * (_vatRate / 100);
           final lineIncVat = lineExcVat + lineVat;
           
@@ -326,16 +312,17 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           totalVatAmount += lineVat;
         }
       } else {
-        totalIncVat += lineAmount;
-        totalExcVat += lineAmount;
+        totalIncVat += netLineAmount;
+        totalExcVat += netLineAmount;
       }
     }
 
     return {
-      'subtotal': subtotal,
+      'subtotal': totalExcVat,
       'vatAmount': totalVatAmount,
       'totalIncVat': totalIncVat,
       'totalExcVat': totalExcVat,
+      'discountAmount': totalDiscount,
     };
   }
 
@@ -349,7 +336,6 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
       return;
     }
 
-    // Filter out items that have no product and zero price
     final List<InvoiceItemDraft> filledItems = _items.where((item) {
       final price = double.tryParse(item.amountController.text) ?? 0;
       return item.productController.text.isNotEmpty || price > 0;
@@ -365,48 +351,62 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId') ?? '';
-      
-      final String isoInvoiceDate = _invoiceDate.toUtc().toIso8601String();
-      final String isoDueDate = _dueDate.toUtc().toIso8601String();
       final totals = _calculateTotals();
       
-      final List<Map<String, dynamic>> itemsPayload = filledItems.map((item) {
+      final List<Map<String, dynamic>> linesPayload = filledItems.map((item) {
         final qty = double.tryParse(item.quantityController.text) ?? 0;
         final price = double.tryParse(item.amountController.text) ?? 0;
-        final discount = double.tryParse(item.discountController.text) ?? 0;
+        final discountPercent = double.tryParse(item.discountController.text) ?? 0;
+
+        final grossAmount = qty * price;
+        final discountAmount = grossAmount * (discountPercent / 100);
+        final netAmount = grossAmount - discountAmount;
+
+        double lineTax = 0;
+        double lineSubtotal = 0;
+        double lineTotal = 0;
+
+        if (item.applyVat) {
+          if (_isVatInclusive) {
+            lineTotal = netAmount;
+            lineSubtotal = lineTotal / (1 + (_vatRate / 100));
+            lineTax = lineTotal - lineSubtotal;
+          } else {
+            lineSubtotal = netAmount;
+            lineTax = lineSubtotal * (_vatRate / 100);
+            lineTotal = lineSubtotal + lineTax;
+          }
+        } else {
+          lineSubtotal = netAmount;
+          lineTotal = netAmount;
+          lineTax = 0;
+        }
 
         return {
           "productId": item.productId,
-          "code": item.productController.text,
           "description": item.descriptionController.text,
           "quantity": qty,
-          "unitPrice": price,
-          "discountPercentage": discount,
-          "lineTotal": qty * (price * (1 - (discount / 100))),
+          "unitPriceCents": (price * 100).round(),
+          "discountCents": (discountAmount * 100).round(),
+          "taxCents": (lineTax * 100).round(),
+          "subtotalCents": (lineSubtotal * 100).round(),
+          "totalCents": (lineTotal * 100).round(),
         };
       }).toList();
 
       final payload = {
-        "customerId": _selectedPartner!.id,
-        "salesRepresentative": userId,
-        "dueDate": isoDueDate,
-        "invoiceDate": isoInvoiceDate,
-        "reference": _referenceController.text,
-        "paymentTerms": "IMMEDIATE",
-        "pricing": {
-          "totalExcVat": totals['totalExcVat'],
-          "totalIncVat": totals['totalIncVat'],
-          "discountAmount": 0,
-          "discountPercentage": 0,
-          "items": itemsPayload,
-          "vatamount": totals['vatAmount'],
-          "vatpercentage": _vatRate
-        },
-        "items": itemsPayload,
-        "invoiceType": "INVOICE",
-        "transactionSubType": "STANDARD"
+        "id": widget.existingInvoice?.id,
+        "partnerId": _selectedPartner!.id,
+        "invoiceDate": DateFormat('yyyy-MM-dd').format(_invoiceDate),
+        "dueDate": DateFormat('yyyy-MM-dd').format(_dueDate),
+        "externalRef": _referenceController.text,
+        "subtotalCents": (totals['subtotal']! * 100).round(),
+        "taxCents": (totals['vatAmount']! * 100).round(),
+        "discountCents": (totals['discountAmount']! * 100).round(),
+        "totalCents": (totals['totalIncVat']! * 100).round(),
+        "currency": "ZAR",
+        "lines": linesPayload,
+        "status": widget.existingInvoice?.status ?? "DRAFT",
       };
 
       final response = widget.existingInvoice == null 
