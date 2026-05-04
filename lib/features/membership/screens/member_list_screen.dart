@@ -1,7 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../../core/api_client.dart';
-import '../models/member.dart';
+import '../models/membership.dart';
+import '../services/membership_service.dart';
+import 'add_member_screen.dart';
+import 'membership_detail_screen.dart';
 
 class MemberListScreen extends StatefulWidget {
   const MemberListScreen({super.key});
@@ -12,42 +13,57 @@ class MemberListScreen extends StatefulWidget {
 
 class _MemberListScreenState extends State<MemberListScreen> {
   bool _isLoading = true;
-  List<Member> _members = [];
+  List<Membership> _memberships = [];
+  List<Membership> _filteredMemberships = [];
   String? _error;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _fetchMembers();
+    _fetchMemberships();
   }
 
-  Future<void> _fetchMembers() async {
+  Future<void> _fetchMemberships() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      final response = await ApiClient().get('/member');
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+      final memberships = await MembershipService().getMemberships();
+      if (mounted) {
         setState(() {
-          _members = data.map((json) => Member.fromJson(json)).toList();
+          _memberships = memberships;
+          _filteredMemberships = memberships;
           _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = 'Failed to load members: ${response.statusCode}';
-          _isLoading = false;
+          _applySearch(_searchController.text);
         });
       }
     } catch (e) {
-      setState(() {
-        _error = 'An error occurred: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  void _applySearch(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredMemberships = _memberships;
+      } else {
+        final q = query.toLowerCase();
+        _filteredMemberships = _memberships.where((m) =>
+          m.transactionNumber.toLowerCase().contains(q) ||
+          m.mainPartner.toLowerCase().contains(q) ||
+          (m.product?.toLowerCase().contains(q) ?? false) ||
+          (m.identityNumber?.toLowerCase().contains(q) ?? false)
+        ).toList();
+      }
+    });
   }
 
   @override
@@ -57,110 +73,235 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Memberships'),
-        titleTextStyle: TextStyle(
-          color: colorScheme.onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        elevation: 0,
-        scrolledUnderElevation: 2,
+        title: const Text('Memberships', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        centerTitle: false,
+        foregroundColor: Colors.black,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, size: 22),
-            onPressed: _fetchMembers,
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchMemberships,
             tooltip: 'Refresh',
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? _buildErrorWidget(colorScheme)
+                    : _filteredMemberships.isEmpty
+                        ? _buildEmptyWidget()
+                        : _buildMembershipList(colorScheme),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Add Member feature coming soon')),
+        onPressed: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const AddMemberScreen()),
           );
+          if (result == true) {
+            _fetchMemberships();
+          }
         },
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Widget _buildSearchBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _applySearch,
+        decoration: InputDecoration(
+          hintText: 'Search by number, partner or product...',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 20),
+                  onPressed: () {
+                    _searchController.clear();
+                    _applySearch('');
+                  },
+                )
+              : null,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          fillColor: Colors.grey[100],
+          filled: true,
+        ),
+      ),
+    );
+  }
 
-    if (_error != null) {
-      return Center(
+  Widget _buildErrorWidget(ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Icon(Icons.error_outline, size: 64, color: colorScheme.error.withOpacity(0.5)),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _fetchMembers,
-              child: const Text('Retry'),
+            Text('Failed to load memberships', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _fetchMemberships,
+              icon: const Icon(Icons.refresh),
+              label: const Text('RETRY'),
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    if (_members.isEmpty) {
-      return const Center(child: Text('No members found.'));
-    }
+  Widget _buildEmptyWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.card_membership_outlined, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text('No memberships found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildMembershipList(ColorScheme colorScheme) {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: _members.length,
-      separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFEEEEEE)),
+      itemCount: _filteredMemberships.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final member = _members[index];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
-            child: Text(
-              (member.firstName.isNotEmpty ? member.firstName[0] : '') + 
-              (member.lastName.isNotEmpty ? member.lastName[0] : ''),
-              style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
+        final membership = _filteredMemberships[index];
+        return _buildMembershipCard(membership, colorScheme);
+      },
+    );
+  }
+
+  Widget _buildMembershipCard(Membership membership, ColorScheme colorScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => MembershipDetailScreen(membershipId: membership.transactionId),
             ),
-          ),
-          title: Text(
-            member.fullName,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          subtitle: Column(
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ID: ${member.memberNumber}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              Text(member.email, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '#${membership.transactionNumber}',
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  _buildStatusChip(membership.transactionStatus),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                membership.mainPartner.isEmpty ? 'Unknown Partner' : membership.mainPartner,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.inventory_2_outlined, size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    membership.product ?? 'No Product',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('SUBTYPE', style: TextStyle(fontSize: 10, color: Colors.grey[500], letterSpacing: 0.5)),
+                      Text(membership.transactionSubtype, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('CREATED', style: TextStyle(fontSize: 10, color: Colors.grey[500], letterSpacing: 0.5)),
+                      Text(membership.creationDate.split(',').first, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
-          trailing: _buildStatusChip(member.status),
-          onTap: () {
-            // TODO: Navigate to member details
-          },
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _buildStatusChip(String status) {
     Color color;
-    switch (status.toLowerCase()) {
-      case 'active':
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
         color = Colors.green;
         break;
-      case 'inactive':
+      case 'WAITING-PERIOD':
+      case 'UPGRADE-WAITING-PERIOD':
+        color = Colors.orange;
+        break;
+      case 'INACTIVE':
         color = Colors.red;
         break;
-      case 'pending':
-        color = Colors.orange;
+      case 'NEW':
+      case 'AWAITING-APPROVAL':
+        color = Colors.blue;
         break;
       default:
         color = Colors.grey;
@@ -174,7 +315,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
-        status,
+        status.replaceAll('-', ' '),
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );

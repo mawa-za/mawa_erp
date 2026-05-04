@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'partner_identity.dart';
 
 class Partner {
@@ -53,39 +54,79 @@ class Partner {
   }
 
   factory Partner.fromJson(Map<String, dynamic> json) {
-    final typeObj = json['type'] as Map<String, dynamic>?;
-    final identityObj = json['identity'] as Map<String, dynamic>?;
-    final statusObj = json['status'] as Map<String, dynamic>?;
-    final titleObj = json['title'] as Map<String, dynamic>?;
-    final genderObj = json['gender'] as Map<String, dynamic>?;
-    final maritalStatusObj = json['maritalStatus'] as Map<String, dynamic>?;
-    final languageObj = json['language'] as Map<String, dynamic>?;
+    Map<String, dynamic>? asMap(dynamic value) {
+      if (value == null) return null;
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return null;
+    }
+
+    String getStringFromObj(dynamic obj, {String key = 'code'}) {
+      if (obj == null) return '';
+      if (obj is String) return obj;
+      if (obj is Map) return (obj[key] ?? obj['description'] ?? '').toString();
+      return obj.toString();
+    }
+
+    final id = (json['id'] ?? json['partnerId'] ?? '').toString();
+    final number = (json['number'] ?? json['partnerNo'] ?? '').toString();
+    
+    final type = getStringFromObj(json['type']);
+    final status = getStringFromObj(json['status']);
+    final title = getStringFromObj(json['title']);
+    final gender = getStringFromObj(json['gender']);
+    final maritalStatus = getStringFromObj(json['maritalStatus']);
+    final language = getStringFromObj(json['language'], key: 'description');
+
+    final identityObj = asMap(json['identity']);
+
+    List<String> roles = [];
+    if (json['roles'] is List) {
+      roles = (json['roles'] as List).map((r) => r.toString()).toList();
+    } else if (json['partnerRole'] != null) {
+      roles = [json['partnerRole'].toString()];
+    }
+
+    String? parseDate(String? rawDate) {
+      if (rawDate == null || rawDate.isEmpty) return null;
+      if (!rawDate.contains(',')) return rawDate;
+      try {
+        // Try short format: Jan 23, 1995
+        return DateFormat("MMM d, yyyy").parse(rawDate.trim()).toIso8601String();
+      } catch (_) {
+        try {
+          // Try long format: Sep 5, 2024, 12:00:00 AM
+          return DateFormat("MMM d, yyyy, hh:mm:ss a").parse(rawDate.trim()).toIso8601String();
+        } catch (_) {
+          return rawDate;
+        }
+      }
+    }
 
     return Partner(
-      id: json['id'] ?? '',
-      number: json['number'] ?? '',
-      type: typeObj?['code'] ?? json['type']?.toString() ?? 'INDIVIDUAL',
-      name1: json['name1'] ?? '',
-      name2: json['name2'] ?? '',
-      name3: json['name3'] ?? '',
-      name4: json['name4'],
-      identityNumber: identityObj?['number'] ?? json['identityNumber'] ?? '',
-      idType: (identityObj?['type'] as Map?)?['description'] ?? '',
-      status: statusObj?['description'] ?? json['status']?.toString() ?? 'Active',
-      title: titleObj?['description'] ?? json['title'] ?? '',
-      birthDate: json['birthDate'],
-      gender: genderObj?['description'] ?? json['gender'] ?? '',
-      maritalStatus: maritalStatusObj?['description'] ?? json['maritalStatus'] ?? '',
-      language: languageObj?['description'] ?? json['language'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'] ?? '',
+      id: id,
+      number: number,
+      type: type.isEmpty ? 'INDIVIDUAL' : type,
+      name1: (json['name1'] ?? '').toString().trim(),
+      name2: (json['name2'] ?? '').toString().trim(),
+      name3: (json['name3'] ?? '').toString().trim(),
+      name4: json['name4']?.toString(),
+      identityNumber: (identityObj?['number'] ?? json['identityNumber'] ?? '').toString(),
+      idType: getStringFromObj(identityObj?['type'], key: 'description'),
+      status: status.isEmpty ? 'ACTIVE' : status,
+      title: title,
+      birthDate: parseDate(json['birthDate']?.toString()),
+      gender: gender,
+      maritalStatus: maritalStatus,
+      language: language,
+      email: (json['email'] ?? '').toString(),
+      phone: (json['phone'] ?? json['cellphone'] ?? '').toString(),
       addresses: (json['addresses'] as List? ?? [])
-          .map((a) => PartnerAddress.fromJson(a))
+          .map((a) => PartnerAddress.fromJson(Map<String, dynamic>.from(a)))
           .toList(),
       identities: (json['identities'] as List? ?? [])
-          .map((i) => PartnerIdentity.fromJson(i))
+          .map((i) => PartnerIdentity.fromJson(Map<String, dynamic>.from(i)))
           .toList(),
-      roles: (json['roles'] as List? ?? []).map((r) => r.toString()).toList(),
+      roles: roles,
     );
   }
 
@@ -109,6 +150,7 @@ class Partner {
       'addresses': addresses.map((a) => a.toJson()).toList(),
       'identities': identities.map((i) => i.toJson()).toList(),
       'roles': roles,
+      'status': status,
     };
   }
 }
@@ -116,7 +158,7 @@ class Partner {
 class PartnerAddress {
   final String id;
   final String? objectId;
-  final String type; // POSTAL, RESIDENTIAL, OFFICE
+  final String type; 
   final String line1;
   final String line2;
   final String line3;
@@ -148,20 +190,20 @@ class PartnerAddress {
 
   factory PartnerAddress.fromJson(Map<String, dynamic> json) {
     return PartnerAddress(
-      id: json['id'] ?? '',
-      objectId: json['objectId'],
-      type: json['type'] ?? 'RESIDENTIAL',
-      line1: json['line1'] ?? '',
-      line2: json['line2'] ?? '',
-      line3: json['line3'] ?? '',
-      line4: json['line4'] ?? '',
-      suburb: json['suburb'] ?? '',
-      town: json['town'] ?? '',
-      city: json['city'] ?? '',
-      state: json['state'] ?? json['province'] ?? '',
-      province: json['province'] ?? json['state'] ?? '',
-      postalCode: json['postalCode'] ?? '',
-      country: json['country'] ?? 'South Africa',
+      id: (json['id'] ?? '').toString(),
+      objectId: json['objectId']?.toString(),
+      type: (json['type'] ?? 'RESIDENTIAL').toString(),
+      line1: (json['line1'] ?? '').toString(),
+      line2: (json['line2'] ?? '').toString(),
+      line3: (json['line3'] ?? '').toString(),
+      line4: (json['line4'] ?? '').toString(),
+      suburb: (json['suburb'] ?? '').toString(),
+      town: (json['town'] ?? '').toString(),
+      city: (json['city'] ?? '').toString(),
+      state: (json['state'] ?? json['province'] ?? '').toString(),
+      province: (json['province'] ?? json['state'] ?? '').toString(),
+      postalCode: (json['postalCode'] ?? '').toString(),
+      country: (json['country'] ?? 'South Africa').toString(),
     );
   }
 
@@ -180,6 +222,65 @@ class PartnerAddress {
       'province': province.isNotEmpty ? province : state,
       'postalCode': postalCode,
       'country': country,
+    };
+  }
+}
+
+class PartnerRole {
+  final String id;
+  final String description;
+  final String? validFrom;
+  final String? validTo;
+
+  PartnerRole({
+    required this.id,
+    required this.description,
+    this.validFrom,
+    this.validTo,
+  });
+
+  factory PartnerRole.fromJson(Map<String, dynamic> json) {
+    return PartnerRole(
+      id: (json['id'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      validFrom: json['validFrom']?.toString(),
+      validTo: json['validTo']?.toString(),
+    );
+  }
+}
+
+class PartnerContact {
+  final String? partner;
+  final String type; 
+  final String value;
+  final String? validFrom;
+  final String? validTo;
+
+  PartnerContact({
+    this.partner,
+    required this.type,
+    required this.value,
+    this.validFrom,
+    this.validTo,
+  });
+
+  factory PartnerContact.fromJson(Map<String, dynamic> json) {
+    return PartnerContact(
+      partner: json['partner']?.toString(),
+      type: (json['type'] ?? '').toString(),
+      value: (json['value'] ?? '').toString(),
+      validFrom: json['validFrom']?.toString(),
+      validTo: json['validTo']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (partner != null) 'partner': partner,
+      'type': type,
+      'value': value,
+      if (validFrom != null) 'validFrom': validFrom,
+      if (validTo != null) 'validTo': validTo,
     };
   }
 }

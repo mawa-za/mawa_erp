@@ -5,9 +5,13 @@ import '../../core/api_client.dart';
 import '../../main.dart';
 import '../auth/change_password_screen.dart';
 import '../auth/role_selection_screen.dart';
+import '../invoicing/screens/invoice_create_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
+import '../settings/screens/settings_screen.dart';
+import '../settings/screens/user_list_screen.dart';
+import '../settings/screens/company_info_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import 'models/workcenter.dart';
 
@@ -19,15 +23,23 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
   String? _displayName;
   String? _selectedRole;
   List<Workcenter> _workcenters = [];
+  List<Workcenter> _filteredWorkcenters = [];
   bool _isLoadingWorkcenters = true;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  late AnimationController _animationController;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
     _loadUserInfo();
   }
 
@@ -40,6 +52,8 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     if (role != null) {
       _fetchWorkcenters(role);
+    } else {
+      setState(() => _isLoadingWorkcenters = false);
     }
   }
 
@@ -52,14 +66,31 @@ class _MyHomePageState extends State<MyHomePage> {
         setState(() {
           _workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
           _workcenters.sort((a, b) => a.position.compareTo(b.position));
+          _filteredWorkcenters = _workcenters;
           _isLoadingWorkcenters = false;
         });
+        _animationController.forward(from: 0.0);
       } else {
         setState(() => _isLoadingWorkcenters = false);
       }
     } catch (e) {
       setState(() => _isLoadingWorkcenters = false);
     }
+  }
+
+  void _applySearch(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredWorkcenters = _workcenters;
+      } else {
+        final lowercaseQuery = query.toLowerCase();
+        _filteredWorkcenters = _workcenters.where((wc) {
+          return wc.description.toLowerCase().contains(lowercaseQuery) ||
+                 wc.id.toLowerCase().contains(lowercaseQuery);
+        }).toList();
+      }
+    });
+    _animationController.forward(from: 0.0);
   }
 
   Future<void> _changeRole() async {
@@ -137,50 +168,40 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   IconData _getIconData(String id) {
-    switch (id.toLowerCase()) {
-      case 'membership':
-      case 'membership-approval':
-        return Icons.people_outline;
-      case 'claim':
-      case 'claim-approval':
-        return Icons.request_quote_outlined;
-      case 'group-society':
-        return Icons.groups;
-      case 'invoicing':
-        return Icons.receipt_long_outlined;
-      case 'business-partner':
-        return Icons.contact_page_outlined;
-      default:
-        return Icons.grid_view_outlined;
-    }
+    final lowerId = id.toLowerCase();
+    if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_rounded;
+    if (lowerId.contains('claim') || lowerId.contains('payment')) return Icons.account_balance_wallet_rounded;
+    if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups_rounded;
+    if (lowerId.contains('invoic')) return Icons.description_rounded;
+    if (lowerId.contains('partner')) return Icons.business_center_rounded;
+    if (lowerId.contains('user')) return Icons.person_add_rounded;
+    if (lowerId.contains('setting')) return Icons.settings_suggest_rounded;
+    if (lowerId.contains('report')) return Icons.bar_chart_rounded;
+    if (lowerId.contains('company')) return Icons.domain_rounded;
+    return Icons.apps_rounded;
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
     final id = wc.id.toLowerCase();
     final description = wc.description.toLowerCase();
 
-    if (id.contains('invoic')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const InvoiceListScreen()),
-      );
-    } else if (id.contains('membership')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const MemberListScreen()),
-      );
+    if (id.contains('invoic') || description.contains('invoic')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
+    } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
     } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()),
-      );
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('partner') || description.contains('partner')) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const PartnerListScreen()),
-      );
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
+    } else if (id.contains('user')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const UserListScreen()));
+    } else if (id.contains('company') || description.contains('company')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: true)));
+    } else if (id.contains('setting') || description.contains('setting')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemSettingsScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${wc.description} feature coming soon'),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -189,156 +210,351 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final double screenWidth = MediaQuery.of(context).size.width;
-    final int crossAxisCount = (screenWidth / 160).floor().clamp(2, 8);
+    final int crossAxisCount = (screenWidth / 180).floor().clamp(2, 8);
+
+    final modules = _filteredWorkcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
+    final reports = _filteredWorkcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
 
     return Scaffold(
-      backgroundColor: colorScheme.surfaceVariant.withOpacity(0.3),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        centerTitle: false,
-        title: const Text(
-          'Mawa ERP',
-          style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5),
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.notifications_none), onPressed: () {}),
-          const SizedBox(width: 8),
-          Center(
-            child: PopupMenuButton<String>(
-              offset: const Offset(0, 48),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: colorScheme.primaryContainer,
-                child: Text(
-                  _displayName?[0] ?? 'U',
-                  style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-              ),
-              onSelected: (value) {
-                if (value == 'change_role') _changeRole();
-                if (value == 'change_password') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
-                  );
-                }
-                if (value == 'logout') _showLogoutConfirmation();
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  enabled: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                      Text(_selectedRole ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      const Divider(),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(value: 'change_role', child: ListTile(leading: Icon(Icons.switch_account_outlined), title: Text('Switch Role'), contentPadding: EdgeInsets.zero)),
-                const PopupMenuItem(value: 'change_password', child: ListTile(leading: Icon(Icons.lock_outline), title: Text('Security'), contentPadding: EdgeInsets.zero)),
-                const PopupMenuItem(value: 'logout', child: ListTile(leading: Icon(Icons.logout, color: Colors.red), title: Text('Sign Out', style: TextStyle(color: Colors.red)), contentPadding: EdgeInsets.zero)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: colorScheme.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              children: [
-                _buildCategoryTab('Dashboard', true),
-                const SizedBox(width: 24),
-                _buildCategoryTab('All Modules', false),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoadingWorkcenters
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
+      backgroundColor: const Color(0xFFF8F9FD),
+      body: _isLoadingWorkcenters
+          ? const Center(child: CircularProgressIndicator())
+          : CustomScrollView(
+              slivers: [
+                _buildAppBar(colorScheme),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Welcome back, ${_displayName?.split(' ').first ?? 'User'}',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w300,
-                            color: colorScheme.onSurface,
+                        _buildQuickActions(colorScheme),
+                        const SizedBox(height: 32),
+                        _buildSearchBar(colorScheme),
+                        const SizedBox(height: 32),
+                        if (modules.isNotEmpty) ...[
+                          _buildSectionHeader('Operational Modules', Icons.rocket_launch_rounded),
+                          const SizedBox(height: 16),
+                          _buildAnimatedGrid(modules, crossAxisCount, colorScheme),
+                          const SizedBox(height: 32),
+                        ],
+                        if (reports.isNotEmpty) ...[
+                          _buildSectionHeader('Reports & Analytics', Icons.analytics_rounded),
+                          const SizedBox(height: 16),
+                          _buildAnimatedGrid(reports, crossAxisCount, colorScheme, isReport: true),
+                          const SizedBox(height: 32),
+                        ],
+                        if (_filteredWorkcenters.isEmpty && _searchController.text.isNotEmpty)
+                          Center(
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 48),
+                                Icon(Icons.search_off_rounded, size: 64, color: Colors.grey[300]),
+                                const SizedBox(height: 16),
+                                Text('No matching modules found', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+                              ],
+                            ),
                           ),
-                        ),
+                        const SizedBox(height: 40),
+                        _buildFooter(),
                         const SizedBox(height: 24),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.0,
-                          ),
-                          itemCount: _workcenters.length,
-                          itemBuilder: (context, index) {
-                            final wc = _workcenters[index];
-                            return _buildWorkcenterTile(wc);
-                          },
-                        ),
                       ],
                     ),
                   ),
-          ),
-        ],
-      ),
+                ),
+              ],
+            ),
     );
   }
 
-  Widget _buildCategoryTab(String label, bool isSelected) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.6),
-          ),
-        ),
-        if (isSelected)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            height: 3,
-            width: 24,
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
+  Widget _buildAppBar(ColorScheme colorScheme) {
+    return SliverAppBar(
+      expandedHeight: 180,
+      floating: false,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: colorScheme.primary,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [colorScheme.primary, colorScheme.primary.withBlue(200)],
             ),
           ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -20,
+                right: -20,
+                child: Icon(Icons.blur_on, size: 200, color: Colors.white.withOpacity(0.1)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 80, 24, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hello, ${_displayName?.split(' ').first ?? 'User'}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Let\'s manage your business today',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      title: const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined), 
+          onPressed: () {},
+        ),
+        const SizedBox(width: 8),
+        _buildUserMenu(colorScheme),
+        const SizedBox(width: 16),
       ],
     );
   }
 
-  Widget _buildWorkcenterTile(Workcenter wc) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildUserMenu(ColorScheme colorScheme) {
+    return Center(
+      child: PopupMenuButton<String>(
+        offset: const Offset(0, 48),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+          ),
+          child: CircleAvatar(
+            radius: 16,
+            backgroundColor: colorScheme.primaryContainer,
+            child: Text(
+              _displayName?[0] ?? 'U',
+              style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        onSelected: (value) {
+          if (value == 'company_info') {
+            Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: true)));
+          }
+          if (value == 'change_role') _changeRole();
+          if (value == 'change_password') {
+            Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ChangePasswordScreen()));
+          }
+          if (value == 'logout') _showLogoutConfirmation();
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            enabled: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                Text(_selectedRole ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                const Divider(),
+              ],
+            ),
+          ),
+          const PopupMenuItem(value: 'company_info', child: ListTile(leading: Icon(Icons.business_outlined), title: Text('Company Profile'), contentPadding: EdgeInsets.zero)),
+          const PopupMenuItem(value: 'change_role', child: ListTile(leading: Icon(Icons.switch_account_outlined), title: Text('Switch Role'), contentPadding: EdgeInsets.zero)),
+          const PopupMenuItem(value: 'change_password', child: ListTile(leading: Icon(Icons.lock_outline), title: Text('Security'), contentPadding: EdgeInsets.zero)),
+          const PopupMenuItem(value: 'logout', child: ListTile(leading: Icon(Icons.logout, color: Colors.red), title: Text('Sign Out', style: TextStyle(color: Colors.red)), contentPadding: EdgeInsets.zero)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Quick Actions', Icons.bolt_rounded),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _buildQuickActionBtn(
+              colorScheme, 
+              Icons.add_task_rounded, 
+              'New Invoice', 
+              Colors.blue,
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())),
+            ),
+            const SizedBox(width: 12),
+            _buildQuickActionBtn(
+              colorScheme, 
+              Icons.person_add_alt_1_rounded, 
+              'Add Member', 
+              Colors.green,
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())), // Navigate to list, assuming they can add from there
+            ),
+            const SizedBox(width: 12),
+            _buildQuickActionBtn(
+              colorScheme, 
+              Icons.request_quote_rounded, 
+              'Payment', 
+              Colors.orange,
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionBtn(ColorScheme colorScheme, IconData icon, String label, Color color, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color.withOpacity(0.8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(ColorScheme colorScheme) {
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        onChanged: _applySearch,
+        decoration: InputDecoration(
+          hintText: 'Search modules and reports...',
+          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
+          prefixIcon: Icon(Icons.search_rounded, color: colorScheme.primary.withOpacity(0.5)),
+          suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear_rounded),
+                onPressed: () {
+                  _searchController.clear();
+                  _applySearch('');
+                },
+              )
+            : null,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(vertical: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title, 
+          style: const TextStyle(
+            fontSize: 18, 
+            fontWeight: FontWeight.bold, 
+            letterSpacing: -0.5,
+            color: Color(0xFF1A1C1E),
+          )
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnimatedGrid(List<Workcenter> items, int crossAxisCount, ColorScheme colorScheme, {bool isReport = false}) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+        childAspectRatio: 1.1,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        return AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            final double slide = 50 * (1.0 - _animationController.value);
+            final double opacity = _animationController.value;
+            return Opacity(
+              opacity: opacity,
+              child: Transform.translate(
+                offset: Offset(0, slide),
+                child: child,
+              ),
+            );
+          },
+          child: _buildWorkcenterTile(items[index], colorScheme, isReport: isReport),
+        );
+      },
+    );
+  }
+
+  Widget _buildWorkcenterTile(Workcenter wc, ColorScheme colorScheme, {bool isReport = false}) {
+    final tileColor = isReport ? Colors.orange : colorScheme.primary;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: tileColor.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -346,24 +562,32 @@ class _MyHomePageState extends State<MyHomePage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _navigateToWorkcenter(wc),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  _getIconData(wc.id),
-                  size: 32,
-                  color: colorScheme.primary,
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: tileColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    _getIconData(wc.id), 
+                    size: 26, 
+                    color: tileColor,
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   wc.description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface.withOpacity(0.8),
+                  style: const TextStyle(
+                    fontSize: 14, 
+                    fontWeight: FontWeight.w700, 
+                    color: Color(0xFF1A1C1E),
+                    height: 1.2,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -374,5 +598,31 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildFooter() {
+    return Center(
+      child: Column(
+        children: [
+          Text(
+            '© 2025 Mawa ERP',
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'v1.0.0+1',
+            style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w300),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _animationController.dispose();
+    super.dispose();
   }
 }

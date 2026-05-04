@@ -3,29 +3,28 @@ import 'package:intl/intl.dart';
 class Invoice {
   final String id;
   final String transactionNumber;
-  final String reference;
-  final String customerName;
+  final String partnerId;
   final DateTime date;
   final DateTime? dueDate;
   final double amount;
   final String status;
+  final String customerName;
 
   Invoice({
     required this.id,
     required this.transactionNumber,
-    required this.reference,
-    required this.customerName,
+    required this.partnerId,
     required this.date,
     this.dueDate,
     required this.amount,
     required this.status,
+    this.customerName = 'Unknown',
   });
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
-    // Robust date parsing
     DateTime parsedDate;
     try {
-      final dateStr = json['creationDate'] ?? '';
+      final dateStr = json['invoiceDate'] ?? json['creationDate'] ?? '';
       parsedDate = DateTime.tryParse(dateStr) ?? 
                   DateFormat('MMM d, yyyy, hh:mm:ss a').parse(dateStr);
     } catch (e) {
@@ -45,13 +44,15 @@ class Invoice {
 
     return Invoice(
       id: json['id'] ?? '',
-      transactionNumber: json['transactionNumber'] ?? '',
-      reference: json['reference'] ?? '',
-      customerName: json['customer'] ?? 'Unknown Customer',
+      transactionNumber: json['invoiceNo'] ?? json['transactionNumber'] ?? '',
+      partnerId: json['partnerId'] ?? '',
       date: parsedDate,
       dueDate: parsedDueDate,
-      amount: (json['amount'] ?? 0.0).toDouble(),
-      status: json['status'] ?? 'Draft',
+      amount: json['totalCents'] != null 
+          ? (json['totalCents'] / 100.0) 
+          : (json['amount'] ?? 0.0).toDouble(),
+      status: json['status'] ?? 'DRAFT',
+      customerName: json['partnerName'] ?? json['customer'] ?? 'Partner: ${json['partnerId'] ?? 'Unknown'}',
     );
   }
 }

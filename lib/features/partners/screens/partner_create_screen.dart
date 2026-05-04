@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
+import '../../../core/services/field_service.dart';
+import '../../../core/models/field_option.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
 
@@ -34,10 +36,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
 
   final List<PartnerAddress> _addresses = [];
   final List<String> _types = ['INDIVIDUAL', 'ORGANISATION', 'GROUP'];
+  List<FieldOption> _roleOptions = [];
+  final List<String> _selectedRoles = [];
 
   @override
   void initState() {
     super.initState();
+    _loadRoles();
     if (widget.existingPartner != null) {
       final p = widget.existingPartner!;
       _selectedType = p.type;
@@ -58,10 +63,24 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         } catch (_) {}
       }
       _addresses.addAll(p.addresses);
+      _selectedRoles.addAll(p.roles);
     } else {
       _selectedType = 'INDIVIDUAL';
       // Add a default address
       _addresses.add(PartnerAddress(type: 'RESIDENTIAL', line1: '', city: '', state: '', postalCode: ''));
+    }
+  }
+
+  Future<void> _loadRoles() async {
+    try {
+      final roles = await FieldService().getOptionsByField('PARTNER-ROLE');
+      if (mounted) {
+        setState(() {
+          _roleOptions = roles;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading roles: $e');
     }
   }
 
@@ -99,6 +118,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       'gender': _selectedGender,
       'language': _selectedLanguage,
       'addresses': _addresses.map((a) => a.toJson()).toList(),
+      'roles': _selectedRoles,
     };
 
     try {
@@ -179,6 +199,10 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               _buildSectionHeader(Icons.contact_mail_outlined, 'Contact Information'),
               const SizedBox(height: 12),
               _buildContactFields(),
+              const SizedBox(height: 24),
+              _buildSectionHeader(Icons.work_outline, 'Partner Roles'),
+              const SizedBox(height: 12),
+              _buildRolesFields(),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -357,6 +381,46 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
             _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined, keyboardType: TextInputType.phone),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRolesFields() {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _roleOptions.isEmpty
+            ? const Center(
+                child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ))
+            : Wrap(
+                spacing: 8,
+                runSpacing: 0,
+                children: _roleOptions.map((role) {
+                  final isSelected = _selectedRoles.contains(role.code);
+                  return FilterChip(
+                    label: Text(role.description, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedRoles.add(role.code);
+                        } else {
+                          _selectedRoles.remove(role.code);
+                        }
+                      });
+                    },
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    checkmarkColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  );
+                }).toList(),
+              ),
       ),
     );
   }

@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice.dart';
-import 'invoice_create_screen.dart';
+import '../../partners/models/partner.dart';
+import 'invoice_create_screen.dart' hide Partner;
 import 'invoice_detail_screen.dart';
 
 class InvoiceListScreen extends StatefulWidget {
-  const InvoiceListScreen({super.key});
+  final String? partnerId;
+  final String? partnerName;
+
+  const InvoiceListScreen({super.key, this.partnerId, this.partnerName});
 
   @override
   State<InvoiceListScreen> createState() => _InvoiceListScreenState();
@@ -17,6 +21,11 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   bool _isLoading = true;
   List<Invoice> _invoices = [];
   String? _error;
+  String _selectedStatus = 'ALL';
+  DateTime? _selectedDate;
+  final Map<String, String> _partnerNames = {};
+
+  final List<String> _statuses = ['ALL', 'DRAFT', 'PAID', 'NEW', 'OVERDUE'];
 
   @override
   void initState() {
@@ -31,14 +40,35 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     });
 
     try {
-      final response = await ApiClient().get('/v2/invoice');
+      final Map<String, String> queryParams = {};
+
+      if (_selectedStatus != 'ALL') {
+        queryParams['status'] = _selectedStatus;
+      }
+
+      if (widget.partnerId != null) {
+        queryParams['partnerId'] = widget.partnerId!;
+      }
+
+      if (_selectedDate != null) {
+        queryParams['invoiceDate'] = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+      }
+
+      String url = '/v2/invoice';
+      if (queryParams.isNotEmpty) {
+        url += '?' + queryParams.entries.map((e) => '${e.key}=${e.value}').join('&');
+      }
+
+      final response = await ApiClient().get(url);
       
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        final invoices = data.map((json) => Invoice.fromJson(json)).toList();
         setState(() {
-          _invoices = data.map((json) => Invoice.fromJson(json)).toList();
+          _invoices = invoices;
           _isLoading = false;
         });
+        _resolvePartnerNames(invoices);
       } else {
         setState(() {
           _error = 'Failed to load invoices: ${response.statusCode}';
@@ -53,6 +83,45 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     }
   }
 
+  Future<void> _resolvePartnerNames(List<Invoice> invoices) async {
+    final uniquePartnerIds = invoices
+        .map((inv) => inv.partnerId)
+        .where((id) => id.isNotEmpty && !_partnerNames.containsKey(id))
+        .toSet();
+
+    for (final id in uniquePartnerIds) {
+      try {
+        final response = await ApiClient().get('/v2/partner/$id');
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final partner = Partner.fromJson(data);
+          if (mounted) {
+            setState(() {
+              _partnerNames[id] = partner.fullName;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error resolving partner name for $id: $e');
+      }
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+      _fetchInvoices();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -60,10 +129,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Invoices'),
+        title: Text(widget.partnerName != null ? 'Invoices: ${widget.partnerName}' : 'Invoices'),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
         elevation: 0,
@@ -73,6 +142,15 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         centerTitle: false,
         actions: [
           IconButton(
+            icon: Icon(
+              _selectedDate == null ? Icons.calendar_today : Icons.calendar_month,
+              size: 20,
+              color: _selectedDate == null ? null : colorScheme.primary,
+            ),
+            onPressed: _pickDate,
+            tooltip: 'Filter by Date',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh, size: 22),
             onPressed: _fetchInvoices,
             tooltip: 'Refresh',
@@ -80,7 +158,12 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _buildBody(colorScheme),
+      body: Column(
+        children: [
+          _buildFilterBar(),
+          Expanded(child: _buildBody(colorScheme)),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.of(context).push(
@@ -92,6 +175,72 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         },
         elevation: 2,
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      height: 50,
+      color: Colors.white,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        children: [
+          ..._statuses.map((status) {
+            final isSelected = _selectedStatus == status;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? Colors.white : Colors.grey[700],
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() {
+                      _selectedStatus = status;
+                    });
+                    _fetchInvoices();
+                  }
+                },
+                selectedColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: Colors.grey[200],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                side: BorderSide.none,
+                showCheckmark: false,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                visualDensity: VisualDensity.compact,
+              ),
+            );
+          }),
+          if (_selectedDate != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InputChip(
+                label: Text(
+                  DateFormat('yyyy-MM-dd').format(_selectedDate!),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                onDeleted: () {
+                  setState(() {
+                    _selectedDate = null;
+                  });
+                  _fetchInvoices();
+                },
+                deleteIconColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                side: BorderSide.none,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -126,7 +275,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           children: [
             Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            Text('No invoices found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+            Text('No invoices found',
+                style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+            if (_selectedDate != null)
+              Text(
+                'on ${DateFormat('yyyy-MM-dd').format(_selectedDate!)}',
+                style: TextStyle(color: Colors.grey[500], fontSize: 14),
+              ),
           ],
         ),
       );
@@ -194,6 +349,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   }
 
   Widget _buildInvoiceCard(Invoice invoice, ColorScheme colorScheme) {
+    final displayCustomerName = _partnerNames[invoice.partnerId] ?? invoice.customerName;
+
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
@@ -228,7 +385,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      invoice.customerName,
+                      displayCustomerName,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       overflow: TextOverflow.ellipsis,
                     ),
