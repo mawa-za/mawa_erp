@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
+import '../services/invoice_service.dart';
 import 'invoice_create_screen.dart' hide Partner;
 
 class InvoiceDetailScreen extends StatefulWidget {
@@ -17,6 +19,8 @@ class InvoiceDetailScreen extends StatefulWidget {
 
 class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   bool _isLoading = true;
+  bool _isPrinting = false;
+  bool _isSendingEmail = false;
   InvoiceDetail? _detail;
   Partner? _partner;
   String? _error;
@@ -80,6 +84,99 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
+  Future<void> _handlePrint() async {
+    if (_detail == null) return;
+
+    setState(() => _isPrinting = true);
+    try {
+      final pdfBytes = await InvoiceService().getInvoicePdf(_detail!.id);
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'Invoice_${_detail!.number}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error downloading PDF: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
+      }
+    }
+  }
+
+  Future<void> _handleEmail() async {
+    if (_detail == null) return;
+
+    final String initialEmail = _partner?.email ?? '';
+    final TextEditingController emailController = TextEditingController(text: initialEmail);
+
+    final String? email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Send Invoice via Email', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter the recipient email address:', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(
+                labelText: 'Email Address',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                prefixIcon: const Icon(Icons.email_outlined),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final email = emailController.text.trim();
+              if (email.isEmpty || !email.contains('@')) {
+                return;
+              }
+              Navigator.pop(context, email);
+            },
+            child: const Text('SEND'),
+          ),
+        ],
+      ),
+    );
+
+    if (email == null) return;
+
+    setState(() => _isSendingEmail = true);
+    try {
+      await InvoiceService().sendInvoiceEmail(_detail!.id, email: email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invoice emailed successfully'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error emailing invoice: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingEmail = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -91,9 +188,30 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          if (_detail != null)
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20),
+          if (_detail != null) ...[
+            TextButton.icon(
+              onPressed: _isSendingEmail ? null : _handleEmail,
+              icon: _isSendingEmail 
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.email_outlined, size: 18),
+              label: const Text('EMAIL'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _isPrinting ? null : _handlePrint,
+              icon: _isPrinting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.print, size: 18),
+              label: const Text('PRINT'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+            TextButton.icon(
               onPressed: () async {
                 final result = await Navigator.of(context).push(
                   MaterialPageRoute(
@@ -104,7 +222,15 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   _fetchInvoiceDetails();
                 }
               },
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('EDIT'),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
+            const SizedBox(width: 8),
+          ],
         ],
       ),
       body: _buildBody(colorScheme),
