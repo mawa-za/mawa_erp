@@ -1,48 +1,59 @@
 import 'package:flutter/material.dart';
+import '../models/dependent.dart';
 import '../services/membership_service.dart';
-import '../../partners/models/partner.dart';
-import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../../core/widgets/app_dropdown.dart';
 
-class AddDependentScreen extends StatefulWidget {
+class EditDependentScreen extends StatefulWidget {
   final String membershipId;
-  const AddDependentScreen({super.key, required this.membershipId});
+  final Dependent dependent;
+
+  const EditDependentScreen({
+    super.key,
+    required this.membershipId,
+    required this.dependent,
+  });
 
   @override
-  State<AddDependentScreen> createState() => _AddDependentScreenState();
+  State<EditDependentScreen> createState() => _EditDependentScreenState();
 }
 
-class _AddDependentScreenState extends State<AddDependentScreen> {
+class _EditDependentScreenState extends State<EditDependentScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  Partner? _selectedPartner;
-  String? _selectedRelationship;
+  late String? _selectedType;
+  late bool _active;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedType = widget.dependent.relationship;
+    _active = widget.dependent.active;
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedPartner == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a person'), behavior: SnackBarBehavior.floating),
-      );
-      return;
-    }
 
     setState(() => _isLoading = true);
 
     try {
       final payload = {
-        "dependentPartnerId": _selectedPartner!.id,
-        "relationship": _selectedRelationship,
-        "active": true,
+        "id": widget.dependent.id,
         "membershipId": widget.membershipId,
+        "dependentPartnerId": widget.dependent.dependentPartnerId,
+        "relationship": _selectedType,
+        "active": _active,
       };
 
-      await MembershipService().addDependent(widget.membershipId, payload);
+      await MembershipService().updateDependent(
+        widget.membershipId,
+        widget.dependent.id,
+        payload,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dependent added successfully'), behavior: SnackBarBehavior.floating),
+          const SnackBar(content: Text('Dependent updated successfully'), behavior: SnackBarBehavior.floating),
         );
         Navigator.of(context).pop(true);
       }
@@ -64,7 +75,7 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('Add Dependent'),
+        title: const Text('Edit Dependent'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
@@ -78,17 +89,6 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'SELECT PERSON',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
-              ),
-              const SizedBox(height: 12),
-              PartnerSearchDropdown(
-                role: 'INDIVIDUAL',
-                label: 'Search by Name or ID...',
-                onPartnerSelected: (p) => setState(() => _selectedPartner = p),
-              ),
-              const SizedBox(height: 24),
-              const Text(
                 'DEPENDENT DETAILS',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
               ),
@@ -97,9 +97,18 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
                 field: 'DEPENDENT-TYPE',
                 label: 'Relationship Type',
                 icon: Icons.people_outline,
-                value: _selectedRelationship,
-                onChanged: (v) => setState(() => _selectedRelationship = v),
+                value: _selectedType,
+                onChanged: (v) => setState(() => _selectedType = v),
                 validator: (v) => v == null ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('Active Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text('Is this dependent currently covered?', style: TextStyle(fontSize: 12)),
+                value: _active,
+                onChanged: (v) => setState(() => _active = v),
+                contentPadding: EdgeInsets.zero,
+                activeColor: colorScheme.primary,
               ),
               const SizedBox(height: 40),
               _isLoading
@@ -113,7 +122,7 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         elevation: 0,
                       ),
-                      child: const Text('ADD DEPENDENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                      child: const Text('UPDATE DEPENDENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                     ),
             ],
           ),
