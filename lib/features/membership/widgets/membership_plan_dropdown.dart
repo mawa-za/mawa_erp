@@ -31,10 +31,10 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
 
   Future<void> _loadPlans() async {
     try {
-      final plans = await MembershipService().getMembershipPlans();
+      final response = await MembershipService().getMembershipPlans();
       if (mounted) {
         setState(() {
-          _plans = plans.where((p) => p.active).toList();
+          _plans = response.content.where((p) => p.active).toList();
           _isLoading = false;
         });
       }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/paginated_response.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import 'membership_plan_create_screen.dart';
@@ -28,10 +29,10 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
     });
 
     try {
-      final plans = await MembershipService().getMembershipPlans();
+      final response = await MembershipService().getMembershipPlans(size: 100);
       if (mounted) {
         setState(() {
-          _plans = plans;
+          _plans = response.content;
           _isLoading = false;
         });
       }
@@ -92,7 +93,7 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
           children: [
             Icon(Icons.error_outline_rounded, size: 48, color: Colors.red[300]),
             const SizedBox(height: 16),
-            Text('Failed to load plans', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Failed to load plans', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(_error!, style: TextStyle(color: Colors.grey[600]), textAlign: TextAlign.center),
             const SizedBox(height: 24),

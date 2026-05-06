@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/paginated_response.dart';
 import '../models/membership.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
@@ -60,17 +61,17 @@ class _MemberListScreenState extends State<MemberListScreen> {
     try {
       final results = await Future.wait([
         MembershipService().getMemberships(page: _currentPage, size: _pageSize, sort: ['createdAt,desc']),
-        MembershipService().getMembershipPlans(),
+        MembershipService().getMembershipPlans(size: 100), // Get a good batch of plans
       ]);
 
-      final memberships = results[0] as List<Membership>;
-      final plans = results[1] as List<MembershipPlan>;
+      final membershipsResponse = results[0] as PaginatedResponse<Membership>;
+      final plansResponse = results[1] as PaginatedResponse<MembershipPlan>;
 
       if (mounted) {
         setState(() {
-          _memberships = memberships;
-          _plans = {for (var p in plans) p.id: p};
-          _hasMore = memberships.length == _pageSize;
+          _memberships = membershipsResponse.content;
+          _plans = {for (var p in plansResponse.content) p.id: p};
+          _hasMore = !membershipsResponse.last;
           _isLoading = false;
         });
       }
@@ -89,7 +90,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
     try {
       final nextPage = _currentPage + 1;
-      final newMemberships = await MembershipService().getMemberships(
+      final response = await MembershipService().getMemberships(
         page: nextPage, 
         size: _pageSize, 
         sort: ['createdAt,desc']
@@ -98,8 +99,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
       if (mounted) {
         setState(() {
           _currentPage = nextPage;
-          _memberships.addAll(newMemberships);
-          _hasMore = newMemberships.length == _pageSize;
+          _memberships.addAll(response.content);
+          _hasMore = !response.last;
           _isLoadingMore = false;
         });
       }

@@ -20,19 +20,17 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
 
   // Form Fields
   Partner? _selectedMember;
-  Partner? _selectedRep;
-  String? _selectedMembershipType;
   MembershipPlan? _selectedPlan;
-  String? _selectedCreationType;
-  String? _selectedSalesArea;
   DateTime _dateJoined = DateTime.now();
+  DateTime _startDate = DateTime.now();
+  final TextEditingController _membershipNoController = TextEditingController();
 
   Future<void> _saveMembership() async {
     if (!_formKey.currentState!.validate()) return;
     
-    if (_selectedMember == null || _selectedRep == null) {
+    if (_selectedMember == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select both a customer and a sales representative'), behavior: SnackBarBehavior.floating),
+        const SnackBar(content: Text('Please select a customer'), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -49,19 +47,20 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     try {
       final payload = {
         "memberId": _selectedMember!.id,
-        "salesRepresentativeId": _selectedRep!.id,
-        "membershipType": _selectedMembershipType,
-        "productId": _selectedPlan!.id, // Using Plan ID as Product ID
-        "creationType": _selectedCreationType,
-        "salesArea": _selectedSalesArea,
-        "dateJoined": _dateJoined.toUtc().toIso8601String(),
+        "planId": _selectedPlan!.id,
+        "startDate": _startDate.toIso8601String().split('T')[0],
+        "joinDate": _dateJoined.toIso8601String().split('T')[0],
+        "status": "ACTIVE",
+        "membershipNo": _membershipNoController.text.trim().isEmpty
+            ? null
+            : _membershipNoController.text.trim(),
       };
 
       await MembershipService().createMembership(payload);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Membership linked successfully'), behavior: SnackBarBehavior.floating),
+          const SnackBar(content: Text('Membership created successfully'), behavior: SnackBarBehavior.floating),
         );
         Navigator.of(context).pop(true);
       }
@@ -83,7 +82,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('Link Membership'),
+        title: const Text('Create Membership'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
@@ -96,23 +95,15 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionTitle('Primary Information', Icons.person_outline),
+              _buildSectionTitle('Customer Selection', Icons.person_outline),
               const SizedBox(height: 16),
               PartnerSearchDropdown(
                 role: 'CUSTOMER',
                 label: 'Select Customer',
                 onPartnerSelected: (p) => setState(() => _selectedMember = p),
-                validator: (v) => v == null ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              PartnerSearchDropdown(
-                role: 'EMPLOYEE',
-                label: 'Sales Representative',
-                onPartnerSelected: (p) => setState(() => _selectedRep = p),
-                validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 32),
-              _buildSectionTitle('Membership Details', Icons.card_membership),
+              _buildSectionTitle('Plan & Dates', Icons.card_membership),
               const SizedBox(height: 16),
               MembershipPlanDropdown(
                 value: _selectedPlan?.id,
@@ -120,40 +111,18 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                 validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              AppDropdownField(
-                field: 'MEMBERSHIP-TYPE',
-                label: 'Membership Type',
-                icon: Icons.category_outlined,
-                value: _selectedMembershipType,
-                onChanged: (v) => setState(() => _selectedMembershipType = v),
-                validator: (v) => v == null ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppDropdownField(
-                      field: 'CREATION-TYPE',
-                      label: 'Creation Type',
-                      value: _selectedCreationType,
-                      onChanged: (v) => setState(() => _selectedCreationType = v),
-                      validator: (v) => v == null ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AppDropdownField(
-                      field: 'SALES-AREA',
-                      label: 'Sales Area',
-                      value: _selectedSalesArea,
-                      onChanged: (v) => setState(() => _selectedSalesArea = v),
-                      validator: (v) => v == null ? 'Required' : null,
-                    ),
-                  ),
-                ],
+              TextFormField(
+                controller: _membershipNoController,
+                decoration: InputDecoration(
+                  labelText: 'Membership Number (Optional)',
+                  prefixIcon: const Icon(Icons.numbers_outlined, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
               const SizedBox(height: 16),
               _buildDatePickerField('Date Joined', _dateJoined, (date) => setState(() => _dateJoined = date)),
+              const SizedBox(height: 16),
+              _buildDatePickerField('Start Date', _startDate, (date) => setState(() => _startDate = date)),
               const SizedBox(height: 40),
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -166,7 +135,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('LINK MEMBERSHIP', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+                      child: const Text('CREATE MEMBERSHIP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5)),
                     ),
               const SizedBox(height: 24),
             ],
@@ -238,5 +207,11 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _membershipNoController.dispose();
+    super.dispose();
   }
 }
