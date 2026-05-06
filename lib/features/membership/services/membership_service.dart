@@ -4,18 +4,27 @@ import '../models/membership.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
+import '../models/membership_plan.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
   factory MembershipService() => _instance;
   MembershipService._internal();
 
-  Future<List<Membership>> getMemberships() async {
+  Future<List<Membership>> getMemberships({int page = 0, int size = 20, List<String>? sort}) async {
     try {
-      final response = await ApiClient().get('/v2/membership');
+      String path = '/v2/membership?page=$page&size=$size';
+      if (sort != null && sort.isNotEmpty) {
+        for (var s in sort) {
+          path += '&sort=$s';
+        }
+      }
+
+      final response = await ApiClient().get(path);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Membership.fromJson(Map<String, dynamic>.from(json))).toList();
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final List<dynamic> content = data['content'] ?? [];
+        return content.map((json) => Membership.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load memberships: ${response.statusCode}');
       }
@@ -72,6 +81,33 @@ class MembershipService {
         return data.map((json) => Premium.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load paid premiums: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<MembershipPlan>> getMembershipPlans() async {
+    try {
+      final response = await ApiClient().get('/v2/membership/plans');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final List<dynamic> content = data['content'] ?? [];
+        return content.map((json) => MembershipPlan.fromJson(Map<String, dynamic>.from(json))).toList();
+      } else {
+        throw Exception('Failed to load membership plans: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> createMembershipPlan(Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().post('/v2/membership/plans', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to create membership plan: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
