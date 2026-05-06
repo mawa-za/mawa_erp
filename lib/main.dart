@@ -6,6 +6,7 @@ import 'features/setup/setup_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/reset_password_screen.dart';
 import 'features/home/home_page.dart';
+import 'features/invoicing/screens/invoice_pdf_preview_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +25,6 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       onGenerateRoute: (settings) {
-        // Check for deep links/URL parameters (especially for Web)
         final uri = Uri.base;
         
         // Handle /reset-password?token=...
@@ -37,7 +37,16 @@ class MyApp extends StatelessWidget {
           }
         }
 
-        // Default to Initializer for any other route
+        // Handle /invoice-preview?id=...
+        if (uri.path.contains('invoice-preview')) {
+          final id = uri.queryParameters['id'];
+          if (id != null) {
+            return MaterialPageRoute(
+              builder: (context) => Initializer(targetId: id),
+            );
+          }
+        }
+
         return MaterialPageRoute(
           builder: (context) => const Initializer(),
         );
@@ -47,7 +56,8 @@ class MyApp extends StatelessWidget {
 }
 
 class Initializer extends StatefulWidget {
-  const Initializer({super.key});
+  final String? targetId;
+  const Initializer({super.key, this.targetId});
 
   @override
   State<Initializer> createState() => _InitializerState();
@@ -89,6 +99,11 @@ class _InitializerState extends State<Initializer> {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
+    }
+
+    // Allow viewing an invoice even if not configured/logged in
+    if (widget.targetId != null) {
+      return InvoicePdfPreviewScreen(invoiceId: widget.targetId);
     }
 
     if (!_isConfigured) {
