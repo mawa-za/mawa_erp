@@ -52,12 +52,13 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return TextFormField(
-        decoration: _inputDecoration('Loading Plans...'),
-        readOnly: true,
-        suffixIcon: const Padding(
-          padding: EdgeInsets.all(12.0),
-          child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        decoration: _inputDecoration('Loading Plans...').copyWith(
+          suffixIcon: const Padding(
+            padding: EdgeInsets.all(12.0),
+            child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
         ),
+        readOnly: true,
       );
     }
 
