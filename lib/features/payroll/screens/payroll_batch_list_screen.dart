@@ -44,39 +44,96 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   }
 
   Future<void> _copyBatch(PayrollBatchSummary batch) async {
-    final referenceController = TextEditingController(text: 'Copy of ${batch.reference}');
-    
+    final batchNoController = TextEditingController(text: '${batch.batchNo}-COPY');
+    final descriptionController = TextEditingController(text: 'Copy of ${batch.description}');
+    final payPeriodController = TextEditingController(text: batch.payPeriod);
+    final notesController = TextEditingController(text: 'Copied from batch ${batch.batchNo}');
+    DateTime paymentDate = DateTime.now();
+    bool copyExcludedItems = false;
+
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Copy Payroll Batch'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter a reference for the new payroll batch:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: referenceController,
-              decoration: const InputDecoration(
-                labelText: 'New Reference',
-                border: OutlineInputBorder(),
-              ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Copy Payroll Batch'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: batchNoController,
+                  decoration: const InputDecoration(labelText: 'New Batch No', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: payPeriodController,
+                  decoration: const InputDecoration(labelText: 'Pay Period (YYYYMM)', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: paymentDate,
+                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) setDialogState(() => paymentDate = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Payment Date', border: OutlineInputBorder()),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(DateFormat('yyyy-MM-dd').format(paymentDate)),
+                        const Icon(Icons.calendar_today, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  title: const Text('Copy Excluded Items', style: TextStyle(fontSize: 14)),
+                  value: copyExcludedItems,
+                  onChanged: (val) => setDialogState(() => copyExcludedItems = val ?? false),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('COPY BATCH'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('COPY'),
-          ),
-        ],
       ),
     );
 
     if (confirm == true) {
       try {
-        await PayrollService().copyPayrollBatch(batch.id, referenceController.text);
+        final payload = {
+          'batchNo': batchNoController.text,
+          'description': descriptionController.text,
+          'payPeriod': payPeriodController.text,
+          'paymentDate': DateFormat('yyyy-MM-dd').format(paymentDate),
+          'notes': notesController.text,
+          'copyExcludedItems': copyExcludedItems,
+        };
+        await PayrollService().copyPayrollBatch(batch.id, payload);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Payroll batch copied successfully')),
@@ -157,12 +214,13 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            title: Text(batch.reference, style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(batch.batchNo, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                Text('Created: ${batch.dateCreated}'),
+                Text(batch.description),
+                Text('Date: ${batch.paymentDate} • Period: ${batch.payPeriod}'),
                 Text('Items: ${batch.itemCount} • Total: R ${batch.totalAmount.toStringAsFixed(2)}'),
               ],
             ),

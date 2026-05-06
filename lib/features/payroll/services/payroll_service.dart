@@ -9,7 +9,7 @@ class PayrollService {
 
   Future<List<PayrollBatchSummary>> getPayrollBatches() async {
     try {
-      final response = await ApiClient().get('/v2/payroll/batch');
+      final response = await ApiClient().get('/v2/payroll-payment-batch');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => PayrollBatchSummary.fromJson(json)).toList();
@@ -23,7 +23,7 @@ class PayrollService {
 
   Future<PayrollBatchDetail> getPayrollBatch(String id) async {
     try {
-      final response = await ApiClient().get('/v2/payroll/batch/$id');
+      final response = await ApiClient().get('/v2/payroll-payment-batch/$id');
       if (response.statusCode == 200) {
         return PayrollBatchDetail.fromJson(jsonDecode(response.body));
       } else {
@@ -37,7 +37,7 @@ class PayrollService {
   Future<void> createPayrollBatch(Map<String, dynamic> data) async {
     try {
       final response = await ApiClient().post(
-        '/v2/payroll/batch',
+        '/v2/payroll-payment-batch',
         body: data,
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -48,11 +48,11 @@ class PayrollService {
     }
   }
 
-  Future<void> copyPayrollBatch(String sourceId, String newReference) async {
+  Future<void> copyPayrollBatch(String sourceId, Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post(
-        '/v2/payroll/batch/$sourceId/copy',
-        body: {'reference': newReference},
+        '/v2/payroll-payment-batches/$sourceId/copy',
+        body: payload,
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Failed to copy payroll batch: ${response.statusCode}');
