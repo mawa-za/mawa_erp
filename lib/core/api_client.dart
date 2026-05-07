@@ -12,12 +12,18 @@ class ApiClient {
   final http.Client _client = http.Client();
   Completer<bool>? _refreshCompleter;
 
+  // Stream to notify UI of logout events
+  final _logoutController = StreamController<bool>.broadcast();
+  Stream<bool> get logoutStream => _logoutController.stream;
+
   ApiClient._internal();
 
   Future<String?> _getApiHost() async {
     if (kIsWeb) return Config.apiHost;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('api_host') ?? Config.apiHost;
+    final storedHost = prefs.getString('api_host');
+    if (storedHost != null && storedHost.isNotEmpty) return storedHost;
+    return Config.apiHost.isNotEmpty ? Config.apiHost : 'dev.api.app.mawa.co.za';
   }
 
   Future<String?> _getTenantId() async {
@@ -36,7 +42,7 @@ class ApiClient {
       'X-TenantID': tenantId ?? '',
     };
     
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
     
@@ -134,6 +140,7 @@ class ApiClient {
       _refreshCompleter!.complete(success);
       return success;
     } catch (e) {
+      debugPrint('Error during token refresh: $e');
       _refreshCompleter!.complete(false);
       return false;
     } finally {
@@ -148,11 +155,14 @@ class ApiClient {
       final host = await _getApiHost();
       final tenantId = await _getTenantId();
 
-      if (refreshToken == null) {
+      if (refreshToken == null || refreshToken.isEmpty) {
+        debugPrint('No refresh token available');
+        await _handleLogout();
         return false;
       }
 
-      final url = Uri.parse('https://$host/refresh-token');
+      debugPrint('Attempting to refresh token...');
+      final url = Uri.parse('https://$host/v2/refresh-token');
       final response = await http.post(
         url,
         headers: {
@@ -164,16 +174,28 @@ class ApiClient {
         }),
       );
 
+      debugPrint('Refresh token response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        await prefs.setString('accessToken', data['accessToken']);
-        await prefs.setString('refreshToken', data['refreshToken']);
-        return true;
-      } else {
-        await _handleLogout();
-        return false;
-      }
+        final newAccessToken = data['accessToken'] ?? data['token'];
+        final newRefreshToken = data['refreshToken'];
+
+        if (newAccessToken != null) {
+          await prefs.setString('accessToken', newAccessToken);
+          if (newRefreshToken != null) {
+            await prefs.setString('refreshToken', newRefreshToken);
+          }
+          debugPrint('Token refreshed successfully');
+          return true;
+        }
+      } 
+      
+      debugPrint('Token refresh failed. Status: ${response.statusCode}, Body: ${response.body}');
+      await _handleLogout();
+      return false;
     } catch (e) {
+      debugPrint('Exception during _refreshToken: $e');
       return false;
     }
   }
@@ -182,5 +204,6 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
+    _logoutController.add(true);
   }
 }
