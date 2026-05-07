@@ -54,7 +54,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         }),
         MembershipService().getMembershipPlanById(detail.planId).catchError((e) {
           debugPrint('Failed to load plan: $e');
-          return MembershipPlan(id: detail.planId, name: 'Unknown Plan', description: '', premium: 0, currency: 'ZAR', maxDependents: 0, active: false);
+          return MembershipPlan(id: detail.planId, planCode: 'UNKNOWN', name: 'Unknown Plan', description: '', premiumCents: 0, currency: 'ZAR', maxDependents: 0, active: false);
         }),
         MembershipService().getMembershipPremiums(widget.membershipId).catchError((e) {
           debugPrint('Failed to load premiums: $e');
@@ -595,6 +595,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                         _buildInfoRow(Icons.cake_outlined, 'Birth Date', partner?.birthDate ?? dependent.birthDate ?? 'N/A'),
                         const SizedBox(height: 4),
                         _buildInfoRow(Icons.wc_outlined, 'Gender/Marital', '${partner?.gender ?? dependent.gender?.description ?? 'N/A'} / ${partner?.maritalStatus ?? dependent.maritalStatus?.description ?? 'N/A'}'),
+                        const SizedBox(height: 4),
+                        _buildInfoRow(Icons.calendar_today_outlined, 'Date Added', dependent.createdAt ?? 'N/A'),
                         if (partner != null) ...[
                           if (partner.email.isNotEmpty) ...[
                             const SizedBox(height: 4),
