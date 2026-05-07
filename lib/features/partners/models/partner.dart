@@ -50,7 +50,9 @@ class Partner {
     if (type == 'ORGANISATION' || type == 'GROUP') {
       return name1;
     }
-    return [name2, name3, name1].where((s) => s.isNotEmpty).join(' ');
+    final parts = [name2, name3, name1].where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'Unnamed Partner';
+    return parts.join(' ');
   }
 
   factory Partner.fromJson(Map<String, dynamic> json) {
@@ -106,8 +108,8 @@ class Partner {
       id: id,
       number: number,
       type: type.isEmpty ? 'INDIVIDUAL' : type,
-      name1: (json['name1'] ?? '').toString().trim(),
-      name2: (json['name2'] ?? '').toString().trim(),
+      name1: (json['name1'] ?? json['lastName'] ?? '').toString().trim(),
+      name2: (json['name2'] ?? json['firstName'] ?? '').toString().trim(),
       name3: (json['name3'] ?? '').toString().trim(),
       name4: json['name4']?.toString(),
       identityNumber: (identityObj?['number'] ?? json['identityNumber'] ?? '').toString(),

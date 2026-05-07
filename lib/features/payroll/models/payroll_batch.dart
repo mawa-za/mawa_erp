@@ -1,15 +1,19 @@
 class PayrollBatchSummary {
   final String id;
-  final String reference;
-  final String dateCreated;
+  final String batchNo;
+  final String description;
+  final String payPeriod;
+  final String paymentDate;
   final String status;
   final double totalAmount;
   final int itemCount;
 
   PayrollBatchSummary({
     required this.id,
-    required this.reference,
-    required this.dateCreated,
+    required this.batchNo,
+    required this.description,
+    required this.payPeriod,
+    required this.paymentDate,
     required this.status,
     required this.totalAmount,
     required this.itemCount,
@@ -18,8 +22,10 @@ class PayrollBatchSummary {
   factory PayrollBatchSummary.fromJson(Map<String, dynamic> json) {
     return PayrollBatchSummary(
       id: json['id'] ?? '',
-      reference: json['reference'] ?? '',
-      dateCreated: json['dateCreated'] ?? '',
+      batchNo: json['batchNo'] ?? '',
+      description: json['description'] ?? '',
+      payPeriod: json['payPeriod'] ?? '',
+      paymentDate: json['paymentDate'] ?? '',
       status: json['status'] ?? 'NEW',
       totalAmount: (json['totalAmount'] ?? 0.0).toDouble(),
       itemCount: json['itemCount'] ?? 0,
@@ -29,15 +35,21 @@ class PayrollBatchSummary {
 
 class PayrollBatchDetail {
   final String id;
-  final String reference;
-  final String dateCreated;
+  final String batchNo;
+  final String description;
+  final String payPeriod;
+  final String paymentDate;
+  final String notes;
   final String status;
   final List<PayrollItem> items;
 
   PayrollBatchDetail({
     required this.id,
-    required this.reference,
-    required this.dateCreated,
+    required this.batchNo,
+    required this.description,
+    required this.payPeriod,
+    required this.paymentDate,
+    required this.notes,
     required this.status,
     required this.items,
   });
@@ -45,8 +57,11 @@ class PayrollBatchDetail {
   factory PayrollBatchDetail.fromJson(Map<String, dynamic> json) {
     return PayrollBatchDetail(
       id: json['id'] ?? '',
-      reference: json['reference'] ?? '',
-      dateCreated: json['dateCreated'] ?? '',
+      batchNo: json['batchNo'] ?? '',
+      description: json['description'] ?? '',
+      payPeriod: json['payPeriod'] ?? '',
+      paymentDate: json['paymentDate'] ?? '',
+      notes: json['notes'] ?? '',
       status: json['status'] ?? 'NEW',
       items: (json['items'] as List? ?? [])
           .map((item) => PayrollItem.fromJson(item))
@@ -56,30 +71,63 @@ class PayrollBatchDetail {
 }
 
 class PayrollItem {
-  final String id;
-  final String recipientName;
-  final String recipientId;
-  final double amount;
-  final String reference;
-  final Map<String, dynamic>? bankAccount;
+  final String? employeeId;
+  final String? employeeNo;
+  final String? employeeName;
+  final String? bankName;
+  final String? branchCode;
+  final String? accountNo;
+  final String? accountType;
+  final String? accountHolderName;
+  final int amountCents;
+  final String? paymentReference;
+  final String? salaryReference;
 
   PayrollItem({
-    required this.id,
-    required this.recipientName,
-    required this.recipientId,
-    required this.amount,
-    required this.reference,
-    this.bankAccount,
+    this.employeeId,
+    this.employeeNo,
+    this.employeeName,
+    this.bankName,
+    this.branchCode,
+    this.accountNo,
+    this.accountType,
+    this.accountHolderName,
+    required this.amountCents,
+    this.paymentReference,
+    this.salaryReference,
   });
+
+  double get amount => amountCents / 100.0;
 
   factory PayrollItem.fromJson(Map<String, dynamic> json) {
     return PayrollItem(
-      id: json['id'] ?? '',
-      recipientName: json['recipientName'] ?? '',
-      recipientId: json['recipientId'] ?? '',
-      amount: (json['amount'] ?? 0.0).toDouble(),
-      reference: json['reference'] ?? '',
-      bankAccount: json['bankAccount'],
+      employeeId: json['employeeId'],
+      employeeNo: json['employeeNo'],
+      employeeName: json['employeeName'],
+      bankName: json['bankName'],
+      branchCode: json['branchCode'],
+      accountNo: json['accountNo'],
+      accountType: json['accountType'],
+      accountHolderName: json['accountHolderName'],
+      amountCents: json['amountCents'] ?? 0,
+      paymentReference: json['paymentReference'],
+      salaryReference: json['salaryReference'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'employeeId': employeeId,
+      'employeeNo': employeeNo,
+      'employeeName': employeeName,
+      'bankName': bankName,
+      'branchCode': branchCode,
+      'accountNo': accountNo,
+      'accountType': accountType,
+      'accountHolderName': accountHolderName,
+      'amountCents': amountCents,
+      'paymentReference': paymentReference,
+      'salaryReference': salaryReference,
+    };
   }
 }

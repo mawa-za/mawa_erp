@@ -8,6 +8,7 @@ import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_create_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
+import '../membership/screens/membership_plan_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
@@ -171,6 +172,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
     if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_rounded;
+    if (lowerId.contains('plan') || lowerId.contains('product')) return Icons.inventory_2_rounded;
     if (lowerId.contains('payroll')) return Icons.payments_rounded;
     if (lowerId.contains('claim') || lowerId.contains('payment')) return Icons.account_balance_wallet_rounded;
     if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups_rounded;
@@ -189,6 +191,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
     if (id.contains('invoic') || description.contains('invoic')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
+    } else if (id.contains('plan') || description.contains('plan') || id.contains('product')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
     } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
     } else if (id.contains('payroll') || description.contains('payroll')) {

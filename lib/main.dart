@@ -7,6 +7,7 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/reset_password_screen.dart';
 import 'features/home/home_page.dart';
 import 'features/invoicing/screens/invoice_pdf_preview_screen.dart';
+import 'features/membership/screens/membership_detail_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +38,16 @@ class MyApp extends StatelessWidget {
           }
         }
 
+        // Handle /membership-detail?id=...
+        if (uri.path.contains('membership-detail')) {
+          final id = uri.queryParameters['id'];
+          if (id != null) {
+            return MaterialPageRoute(
+              builder: (context) => Initializer(membershipId: id),
+            );
+          }
+        }
+
         // Handle /invoice-preview?id=...
         if (uri.path.contains('invoice-preview')) {
           final id = uri.queryParameters['id'];
@@ -57,7 +68,8 @@ class MyApp extends StatelessWidget {
 
 class Initializer extends StatefulWidget {
   final String? targetId;
-  const Initializer({super.key, this.targetId});
+  final String? membershipId;
+  const Initializer({super.key, this.targetId, this.membershipId});
 
   @override
   State<Initializer> createState() => _InitializerState();
@@ -116,6 +128,11 @@ class _InitializerState extends State<Initializer> {
       return LoginScreen(onLoggedIn: () {
         setState(() => _isLoggedIn = true);
       });
+    }
+
+    // If logged in and we have a membership ID, go straight to details
+    if (widget.membershipId != null) {
+      return MembershipDetailScreen(membershipId: widget.membershipId!);
     }
 
     return const MyHomePage(title: 'Mawa ERP');

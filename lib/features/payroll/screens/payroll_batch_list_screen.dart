@@ -44,49 +44,136 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   }
 
   Future<void> _copyBatch(PayrollBatchSummary batch) async {
-    final referenceController = TextEditingController(text: 'Copy of ${batch.reference}');
-    
+    final batchNoController = TextEditingController(text: '${batch.batchNo}-COPY');
+    final descriptionController = TextEditingController(text: 'Copy of ${batch.description}');
+    final payPeriodController = TextEditingController(text: batch.payPeriod);
+    final notesController = TextEditingController(text: 'Copied from batch ${batch.batchNo}');
+    DateTime paymentDate = DateTime.now();
+    bool copyExcludedItems = false;
+
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Copy Payroll Batch'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter a reference for the new payroll batch:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: referenceController,
-              decoration: const InputDecoration(
-                labelText: 'New Reference',
-                border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Copy Payroll Batch', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Create a new payroll run based on this existing batch.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: batchNoController,
+                  decoration: InputDecoration(
+                    labelText: 'New Batch No',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  decoration: InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: payPeriodController,
+                  decoration: InputDecoration(
+                    labelText: 'Pay Period (YYYYMM)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: paymentDate,
+                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) setDialogState(() => paymentDate = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Payment Date',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      isDense: true,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(DateFormat('yyyy-MM-dd').format(paymentDate)),
+                        const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  decoration: InputDecoration(
+                    labelText: 'Notes',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    isDense: true,
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  title: const Text('Copy Excluded Items', style: TextStyle(fontSize: 14)),
+                  value: copyExcludedItems,
+                  onChanged: (val) => setDialogState(() => copyExcludedItems = val ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('CANCEL', style: TextStyle(color: Colors.grey[600])),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
+              child: const Text('COPY BATCH'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('COPY'),
-          ),
-        ],
       ),
     );
 
     if (confirm == true) {
       try {
-        await PayrollService().copyPayrollBatch(batch.id, referenceController.text);
+        final payload = {
+          'batchNo': batchNoController.text,
+          'description': descriptionController.text,
+          'payPeriod': payPeriodController.text,
+          'paymentDate': DateFormat('yyyy-MM-dd').format(paymentDate),
+          'notes': notesController.text,
+          'copyExcludedItems': copyExcludedItems,
+        };
+        await PayrollService().copyPayrollBatch(batch.id, payload);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Payroll batch copied successfully')),
+            const SnackBar(content: Text('Payroll batch copied successfully'), behavior: SnackBarBehavior.floating),
           );
           _fetchBatches();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
           );
         }
       }
@@ -95,12 +182,27 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text('Payroll Batches'),
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchBatches),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _fetchBatches,
+            tooltip: 'Refresh',
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _buildBody(),
@@ -113,19 +215,24 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
           if (result == true) _fetchBatches();
         },
         label: const Text('New Payroll Run'),
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add_rounded),
+        elevation: 4,
       ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red[300]),
+            const SizedBox(height: 16),
             Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
             ElevatedButton(onPressed: _fetchBatches, child: const Text('Retry')),
@@ -139,50 +246,201 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.payments_outlined, size: 64, color: Colors.grey[300]),
+            Icon(Icons.payments_outlined, size: 80, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            const Text('No payroll batches found', style: TextStyle(fontSize: 16, color: Colors.grey)),
+            Text('No payroll batches found',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w500)
+            ),
+            const SizedBox(height: 8),
+            Text('Start by creating a new payroll run',
+              style: TextStyle(fontSize: 13, color: Colors.grey[400])
+            ),
           ],
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       itemCount: _batches.length,
       itemBuilder: (context, index) {
         final batch = _batches[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            title: Text(batch.reference, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Column(
+        return _buildBatchCard(batch);
+      },
+    );
+  }
+
+  Widget _buildBatchCard(PayrollBatchSummary batch) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => PayrollBatchDetailScreen(batchId: batch.id)),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 4),
-                Text('Created: ${batch.dateCreated}'),
-                Text('Items: ${batch.itemCount} • Total: R ${batch.totalAmount.toStringAsFixed(2)}'),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.receipt_long_rounded, color: colorScheme.primary, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            batch.batchNo,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: -0.5),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            batch.description,
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _buildStatusChip(batch.status),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('PAYMENT DATE', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, size: 12, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(batch.paymentDate, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('TOTAL AMOUNT', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                        const SizedBox(height: 4),
+                        Text(
+                          'R ${batch.totalAmount.toStringAsFixed(2)}',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: colorScheme.primary),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.people_outline_rounded, size: 12, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text('${batch.itemCount} Employees', style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_horiz_rounded, color: Colors.grey),
+                      padding: EdgeInsets.zero,
+                      onSelected: (val) {
+                        if (val == 'copy') _copyBatch(batch);
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'copy',
+                          child: ListTile(
+                            leading: Icon(Icons.copy_rounded, size: 20),
+                            title: Text('Duplicate Batch'),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          )
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
-            trailing: PopupMenuButton<String>(
-              onSelected: (val) {
-                if (val == 'copy') _copyBatch(batch);
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'copy', child: ListTile(leading: Icon(Icons.copy), title: Text('Copy Batch'), contentPadding: EdgeInsets.zero)),
-              ],
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => PayrollBatchDetailScreen(batchId: batch.id)),
-              );
-            },
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color color;
+    switch (status.toUpperCase()) {
+      case 'PROCESSED':
+        color = Colors.green;
+        break;
+      case 'FAILED':
+        color = Colors.red;
+        break;
+      case 'AWAITING-APPROVAL':
+      case 'NEW':
+        color = Colors.orange;
+        break;
+      default:
+        color = Colors.blue;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Text(
+        status.replaceAll('-', ' '),
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }
