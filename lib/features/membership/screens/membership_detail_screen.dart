@@ -6,9 +6,11 @@ import '../models/membership_plan.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
+import '../../partners/screens/partner_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
 import 'edit_membership_screen.dart';
 import 'add_dependent_screen.dart';
+import 'edit_dependent_screen.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -24,6 +26,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   Partner? _member;
   MembershipPlan? _plan;
   List<Dependent> _dependents = [];
+  Map<String, Partner> _dependentPartners = {};
   List<Premium> _premiums = [];
   String? _error;
 
@@ -41,19 +44,41 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
     try {
       final detail = await MembershipService().getMembershipDetail(widget.membershipId);
+      final dependents = await MembershipService().getMembershipDependents(widget.membershipId);
 
+      // Step 1: Fetch core data
       final results = await Future.wait([
-        PartnerService().getPartnerById(detail.memberId),
-        MembershipService().getMembershipPlanById(detail.planId),
-        MembershipService().getMembershipDependents(widget.membershipId),
-        MembershipService().getMembershipPremiums(widget.membershipId),
+        PartnerService().getPartnerById(detail.memberId).catchError((e) {
+          debugPrint('Failed to load member partner: $e');
+          return Partner(id: detail.memberId, number: '', type: 'INDIVIDUAL', name1: 'Unknown', name2: '', name3: '', identityNumber: '', status: 'INACTIVE');
+        }),
+        MembershipService().getMembershipPlanById(detail.planId).catchError((e) {
+          debugPrint('Failed to load plan: $e');
+          return MembershipPlan(id: detail.planId, name: 'Unknown Plan', description: '', premium: 0, currency: 'ZAR', maxDependents: 0, active: false);
+        }),
+        MembershipService().getMembershipPremiums(widget.membershipId).catchError((e) {
+          debugPrint('Failed to load premiums: $e');
+          return <Premium>[];
+        }),
       ]);
 
       final member = results[0] as Partner;
       final plan = results[1] as MembershipPlan;
-      final dependents = results[2] as List<Dependent>;
-      final premiums = results[3] as List<Premium>;
+      final premiums = results[2] as List<Premium>;
       
+      // Step 2: Fetch dependent partners individually (resilient)
+      final Map<String, Partner> dependentPartners = {};
+      await Future.wait(dependents.map((d) async {
+        if (d.dependentPartnerId.isNotEmpty) {
+          try {
+            final p = await PartnerService().getPartnerById(d.dependentPartnerId);
+            dependentPartners[p.id] = p;
+          } catch (e) {
+            debugPrint('Failed to load dependent partner ${d.dependentPartnerId}: $e');
+          }
+        }
+      }));
+
       // Sort premiums by period DESC
       premiums.sort((a, b) => b.membershipPeriod.compareTo(a.membershipPeriod));
 
@@ -63,6 +88,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _member = member;
           _plan = plan;
           _dependents = dependents;
+          _dependentPartners = dependentPartners;
           _premiums = premiums;
           _isLoading = false;
         });
@@ -287,38 +313,56 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Text(member.name2.isNotEmpty ? member.name2[0] : '?',
-                    style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${member.title ?? ''} ${member.fullName}'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('No: ${member.number}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    ],
-                  ),
-                ),
-                _buildStatusChip(member.status, isCompact: true),
-              ],
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PartnerDetailScreen(partnerId: member.id),
             ),
-            const Divider(height: 24),
-            _buildInfoRow(Icons.badge_outlined, 'Identity', '${member.idType ?? 'ID'}: ${member.identityNumber}'),
-            const SizedBox(height: 8),
-            _buildInfoRow(Icons.cake_outlined, 'Birth Date', member.birthDate ?? 'N/A'),
-            const SizedBox(height: 8),
-            _buildInfoRow(Icons.person_outline, 'Gender', member.gender ?? 'N/A'),
-          ],
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: colorScheme.primaryContainer,
+                    child: Text(member.name2.isNotEmpty ? member.name2[0].toUpperCase() : '?',
+                      style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${member.title ?? ''} ${member.fullName}'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('No: ${member.number}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  _buildStatusChip(member.status, isCompact: true),
+                ],
+              ),
+              const Divider(height: 24),
+              _buildInfoRow(Icons.badge_outlined, 'Identity', '${member.idType ?? 'ID'}: ${member.identityNumber}'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.cake_outlined, 'Birth Date', member.birthDate ?? 'N/A'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.person_outline, 'Gender', member.gender ?? 'N/A'),
+              if (member.email.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.email_outlined, 'Email', member.email),
+              ],
+              if (member.phone.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.phone_outlined, 'Phone', member.phone),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -335,6 +379,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           children: [
             const Text('MEMBERSHIP INFO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
             const SizedBox(height: 12),
+            _buildInfoRow(Icons.numbers_outlined, 'Membership No', detail.membershipNo),
+            const SizedBox(height: 8),
             if (_plan != null)
               _buildInfoRow(Icons.inventory_2_outlined, 'Plan', '${_plan!.name} (${_plan!.id})'),
             const SizedBox(height: 8),
@@ -496,37 +542,113 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             ),
           )
         else
-          ..._dependents.map((dependent) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-            child: ExpansionTile(
-              leading: CircleAvatar(
-                radius: 16,
-                backgroundColor: colorScheme.secondaryContainer,
-                child: Text(dependent.firstName.isNotEmpty ? dependent.firstName[0] : '?', 
-                  style: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12, fontWeight: FontWeight.bold)),
+          ..._dependents.map((dependent) {
+            final partner = _dependentPartners[dependent.dependentPartnerId];
+            
+            // Robust name display
+            String displayName = 'Unnamed Dependent';
+            if (partner != null && partner.fullName != 'Unnamed Partner') {
+              displayName = partner.fullName;
+            } else if (dependent.fullName != 'Unnamed Dependent') {
+              displayName = dependent.fullName;
+            }
+
+            // Robust identity display
+            String displayId = 'N/A';
+            if (partner != null && partner.identityNumber.isNotEmpty) {
+              displayId = partner.identityNumber;
+            } else if (dependent.identity?.number.isNotEmpty == true) {
+              displayId = dependent.identity!.number;
+            }
+
+            String displayIdType = partner?.idType ?? dependent.identity?.type.description ?? 'ID';
+            
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+              child: ExpansionTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: colorScheme.secondaryContainer,
+                  child: Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
+                    style: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                title: Text('${partner?.title ?? dependent.title?.description ?? ''} $displayName'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text('No: ${partner?.number ?? dependent.number} • ${dependent.relationship.replaceAll('-', ' ')}', style: const TextStyle(fontSize: 12)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildStatusChip(partner?.status ?? dependent.status?.description ?? (dependent.active ? 'Active' : 'Inactive'), isCompact: true),
+                    const Icon(Icons.expand_more, size: 20),
+                  ],
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(),
+                        _buildInfoRow(Icons.badge_outlined, 'Identity', '$displayIdType: $displayId'),
+                        const SizedBox(height: 4),
+                        _buildInfoRow(Icons.cake_outlined, 'Birth Date', partner?.birthDate ?? dependent.birthDate ?? 'N/A'),
+                        const SizedBox(height: 4),
+                        _buildInfoRow(Icons.wc_outlined, 'Gender/Marital', '${partner?.gender ?? dependent.gender?.description ?? 'N/A'} / ${partner?.maritalStatus ?? dependent.maritalStatus?.description ?? 'N/A'}'),
+                        if (partner != null) ...[
+                          if (partner.email.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            _buildInfoRow(Icons.email_outlined, 'Email', partner.email),
+                          ],
+                          if (partner.phone.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            _buildInfoRow(Icons.phone_outlined, 'Phone', partner.phone),
+                          ],
+                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () async {
+                                final result = await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => EditDependentScreen(
+                                      membershipId: widget.membershipId,
+                                      dependent: dependent,
+                                    ),
+                                  ),
+                                );
+                                if (result == true) _fetchData();
+                              },
+                              icon: const Icon(Icons.edit_outlined, size: 16),
+                              label: const Text('Edit Link'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => PartnerDetailScreen(partnerId: dependent.dependentPartnerId),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.person_outline, size: 16),
+                              label: const Text('Full Profile'),
+                              style: ElevatedButton.styleFrom(
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                ],
               ),
-              title: Text('${dependent.title?.description ?? ''} ${dependent.fullName}'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Text('No: ${dependent.number}', style: const TextStyle(fontSize: 12)),
-              trailing: _buildStatusChip(dependent.status?.description ?? 'Active', isCompact: true),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Column(
-                    children: [
-                      const Divider(),
-                      _buildInfoRow(Icons.badge_outlined, 'Identity', '${dependent.identity?.type.description ?? 'ID'}: ${dependent.identity?.number ?? 'N/A'}'),
-                      const SizedBox(height: 4),
-                      _buildInfoRow(Icons.cake_outlined, 'Birth Date', dependent.birthDate ?? 'N/A'),
-                      const SizedBox(height: 4),
-                      _buildInfoRow(Icons.wc_outlined, 'Gender/Marital', '${dependent.gender?.description ?? 'N/A'} / ${dependent.maritalStatus?.description ?? 'N/A'}'),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          )),
+            );
+          }),
       ],
     );
   }

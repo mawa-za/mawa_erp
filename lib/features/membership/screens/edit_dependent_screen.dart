@@ -94,7 +94,7 @@ class _EditDependentScreenState extends State<EditDependentScreen> {
               ),
               const SizedBox(height: 12),
               AppDropdownField(
-                field: 'DEPENDENT-TYPE',
+                field: 'RELATIONSHIP-TYPE',
                 label: 'Relationship Type',
                 icon: Icons.people_outline,
                 value: _selectedType,

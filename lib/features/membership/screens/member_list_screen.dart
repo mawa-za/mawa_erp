@@ -3,6 +3,8 @@ import '../../../core/models/paginated_response.dart';
 import '../models/membership.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
+import '../../partners/partner_service.dart';
+import '../../partners/models/partner.dart';
 import 'add_member_screen.dart';
 import 'membership_detail_screen.dart';
 
@@ -25,6 +27,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
   List<Membership> _memberships = [];
   Map<String, MembershipPlan> _plans = {};
+  Map<String, Partner> _partners = {};
   String? _error;
 
   @override
@@ -49,6 +52,32 @@ class _MemberListScreenState extends State<MemberListScreen> {
     }
   }
 
+  Future<void> _fetchPartners(List<String> ids) async {
+    final uniqueIds = ids.where((id) => id.isNotEmpty && !_partners.containsKey(id)).toSet();
+    if (uniqueIds.isEmpty) return;
+
+    final results = await Future.wait(
+      uniqueIds.map((id) async {
+        try {
+          final partner = await PartnerService().getPartnerById(id);
+          return MapEntry(id, partner);
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
+
+    if (mounted) {
+      setState(() {
+        for (var entry in results) {
+          if (entry != null) {
+            _partners[entry.key] = entry.value;
+          }
+        }
+      });
+    }
+  }
+
   Future<void> _fetchInitialData() async {
     setState(() {
       _isLoading = true;
@@ -61,7 +90,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
     try {
       final results = await Future.wait([
         MembershipService().getMemberships(page: _currentPage, size: _pageSize, sort: ['createdAt,desc']),
-        MembershipService().getMembershipPlans(size: 100), // Get a good batch of plans
+        MembershipService().getMembershipPlans(size: 100),
       ]);
 
       final membershipsResponse = results[0] as PaginatedResponse<Membership>;
@@ -72,8 +101,12 @@ class _MemberListScreenState extends State<MemberListScreen> {
           _memberships = membershipsResponse.content;
           _plans = {for (var p in plansResponse.content) p.id: p};
           _hasMore = !membershipsResponse.last;
-          _isLoading = false;
         });
+
+        // Fetch partners for initial batch
+        await _fetchPartners(_memberships.map((m) => m.memberId).toList());
+
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
@@ -97,18 +130,22 @@ class _MemberListScreenState extends State<MemberListScreen> {
       );
 
       if (mounted) {
+        final newMemberships = response.content;
         setState(() {
           _currentPage = nextPage;
-          _memberships.addAll(response.content);
+          _memberships.addAll(newMemberships);
           _hasMore = !response.last;
-          _isLoadingMore = false;
         });
+
+        // Fetch partners for new batch
+        await _fetchPartners(newMemberships.map((m) => m.memberId).toList());
+
+        setState(() => _isLoadingMore = false);
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
-          // We don't set global error here to not hide existing data
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error loading more: $e'), behavior: SnackBarBehavior.floating),
           );
@@ -174,12 +211,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
       child: TextField(
         controller: _searchController,
         onSubmitted: (value) {
-          // In a real paginated search, we'd trigger a fresh fetch with search query
-          // For now, we'll just refresh initial data (assuming API supports search)
           _fetchInitialData();
         },
         decoration: InputDecoration(
-          hintText: 'Search by policy #, member ID or plan...',
+          hintText: 'Search by policy #, identity # or plan...',
           hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
@@ -215,7 +250,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error.withOpacity(0.5)),
+            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             const Text('Failed to load memberships', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
@@ -266,13 +301,15 @@ class _MemberListScreenState extends State<MemberListScreen> {
           
           final membership = _memberships[index];
           final plan = _plans[membership.planId];
-          return _buildMembershipCard(membership, plan, colorScheme);
+          final partner = _partners[membership.memberId];
+
+          return _buildMembershipCard(membership, plan, partner, colorScheme);
         },
       ),
     );
   }
 
-  Widget _buildMembershipCard(Membership membership, MembershipPlan? plan, ColorScheme colorScheme) {
+  Widget _buildMembershipCard(Membership membership, MembershipPlan? plan, Partner? partner, ColorScheme colorScheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -280,7 +317,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -308,7 +345,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorScheme.primary.withOpacity(0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -325,23 +362,17 @@ class _MemberListScreenState extends State<MemberListScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  plan?.name ?? 'Plan: ${membership.planId}',
+                  partner?.fullName ?? 'Loading member...',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: -0.5),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.person_outline_rounded, size: 14, color: Colors.grey[400]),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        'Member ID: ${membership.memberId}',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                if (partner != null)
+                  Text(
+                    'Identity No: ${partner.identityNumber}',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                Text(
+                  plan?.name ?? 'Plan: ${membership.planId}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
                 const SizedBox(height: 16),
                 const Divider(height: 1),
@@ -403,9 +434,9 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
         status.replaceAll('-', ' '),

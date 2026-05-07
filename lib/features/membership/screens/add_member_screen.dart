@@ -5,7 +5,7 @@ import '../../partners/models/partner.dart';
 import '../models/membership_plan.dart';
 import '../widgets/membership_plan_dropdown.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
-import '../../../core/widgets/app_dropdown.dart';
+import 'membership_detail_screen.dart';
 
 class AddMemberScreen extends StatefulWidget {
   const AddMemberScreen({super.key});
@@ -23,7 +23,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   MembershipPlan? _selectedPlan;
   DateTime _dateJoined = DateTime.now();
   DateTime _startDate = DateTime.now();
-  final TextEditingController _membershipNoController = TextEditingController();
 
   Future<void> _saveMembership() async {
     if (!_formKey.currentState!.validate()) return;
@@ -51,18 +50,21 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
         "startDate": _startDate.toIso8601String().split('T')[0],
         "joinDate": _dateJoined.toIso8601String().split('T')[0],
         "status": "ACTIVE",
-        "membershipNo": _membershipNoController.text.trim().isEmpty
-            ? null
-            : _membershipNoController.text.trim(),
       };
 
-      await MembershipService().createMembership(payload);
+      final String membershipId = await MembershipService().createMembership(payload);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Membership created successfully'), behavior: SnackBarBehavior.floating),
         );
-        Navigator.of(context).pop(true);
+        
+        // Navigate to details screen, and replace the current add screen in the stack
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => MembershipDetailScreen(membershipId: membershipId),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -109,15 +111,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                 value: _selectedPlan?.id,
                 onChanged: (plan) => setState(() => _selectedPlan = plan),
                 validator: (v) => v == null ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _membershipNoController,
-                decoration: InputDecoration(
-                  labelText: 'Membership Number (Optional)',
-                  prefixIcon: const Icon(Icons.numbers_outlined, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                ),
               ),
               const SizedBox(height: 16),
               _buildDatePickerField('Date Joined', _dateJoined, (date) => setState(() => _dateJoined = date)),
@@ -207,11 +200,5 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _membershipNoController.dispose();
-    super.dispose();
   }
 }

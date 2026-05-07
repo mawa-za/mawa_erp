@@ -44,24 +44,75 @@ class Dependent {
     this.updatedBy,
   });
 
-  String get fullName => '$firstName $lastName'.trim();
+  String get fullName {
+    final parts = [firstName, lastName].where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'Unnamed Dependent';
+    return parts.join(' ');
+  }
 
   factory Dependent.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? asMap(dynamic value) {
+      if (value == null) return null;
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return null;
+    }
+
+    final depPartner = json['dependentPartner'] ?? json['dependentPartnerId'] ?? json['partnerId'] ?? json['partner'] ?? json['dependentPartnerPartner'];
+    final depPartnerMap = asMap(depPartner);
+    
+    final String depPartnerId = depPartnerMap != null 
+        ? (depPartnerMap['id'] ?? depPartnerMap['partnerId'] ?? depPartnerMap['partner'] ?? '').toString() 
+        : (depPartner ?? '').toString();
+
+    // Identity handling
+    final identityObj = asMap(json['identity']);
+    DependentIdentity? identity;
+    if (identityObj != null) {
+      identity = DependentIdentity.fromJson(identityObj);
+    } else {
+      final idNum = json['identityNumber'] ?? json['identityNo'] ?? json['idNumber'] ?? 
+                    depPartnerMap?['identityNumber'] ?? depPartnerMap?['identityNo'] ?? depPartnerMap?['idNumber'];
+      if (idNum != null && idNum.toString().isNotEmpty) {
+        identity = DependentIdentity(
+          type: FieldOption(code: 'ID', description: 'ID'),
+          number: idNum.toString(),
+        );
+      }
+    }
+
+    // Name handling with more fallbacks
+    String fName = (json['firstName'] ?? json['name2'] ?? depPartnerMap?['name2'] ?? depPartnerMap?['firstName'] ?? '').toString();
+    String lName = (json['lastName'] ?? json['name1'] ?? depPartnerMap?['name1'] ?? depPartnerMap?['lastName'] ?? '').toString();
+    
+    if (fName.isEmpty && lName.isEmpty) {
+      final fullName = (json['fullName'] ?? json['name'] ?? depPartnerMap?['fullName'] ?? depPartnerMap?['name'] ?? '').toString();
+      if (fullName.isNotEmpty) {
+        final parts = fullName.split(' ');
+        if (parts.length > 1) {
+          fName = parts.sublist(0, parts.length - 1).join(' ');
+          lName = parts.last;
+        } else {
+          fName = fullName;
+        }
+      }
+    }
+
     return Dependent(
       id: (json['id'] ?? '').toString(),
       membershipId: (json['membershipId'] ?? '').toString(),
-      dependentPartnerId: (json['dependentPartnerId'] ?? '').toString(),
+      dependentPartnerId: depPartnerId,
       relationship: (json['relationship'] ?? '').toString(),
       active: json['active'] ?? true,
-      firstName: (json['firstName'] ?? '').toString(),
-      lastName: (json['lastName'] ?? '').toString(),
-      number: (json['number'] ?? '').toString(),
-      status: json['status'] != null ? FieldOption.fromJson(json['status']) : null,
-      title: json['title'] != null ? FieldOption.fromJson(json['title']) : null,
-      birthDate: json['birthDate']?.toString(),
-      gender: json['gender'] != null ? FieldOption.fromJson(json['gender']) : null,
-      maritalStatus: json['maritalStatus'] != null ? FieldOption.fromJson(json['maritalStatus']) : null,
-      identity: json['identity'] != null ? DependentIdentity.fromJson(json['identity']) : null,
+      firstName: fName,
+      lastName: lName,
+      number: (json['number'] ?? json['partnerNo'] ?? json['partnerNumber'] ?? 
+               depPartnerMap?['number'] ?? depPartnerMap?['partnerNo'] ?? depPartnerMap?['partnerNumber'] ?? '').toString(),
+      status: json['status'] != null ? FieldOption.fromJson(asMap(json['status']) ?? {}) : null,
+      title: json['title'] != null ? FieldOption.fromJson(asMap(json['title']) ?? {}) : null,
+      birthDate: (json['birthDate'] ?? json['dateOfBirth'] ?? depPartnerMap?['birthDate'] ?? depPartnerMap?['dateOfBirth'])?.toString(),
+      gender: json['gender'] != null ? FieldOption.fromJson(asMap(json['gender']) ?? {}) : null,
+      maritalStatus: json['maritalStatus'] != null ? FieldOption.fromJson(asMap(json['maritalStatus']) ?? {}) : null,
+      identity: identity,
       createdAt: json['createdAt']?.toString(),
       createdBy: (json['createdBy'] ?? '').toString(),
       updatedAt: json['updatedAt']?.toString(),
@@ -95,7 +146,7 @@ class DependentIdentity {
 
   factory DependentIdentity.fromJson(Map<String, dynamic> json) {
     return DependentIdentity(
-      type: FieldOption.fromJson(json['type'] ?? {}),
+      type: FieldOption.fromJson(json['type'] is Map ? Map<String, dynamic>.from(json['type']) : {}),
       number: (json['number'] ?? '').toString(),
     );
   }

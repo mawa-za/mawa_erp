@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -7,9 +8,11 @@ import 'config.dart';
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
-  ApiClient._internal();
 
-  bool _isRefreshing = false;
+  final http.Client _client = http.Client();
+  Completer<bool>? _refreshCompleter;
+
+  ApiClient._internal();
 
   Future<String?> _getApiHost() async {
     if (kIsWeb) return Config.apiHost;
@@ -43,21 +46,19 @@ class ApiClient {
   Future<http.Response> post(String path, {dynamic body}) async {
     final host = await _getApiHost();
     final url = Uri.parse('https://$host$path');
-    final headers = await _getHeaders();
 
-    var response = await http.post(
+    var response = await _client.post(
       url,
-      headers: headers,
+      headers: await _getHeaders(),
       body: body != null ? jsonEncode(body) : null,
     );
 
-    if (response.statusCode == 401 && !_isRefreshing) {
-      final success = await _refreshToken();
+    if (response.statusCode == 401) {
+      final success = await _handleUnauthorized();
       if (success) {
-        final newHeaders = await _getHeaders();
-        response = await http.post(
+        response = await _client.post(
           url,
-          headers: newHeaders,
+          headers: await _getHeaders(),
           body: body != null ? jsonEncode(body) : null,
         );
       }
@@ -69,21 +70,19 @@ class ApiClient {
   Future<http.Response> put(String path, {dynamic body}) async {
     final host = await _getApiHost();
     final url = Uri.parse('https://$host$path');
-    final headers = await _getHeaders();
 
-    var response = await http.put(
+    var response = await _client.put(
       url,
-      headers: headers,
+      headers: await _getHeaders(),
       body: body != null ? jsonEncode(body) : null,
     );
 
-    if (response.statusCode == 401 && !_isRefreshing) {
-      final success = await _refreshToken();
+    if (response.statusCode == 401) {
+      final success = await _handleUnauthorized();
       if (success) {
-        final newHeaders = await _getHeaders();
-        response = await http.put(
+        response = await _client.put(
           url,
-          headers: newHeaders,
+          headers: await _getHeaders(),
           body: body != null ? jsonEncode(body) : null,
         );
       }
@@ -95,15 +94,13 @@ class ApiClient {
   Future<http.Response> get(String path) async {
     final host = await _getApiHost();
     final url = Uri.parse('https://$host$path');
-    final headers = await _getHeaders();
 
-    var response = await http.get(url, headers: headers);
+    var response = await _client.get(url, headers: await _getHeaders());
 
-    if (response.statusCode == 401 && !_isRefreshing) {
-      final success = await _refreshToken();
+    if (response.statusCode == 401) {
+      final success = await _handleUnauthorized();
       if (success) {
-        final newHeaders = await _getHeaders();
-        response = await http.get(url, headers: newHeaders);
+        response = await _client.get(url, headers: await _getHeaders());
       }
     }
 
@@ -113,23 +110,38 @@ class ApiClient {
   Future<http.Response> delete(String path) async {
     final host = await _getApiHost();
     final url = Uri.parse('https://$host$path');
-    final headers = await _getHeaders();
 
-    var response = await http.delete(url, headers: headers);
+    var response = await _client.delete(url, headers: await _getHeaders());
 
-    if (response.statusCode == 401 && !_isRefreshing) {
-      final success = await _refreshToken();
+    if (response.statusCode == 401) {
+      final success = await _handleUnauthorized();
       if (success) {
-        final newHeaders = await _getHeaders();
-        response = await http.delete(url, headers: newHeaders);
+        response = await _client.delete(url, headers: await _getHeaders());
       }
     }
 
     return response;
   }
 
+  Future<bool> _handleUnauthorized() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    _refreshCompleter = Completer<bool>();
+    try {
+      final success = await _refreshToken();
+      _refreshCompleter!.complete(success);
+      return success;
+    } catch (e) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
+  }
+
   Future<bool> _refreshToken() async {
-    _isRefreshing = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       final refreshToken = prefs.getString('refreshToken');
@@ -137,7 +149,6 @@ class ApiClient {
       final tenantId = await _getTenantId();
 
       if (refreshToken == null) {
-        _isRefreshing = false;
         return false;
       }
 
@@ -157,15 +168,12 @@ class ApiClient {
         final data = jsonDecode(response.body);
         await prefs.setString('accessToken', data['accessToken']);
         await prefs.setString('refreshToken', data['refreshToken']);
-        _isRefreshing = false;
         return true;
       } else {
         await _handleLogout();
-        _isRefreshing = false;
         return false;
       }
     } catch (e) {
-      _isRefreshing = false;
       return false;
     }
   }

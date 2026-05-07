@@ -36,10 +36,13 @@ class MembershipService {
     }
   }
 
-  Future<void> createMembership(Map<String, dynamic> payload) async {
+  Future<String> createMembership(Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post('/v2/membership', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return data['id'];
+      } else {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to create membership: ${response.statusCode}');
       }
