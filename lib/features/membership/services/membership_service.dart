@@ -12,9 +12,17 @@ class MembershipService {
   factory MembershipService() => _instance;
   MembershipService._internal();
 
-  Future<PaginatedResponse<Membership>> getMemberships({int page = 0, int size = 20, List<String>? sort}) async {
+  Future<PaginatedResponse<Membership>> getMemberships({
+    int page = 0, 
+    int size = 20, 
+    List<String>? sort,
+    String query = '',
+  }) async {
     try {
       String path = '/v2/membership?page=$page&size=$size';
+      if (query.isNotEmpty) {
+        path += '&query=${Uri.encodeComponent(query)}';
+      }
       if (sort != null && sort.isNotEmpty) {
         for (var s in sort) {
           path += '&sort=$s';
