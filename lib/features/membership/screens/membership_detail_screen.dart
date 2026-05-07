@@ -223,7 +223,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             const SizedBox(height: 16),
             const Text('Failed to load membership details', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(_error!, textAlign: textAlign.center, style: TextStyle(color: Colors.grey[600])),
+            Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 24),
             ElevatedButton(onPressed: _fetchData, child: const Text('RETRY')),
           ],
