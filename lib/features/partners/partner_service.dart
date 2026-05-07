@@ -8,6 +8,20 @@ class PartnerService {
   factory PartnerService() => _instance;
   PartnerService._internal();
 
+  Future<Partner> getPartnerById(String id) async {
+    try {
+      final response = await ApiClient().get('/v2/partner/$id');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return Partner.fromJson(data);
+      } else {
+        throw Exception('Failed to load partner: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<List<Partner>> getPartnersByRole(String role, {String query = ''}) async {
     try {
       final response = await ApiClient().get('/v2/partner?query=$query&role=$role');
