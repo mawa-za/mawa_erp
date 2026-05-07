@@ -89,7 +89,12 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
     try {
       final results = await Future.wait([
-        MembershipService().getMemberships(page: _currentPage, size: _pageSize, sort: ['createdAt,desc']),
+        MembershipService().getMemberships(
+          page: _currentPage, 
+          size: _pageSize, 
+          sort: ['createdAt,desc'],
+          query: _searchController.text,
+        ),
         MembershipService().getMembershipPlans(size: 100),
       ]);
 
@@ -126,7 +131,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
       final response = await MembershipService().getMemberships(
         page: nextPage, 
         size: _pageSize, 
-        sort: ['createdAt,desc']
+        sort: ['createdAt,desc'],
+        query: _searchController.text,
       );
 
       if (mounted) {
@@ -210,6 +216,9 @@ class _MemberListScreenState extends State<MemberListScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: TextField(
         controller: _searchController,
+        onChanged: (value) {
+          setState(() {});
+        },
         onSubmitted: (value) {
           _fetchInitialData();
         },

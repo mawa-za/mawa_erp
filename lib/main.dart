@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/api_client.dart';
 import 'features/setup/setup_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/reset_password_screen.dart';
@@ -79,11 +81,28 @@ class _InitializerState extends State<Initializer> {
   bool _isLoading = true;
   bool _isConfigured = false;
   bool _isLoggedIn = false;
+  StreamSubscription? _logoutSubscription;
 
   @override
   void initState() {
     super.initState();
     _checkStatus();
+    _logoutSubscription = ApiClient().logoutStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please login again.')),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _logoutSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkStatus() async {
@@ -100,7 +119,7 @@ class _InitializerState extends State<Initializer> {
         _isConfigured = tenant != null && apiHost != null;
       }
       
-      _isLoggedIn = token != null;
+      _isLoggedIn = token != null && token.isNotEmpty;
       _isLoading = false;
     });
   }
