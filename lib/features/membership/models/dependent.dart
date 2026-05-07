@@ -57,6 +57,23 @@ class Dependent {
       return null;
     }
 
+    String? parseDate(dynamic date) {
+      if (date == null) return null;
+      if (date is List && date.length >= 3) {
+        final year = date[0];
+        final month = date[1].toString().padLeft(2, '0');
+        final day = date[2].toString().padLeft(2, '0');
+
+        if (date.length >= 5) {
+          final hour = date[3].toString().padLeft(2, '0');
+          final minute = date[4].toString().padLeft(2, '0');
+          return '$year-$month-$day $hour:$minute';
+        }
+        return '$year-$month-$day';
+      }
+      return date.toString();
+    }
+
     final depPartner = json['dependentPartner'] ?? json['dependentPartnerId'] ?? json['partnerId'] ?? json['partner'] ?? json['dependentPartnerPartner'];
     final depPartnerMap = asMap(depPartner);
     
@@ -70,29 +87,36 @@ class Dependent {
     if (identityObj != null) {
       identity = DependentIdentity.fromJson(identityObj);
     } else {
-      final idNum = json['identityNumber'] ?? json['identityNo'] ?? json['idNumber'] ?? 
-                    depPartnerMap?['identityNumber'] ?? depPartnerMap?['identityNo'] ?? depPartnerMap?['idNumber'];
+      final idNum = json['identityNumber'] ?? json['identityNo'] ?? json['idNumber'] ?? json['id_number'] ?? json['identity_no'] ?? json['id_no'] ??
+                    depPartnerMap?['identityNumber'] ?? depPartnerMap?['identityNo'] ?? depPartnerMap?['idNumber'] ?? depPartnerMap?['id_number'] ?? depPartnerMap?['identity_no'] ?? depPartnerMap?['id_no'];
       if (idNum != null && idNum.toString().isNotEmpty) {
         identity = DependentIdentity(
-          type: FieldOption(code: 'ID', description: 'ID'),
+          type: FieldOption(
+            field: 'IDENTITY-TYPE',
+            code: 'ID', 
+            type: 'ID',
+            description: 'ID',
+            validFrom: '',
+            validTo: '',
+          ),
           number: idNum.toString(),
         );
       }
     }
 
     // Name handling with more fallbacks
-    String fName = (json['firstName'] ?? json['name2'] ?? depPartnerMap?['name2'] ?? depPartnerMap?['firstName'] ?? '').toString();
-    String lName = (json['lastName'] ?? json['name1'] ?? depPartnerMap?['name1'] ?? depPartnerMap?['lastName'] ?? '').toString();
+    String fName = (json['firstName'] ?? json['first_name'] ?? json['name2'] ?? depPartnerMap?['name2'] ?? depPartnerMap?['firstName'] ?? depPartnerMap?['first_name'] ?? '').toString();
+    String lName = (json['lastName'] ?? json['last_name'] ?? json['name1'] ?? depPartnerMap?['name1'] ?? depPartnerMap?['lastName'] ?? depPartnerMap?['last_name'] ?? '').toString();
     
     if (fName.isEmpty && lName.isEmpty) {
-      final fullName = (json['fullName'] ?? json['name'] ?? depPartnerMap?['fullName'] ?? depPartnerMap?['name'] ?? '').toString();
-      if (fullName.isNotEmpty) {
-        final parts = fullName.split(' ');
+      final fullNameVal = (json['fullName'] ?? json['full_name'] ?? json['name'] ?? depPartnerMap?['fullName'] ?? depPartnerMap?['full_name'] ?? depPartnerMap?['name'] ?? '').toString();
+      if (fullNameVal.isNotEmpty) {
+        final parts = fullNameVal.split(' ');
         if (parts.length > 1) {
           fName = parts.sublist(0, parts.length - 1).join(' ');
           lName = parts.last;
         } else {
-          fName = fullName;
+          fName = fullNameVal;
         }
       }
     }
@@ -109,13 +133,13 @@ class Dependent {
                depPartnerMap?['number'] ?? depPartnerMap?['partnerNo'] ?? depPartnerMap?['partnerNumber'] ?? '').toString(),
       status: json['status'] != null ? FieldOption.fromJson(asMap(json['status']) ?? {}) : null,
       title: json['title'] != null ? FieldOption.fromJson(asMap(json['title']) ?? {}) : null,
-      birthDate: (json['birthDate'] ?? json['dateOfBirth'] ?? depPartnerMap?['birthDate'] ?? depPartnerMap?['dateOfBirth'])?.toString(),
+      birthDate: parseDate(json['birthDate'] ?? json['dateOfBirth'] ?? depPartnerMap?['birthDate'] ?? depPartnerMap?['dateOfBirth']),
       gender: json['gender'] != null ? FieldOption.fromJson(asMap(json['gender']) ?? {}) : null,
       maritalStatus: json['maritalStatus'] != null ? FieldOption.fromJson(asMap(json['maritalStatus']) ?? {}) : null,
       identity: identity,
-      createdAt: json['createdAt']?.toString(),
+      createdAt: parseDate(json['createdAt']),
       createdBy: (json['createdBy'] ?? '').toString(),
-      updatedAt: json['updatedAt']?.toString(),
+      updatedAt: parseDate(json['updatedAt']),
       updatedBy: json['updatedBy']?.toString(),
     );
   }
