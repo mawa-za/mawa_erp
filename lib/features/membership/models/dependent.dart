@@ -35,8 +35,8 @@ class Dependent {
     this.status,
     this.title,
     this.birthDate,
-    this.gender,
     this.maritalStatus,
+    this.gender,
     this.identity,
     this.createdAt,
     required this.createdBy,
@@ -70,8 +70,8 @@ class Dependent {
     if (identityObj != null) {
       identity = DependentIdentity.fromJson(identityObj);
     } else {
-      final idNum = json['identityNumber'] ?? json['identityNo'] ?? json['idNumber'] ?? 
-                    depPartnerMap?['identityNumber'] ?? depPartnerMap?['identityNo'] ?? depPartnerMap?['idNumber'];
+      final idNum = json['identityNumber'] ?? json['identityNo'] ?? json['idNumber'] ?? json['id_number'] ?? json['identity_no'] ?? json['id_no'] ??
+                    depPartnerMap?['identityNumber'] ?? depPartnerMap?['identityNo'] ?? depPartnerMap?['idNumber'] ?? depPartnerMap?['id_number'] ?? depPartnerMap?['identity_no'] ?? depPartnerMap?['id_no'];
       if (idNum != null && idNum.toString().isNotEmpty) {
         identity = DependentIdentity(
           type: FieldOption(code: 'ID', description: 'ID'),
@@ -81,18 +81,18 @@ class Dependent {
     }
 
     // Name handling with more fallbacks
-    String fName = (json['firstName'] ?? json['name2'] ?? depPartnerMap?['name2'] ?? depPartnerMap?['firstName'] ?? '').toString();
-    String lName = (json['lastName'] ?? json['name1'] ?? depPartnerMap?['name1'] ?? depPartnerMap?['lastName'] ?? '').toString();
+    String fName = (json['firstName'] ?? json['first_name'] ?? json['name2'] ?? depPartnerMap?['name2'] ?? depPartnerMap?['firstName'] ?? depPartnerMap?['first_name'] ?? '').toString();
+    String lName = (json['lastName'] ?? json['last_name'] ?? json['name1'] ?? depPartnerMap?['name1'] ?? depPartnerMap?['lastName'] ?? depPartnerMap?['last_name'] ?? '').toString();
     
     if (fName.isEmpty && lName.isEmpty) {
-      final fullName = (json['fullName'] ?? json['name'] ?? depPartnerMap?['fullName'] ?? depPartnerMap?['name'] ?? '').toString();
-      if (fullName.isNotEmpty) {
-        final parts = fullName.split(' ');
+      final fullNameVal = (json['fullName'] ?? json['full_name'] ?? json['name'] ?? depPartnerMap?['fullName'] ?? depPartnerMap?['full_name'] ?? depPartnerMap?['name'] ?? '').toString();
+      if (fullNameVal.isNotEmpty) {
+        final parts = fullNameVal.split(' ');
         if (parts.length > 1) {
           fName = parts.sublist(0, parts.length - 1).join(' ');
           lName = parts.last;
         } else {
-          fName = fullName;
+          fName = fullNameVal;
         }
       }
     }
