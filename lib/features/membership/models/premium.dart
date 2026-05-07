@@ -1,5 +1,18 @@
 import '../../../core/models/field_option.dart';
-import 'membership_detail.dart';
+
+class SalesRepresentative {
+  final String id;
+  final String name;
+
+  SalesRepresentative({required this.id, required this.name});
+
+  factory SalesRepresentative.fromJson(Map<String, dynamic> json) {
+    return SalesRepresentative(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? json['displayName'] ?? '').toString(),
+    );
+  }
+}
 
 class Premium {
   final String id;
