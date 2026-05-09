@@ -105,23 +105,22 @@ class _MemberListScreenState extends State<MemberListScreen> {
     try {
       final query = _searchController.text.trim();
 
-      // If searching, first find partners matching the query
-      if (query.isNotEmpty) {
-        try {
-          final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
-          _currentMemberIds = partners.map((p) => p.id).toList();
+      // First find partners matching the query and role (always call this)
+      try {
+        final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
+        _currentMemberIds = partners.map((p) => p.id).toList();
 
-          // Cache partners to avoid re-fetching them for the list tiles
-          if (mounted) {
-            setState(() {
-              for (var p in partners) {
-                _partners[p.id] = p;
-              }
-            });
-          }
-        } catch (e) {
-          debugPrint('Error fetching partners for search: $e');
+        // Cache partners to avoid re-fetching them for the list tiles
+        if (mounted) {
+          setState(() {
+            for (var p in partners) {
+              _partners[p.id] = p;
+            }
+          });
         }
+      } catch (e) {
+        debugPrint('Error fetching partners: $e');
+        _currentMemberIds = [];
       }
 
       final results = await Future.wait([
