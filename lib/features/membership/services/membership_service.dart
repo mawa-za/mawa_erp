@@ -17,11 +17,17 @@ class MembershipService {
     int size = 20, 
     List<String>? sort,
     String query = '',
+    List<String>? memberIds,
   }) async {
     try {
       String path = '/v2/membership?page=$page&size=$size';
       if (query.isNotEmpty) {
         path += '&query=${Uri.encodeComponent(query)}';
+      }
+      if (memberIds != null && memberIds.isNotEmpty) {
+        for (var id in memberIds) {
+          path += '&memberId=$id';
+        }
       }
       if (sort != null && sort.isNotEmpty) {
         for (var s in sort) {
