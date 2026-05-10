@@ -105,7 +105,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
     try {
       final query = _searchController.text.trim();
 
-      // If searching, first find partners matching the query
+      // Only find partners if there's a search query
       if (query.isNotEmpty) {
         try {
           final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
@@ -120,7 +120,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
             });
           }
         } catch (e) {
-          debugPrint('Error fetching partners for search: $e');
+          debugPrint('Error fetching partners: $e');
+          _currentMemberIds = [];
         }
       }
 
@@ -128,7 +129,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         MembershipService().getMemberships(
           page: _currentPage, 
           size: _pageSize, 
-          sort: ['createdAt,desc'],
+          sort: ['membershipNo,asc'],
           query: query,
           memberIds: _currentMemberIds,
         ),
@@ -168,7 +169,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
       final response = await MembershipService().getMemberships(
         page: nextPage, 
         size: _pageSize, 
-        sort: ['createdAt,desc'],
+        sort: ['membershipNo,asc'],
         query: _searchController.text.trim(),
         memberIds: _currentMemberIds,
       );

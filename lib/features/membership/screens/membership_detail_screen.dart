@@ -56,7 +56,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           debugPrint('Failed to load plan: $e');
           return MembershipPlan(id: detail.planId, planCode: 'UNKNOWN', name: 'Unknown Plan', description: '', premiumCents: 0, currency: 'ZAR', maxDependents: 0, active: false);
         }),
-        MembershipService().getMembershipPremiums(widget.membershipId).catchError((e) {
+        MembershipService().getMembershipPremiums(widget.membershipId, oldId: detail.oldId).catchError((e) {
           debugPrint('Failed to load premiums: $e');
           return <Premium>[];
         }),
