@@ -7,7 +7,7 @@ class MembershipPlan {
   final String currency;
   final int maxDependents;
   final bool active;
-  final List<int>? createdAt;
+  final String? createdAt;
   final String? oldId;
 
   MembershipPlan({
@@ -26,17 +26,38 @@ class MembershipPlan {
   double get premium => premiumCents / 100.0;
 
   factory MembershipPlan.fromJson(Map<String, dynamic> json) {
+    String? parseDateArray(dynamic date) {
+      if (date == null) return null;
+      if (date is List && date.length >= 3) {
+        try {
+          final year = date[0].toString();
+          final month = date[1].toString().padLeft(2, '0');
+          final day = date[2].toString().padLeft(2, '0');
+
+          if (date.length >= 5) {
+            final hour = date[3].toString().padLeft(2, '0');
+            final minute = date[4].toString().padLeft(2, '0');
+            return '$year-$month-$day $hour:$minute';
+          }
+          return '$year-$month-$day';
+        } catch (e) {
+          return date.toString();
+        }
+      }
+      return date?.toString();
+    }
+
     return MembershipPlan(
-      id: json['id'] ?? '',
-      planCode: json['planCode'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      premiumCents: json['premiumCents'] ?? 0,
-      currency: json['currency'] ?? 'ZAR',
-      maxDependents: json['maxDependents'] ?? 0,
-      active: json['active'] ?? false,
-      createdAt: json['createdAt'] != null ? List<int>.from(json['createdAt']) : null,
-      oldId: json['oldId'],
+      id: (json['id'] ?? '').toString(),
+      planCode: (json['planCode'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      premiumCents: json['premiumCents'] is int ? json['premiumCents'] : (int.tryParse(json['premiumCents']?.toString() ?? '0') ?? 0),
+      currency: (json['currency'] ?? 'ZAR').toString(),
+      maxDependents: json['maxDependents'] is int ? json['maxDependents'] : (int.tryParse(json['maxDependents']?.toString() ?? '0') ?? 0),
+      active: json['active'] == true,
+      createdAt: parseDateArray(json['createdAt']),
+      oldId: json['oldId']?.toString(),
     );
   }
 
@@ -50,8 +71,8 @@ class MembershipPlan {
       'currency': currency,
       'maxDependents': maxDependents,
       'active': active,
-      if (createdAt != null) 'createdAt': createdAt,
-      if (oldId != null) 'oldId': oldId,
+      'createdAt': createdAt,
+      'oldId': oldId,
     };
   }
 }

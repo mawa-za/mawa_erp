@@ -20,7 +20,9 @@ class MembershipService {
     List<String>? memberIds,
   }) async {
     try {
-      String path = '/v2/membership?page=$page&size=$size';
+      final bool isSearch = query.isNotEmpty || (memberIds != null && memberIds.isNotEmpty);
+      String path = (isSearch ? '/v2/membership' : '/v2/membership/all') + '?page=$page&size=$size';
+      
       if (query.isNotEmpty) {
         path += '&query=${Uri.encodeComponent(query)}';
       }
@@ -37,13 +39,35 @@ class MembershipService {
 
       final response = await ApiClient().get(path);
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
+        final dynamic decoded = jsonDecode(response.body);
+        
+        // Handle List response by wrapping it in a PaginatedResponse
+        if (decoded is List) {
+          return PaginatedResponse<Membership>(
+            content: decoded.map((item) => Membership.fromJson(Map<String, dynamic>.from(item))).toList(),
+            totalPages: 1,
+            totalElements: decoded.length,
+            first: true,
+            last: true,
+            size: decoded.length,
+            number: 0,
+            numberOfElements: decoded.length,
+            empty: decoded.isEmpty,
+          );
+        }
+        
+        // Handle Map (Paginated) response
         return PaginatedResponse<Membership>.fromJson(
-          data,
+          decoded as Map<String, dynamic>,
           (json) => Membership.fromJson(json),
         );
       } else {
-        throw Exception('Failed to load memberships: ${response.statusCode}');
+        String errorMessage = 'Failed to load memberships (${response.statusCode})';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
+        } catch (_) {}
+        throw Exception(errorMessage);
       }
     } catch (e) {
       rethrow;
@@ -93,10 +117,18 @@ class MembershipService {
     try {
       final response = await ApiClient().get('/v2/membership/$id');
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return MembershipDetail.fromJson(data);
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is List && decoded.isNotEmpty) {
+          return MembershipDetail.fromJson(Map<String, dynamic>.from(decoded.first));
+        }
+        return MembershipDetail.fromJson(decoded as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to load membership details: ${response.statusCode}');
+        String errorMessage = 'Failed to load membership details (${response.statusCode})';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
+        } catch (_) {}
+        throw Exception(errorMessage);
       }
     } catch (e) {
       rethrow;
@@ -107,7 +139,8 @@ class MembershipService {
     try {
       final response = await ApiClient().get('/v2/membership/$id/dependents');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final dynamic decoded = jsonDecode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
         return data.map((json) => Dependent.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load membership dependents: ${response.statusCode}');
@@ -141,15 +174,34 @@ class MembershipService {
     }
   }
 
-  Future<List<Premium>> getMembershipPremiums(String membershipId) async {
+  Future<List<Premium>> getMembershipPremiums(String membershipId, {String? oldId}) async {
     try {
-      final response = await ApiClient().get('/v2/premium?membershipId=$membershipId');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Premium.fromJson(Map<String, dynamic>.from(json))).toList();
-      } else {
-        throw Exception('Failed to load paid premiums: ${response.statusCode}');
+      final List<Future<dynamic>> requests = [
+        ApiClient().get('/v2/premium?membershipId=$membershipId'),
+      ];
+
+      if (oldId != null && oldId.isNotEmpty) {
+        requests.add(ApiClient().get('/v2/premium?membershipId=$oldId'));
       }
+
+      final responses = await Future.wait(requests);
+      final List<Premium> allPremiums = [];
+      final Set<String> seenIds = {};
+
+      for (var response in responses) {
+        if (response.statusCode == 200) {
+          final dynamic decoded = jsonDecode(response.body);
+          final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+          for (var json in data) {
+            final premium = Premium.fromJson(Map<String, dynamic>.from(json));
+            if (!seenIds.contains(premium.id)) {
+              allPremiums.add(premium);
+              seenIds.add(premium.id);
+            }
+          }
+        }
+      }
+      return allPremiums;
     } catch (e) {
       rethrow;
     }
@@ -159,9 +211,24 @@ class MembershipService {
     try {
       final response = await ApiClient().get('/v2/membership/plans?page=$page&size=$size');
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
+        final dynamic decoded = jsonDecode(response.body);
+        
+        if (decoded is List) {
+          return PaginatedResponse<MembershipPlan>(
+            content: decoded.map((item) => MembershipPlan.fromJson(Map<String, dynamic>.from(item))).toList(),
+            totalPages: 1,
+            totalElements: decoded.length,
+            first: true,
+            last: true,
+            size: decoded.length,
+            number: 0,
+            numberOfElements: decoded.length,
+            empty: decoded.isEmpty,
+          );
+        }
+
         return PaginatedResponse<MembershipPlan>.fromJson(
-          data,
+          decoded as Map<String, dynamic>,
           (json) => MembershipPlan.fromJson(json),
         );
       } else {
@@ -176,8 +243,11 @@ class MembershipService {
     try {
       final response = await ApiClient().get('/v2/membership/plans/$id');
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return MembershipPlan.fromJson(data);
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is List && decoded.isNotEmpty) {
+          return MembershipPlan.fromJson(Map<String, dynamic>.from(decoded.first));
+        }
+        return MembershipPlan.fromJson(decoded as Map<String, dynamic>);
       } else {
         throw Exception('Failed to load membership plan: ${response.statusCode}');
       }
