@@ -382,7 +382,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             _buildInfoRow(Icons.numbers_outlined, 'Membership No', detail.membershipNo),
             const SizedBox(height: 8),
             if (_plan != null)
-              _buildInfoRow(Icons.inventory_2_outlined, 'Plan', '${_plan!.name} (${_plan!.id})'),
+              _buildInfoRow(Icons.inventory_2_outlined, 'Plan', _plan!.name),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.event_available, 'Start Date', detail.startDate ?? 'N/A'),
             const SizedBox(height: 8),
