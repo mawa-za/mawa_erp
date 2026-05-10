@@ -53,6 +53,13 @@ class MembershipDetail {
       return date?.toString();
     }
 
+    String? parseOldId(dynamic value) {
+      if (value == null) return null;
+      final str = value.toString();
+      if (str.isEmpty || str == 'null') return null;
+      return str;
+    }
+
     return MembershipDetail(
       id: (json['id'] ?? '').toString(),
       memberId: (json['memberId'] ?? '').toString(),
@@ -67,7 +74,7 @@ class MembershipDetail {
       createdBy: (json['createdBy'] ?? '').toString(),
       updatedAt: parseDateArray(json['updatedAt']),
       updatedBy: (json['updatedBy'] ?? '').toString(),
-      oldId: json['oldId']?.toString(),
+      oldId: parseOldId(json['oldId'] ?? json['old_id']),
     );
   }
 
