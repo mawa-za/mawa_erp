@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../../../core/models/paginated_response.dart';
 import '../models/membership.dart';
@@ -41,7 +42,6 @@ class MembershipService {
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         
-        // Handle List response by wrapping it in a PaginatedResponse
         if (decoded is List) {
           return PaginatedResponse<Membership>(
             content: decoded.map((item) => Membership.fromJson(Map<String, dynamic>.from(item))).toList(),
@@ -56,7 +56,6 @@ class MembershipService {
           );
         }
         
-        // Handle Map (Paginated) response
         return PaginatedResponse<Membership>.fromJson(
           decoded as Map<String, dynamic>,
           (json) => Membership.fromJson(json),
@@ -180,7 +179,7 @@ class MembershipService {
         ApiClient().get('/v2/premium?membershipId=$membershipId'),
       ];
 
-      if (oldId != null && oldId.isNotEmpty) {
+      if (oldId != null && oldId.isNotEmpty && oldId != membershipId && oldId != 'null') {
         requests.add(ApiClient().get('/v2/premium?membershipId=$oldId'));
       }
 
@@ -191,7 +190,16 @@ class MembershipService {
       for (var response in responses) {
         if (response.statusCode == 200) {
           final dynamic decoded = jsonDecode(response.body);
-          final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+          
+          List<dynamic> data;
+          if (decoded is List) {
+            data = decoded;
+          } else if (decoded is Map && decoded.containsKey('content')) {
+            data = decoded['content'];
+          } else {
+            data = [];
+          }
+
           for (var json in data) {
             final premium = Premium.fromJson(Map<String, dynamic>.from(json));
             if (!seenIds.contains(premium.id)) {
