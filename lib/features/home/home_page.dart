@@ -15,6 +15,7 @@ import '../settings/screens/settings_screen.dart';
 import '../settings/screens/user_list_screen.dart';
 import '../settings/screens/company_info_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
+import '../cashup/screens/cashup_list_screen.dart';
 import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -182,6 +183,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('setting')) return Icons.settings_suggest_rounded;
     if (lowerId.contains('report')) return Icons.bar_chart_rounded;
     if (lowerId.contains('company')) return Icons.domain_rounded;
+    if (lowerId.contains('cashup')) return Icons.point_of_sale_rounded;
     return Icons.apps_rounded;
   }
 
@@ -207,6 +209,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: true)));
     } else if (id.contains('setting') || description.contains('setting')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemSettingsScreen()));
+    } else if (id.contains('cashup') || description.contains('cashup')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
@@ -220,8 +224,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final double screenWidth = MediaQuery.of(context).size.width;
     final int crossAxisCount = (screenWidth / 180).floor().clamp(2, 8);
 
-    final modules = _filteredWorkcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
-    final reports = _filteredWorkcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
+    final modules = _filteredWorkcenters.where((wc) =\u003e !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
+    final reports = _filteredWorkcenters.where((wc) =\u003e wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
