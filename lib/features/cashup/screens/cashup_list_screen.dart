@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
+import 'cashup_detail_screen.dart';
 
 class CashupListScreen extends StatefulWidget {
   const CashupListScreen({super.key});
@@ -75,15 +76,17 @@ class _CashupListScreenState extends State<CashupListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Cashups'),
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchCashups,
           ),
           IconButton(
-            icon: const Icon(Icons.filter_list),
+            icon: const Icon(Icons.filter_list_rounded),
             onPressed: _showFilterDialog,
           ),
         ],
@@ -91,9 +94,9 @@ class _CashupListScreenState extends State<CashupListScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              ? _buildErrorWidget()
               : _cashups.isEmpty
-                  ? const Center(child: Text('No cashups found'))
+                  ? _buildEmptyWidget()
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
                       itemCount: _cashups.length,
@@ -105,57 +108,118 @@ class _CashupListScreenState extends State<CashupListScreen> {
     );
   }
 
-  Widget _buildCashupCard(Cashup cashup) {
-    return Card(
-      margin: const EdgeInsets.bottom(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        title: Text('Cashup #${cashup.cashupNo}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('Date: ${cashup.cashupDate} • Status: ${cashup.status}'),
-        trailing: Text(
-          'R ${cashup.totalAmount.toStringAsFixed(2)}',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
-        ),
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildInfoRow('Device ID', cashup.deviceId),
-                _buildInfoRow('User ID', cashup.userId),
-                _buildInfoRow('Receipt Count', cashup.receiptCount.toString()),
-                const Divider(),
-                const Text('Payments', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                ...cashup.payments.map((p) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('${p.paymentMethod} (${p.paymentCount})'),
-                      Text('R ${p.amount.toStringAsFixed(2)}'),
-                    ],
-                  ),
-                )),
-              ],
-            ),
-          ),
+          Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+          const SizedBox(height: 16),
+          Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: _fetchCashups, child: const Text('RETRY')),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildEmptyWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Icon(Icons.point_of_sale_outlined, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text('No cashups found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
         ],
       ),
+    );
+  }
+
+  Widget _buildCashupCard(Cashup cashup) {
+    return Card(
+      margin: const EdgeInsets.bottom(12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => CashupDetailScreen(cashupId: cashup.id),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Cashup #${cashup.cashupNo}', 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 4),
+                      Text(cashup.cashupDate, 
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (cashup.status.toLowerCase() == 'completed' ? Colors.green : Colors.blue).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      cashup.status.toUpperCase(),
+                      style: TextStyle(
+                        color: cashup.status.toLowerCase() == 'completed' ? Colors.green.shade700 : Colors.blue.shade700,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMiniInfo('Receipts', cashup.receiptCount.toString()),
+                  _buildMiniInfo('User', cashup.userId),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('TOTAL', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                      Text(
+                        'R ${cashup.totalAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.green),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniInfo(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 
@@ -164,38 +228,51 @@ class _CashupListScreenState extends State<CashupListScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Filter Cashups'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Filter Cashups', style: TextStyle(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: _userIdController,
-                decoration: const InputDecoration(labelText: 'User ID'),
+                decoration: InputDecoration(
+                  labelText: 'User ID',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.person_outline),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
+                    child: OutlinedButton.icon(
                       onPressed: () async {
                         await _selectDate(context, true);
                         setDialogState(() {});
                       },
-                      child: Text(_fromDate == null 
-                          ? 'From Date' 
-                          : DateFormat('yyyy-MM-dd').format(_fromDate!)),
+                      icon: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(_fromDate == null 
+                          ? 'From' 
+                          : DateFormat('MMM dd').format(_fromDate!)),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextButton(
+                    child: OutlinedButton.icon(
                       onPressed: () async {
                         await _selectDate(context, false);
                         setDialogState(() {});
                       },
-                      child: Text(_toDate == null 
-                          ? 'To Date' 
-                          : DateFormat('yyyy-MM-dd').format(_toDate!)),
+                      icon: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(_toDate == null 
+                          ? 'To' 
+                          : DateFormat('MMM dd').format(_toDate!)),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
                 ],
@@ -213,14 +290,17 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 Navigator.pop(context);
                 _fetchCashups();
               },
-              child: const Text('CLEAR'),
+              child: const Text('CLEAR ALL'),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               onPressed: () {
                 Navigator.pop(context);
                 _fetchCashups();
               },
-              child: const Text('APPLY'),
+              child: const Text('APPLY FILTERS'),
             ),
           ],
         ),
