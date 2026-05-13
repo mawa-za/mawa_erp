@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../models/cashup.dart';
 
@@ -13,22 +14,24 @@ class CashupService {
     String? toDate,
   }) async {
     try {
-      String path = '/v2/cashup';
-      final List<String> queryParams = [];
+      final Map<String, String> queryParams = {};
       
       if (userId != null && userId.isNotEmpty) {
-        queryParams.add('userId=$userId');
+        queryParams['userId'] = userId;
       }
       if (fromDate != null && fromDate.isNotEmpty) {
-        queryParams.add('fromDate=$fromDate');
+        queryParams['fromDate'] = fromDate;
       }
       if (toDate != null && toDate.isNotEmpty) {
-        queryParams.add('toDate=$toDate');
+        queryParams['toDate'] = toDate;
       }
 
+      String path = '/v2/cashup';
       if (queryParams.isNotEmpty) {
-        path += '?' + queryParams.join('&');
+        path = Uri(path: path, queryParameters: queryParams).toString();
       }
+
+      debugPrint('GET Cashups Path: $path');
 
       final response = await ApiClient().get(path);
       if (response.statusCode == 200) {
@@ -38,6 +41,7 @@ class CashupService {
         throw Exception('Failed to load cashups: ${response.statusCode}');
       }
     } catch (e) {
+      debugPrint('Error in getCashups: $e');
       rethrow;
     }
   }
