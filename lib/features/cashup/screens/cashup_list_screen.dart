@@ -138,7 +138,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
 
   Widget _buildCashupCard(Cashup cashup) {
     return Card(
-      margin: const EdgeInsets.bottom(12),
+      margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),

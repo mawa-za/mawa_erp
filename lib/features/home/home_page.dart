@@ -224,8 +224,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final double screenWidth = MediaQuery.of(context).size.width;
     final int crossAxisCount = (screenWidth / 180).floor().clamp(2, 8);
 
-    final modules = _filteredWorkcenters.where((wc) =\u003e !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
-    final reports = _filteredWorkcenters.where((wc) =\u003e wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
+    final modules = _filteredWorkcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
+    final reports = _filteredWorkcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
