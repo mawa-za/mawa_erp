@@ -189,7 +189,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('cashup')) return Icons.point_of_sale_rounded;
     if (lowerId.contains('workflow')) return Icons.account_tree_rounded;
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
-    if (lowerId.contains('config')) return Icons.settings_applications_rounded;
+    if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     return Icons.apps_rounded;
   }
 
@@ -209,7 +209,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('partner') || description.contains('partner')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
-    } else if (id.contains('user') || id.contains('setting') || id.contains('company') || id.contains('workflow') || id.contains('config')) {
+    } else if (id.contains('user') || id.contains('setting') || id.contains('company') || id.contains('workflow') || id.contains('config') || id.contains('role')) {
       // All configuration consolidated under System Configuration module
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen()));
     } else if (id.contains('cashup') || description.contains('cashup')) {

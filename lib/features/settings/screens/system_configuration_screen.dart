@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'settings_screen.dart';
 import 'user_list_screen.dart';
 import 'company_info_screen.dart';
+import 'role_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 
@@ -29,6 +30,15 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.settings_applications_outlined,
             color: Colors.blue,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SystemSettingsScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Role Management',
+            subtitle: 'Manage system roles and access levels',
+            icon: Icons.admin_panel_settings_outlined,
+            color: Colors.red,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RoleListScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
