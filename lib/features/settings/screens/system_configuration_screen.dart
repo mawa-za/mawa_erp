@@ -1,0 +1,104 @@
+import 'package:flutter/material.dart';
+import 'settings_screen.dart';
+import 'user_list_screen.dart';
+import 'company_info_screen.dart';
+import '../../approvals/screens/approval_workflow_list_screen.dart';
+import '../../membership/screens/membership_plan_list_screen.dart';
+
+class SystemConfigurationScreen extends StatelessWidget {
+  const SystemConfigurationScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('System Configuration', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildConfigTile(
+            context,
+            title: 'System Parameters',
+            subtitle: 'Manage global system settings and constants',
+            icon: Icons.settings_applications_outlined,
+            color: Colors.blue,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SystemSettingsScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Approval Workflows',
+            subtitle: 'Configure multi-level approval processes',
+            icon: Icons.account_tree_outlined,
+            color: Colors.orange,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ApprovalWorkflowListScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'User Management',
+            subtitle: 'Manage system users and permissions',
+            icon: Icons.people_outline,
+            color: Colors.green,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserListScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Membership Plans',
+            subtitle: 'Configure products, plans and pricing',
+            icon: Icons.card_membership_outlined,
+            color: Colors.teal,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Company Profile',
+            subtitle: 'Manage company information and branding',
+            icon: Icons.business_outlined,
+            color: Colors.purple,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: false))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfigTile(BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        trailing: const Icon(Icons.chevron_right, size: 20),
+        onTap: onTap,
+      ),
+    );
+  }
+}
