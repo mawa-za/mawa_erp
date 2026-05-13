@@ -36,6 +36,8 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken');
     final tenantId = await _getTenantId();
+    final role = prefs.getString('selectedRole');
+    final userId = prefs.getString('userId');
     
     final headers = {
       'Content-Type': 'application/json',
@@ -45,13 +47,45 @@ class ApiClient {
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
+
+    if (role != null && role.isNotEmpty) {
+      headers['X-Role'] = role;
+    }
+
+    if (userId != null && userId.isNotEmpty) {
+      headers['X-UserID'] = userId;
+      headers['X-User-Id'] = userId; // Added to match v2 requirements
+    }
     
     return headers;
   }
 
+  Uri _buildUrl(String host, String path, [Map<String, dynamic>? queryParameters]) {
+    final Uri tempUri = Uri.parse(path);
+    final Map<String, String> combinedParams = Map<String, String>.from(tempUri.queryParameters);
+    
+    if (queryParameters != null) {
+      queryParameters.forEach((key, value) {
+        if (value != null) {
+          combinedParams[key] = value.toString();
+        }
+      });
+    }
+    
+    final String cleanPath = tempUri.path;
+    final String finalPath = cleanPath.startsWith('/') ? cleanPath : '/$cleanPath';
+
+    return Uri.https(
+      host,
+      finalPath,
+      combinedParams.isEmpty ? null : combinedParams,
+    );
+  }
+
   Future<http.Response> post(String path, {dynamic body}) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path);
 
     var response = await _client.post(
       url,
@@ -75,7 +109,8 @@ class ApiClient {
 
   Future<http.Response> put(String path, {dynamic body}) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path);
 
     var response = await _client.put(
       url,
@@ -97,13 +132,17 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> get(String path) async {
+  Future<http.Response> get(String path, {Map<String, dynamic>? queryParameters}) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path, queryParameters);
+
+    debugPrint('ApiClient GET: $url');
 
     var response = await _client.get(url, headers: await _getHeaders());
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for GET $url. Body: ${response.body}');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.get(url, headers: await _getHeaders());
@@ -115,7 +154,8 @@ class ApiClient {
 
   Future<http.Response> delete(String path) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path);
 
     var response = await _client.delete(url, headers: await _getHeaders());
 
