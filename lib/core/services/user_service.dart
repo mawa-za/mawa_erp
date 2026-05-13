@@ -34,12 +34,12 @@ class UserService {
     }
   }
 
-  Future<List<String>> getUserRoles(String userId) async {
+  Future<List<Map<String, dynamic>>> getUserRoles(String userId) async {
     try {
       final response = await ApiClient().get('/v2/user/$userId/role');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => e.toString()).toList();
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
       } else {
         return [];
       }
