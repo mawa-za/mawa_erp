@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/cashup.dart';
 
@@ -14,7 +15,10 @@ class CashupService {
     String? toDate,
   }) async {
     try {
-      final Map<String, String> queryParams = {};
+      final prefs = await SharedPreferences.getInstance();
+      final role = prefs.getString('selectedRole');
+      
+      final Map<String, dynamic> queryParams = {};
       
       if (userId != null && userId.isNotEmpty) {
         queryParams['userId'] = userId;
@@ -25,15 +29,14 @@ class CashupService {
       if (toDate != null && toDate.isNotEmpty) {
         queryParams['toDate'] = toDate;
       }
-
-      String path = '/v2/cashup';
-      if (queryParams.isNotEmpty) {
-        path = Uri(path: path, queryParameters: queryParams).toString();
+      if (role != null && role.isNotEmpty) {
+        queryParams['role'] = role;
       }
 
-      debugPrint('GET Cashups Path: $path');
+      debugPrint('Fetching cashups with params: $queryParams');
 
-      final response = await ApiClient().get(path);
+      final response = await ApiClient().get('/v2/cashup', queryParameters: queryParams);
+
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Cashup.fromJson(Map<String, dynamic>.from(json))).toList();
