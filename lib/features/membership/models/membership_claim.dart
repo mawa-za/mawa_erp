@@ -53,43 +53,61 @@ class MembershipClaim {
   double get combinedClaimAmount => combinedClaimAmountCents / 100.0;
 
   factory MembershipClaim.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     String parseDate(dynamic date) {
       if (date == null) return '';
       if (date is String) return date;
       if (date is List && date.length >= 3) {
-        final year = date[0];
-        final month = date[1].toString().padLeft(2, '0');
-        final day = date[2].toString().padLeft(2, '0');
-        return '$year-$month-$day';
+        try {
+          final year = date[0].toString();
+          final month = date[1].toString().padLeft(2, '0');
+          final day = date[2].toString().padLeft(2, '0');
+          if (date.length >= 5) {
+            final hour = date[3].toString().padLeft(2, '0');
+            final minute = date[4].toString().padLeft(2, '0');
+            return '$year-$month-$day $hour:$minute';
+          }
+          return '$year-$month-$day';
+        } catch (e) {
+          return date.toString();
+        }
       }
       return date.toString();
     }
 
     return MembershipClaim(
-      id: json['id'] ?? '',
-      claimNo: json['claimNo'] ?? '',
-      membershipId: json['membershipId'] ?? '',
-      claimType: json['claimType'] ?? '',
-      deceasedType: json['deceasedType'] ?? '',
-      deceasedPartnerId: json['deceasedPartnerId'] ?? '',
+      id: (json['id'] ?? '').toString(),
+      claimNo: (json['claimNo'] ?? '').toString(),
+      membershipId: (json['membershipId'] ?? '').toString(),
+      claimType: (json['claimType'] ?? '').toString(),
+      deceasedType: (json['deceasedType'] ?? '').toString(),
+      deceasedPartnerId: (json['deceasedPartnerId'] ?? '').toString(),
       dateOfDeath: parseDate(json['dateOfDeath']),
       claimDate: parseDate(json['claimDate']),
-      causeOfDeath: json['causeOfDeath'],
-      deathCertificateNo: json['deathCertificateNo'],
-      claimantPartnerId: json['claimantPartnerId'] ?? '',
-      claimAmountCents: json['claimAmountCents'] ?? 0,
-      combinedClaimAmountCents: json['combinedClaimAmountCents'] ?? 0,
-      status: json['status'] ?? '',
-      rejectionReason: json['rejectionReason'],
-      notes: json['notes'],
-      parentCombinationClaim: json['parentCombinationClaim'] ?? false,
-      linkedToCombinationClaim: json['linkedToCombinationClaim'] ?? false,
-      createdAt: json['createdAt'] ?? '',
-      createdBy: json['createdBy'] ?? '',
-      updatedAt: json['updatedAt'] ?? '',
-      updatedBy: json['updatedBy'],
+      causeOfDeath: json['causeOfDeath']?.toString(),
+      deathCertificateNo: json['deathCertificateNo']?.toString(),
+      claimantPartnerId: (json['claimantPartnerId'] ?? '').toString(),
+      claimAmountCents: toInt(json['claimAmountCents']),
+      combinedClaimAmountCents: toInt(json['combinedClaimAmountCents']),
+      status: (json['status'] ?? '').toString(),
+      rejectionReason: json['rejectionReason']?.toString(),
+      notes: json['notes']?.toString(),
+      parentCombinationClaim: json['parentCombinationClaim'] == true,
+      linkedToCombinationClaim: json['linkedToCombinationClaim'] == true,
+      createdAt: parseDate(json['createdAt']),
+      createdBy: (json['createdBy'] ?? '').toString(),
+      updatedAt: parseDate(json['updatedAt']),
+      updatedBy: json['updatedBy']?.toString(),
       linkedClaims: (json['linkedClaims'] as List? ?? [])
-          .map((i) => LinkedClaim.fromJson(i))
+          .where((i) => i != null && i is Map)
+          .map((i) => LinkedClaim.fromJson(Map<String, dynamic>.from(i)))
           .toList(),
     );
   }
@@ -117,14 +135,22 @@ class LinkedClaim {
   double get claimAmount => claimAmountCents / 100.0;
 
   factory LinkedClaim.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return LinkedClaim(
-      linkId: json['linkId'] ?? '',
-      claimId: json['claimId'] ?? '',
-      claimNo: json['claimNo'] ?? '',
-      membershipId: json['membershipId'] ?? '',
-      claimType: json['claimType'] ?? '',
-      claimAmountCents: json['claimAmountCents'] ?? 0,
-      status: json['status'] ?? '',
+      linkId: (json['linkId'] ?? '').toString(),
+      claimId: (json['claimId'] ?? '').toString(),
+      claimNo: (json['claimNo'] ?? '').toString(),
+      membershipId: (json['membershipId'] ?? '').toString(),
+      claimType: (json['claimType'] ?? '').toString(),
+      claimAmountCents: toInt(json['claimAmountCents']),
+      status: (json['status'] ?? '').toString(),
     );
   }
 }

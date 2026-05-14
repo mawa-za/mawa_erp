@@ -301,7 +301,17 @@ class MembershipService {
       
       final response = await ApiClient().get(path);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final dynamic decoded = jsonDecode(response.body);
+        List<dynamic> data;
+        
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'];
+        } else {
+          data = [];
+        }
+
         return data.map((json) => MembershipClaim.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load membership claims: ${response.statusCode}');
@@ -315,7 +325,17 @@ class MembershipService {
     try {
       final response = await ApiClient().get('/v2/membership-claim/membership/$membershipId');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final dynamic decoded = jsonDecode(response.body);
+        List<dynamic> data;
+        
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'];
+        } else {
+          data = [];
+        }
+
         return data.map((json) => MembershipClaim.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load membership claims: ${response.statusCode}');
@@ -402,7 +422,17 @@ class MembershipService {
 
       final response = await ApiClient().get(path, queryParameters: params);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final dynamic decoded = jsonDecode(response.body);
+        List<dynamic> data;
+        
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'];
+        } else {
+          data = [];
+        }
+
         return data.map((json) => GroupSociety.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load group societies: ${response.statusCode}');
