@@ -9,6 +9,8 @@ import '../invoicing/screens/invoice_create_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
+import '../membership/screens/membership_claim_list_screen.dart';
+import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
@@ -178,7 +180,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_rounded;
     if (lowerId.contains('plan') || lowerId.contains('product')) return Icons.inventory_2_rounded;
     if (lowerId.contains('payroll')) return Icons.payments_rounded;
-    if (lowerId.contains('claim') || lowerId.contains('payment')) return Icons.account_balance_wallet_rounded;
+    if (lowerId.contains('claim')) return Icons.request_quote_rounded;
+    if (lowerId.contains('payment')) return Icons.account_balance_wallet_rounded;
     if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups_rounded;
     if (lowerId.contains('invoic')) return Icons.description_rounded;
     if (lowerId.contains('partner')) return Icons.business_center_rounded;
@@ -205,7 +208,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
     } else if (id.contains('payroll') || description.contains('payroll')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen()));
-    } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
+    } else if (id.contains('claim') || description.contains('claim')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
+    } else if (id.contains('group') || id.contains('society') || description.contains('group') || description.contains('society')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen()));
+    } else if (id.contains('payment') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('partner') || description.contains('partner')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
