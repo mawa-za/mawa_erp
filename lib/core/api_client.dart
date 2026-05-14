@@ -29,7 +29,9 @@ class ApiClient {
   Future<String?> _getTenantId() async {
     if (kIsWeb) return Config.webTenant;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('tenant') ?? Config.webTenant;
+    final tenant = prefs.getString('tenant');
+    if (tenant != null && tenant.isNotEmpty) return tenant;
+    return Config.webTenant.isNotEmpty ? Config.webTenant : null;
   }
 
   Future<Map<String, String>> _getHeaders() async {
@@ -42,10 +44,13 @@ class ApiClient {
     final headers = {
       'Content-Type': 'application/json',
       'X-TenantID': tenantId ?? '',
+      'X-Tenant-Id': tenantId ?? '',
     };
     
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
+    } else {
+      debugPrint('ApiClient: Warning - No accessToken found');
     }
 
     if (role != null && role.isNotEmpty) {
@@ -54,7 +59,7 @@ class ApiClient {
 
     if (userId != null && userId.isNotEmpty) {
       headers['X-UserID'] = userId;
-      headers['X-User-Id'] = userId; // Added to match v2 requirements
+      headers['X-User-Id'] = userId;
     }
     
     return headers;
@@ -86,14 +91,16 @@ class ApiClient {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path);
+    final headers = await _getHeaders();
 
     var response = await _client.post(
       url,
-      headers: await _getHeaders(),
+      headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for POST $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.post(
@@ -111,14 +118,16 @@ class ApiClient {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path);
+    final headers = await _getHeaders();
 
     var response = await _client.put(
       url,
-      headers: await _getHeaders(),
+      headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for PUT $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.put(
@@ -136,16 +145,18 @@ class ApiClient {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
+    final headers = await _getHeaders();
 
     debugPrint('ApiClient GET: $url');
 
-    var response = await _client.get(url, headers: await _getHeaders());
+    var response = await _client.get(url, headers: headers);
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for GET $url. Body: ${response.body}');
       final success = await _handleUnauthorized();
       if (success) {
-        response = await _client.get(url, headers: await _getHeaders());
+        final retryHeaders = await _getHeaders();
+        response = await _client.get(url, headers: retryHeaders);
       }
     }
 
@@ -156,10 +167,12 @@ class ApiClient {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path);
+    final headers = await _getHeaders();
 
-    var response = await _client.delete(url, headers: await _getHeaders());
+    var response = await _client.delete(url, headers: headers);
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for DELETE $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.delete(url, headers: await _getHeaders());
@@ -208,6 +221,7 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           'X-TenantID': tenantId ?? '',
+          'X-Tenant-Id': tenantId ?? '',
         },
         body: jsonEncode({
           'refreshToken': refreshToken,
