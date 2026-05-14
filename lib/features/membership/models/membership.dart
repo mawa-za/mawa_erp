@@ -33,19 +33,31 @@ class Membership {
 
   factory Membership.fromJson(Map<String, dynamic> json) {
     String? parseDateArray(dynamic date) {
+      if (date == null) return null;
       if (date is List && date.length >= 3) {
-        final year = date[0];
-        final month = date[1].toString().padLeft(2, '0');
-        final day = date[2].toString().padLeft(2, '0');
+        try {
+          final year = date[0].toString();
+          final month = date[1].toString().padLeft(2, '0');
+          final day = date[2].toString().padLeft(2, '0');
 
-        if (date.length >= 5) {
-          final hour = date[3].toString().padLeft(2, '0');
-          final minute = date[4].toString().padLeft(2, '0');
-          return '$year-$month-$day $hour:$minute';
+          if (date.length >= 5) {
+            final hour = date[3].toString().padLeft(2, '0');
+            final minute = date[4].toString().padLeft(2, '0');
+            return '$year-$month-$day $hour:$minute';
+          }
+          return '$year-$month-$day';
+        } catch (e) {
+          return date.toString();
         }
-        return '$year-$month-$day';
       }
       return date?.toString();
+    }
+
+    String? parseOldId(dynamic value) {
+      if (value == null) return null;
+      final str = value.toString();
+      if (str.isEmpty || str == 'null') return null;
+      return str;
     }
 
     return Membership(
@@ -62,7 +74,7 @@ class Membership {
       createdBy: (json['createdBy'] ?? '').toString(),
       updatedAt: parseDateArray(json['updatedAt']),
       updatedBy: (json['updatedBy'] ?? '').toString(),
-      oldId: json['oldId']?.toString(),
+      oldId: parseOldId(json['oldId'] ?? json['old_id']),
     );
   }
 }

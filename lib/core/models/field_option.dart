@@ -17,12 +17,26 @@ class FieldOption {
 
   factory FieldOption.fromJson(Map<String, dynamic> json) {
     return FieldOption(
-      field: json['field'] ?? '',
-      code: json['code'] ?? '',
-      type: json['type'] ?? '',
-      description: json['description'] ?? '',
-      validFrom: json['validFrom'] ?? '',
-      validTo: json['validTo'] ?? '',
+      field: (json['field'] ?? '').toString(),
+      code: (json['code'] ?? '').toString(),
+      type: (json['type'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      validFrom: (json['validFrom'] ?? '').toString(),
+      validTo: (json['validTo'] ?? '').toString(),
+    );
+  }
+
+  factory FieldOption.fromDynamic(dynamic json) {
+    if (json is Map) {
+      return FieldOption.fromJson(Map<String, dynamic>.from(json));
+    }
+    return FieldOption(
+      field: '',
+      code: '',
+      type: '',
+      description: '',
+      validFrom: '',
+      validTo: '',
     );
   }
 

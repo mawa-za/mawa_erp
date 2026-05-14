@@ -56,7 +56,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           debugPrint('Failed to load plan: $e');
           return MembershipPlan(id: detail.planId, planCode: 'UNKNOWN', name: 'Unknown Plan', description: '', premiumCents: 0, currency: 'ZAR', maxDependents: 0, active: false);
         }),
-        MembershipService().getMembershipPremiums(widget.membershipId).catchError((e) {
+        MembershipService().getMembershipPremiums(widget.membershipId, oldId: detail.oldId).catchError((e) {
           debugPrint('Failed to load premiums: $e');
           return <Premium>[];
         }),
@@ -382,7 +382,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             _buildInfoRow(Icons.numbers_outlined, 'Membership No', detail.membershipNo),
             const SizedBox(height: 8),
             if (_plan != null)
-              _buildInfoRow(Icons.inventory_2_outlined, 'Plan', '${_plan!.name} (${_plan!.id})'),
+              _buildInfoRow(Icons.inventory_2_outlined, 'Plan', _plan!.name),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.event_available, 'Start Date', detail.startDate ?? 'N/A'),
             const SizedBox(height: 8),

@@ -12,8 +12,12 @@ class PartnerService {
     try {
       final response = await ApiClient().get('/v2/partner/$id');
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return Partner.fromJson(data);
+        final dynamic decoded = jsonDecode(response.body);
+        // If the backend returns a list of one instead of an object
+        if (decoded is List && decoded.isNotEmpty) {
+          return Partner.fromJson(Map<String, dynamic>.from(decoded.first));
+        }
+        return Partner.fromJson(decoded as Map<String, dynamic>);
       } else {
         throw Exception('Failed to load partner: ${response.statusCode}');
       }
@@ -26,8 +30,18 @@ class PartnerService {
     try {
       final response = await ApiClient().get('/v2/partner?query=$query&role=$role');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Partner.fromJson(json)).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        
+        List<dynamic> data;
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'];
+        } else {
+          data = [];
+        }
+
+        return data.map((json) => Partner.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partners by role: ${response.statusCode}');
       }
@@ -40,8 +54,9 @@ class PartnerService {
     try {
       final response = await ApiClient().get('/v2/partner/$partnerId/role');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => PartnerRole.fromJson(json)).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+        return data.map((json) => PartnerRole.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partner roles: ${response.statusCode}');
       }
@@ -69,8 +84,9 @@ class PartnerService {
     try {
       final response = await ApiClient().get('/v2/partner/$partnerId/identity');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => PartnerIdentity.fromJson(json)).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+        return data.map((json) => PartnerIdentity.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partner identities: ${response.statusCode}');
       }
@@ -83,8 +99,9 @@ class PartnerService {
     try {
       final response = await ApiClient().get('/v2/partner/$partnerId/contact');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => PartnerContact.fromJson(json)).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+        return data.map((json) => PartnerContact.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partner contacts: ${response.statusCode}');
       }

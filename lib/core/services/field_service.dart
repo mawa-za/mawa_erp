@@ -15,11 +15,21 @@ class FieldService {
     try {
       final response = await ApiClient().get('/v2/field/option');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        _cachedOptions = data.map((json) => FieldOption.fromJson(json)).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        
+        List<dynamic> data;
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'];
+        } else {
+          data = [];
+        }
+
+        _cachedOptions = data.map((json) => FieldOption.fromDynamic(json)).toList();
         return _cachedOptions!;
       } else {
-        throw Exception('Failed to load field options');
+        throw Exception('Failed to load field options: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

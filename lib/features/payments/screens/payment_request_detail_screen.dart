@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../../../core/widgets/attachment_section.dart';
+import '../../approvals/models/approval.dart';
+import '../../approvals/services/approval_service.dart';
 import '../models/payment_request.dart';
 
 class PaymentRequestDetailScreen extends StatefulWidget {
@@ -14,6 +17,7 @@ class PaymentRequestDetailScreen extends StatefulWidget {
 
 class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen> {
   bool _isLoading = true;
+  bool _isSubmitting = false;
   PaymentRequestDetail? _detail;
   BankReport? _bankReport;
   String? _error;
@@ -60,11 +64,61 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     }
   }
 
+  Future<void> _submitForApproval() async {
+    if (_detail == null) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+
+      final submission = ApprovalSubmission(
+        approvalType: 'PAYMENT',
+        referenceId: _detail!.id,
+        referenceNo: _detail!.number,
+        title: 'Payment Request: ${_detail!.number}',
+        description: 'Approval requested for payment of R ${_detail!.amount.toStringAsFixed(2)} to ${_detail!.recipient['fullName'] ?? _detail!.recipient['name1']}',
+        requesterId: userId,
+        payloadJson: jsonEncode(_detail!.toJson()),
+      );
+
+      await ApprovalService().submitApproval(submission);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Submitted for approval successfully')),
+        );
+        _fetchData(); // Refresh to show new status
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_detail != null ? 'Request #${_detail!.number}' : 'Payment Detail'),
+        actions: [
+          if (_detail != null && _detail!.status == 'NEW')
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              child: FilledButton.icon(
+                onPressed: _isSubmitting ? null : _submitForApproval,
+                icon: _isSubmitting
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.send_rounded, size: 18),
+                label: const Text('SUBMIT'),
+              ),
+            ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -103,6 +157,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Branch', _detail!.branch['description'] ?? ''),
             _buildInfoRow('Created Date', _detail!.createdDate),
             _buildInfoRow('Due Date', _detail!.dueDate),
+            _buildInfoRow('Status', _detail!.status, isStatus: true),
           ]),
           const SizedBox(height: 24),
           _buildSectionTitle('Recipient Details'),
@@ -248,7 +303,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isSmall = false, bool isDark = false}) {
+  Widget _buildInfoRow(String label, String value, {bool isSmall = false, bool isDark = false, bool isStatus = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -260,18 +315,55 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           ),
           Expanded(
             flex: 3,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: isSmall ? 11 : 14,
-                color: isDark ? Colors.black : Colors.black87,
-              ),
-              textAlign: TextAlign.right,
-            ),
+            child: isStatus
+              ? Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(value).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: _getStatusColor(value).withOpacity(0.5)),
+                    ),
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        color: _getStatusColor(value),
+                      ),
+                    ),
+                  ),
+                )
+              : Text(
+                  value,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: isSmall ? 11 : 14,
+                    color: isDark ? Colors.black : Colors.black87,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
           ),
         ],
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+      case 'PROCESSED':
+        return Colors.green;
+      case 'REJECTED':
+        return Colors.red;
+      case 'AWAITING-APPROVAL':
+      case 'PENDING':
+        return Colors.orange;
+      case 'NEW':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
   }
 }
