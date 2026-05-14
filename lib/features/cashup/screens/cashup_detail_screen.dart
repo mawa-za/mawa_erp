@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/services/user_service.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 
@@ -13,7 +14,9 @@ class CashupDetailScreen extends StatefulWidget {
 
 class _CashupDetailScreenState extends State<CashupDetailScreen> {
   final CashupService _cashupService = CashupService();
+  final UserService _userService = UserService();
   Cashup? _cashup;
+  String? _userName;
   bool _isLoading = true;
   String? _error;
 
@@ -31,8 +34,19 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
     try {
       final cashup = await _cashupService.getCashupById(widget.cashupId);
+      
+      // Fetch user name
+      String? userName;
+      try {
+        final user = await _userService.getUser(cashup.userId);
+        userName = user.displayName ?? user.username;
+      } catch (e) {
+        debugPrint('Error fetching user ${cashup.userId}: $e');
+      }
+
       setState(() {
         _cashup = cashup;
+        _userName = userName;
         _isLoading = false;
       });
     } catch (e) {
@@ -161,7 +175,11 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
             const SizedBox(height: 8),
             _buildInfoRow(Icons.devices_outlined, 'Device ID', cashup.deviceId),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.person_outline, 'User ID', cashup.userId),
+            _buildInfoRow(Icons.person_outline, 'User', _userName ?? cashup.userId),
+            if (_userName != null) ...[
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.badge_outlined, 'User ID', cashup.userId),
+            ],
             const SizedBox(height: 8),
             _buildInfoRow(Icons.receipt_long_outlined, 'Receipt Count', cashup.receiptCount.toString()),
           ],
