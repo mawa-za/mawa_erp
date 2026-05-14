@@ -10,6 +10,7 @@ import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
 import '../membership/screens/membership_claim_list_screen.dart';
+import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
@@ -209,6 +210,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen()));
     } else if (id.contains('claim') || description.contains('claim')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
+    } else if (id.contains('group') || id.contains('society') || description.contains('group') || description.contains('society')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen()));
     } else if (id.contains('payment') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('partner') || description.contains('partner')) {
