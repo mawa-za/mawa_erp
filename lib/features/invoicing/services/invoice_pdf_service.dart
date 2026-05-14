@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -11,7 +12,7 @@ import '../../../core/services/setting_service.dart';
 import '../../../core/api_client.dart';
 
 class InvoicePdfService {
-  Future<void> printInvoice(InvoiceDetail invoice, Partner? partner) async {
+  Future<Uint8List> generatePdf(InvoiceDetail invoice, Partner? partner) async {
     final doc = pw.Document();
 
     // Load company info
@@ -70,8 +71,13 @@ class InvoicePdfService {
       ),
     );
 
+    return doc.save();
+  }
+
+  Future<void> printInvoice(InvoiceDetail invoice, Partner? partner) async {
+    final pdfBytes = await generatePdf(invoice, partner);
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => doc.save(),
+      onLayout: (PdfPageFormat format) async => pdfBytes,
       name: 'Invoice_${invoice.number}.pdf',
     );
   }
@@ -90,7 +96,7 @@ class InvoicePdfService {
       final tenantId = prefs.getString('tenant');
       if (tenantId == null) return null;
 
-      final response = await ApiClient().get('/attachment?objectId=$tenantId');
+      final response = await ApiClient().get('/v2/attachment?objectId=$tenantId');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         final logoAttachment = data.firstWhere(
@@ -99,7 +105,7 @@ class InvoicePdfService {
         );
 
         if (logoAttachment != null) {
-          final res = await ApiClient().get('/attachment/${logoAttachment['id']}');
+          final res = await ApiClient().get('/v2/attachment/${logoAttachment['id']}');
           if (res.statusCode == 200) {
             return res.body.replaceAll('"', '');
           }

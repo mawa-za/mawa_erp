@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
+import '../models/membership_plan.dart';
+import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
+import '../../partners/partner_service.dart';
+import '../../partners/screens/partner_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
+import 'edit_membership_screen.dart';
+import 'add_dependent_screen.dart';
+import 'edit_dependent_screen.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -17,7 +23,10 @@ class MembershipDetailScreen extends StatefulWidget {
 class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   bool _isLoading = true;
   MembershipDetail? _detail;
+  Partner? _member;
+  MembershipPlan? _plan;
   List<Dependent> _dependents = [];
+  Map<String, Partner> _dependentPartners = {};
   List<Premium> _premiums = [];
   String? _error;
 
@@ -36,15 +45,50 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     try {
       final detail = await MembershipService().getMembershipDetail(widget.membershipId);
       final dependents = await MembershipService().getMembershipDependents(widget.membershipId);
-      final premiums = await MembershipService().getMembershipPremiums(widget.membershipId);
+
+      // Step 1: Fetch core data
+      final results = await Future.wait([
+        PartnerService().getPartnerById(detail.memberId).catchError((e) {
+          debugPrint('Failed to load member partner: $e');
+          return Partner(id: detail.memberId, number: '', type: 'INDIVIDUAL', name1: 'Unknown', name2: '', name3: '', identityNumber: '', status: 'INACTIVE');
+        }),
+        MembershipService().getMembershipPlanById(detail.planId).catchError((e) {
+          debugPrint('Failed to load plan: $e');
+          return MembershipPlan(id: detail.planId, planCode: 'UNKNOWN', name: 'Unknown Plan', description: '', premiumCents: 0, currency: 'ZAR', maxDependents: 0, active: false);
+        }),
+        MembershipService().getMembershipPremiums(widget.membershipId, oldId: detail.oldId).catchError((e) {
+          debugPrint('Failed to load premiums: $e');
+          return <Premium>[];
+        }),
+      ]);
+
+      final member = results[0] as Partner;
+      final plan = results[1] as MembershipPlan;
+      final premiums = results[2] as List<Premium>;
       
+      // Step 2: Fetch dependent partners individually (resilient)
+      final Map<String, Partner> dependentPartners = {};
+      await Future.wait(dependents.map((d) async {
+        if (d.dependentPartnerId.isNotEmpty) {
+          try {
+            final p = await PartnerService().getPartnerById(d.dependentPartnerId);
+            dependentPartners[p.id] = p;
+          } catch (e) {
+            debugPrint('Failed to load dependent partner ${d.dependentPartnerId}: $e');
+          }
+        }
+      }));
+
       // Sort premiums by period DESC
       premiums.sort((a, b) => b.membershipPeriod.compareTo(a.membershipPeriod));
 
       if (mounted) {
         setState(() {
           _detail = detail;
+          _member = member;
+          _plan = plan;
           _dependents = dependents;
+          _dependentPartners = dependentPartners;
           _premiums = premiums;
           _isLoading = false;
         });
@@ -59,6 +103,47 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
+  Future<void> _deleteMembership() async {
+    setState(() => _isLoading = true);
+    try {
+      await MembershipService().deleteMembership(widget.membershipId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Membership deleted successfully'), behavior: SnackBarBehavior.floating),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
+  }
+
+  Future<void> _showDeleteConfirmation() async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Membership'),
+        content: const Text('Are you sure you want to delete this membership? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteMembership();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -66,14 +151,44 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(_detail != null ? 'Membership #${_detail!.number}' : 'Membership Details'),
+        title: Text(_detail != null ? 'Membership #${_detail!.membershipNo}' : 'Membership Details'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
         actions: [
+          if (_detail != null) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => EditMembershipScreen(membership: _detail!),
+                  ),
+                );
+                if (result == true) _fetchData();
+              },
+              tooltip: 'Edit Membership',
+            ),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'delete') _showDeleteConfirmation();
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline, color: Colors.red),
+                    title: Text('Delete Membership', style: TextStyle(color: Colors.red)),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchData,
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -83,8 +198,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ? _buildErrorWidget(colorScheme)
               : _buildContent(colorScheme),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Implement add dependent
+        onPressed: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => AddDependentScreen(membershipId: widget.membershipId),
+            ),
+          );
+          if (result == true) _fetchData();
         },
         label: const Text('Add Dependent'),
         icon: const Icon(Icons.person_add_outlined),
@@ -121,13 +241,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         children: [
           _buildStatusBanner(detail),
           const SizedBox(height: 16),
-          _buildMemberCard(detail.member, colorScheme),
+          if (_member != null) _buildMemberCard(_member!, colorScheme),
           const SizedBox(height: 16),
           _buildMembershipInfoCard(detail, colorScheme),
-          const SizedBox(height: 16),
-          _buildProductList(detail.products, colorScheme),
-          const SizedBox(height: 16),
-          _buildSalesRepCard(detail.salesRepresentative, colorScheme),
           const SizedBox(height: 16),
           _buildPremiumSection(colorScheme),
           const SizedBox(height: 16),
@@ -142,11 +258,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
   Widget _buildStatusBanner(MembershipDetail detail) {
     Color color;
-    switch (detail.status.code.toUpperCase()) {
+    switch (detail.status.toUpperCase()) {
       case 'ACTIVE':
         color = Colors.green;
         break;
       case 'WAITING-PERIOD':
+      case 'UPGRADE-WAITING-PERIOD':
         color = Colors.orange;
         break;
       case 'INACTIVE':
@@ -172,61 +289,80 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                detail.status.description.toUpperCase(),
+                detail.status.replaceAll('-', ' ').toUpperCase(),
                 style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
               ),
               Text(
-                'Joined: ${detail.dateJoined}',
+                'Joined: ${detail.joinDate ?? detail.startDate ?? '-'}',
                 style: TextStyle(color: color.withOpacity(0.8), fontSize: 11),
               ),
             ],
           ),
           const Spacer(),
-          Text(
-            'R ${detail.premium.toStringAsFixed(2)}',
-            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 18),
-          ),
+          if (_plan != null)
+            Text(
+              'R ${_plan!.premium.toStringAsFixed(2)}',
+              style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 18),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildMemberCard(Member member, ColorScheme colorScheme) {
+  Widget _buildMemberCard(Partner member, ColorScheme colorScheme) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Text(member.firstName.isNotEmpty ? member.firstName[0] : '?', 
-                    style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${member.title?.description ?? ''} ${member.fullName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('No: ${member.number}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    ],
-                  ),
-                ),
-                _buildStatusChip(member.status?.description ?? 'Unknown', isCompact: true),
-              ],
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PartnerDetailScreen(partnerId: member.id),
             ),
-            const Divider(height: 24),
-            _buildInfoRow(Icons.badge_outlined, 'Identity', '${member.identity?.type.description ?? 'ID'}: ${member.identity?.number ?? 'N/A'}'),
-            const SizedBox(height: 8),
-            _buildInfoRow(Icons.cake_outlined, 'Birth Date', member.birthDate ?? 'N/A'),
-            const SizedBox(height: 8),
-            _buildInfoRow(Icons.person_outline, 'Gender', member.gender?.description ?? 'N/A'),
-          ],
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: colorScheme.primaryContainer,
+                    child: Text(member.name2.isNotEmpty ? member.name2[0].toUpperCase() : '?',
+                      style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${member.title ?? ''} ${member.fullName}'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('No: ${member.number}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  _buildStatusChip(member.status, isCompact: true),
+                ],
+              ),
+              const Divider(height: 24),
+              _buildInfoRow(Icons.badge_outlined, 'Identity', '${member.idType ?? 'ID'}: ${member.identityNumber}'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.cake_outlined, 'Birth Date', member.birthDate ?? 'N/A'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.person_outline, 'Gender', member.gender ?? 'N/A'),
+              if (member.email.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.email_outlined, 'Email', member.email),
+              ],
+              if (member.phone.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.phone_outlined, 'Phone', member.phone),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -243,11 +379,16 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           children: [
             const Text('MEMBERSHIP INFO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
             const SizedBox(height: 12),
-            _buildInfoRow(Icons.inventory_2_outlined, 'Main Product', '${detail.product.description} (${detail.product.code})'),
+            _buildInfoRow(Icons.numbers_outlined, 'Membership No', detail.membershipNo),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.event_available, 'Effective Date', detail.dateEffective ?? 'Pending'),
+            if (_plan != null)
+              _buildInfoRow(Icons.inventory_2_outlined, 'Plan', _plan!.name),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.category_outlined, 'Transaction Type', detail.type.description),
+            _buildInfoRow(Icons.event_available, 'Start Date', detail.startDate ?? 'N/A'),
+            const SizedBox(height: 8),
+            _buildInfoRow(Icons.event_busy, 'End Date', detail.endDate ?? 'Active'),
+            const SizedBox(height: 8),
+            _buildInfoRow(Icons.payments_outlined, 'Paid Up To', detail.paidUpToPeriod ?? 'N/A'),
           ],
         ),
       ),
@@ -323,7 +464,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               leading: CircleAvatar(
                 radius: 16,
                 backgroundColor: Colors.green.withOpacity(0.1),
-                child: Text(year.substring(2), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                child: Text(year.length >= 4 ? year.substring(2) : '?', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
               ),
               title: Text('$year Premiums', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               subtitle: Text('${yearPremiums.length} payments', style: const TextStyle(fontSize: 12)),
@@ -401,67 +542,115 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             ),
           )
         else
-          ..._dependents.map((dependent) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-            child: ExpansionTile(
-              leading: CircleAvatar(
-                radius: 16,
-                backgroundColor: colorScheme.secondaryContainer,
-                child: Text(dependent.firstName.isNotEmpty ? dependent.firstName[0] : '?', 
-                  style: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-              title: Text('${dependent.title?.description ?? ''} ${dependent.fullName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Text('No: ${dependent.number}', style: const TextStyle(fontSize: 12)),
-              trailing: _buildStatusChip(dependent.status?.description ?? 'Active', isCompact: true),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Column(
-                    children: [
-                      const Divider(),
-                      _buildInfoRow(Icons.badge_outlined, 'Identity', '${dependent.identity?.type.description ?? 'ID'}: ${dependent.identity?.number ?? 'N/A'}'),
-                      const SizedBox(height: 4),
-                      _buildInfoRow(Icons.cake_outlined, 'Birth Date', dependent.birthDate ?? 'N/A'),
-                      const SizedBox(height: 4),
-                      _buildInfoRow(Icons.wc_outlined, 'Gender/Marital', '${dependent.gender?.description ?? 'N/A'} / ${dependent.maritalStatus?.description ?? 'N/A'}'),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          )),
-      ],
-    );
-  }
+          ..._dependents.map((dependent) {
+            final partner = _dependentPartners[dependent.dependentPartnerId];
+            
+            // Robust name display
+            String displayName = 'Unnamed Dependent';
+            if (partner != null && partner.fullName != 'Unnamed Partner') {
+              displayName = partner.fullName;
+            } else if (dependent.fullName != 'Unnamed Dependent') {
+              displayName = dependent.fullName;
+            }
 
-  Widget _buildProductList(List<MembershipProduct> products, ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('COVERED PRODUCTS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
-        ),
-        ...products.map((p) => Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade100)),
-          child: ListTile(
-            dense: true,
-            title: Text('Product ID: ${p.product}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Valid: ${p.validFrom} to ${p.validTo}'),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('R ${p.unitPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(p.status, style: TextStyle(fontSize: 10, color: colorScheme.primary)),
-              ],
-            ),
-          ),
-        )),
+            // Robust identity display
+            String displayId = 'N/A';
+            if (partner != null && partner.identityNumber.isNotEmpty) {
+              displayId = partner.identityNumber;
+            } else if (dependent.identity?.number.isNotEmpty == true) {
+              displayId = dependent.identity!.number;
+            }
+
+            String displayIdType = partner?.idType ?? dependent.identity?.type.description ?? 'ID';
+            
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+              child: ExpansionTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: colorScheme.secondaryContainer,
+                  child: Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
+                    style: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                title: Text('${partner?.title ?? dependent.title?.description ?? ''} $displayName'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text('No: ${partner?.number ?? dependent.number} • ${dependent.relationship.replaceAll('-', ' ')}', style: const TextStyle(fontSize: 12)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildStatusChip(partner?.status ?? dependent.status?.description ?? (dependent.active ? 'Active' : 'Inactive'), isCompact: true),
+                    const Icon(Icons.expand_more, size: 20),
+                  ],
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(),
+                        _buildInfoRow(Icons.badge_outlined, 'Identity', '$displayIdType: $displayId'),
+                        const SizedBox(height: 4),
+                        _buildInfoRow(Icons.cake_outlined, 'Birth Date', partner?.birthDate ?? dependent.birthDate ?? 'N/A'),
+                        const SizedBox(height: 4),
+                        _buildInfoRow(Icons.wc_outlined, 'Gender/Marital', '${partner?.gender ?? dependent.gender?.description ?? 'N/A'} / ${partner?.maritalStatus ?? dependent.maritalStatus?.description ?? 'N/A'}'),
+                        const SizedBox(height: 4),
+                        _buildInfoRow(Icons.calendar_today_outlined, 'Date Added', dependent.createdAt ?? 'N/A'),
+                        if (partner != null) ...[
+                          if (partner.email.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            _buildInfoRow(Icons.email_outlined, 'Email', partner.email),
+                          ],
+                          if (partner.phone.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            _buildInfoRow(Icons.phone_outlined, 'Phone', partner.phone),
+                          ],
+                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () async {
+                                final result = await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => EditDependentScreen(
+                                      membershipId: widget.membershipId,
+                                      dependent: dependent,
+                                    ),
+                                  ),
+                                );
+                                if (result == true) _fetchData();
+                              },
+                              icon: const Icon(Icons.edit_outlined, size: 16),
+                              label: const Text('Edit Link'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => PartnerDetailScreen(partnerId: dependent.dependentPartnerId),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.person_outline, size: 16),
+                              label: const Text('Full Profile'),
+                              style: ElevatedButton.styleFrom(
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+            );
+          }),
       ],
     );
   }
@@ -480,19 +669,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     );
   }
 
-  Widget _buildSalesRepCard(SalesRepresentative rep, ColorScheme colorScheme) {
-    return Card(
-      elevation: 0,
-      color: Colors.grey[100],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: const Icon(Icons.support_agent),
-        title: Text('${rep.title?.description ?? ''} ${rep.fullName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-        subtitle: Text('Sales Rep No: ${rep.number}', style: const TextStyle(fontSize: 11)),
-      ),
-    );
-  }
-
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
@@ -505,14 +681,26 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildStatusChip(String status, {bool isCompact = false}) {
+    Color color;
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        color = Colors.green;
+        break;
+      case 'INACTIVE':
+        color = Colors.red;
+        break;
+      default:
+        color = Colors.blue;
+    }
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 6 : 8, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(status, style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
+      child: Text(status.replaceAll('-', ' '), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 }

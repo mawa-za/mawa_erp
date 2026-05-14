@@ -8,11 +8,17 @@ import '../auth/role_selection_screen.dart';
 import '../invoicing/screens/invoice_create_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
+import '../membership/screens/membership_plan_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
+import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
 import '../settings/screens/user_list_screen.dart';
 import '../settings/screens/company_info_screen.dart';
+import '../settings/screens/system_configuration_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
+import '../cashup/screens/cashup_list_screen.dart';
+import '../approvals/screens/approval_workflow_list_screen.dart';
+import '../approvals/screens/approval_list_screen.dart';
 import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -170,6 +176,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
     if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_rounded;
+    if (lowerId.contains('plan') || lowerId.contains('product')) return Icons.inventory_2_rounded;
+    if (lowerId.contains('payroll')) return Icons.payments_rounded;
     if (lowerId.contains('claim') || lowerId.contains('payment')) return Icons.account_balance_wallet_rounded;
     if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups_rounded;
     if (lowerId.contains('invoic')) return Icons.description_rounded;
@@ -178,6 +186,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('setting')) return Icons.settings_suggest_rounded;
     if (lowerId.contains('report')) return Icons.bar_chart_rounded;
     if (lowerId.contains('company')) return Icons.domain_rounded;
+    if (lowerId.contains('cashup')) return Icons.point_of_sale_rounded;
+    if (lowerId.contains('workflow')) return Icons.account_tree_rounded;
+    if (lowerId.contains('approval')) return Icons.fact_check_rounded;
+    if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     return Icons.apps_rounded;
   }
 
@@ -187,18 +199,23 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
     if (id.contains('invoic') || description.contains('invoic')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
+    } else if (id.contains('plan') || description.contains('plan') || id.contains('product')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
     } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
+    } else if (id.contains('payroll') || description.contains('payroll')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen()));
     } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('partner') || description.contains('partner')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
-    } else if (id.contains('user')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const UserListScreen()));
-    } else if (id.contains('company') || description.contains('company')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: true)));
-    } else if (id.contains('setting') || description.contains('setting')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemSettingsScreen()));
+    } else if (id.contains('user') || id.contains('setting') || id.contains('company') || id.contains('workflow') || id.contains('config') || id.contains('role')) {
+      // All configuration consolidated under System Configuration module
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen()));
+    } else if (id.contains('cashup') || description.contains('cashup')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
+    } else if (id.contains('approval')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),

@@ -31,155 +31,283 @@ class _AttachmentSectionState extends State<AttachmentSection> {
   }
 
   Future<void> _loadAttachments() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
+    
     try {
-      final response = await ApiClient().get('/attachment?objectId=${widget.objectId}');
+      final response = await ApiClient().get('/v2/attachment?objectId=${widget.objectId}');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          _attachments = data.map((json) => Attachment.fromJson(json)).toList();
-        });
+        final dynamic decoded = jsonDecode(response.body);
+        
+        List<dynamic> data;
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'];
+        } else {
+          data = [];
+        }
+
+        if (mounted) {
+          setState(() {
+            _attachments = data.map((json) => Attachment.fromJson(Map<String, dynamic>.from(json))).toList();
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading attachments: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  IconData _getFileIcon(String? ext) {
+    if (ext == null) return Icons.insert_drive_file;
+    switch (ext.toLowerCase()) {
+      case 'pdf': return Icons.picture_as_pdf;
+      case 'jpg':
+      case 'jpeg':
+      case 'png': return Icons.image;
+      case 'doc':
+      case 'docx': return Icons.description;
+      default: return Icons.insert_drive_file;
     }
   }
 
   Future<void> _uploadAttachment() async {
-    final List<FieldOption> docTypes = await FieldService().getOptionsByField('DOCUMENT-TYPE');
-    
-    if (!mounted) return;
+    try {
+      final List<FieldOption> docTypes = await FieldService().getOptionsByField('DOCUMENT-TYPE');
+      
+      if (!mounted) return;
 
-    FieldOption? selectedDocType;
-    String? base64Content;
-    String? fileName;
-    String? extension;
+      FieldOption? selectedDocType;
+      String? base64Content;
+      String? fileName;
+      String? extension;
 
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Attachment'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<FieldOption>(
-                decoration: const InputDecoration(labelText: 'Document Type'),
-                items: docTypes.map((type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type.description),
-                )).toList(),
-                onChanged: (value) => setDialogState(() => selectedDocType = value),
-              ),
-              const SizedBox(height: 16),
-              if (fileName != null)
+      final bool? shouldUpload = await showDialog<bool>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.description, size: 20, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          fileName!,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                          overflow: TextOverflow.ellipsis,
+                  child: Icon(Icons.attach_file_rounded, color: Colors.blue.shade700, size: 24),
+                ),
+                const SizedBox(width: 16),
+                const Text('Add Attachment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Container(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('DOCUMENT TYPE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<FieldOption>(
+                    decoration: InputDecoration(
+                      hintText: 'Select category',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                    items: docTypes.map((type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type.description, style: const TextStyle(fontSize: 14)),
+                    )).toList(),
+                    onChanged: (value) => setDialogState(() => selectedDocType = value),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('FILE SELECTION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  if (fileName != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(_getFileIcon(extension), color: Colors.blue, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  fileName!,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (extension != null)
+                                  Text(
+                                    extension!.toUpperCase(),
+                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.cancel_outlined, color: Colors.redAccent, size: 20),
+                            onPressed: () => setDialogState(() {
+                              fileName = null;
+                              base64Content = null;
+                              extension = null;
+                            }),
+                          )
+                        ],
+                      ),
+                    )
+                  else
+                    InkWell(
+                      onTap: () async {
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+                          withData: true,
+                        );
+
+                        if (result != null && result.files.single.bytes != null) {
+                          setDialogState(() {
+                            fileName = result.files.single.name;
+                            extension = result.files.single.extension;
+                            base64Content = base64Encode(result.files.single.bytes!);
+                          });
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.cloud_upload_outlined, size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text('Tap to select a file', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 14)),
+                            const SizedBox(height: 4),
+                            Text('PDF, Image, or Word document', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => setDialogState(() {
-                          fileName = null;
-                          base64Content = null;
-                          extension = null;
-                        }),
-                      )
-                    ],
-                  ),
-                )
-              else
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final result = await FilePicker.platform.pickFiles(
-                      type: FileType.custom,
-                      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
-                      withData: true,
-                    );
-
-                    if (result != null && result.files.single.bytes != null) {
-                      setDialogState(() {
-                        fileName = result.files.single.name;
-                        extension = result.files.single.extension;
-                        base64Content = base64Encode(result.files.single.bytes!);
-                      });
-                    }
-                  },
-                  icon: const Icon(Icons.attach_file),
-                  label: const Text('Select File'),
+                    ),
+                ],
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context), 
+                child: Text('CANCEL', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
+                onPressed: (selectedDocType != null && base64Content != null) 
+                  ? () => Navigator.pop(context, true) 
+                  : null,
+                child: const Text('UPLOAD', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+              ),
             ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            ElevatedButton(
-              onPressed: (selectedDocType != null && base64Content != null) 
-                ? () => Navigator.pop(context, true) 
-                : null,
-              child: const Text('UPLOAD'),
-            ),
-          ],
         ),
-      ),
-    ).then((shouldUpload) async {
+      );
+
       if (shouldUpload == true && selectedDocType != null && base64Content != null) {
         setState(() => _isUploading = true);
-        try {
-          final payload = {
-            'objectId': widget.objectId,
-            'documentType': selectedDocType!.toJson(),
-            'extension': extension,
-            'content': base64Content,
-          };
+        
+        final payload = {
+          'objectId': widget.objectId,
+          'documentType': selectedDocType!.toJson(),
+          'extension': extension,
+          'content': base64Content,
+        };
 
-          final response = await ApiClient().post('/attachment', body: payload);
-          if (response.statusCode == 200 || response.statusCode == 201) {
-            _loadAttachments();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Attachment uploaded successfully')),
-              );
-            }
-          } else {
-            throw Exception('Failed to upload: ${response.statusCode}');
-          }
-        } catch (e) {
+        final response = await ApiClient().post('/v2/attachment', body: payload);
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          await _loadAttachments();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Upload failed: $e')),
+              SnackBar(
+                content: Row(
+                  children: const [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 12),
+                    Text('Attachment uploaded successfully'),
+                  ],
+                ),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: Colors.green.shade600,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
             );
           }
-        } finally {
-          setState(() => _isUploading = false);
+        } else {
+          throw Exception('Failed to upload: ${response.statusCode}');
         }
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $e'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
   }
 
   Future<void> _viewAttachment(Attachment attachment) async {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              Text('Fetching document...', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
+      ),
     );
 
     try {
-      final response = await ApiClient().get('/attachment/${attachment.id}');
+      final response = await ApiClient().get('/v2/attachment/${attachment.id}');
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading
 
@@ -206,7 +334,11 @@ class _AttachmentSectionState extends State<AttachmentSection> {
       if (mounted) {
         Navigator.of(context).pop(); // Ensure loading is closed
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error viewing attachment: $e')),
+          SnackBar(
+            content: Text('Error viewing attachment: $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -226,7 +358,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) return const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()));
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,26 +366,46 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Attachments',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Icon(Icons.attach_file, color: Colors.blue.shade700, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Attachments',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             if (_isUploading)
               const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
             else
-              IconButton(
+              TextButton.icon(
                 onPressed: _uploadAttachment,
-                icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
-                tooltip: 'Add Attachment',
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.blue.shade700,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 12),
         if (_attachments.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('No attachments found', style: TextStyle(color: Colors.grey)),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade100),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.folder_open_rounded, size: 40, color: Colors.grey.shade300),
+                const SizedBox(height: 8),
+                const Text('No attachments found', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
+              ],
             ),
           )
         else
@@ -263,21 +415,38 @@ class _AttachmentSectionState extends State<AttachmentSection> {
             itemCount: _attachments.length,
             itemBuilder: (context, index) {
               final att = _attachments[index];
+              final bool isPdf = att.extension.toLowerCase() == 'pdf';
+              final bool isImg = ['jpg', 'jpeg', 'png'].contains(att.extension.toLowerCase());
+              
               return Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                   side: BorderSide(color: Colors.grey.shade200),
                 ),
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: Icon(
-                    att.extension.toLowerCase() == 'pdf' ? Icons.picture_as_pdf : Icons.insert_drive_file,
-                    color: att.extension.toLowerCase() == 'pdf' ? Colors.red : Colors.blue,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: (isPdf ? Colors.red : (isImg ? Colors.orange : Colors.blue)).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isPdf ? Icons.picture_as_pdf_rounded : (isImg ? Icons.image_rounded : Icons.insert_drive_file_rounded),
+                      color: isPdf ? Colors.red.shade700 : (isImg ? Colors.orange.shade700 : Colors.blue.shade700),
+                      size: 20,
+                    ),
                   ),
-                  title: Text(att.description, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  subtitle: Text('Uploaded by ${att.uploadedBy} on ${att.uploadDate}', style: const TextStyle(fontSize: 11)),
-                  trailing: const Icon(Icons.visibility_outlined, size: 20),
+                  title: Text(att.description, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: Text('By ${att.uploadedBy} • ${att.uploadDate}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  trailing: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: Colors.grey.shade50, shape: BoxShape.circle),
+                    child: const Icon(Icons.visibility_outlined, size: 18, color: Colors.blueGrey),
+                  ),
                   onTap: () => _viewAttachment(att),
                 ),
               );

@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/models/paginated_response.dart';
 import '../models/membership.dart';
+import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
+import '../../partners/partner_service.dart';
+import '../../partners/models/partner.dart';
 import 'add_member_screen.dart';
 import 'membership_detail_screen.dart';
 
@@ -12,33 +17,139 @@ class MemberListScreen extends StatefulWidget {
 }
 
 class _MemberListScreenState extends State<MemberListScreen> {
-  bool _isLoading = true;
-  List<Membership> _memberships = [];
-  List<Membership> _filteredMemberships = [];
-  String? _error;
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentPage = 0;
+  final int _pageSize = 20;
+
+  List<Membership> _memberships = [];
+  Map<String, MembershipPlan> _plans = {};
+  Map<String, Partner> _partners = {};
+  String? _error;
+  List<String>? _currentMemberIds;
 
   @override
   void initState() {
     super.initState();
-    _fetchMemberships();
+    _fetchInitialData();
+    _scrollController.addListener(_onScroll);
   }
 
-  Future<void> _fetchMemberships() async {
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore && _error == null) {
+        _fetchNextPage();
+      }
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), () {
+      _fetchInitialData();
+    });
+    setState(() {});
+  }
+
+  Future<void> _fetchPartners(List<String> ids) async {
+    final uniqueIds = ids.where((id) => id.isNotEmpty && !_partners.containsKey(id)).toSet();
+    if (uniqueIds.isEmpty) return;
+
+    final results = await Future.wait(
+      uniqueIds.map((id) async {
+        try {
+          final partner = await PartnerService().getPartnerById(id);
+          return MapEntry(id, partner);
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
+
+    if (mounted) {
+      setState(() {
+        for (var entry in results) {
+          if (entry != null) {
+            _partners[entry.key] = entry.value;
+          }
+        }
+      });
+    }
+  }
+
+  Future<void> _fetchInitialData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _error = null;
+      _currentPage = 0;
+      _memberships = [];
+      _hasMore = true;
+      _currentMemberIds = null;
     });
 
     try {
-      final memberships = await MembershipService().getMemberships();
+      final query = _searchController.text.trim();
+
+      // Only find partners if there's a search query
+      if (query.isNotEmpty) {
+        try {
+          final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
+          _currentMemberIds = partners.map((p) => p.id).toList();
+
+          // Cache partners to avoid re-fetching them for the list tiles
+          if (mounted) {
+            setState(() {
+              for (var p in partners) {
+                _partners[p.id] = p;
+              }
+            });
+          }
+        } catch (e) {
+          debugPrint('Error fetching partners: $e');
+          _currentMemberIds = [];
+        }
+      }
+
+      final results = await Future.wait([
+        MembershipService().getMemberships(
+          page: _currentPage, 
+          size: _pageSize, 
+          sort: ['membershipNo,asc'],
+          query: query,
+          memberIds: _currentMemberIds,
+        ),
+        MembershipService().getMembershipPlans(size: 100),
+      ]);
+
+      final membershipsResponse = results[0] as PaginatedResponse<Membership>;
+      final plansResponse = results[1] as PaginatedResponse<MembershipPlan>;
+
       if (mounted) {
         setState(() {
-          _memberships = memberships;
-          _filteredMemberships = memberships;
-          _isLoading = false;
-          _applySearch(_searchController.text);
+          _memberships = membershipsResponse.content;
+          _plans = {for (var p in plansResponse.content) p.id: p};
+          _hasMore = !membershipsResponse.last;
         });
+
+        // Fetch partners for initial batch (those not already in cache)
+        await _fetchPartners(_memberships.map((m) => m.memberId).toList());
+
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
@@ -50,20 +161,42 @@ class _MemberListScreenState extends State<MemberListScreen> {
     }
   }
 
-  void _applySearch(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredMemberships = _memberships;
-      } else {
-        final q = query.toLowerCase();
-        _filteredMemberships = _memberships.where((m) =>
-          m.transactionNumber.toLowerCase().contains(q) ||
-          m.mainPartner.toLowerCase().contains(q) ||
-          (m.product?.toLowerCase().contains(q) ?? false) ||
-          (m.identityNumber?.toLowerCase().contains(q) ?? false)
-        ).toList();
+  Future<void> _fetchNextPage() async {
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final nextPage = _currentPage + 1;
+      final response = await MembershipService().getMemberships(
+        page: nextPage, 
+        size: _pageSize, 
+        sort: ['membershipNo,asc'],
+        query: _searchController.text.trim(),
+        memberIds: _currentMemberIds,
+      );
+
+      if (mounted) {
+        final newMemberships = response.content;
+        setState(() {
+          _currentPage = nextPage;
+          _memberships.addAll(newMemberships);
+          _hasMore = !response.last;
+        });
+
+        // Fetch partners for new batch
+        await _fetchPartners(newMemberships.map((m) => m.memberId).toList());
+
+        setState(() => _isLoadingMore = false);
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error loading more: $e'), behavior: SnackBarBehavior.floating),
+          );
+        });
+      }
+    }
   }
 
   @override
@@ -71,16 +204,17 @@ class _MemberListScreenState extends State<MemberListScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text('Memberships', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         elevation: 0,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchMemberships,
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _fetchInitialData,
             tooltip: 'Refresh',
           ),
           const SizedBox(width: 8),
@@ -94,22 +228,23 @@ class _MemberListScreenState extends State<MemberListScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
                     ? _buildErrorWidget(colorScheme)
-                    : _filteredMemberships.isEmpty
+                    : _memberships.isEmpty
                         ? _buildEmptyWidget()
                         : _buildMembershipList(colorScheme),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const AddMemberScreen()),
           );
           if (result == true) {
-            _fetchMemberships();
+            _fetchInitialData();
           }
         },
-        child: const Icon(Icons.add),
+        label: const Text('Link Member'),
+        icon: const Icon(Icons.add_link_rounded),
       ),
     );
   }
@@ -117,33 +252,37 @@ class _MemberListScreenState extends State<MemberListScreen> {
   Widget _buildSearchBar() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: TextField(
         controller: _searchController,
-        onChanged: _applySearch,
+        onChanged: _onSearchChanged,
+        onSubmitted: (value) {
+          _fetchInitialData();
+        },
         decoration: InputDecoration(
-          hintText: 'Search by number, partner or product...',
-          prefixIcon: const Icon(Icons.search, size: 20),
+          hintText: 'Search by policy #, name, identity #...',
+          hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, size: 20),
+                  icon: const Icon(Icons.clear_rounded, size: 20),
                   onPressed: () {
                     _searchController.clear();
-                    _applySearch('');
+                    _fetchInitialData();
                   },
                 )
               : null,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            borderSide: BorderSide(color: Colors.grey.shade200),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+            borderSide: BorderSide(color: Colors.grey.shade200),
           ),
-          fillColor: Colors.grey[100],
+          fillColor: const Color(0xFFF1F3F4),
           filled: true,
         ),
       ),
@@ -157,15 +296,15 @@ class _MemberListScreenState extends State<MemberListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: colorScheme.error.withOpacity(0.5)),
+            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            Text('Failed to load memberships', style: Theme.of(context).textTheme.titleMedium),
+            const Text('Failed to load memberships', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _fetchMemberships,
-              icon: const Icon(Icons.refresh),
+            ElevatedButton.icon(
+              onPressed: _fetchInitialData,
+              icon: const Icon(Icons.refresh_rounded),
               label: const Text('RETRY'),
             ),
           ],
@@ -179,107 +318,142 @@ class _MemberListScreenState extends State<MemberListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.card_membership_outlined, size: 64, color: Colors.grey[300]),
+          Icon(Icons.contact_emergency_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('No memberships found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+          Text(_searchController.text.isEmpty ? 'No memberships found' : 'No results matching "${_searchController.text}"',
+            style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.bold)
+          ),
+          const SizedBox(height: 8),
+          Text(_searchController.text.isEmpty
+            ? 'Create a new membership to see it here'
+            : 'Try a different search term',
+            style: const TextStyle(color: Colors.grey)
+          ),
         ],
       ),
     );
   }
 
   Widget _buildMembershipList(ColorScheme colorScheme) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _filteredMemberships.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final membership = _filteredMemberships[index];
-        return _buildMembershipCard(membership, colorScheme);
-      },
+    return RefreshIndicator(
+      onRefresh: _fetchInitialData,
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: _memberships.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _memberships.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
+          
+          final membership = _memberships[index];
+          final plan = _plans[membership.planId];
+          final partner = _partners[membership.memberId];
+
+          return _buildMembershipCard(membership, plan, partner, colorScheme);
+        },
+      ),
     );
   }
 
-  Widget _buildMembershipCard(Membership membership, ColorScheme colorScheme) {
+  Widget _buildMembershipCard(Membership membership, MembershipPlan? plan, Partner? partner, ColorScheme colorScheme) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => MembershipDetailScreen(membershipId: membership.transactionId),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '#${membership.transactionNumber}',
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => MembershipDetailScreen(membershipId: membership.id),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Policy: ${membership.membershipNo}',
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                  ),
-                  _buildStatusChip(membership.transactionStatus),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                membership.mainPartner.isEmpty ? 'Unknown Partner' : membership.mainPartner,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.inventory_2_outlined, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
+                    _buildStatusChip(membership.status),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  partner?.fullName ?? 'Loading member...',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: -0.5),
+                ),
+                if (partner != null)
                   Text(
-                    membership.product ?? 'No Product',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    'Identity No: ${partner.identityNumber}',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('SUBTYPE', style: TextStyle(fontSize: 10, color: Colors.grey[500], letterSpacing: 0.5)),
-                      Text(membership.transactionSubtype, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('CREATED', style: TextStyle(fontSize: 10, color: Colors.grey[500], letterSpacing: 0.5)),
-                      Text(membership.creationDate.split(',').first, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                Text(
+                  plan?.name ?? 'Plan: ${membership.planId}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('START DATE', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                        const SizedBox(height: 2),
+                        Text(membership.startDate ?? '-', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                    if (plan != null)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('MONTHLY PREMIUM', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'R ${plan.premium.toStringAsFixed(2)}',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: colorScheme.primary)
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -308,11 +482,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
         status.replaceAll('-', ' '),

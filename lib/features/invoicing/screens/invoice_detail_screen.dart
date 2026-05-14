@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import '../services/invoice_service.dart';
+import 'invoice_pdf_preview_screen.dart';
 import 'invoice_create_screen.dart' hide Partner;
 
 class InvoiceDetailScreen extends StatefulWidget {
@@ -19,7 +19,6 @@ class InvoiceDetailScreen extends StatefulWidget {
 
 class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   bool _isLoading = true;
-  bool _isPrinting = false;
   bool _isSendingEmail = false;
   InvoiceDetail? _detail;
   Partner? _partner;
@@ -84,27 +83,17 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _handlePrint() async {
+  void _handlePrint() {
     if (_detail == null) return;
 
-    setState(() => _isPrinting = true);
-    try {
-      final pdfBytes = await InvoiceService().getInvoicePdf(_detail!.id);
-      await Printing.layoutPdf(
-        onLayout: (format) async => pdfBytes,
-        name: 'Invoice_${_detail!.number}.pdf',
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error downloading PDF: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isPrinting = false);
-      }
-    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => InvoicePdfPreviewScreen(
+          invoice: _detail!,
+          partner: _partner,
+        ),
+      ),
+    );
   }
 
   Future<void> _handleEmail() async {
@@ -201,10 +190,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               ),
             ),
             TextButton.icon(
-              onPressed: _isPrinting ? null : _handlePrint,
-              icon: _isPrinting
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.print, size: 18),
+              onPressed: _handlePrint,
+              icon: const Icon(Icons.print, size: 18),
               label: const Text('PRINT'),
               style: TextButton.styleFrom(
                 foregroundColor: colorScheme.primary,

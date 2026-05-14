@@ -69,7 +69,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
 
   Future<void> _loadLogo() async {
     try {
-      final response = await ApiClient().get('/attachment?objectId=$_tenantId');
+      final response = await ApiClient().get('/v2/attachment?objectId=$_tenantId');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         final logoAttachment = data.firstWhere(
@@ -78,7 +78,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         );
 
         if (logoAttachment != null) {
-          final res = await ApiClient().get('/attachment/${logoAttachment['id']}');
+          final res = await ApiClient().get('/v2/attachment/${logoAttachment['id']}');
           if (res.statusCode == 200) {
             setState(() {
               _logoBase64 = res.body.replaceAll('"', '');

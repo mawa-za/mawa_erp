@@ -14,14 +14,22 @@ class Attachment {
   });
 
   factory Attachment.fromJson(Map<String, dynamic> json) {
-    final docType = json['documentType'] as Map<String, dynamic>?;
-    final uploadBy = json['uploadBy'] as Map<String, dynamic>?;
+    // Safely handle Map vs List for nested objects
+    Map<String, dynamic>? docType;
+    if (json['documentType'] is Map) {
+      docType = Map<String, dynamic>.from(json['documentType']);
+    }
+
+    Map<String, dynamic>? uploadBy;
+    if (json['uploadBy'] is Map) {
+      uploadBy = Map<String, dynamic>.from(json['uploadBy']);
+    }
     
     return Attachment(
-      id: json['id'] ?? '',
-      description: docType?['description'] ?? 'Document',
-      extension: json['extension'] ?? '',
-      uploadDate: json['uploadDate'] ?? '',
+      id: (json['id'] ?? '').toString(),
+      description: docType?['description']?.toString() ?? 'Document',
+      extension: (json['extension'] ?? '').toString(),
+      uploadDate: (json['uploadDate'] ?? '').toString(),
       uploadedBy: '${uploadBy?['name2'] ?? ''} ${uploadBy?['name1'] ?? ''}'.trim(),
     );
   }

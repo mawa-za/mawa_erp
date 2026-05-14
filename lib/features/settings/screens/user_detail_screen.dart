@@ -13,7 +13,7 @@ class UserDetailScreen extends StatefulWidget {
 class _UserDetailScreenState extends State<UserDetailScreen> {
   bool _isLoading = true;
   User? _user;
-  List<String> _roles = [];
+  List<Map<String, dynamic>> _assignedRoles = [];
   String? _error;
 
   final List<String> _availableRoles = [
@@ -47,7 +47,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       if (mounted) {
         setState(() {
           _user = results[0] as User;
-          _roles = results[1] as List<String>;
+          _assignedRoles = List<Map<String, dynamic>>.from(results[1] as List);
           _isLoading = false;
         });
       }
@@ -83,7 +83,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 
   Future<void> _manageRoles() async {
-    List<String> selectedRoles = List.from(_roles);
+    List<String> selectedRoleIds = _assignedRoles.map((r) => r['id'].toString()).toList();
     final colorScheme = Theme.of(context).colorScheme;
 
     final List<String>? result = await showDialog<List<String>>(
@@ -95,18 +95,18 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             width: double.maxFinite,
             child: ListView(
               shrinkWrap: true,
-              children: _availableRoles.map((role) {
-                final isSelected = selectedRoles.contains(role);
+              children: _availableRoles.map((roleId) {
+                final isSelected = selectedRoleIds.contains(roleId);
                 return CheckboxListTile(
-                  title: Text(role.replaceAll('-', ' '), style: const TextStyle(fontSize: 14)),
+                  title: Text(roleId.replaceAll('-', ' '), style: const TextStyle(fontSize: 14)),
                   value: isSelected,
                   activeColor: colorScheme.primary,
                   onChanged: (bool? value) {
                     setDialogState(() {
                       if (value == true) {
-                        selectedRoles.add(role);
+                        selectedRoleIds.add(roleId);
                       } else {
-                        selectedRoles.remove(role);
+                        selectedRoleIds.remove(roleId);
                       }
                     });
                   },
@@ -120,7 +120,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               child: const Text('CANCEL'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, selectedRoles),
+              onPressed: () => Navigator.pop(context, selectedRoleIds),
               child: const Text('SAVE ROLES'),
             ),
           ],
@@ -217,7 +217,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           _buildInfoSection(
             'Assigned Roles', 
             [
-              if (_roles.isEmpty)
+              if (_assignedRoles.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8.0),
                   child: Text('No roles assigned', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
@@ -226,12 +226,18 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
-                  children: _roles.map((role) => Chip(
-                    label: Text(role, style: const TextStyle(fontSize: 12)),
-                    backgroundColor: colorScheme.secondaryContainer,
-                    labelStyle: TextStyle(color: colorScheme.onSecondaryContainer),
-                    side: BorderSide.none,
-                  )).toList(),
+                  children: _assignedRoles.map<Widget>((role) {
+                    final String name = role['name'] ?? role['description'] ?? role['id'] ?? 'Unknown';
+                    return Tooltip(
+                      message: role['description'] ?? name,
+                      child: Chip(
+                        label: Text(name.trim(), style: const TextStyle(fontSize: 12)),
+                        backgroundColor: colorScheme.secondaryContainer,
+                        labelStyle: TextStyle(color: colorScheme.onSecondaryContainer),
+                        side: BorderSide.none,
+                      ),
+                    );
+                  }).toList(),
                 ),
             ],
             action: TextButton.icon(

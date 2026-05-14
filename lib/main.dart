@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/api_client.dart';
 import 'features/setup/setup_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/reset_password_screen.dart';
 import 'features/home/home_page.dart';
+import 'features/invoicing/screens/invoice_pdf_preview_screen.dart';
+import 'features/membership/screens/membership_detail_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +28,6 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       onGenerateRoute: (settings) {
-        // Check for deep links/URL parameters (especially for Web)
         final uri = Uri.base;
         
         // Handle /reset-password?token=...
@@ -37,7 +40,26 @@ class MyApp extends StatelessWidget {
           }
         }
 
-        // Default to Initializer for any other route
+        // Handle /membership-detail?id=...
+        if (uri.path.contains('membership-detail')) {
+          final id = uri.queryParameters['id'];
+          if (id != null) {
+            return MaterialPageRoute(
+              builder: (context) => Initializer(membershipId: id),
+            );
+          }
+        }
+
+        // Handle /invoice-preview?id=...
+        if (uri.path.contains('invoice-preview')) {
+          final id = uri.queryParameters['id'];
+          if (id != null) {
+            return MaterialPageRoute(
+              builder: (context) => Initializer(targetId: id),
+            );
+          }
+        }
+
         return MaterialPageRoute(
           builder: (context) => const Initializer(),
         );
@@ -47,7 +69,9 @@ class MyApp extends StatelessWidget {
 }
 
 class Initializer extends StatefulWidget {
-  const Initializer({super.key});
+  final String? targetId;
+  final String? membershipId;
+  const Initializer({super.key, this.targetId, this.membershipId});
 
   @override
   State<Initializer> createState() => _InitializerState();
@@ -57,11 +81,28 @@ class _InitializerState extends State<Initializer> {
   bool _isLoading = true;
   bool _isConfigured = false;
   bool _isLoggedIn = false;
+  StreamSubscription? _logoutSubscription;
 
   @override
   void initState() {
     super.initState();
     _checkStatus();
+    _logoutSubscription = ApiClient().logoutStream.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please login again.')),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _logoutSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkStatus() async {
@@ -78,7 +119,7 @@ class _InitializerState extends State<Initializer> {
         _isConfigured = tenant != null && apiHost != null;
       }
       
-      _isLoggedIn = token != null;
+      _isLoggedIn = token != null && token.isNotEmpty;
       _isLoading = false;
     });
   }
@@ -91,6 +132,11 @@ class _InitializerState extends State<Initializer> {
       );
     }
 
+    // Allow viewing an invoice even if not configured/logged in
+    if (widget.targetId != null) {
+      return InvoicePdfPreviewScreen(invoiceId: widget.targetId);
+    }
+
     if (!_isConfigured) {
       return SetupScreen(onConfigured: () {
         setState(() => _isConfigured = true);
@@ -101,6 +147,11 @@ class _InitializerState extends State<Initializer> {
       return LoginScreen(onLoggedIn: () {
         setState(() => _isLoggedIn = true);
       });
+    }
+
+    // If logged in and we have a membership ID, go straight to details
+    if (widget.membershipId != null) {
+      return MembershipDetailScreen(membershipId: widget.membershipId!);
     }
 
     return const MyHomePage(title: 'Mawa ERP');

@@ -50,7 +50,9 @@ class Partner {
     if (type == 'ORGANISATION' || type == 'GROUP') {
       return name1;
     }
-    return [name2, name3, name1].where((s) => s.isNotEmpty).join(' ');
+    final parts = [name2, name3, name1].where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'Unnamed Partner';
+    return parts.join(' ');
   }
 
   factory Partner.fromJson(Map<String, dynamic> json) {
@@ -102,16 +104,40 @@ class Partner {
       }
     }
 
+    // Name handling with more fallbacks
+    String n1 = (json['name1'] ?? json['lastName'] ?? json['last_name'] ?? '').toString().trim();
+    String n2 = (json['name2'] ?? json['firstName'] ?? json['first_name'] ?? '').toString().trim();
+
+    if (n1.isEmpty && n2.isEmpty) {
+      final fullNameVal = (json['fullName'] ?? json['full_name'] ?? json['name'] ?? '').toString();
+      if (fullNameVal.isNotEmpty) {
+        final parts = fullNameVal.split(' ');
+        if (parts.length > 1) {
+          n2 = parts.sublist(0, parts.length - 1).join(' ');
+          n1 = parts.last;
+        } else {
+          n2 = fullNameVal;
+        }
+      }
+    }
+
     return Partner(
       id: id,
       number: number,
       type: type.isEmpty ? 'INDIVIDUAL' : type,
-      name1: (json['name1'] ?? '').toString().trim(),
-      name2: (json['name2'] ?? '').toString().trim(),
-      name3: (json['name3'] ?? '').toString().trim(),
+      name1: n1,
+      name2: n2,
+      name3: (json['name3'] ?? json['middleName'] ?? json['middle_name'] ?? '').toString().trim(),
       name4: json['name4']?.toString(),
-      identityNumber: (identityObj?['number'] ?? json['identityNumber'] ?? '').toString(),
-      idType: getStringFromObj(identityObj?['type'], key: 'description'),
+      identityNumber: (identityObj?['number'] ??
+                        json['identityNumber'] ??
+                        json['identityNo'] ??
+                        json['idNumber'] ??
+                        json['idNo'] ??
+                        '').toString(),
+      idType: getStringFromObj(identityObj?['type'], key: 'description') != ''
+                ? getStringFromObj(identityObj?['type'], key: 'description')
+                : (json['identityType'] ?? json['idType'] ?? 'ID').toString(),
       status: status.isEmpty ? 'ACTIVE' : status,
       title: title,
       birthDate: parseDate(json['birthDate']?.toString()),
@@ -119,7 +145,7 @@ class Partner {
       maritalStatus: maritalStatus,
       language: language,
       email: (json['email'] ?? '').toString(),
-      phone: (json['phone'] ?? json['cellphone'] ?? '').toString(),
+      phone: (json['phone'] ?? json['cellphone'] ?? json['cell_phone'] ?? '').toString(),
       addresses: (json['addresses'] as List? ?? [])
           .map((a) => PartnerAddress.fromJson(Map<String, dynamic>.from(a)))
           .toList(),
