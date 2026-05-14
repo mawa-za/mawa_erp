@@ -35,7 +35,8 @@ class CashupService {
 
       debugPrint('Fetching cashups with params: $queryParams');
 
-      final response = await ApiClient().get('/v2/cashup', queryParameters: queryParams);
+      // Updated to use /v2/cashup/all as requested
+      final response = await ApiClient().get('/v2/cashup/all', queryParameters: queryParams);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
