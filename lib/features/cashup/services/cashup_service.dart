@@ -15,9 +15,6 @@ class CashupService {
     String? toDate,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final role = prefs.getString('selectedRole');
-      
       final Map<String, dynamic> queryParams = {};
       
       if (userId != null && userId.isNotEmpty) {
@@ -29,14 +26,15 @@ class CashupService {
       if (toDate != null && toDate.isNotEmpty) {
         queryParams['toDate'] = toDate;
       }
-      if (role != null && role.isNotEmpty) {
-        queryParams['role'] = role;
-      }
 
       debugPrint('Fetching cashups with params: $queryParams');
 
-      // Updated to use /v2/cashup/all as requested
-      final response = await ApiClient().get('/v2/cashup/all', queryParameters: queryParams);
+      // Updated to use /v2/cashup/all and explicitly excluded the role header
+      final response = await ApiClient().get(
+        '/v2/cashup/all', 
+        queryParameters: queryParams, 
+        includeRole: false,
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -52,7 +50,8 @@ class CashupService {
 
   Future<Cashup> getCashupById(String id) async {
     try {
-      final response = await ApiClient().get('/v2/cashup/$id');
+      // Explicitly excluded the role header for detail view as well
+      final response = await ApiClient().get('/v2/cashup/$id', includeRole: false);
       if (response.statusCode == 200) {
         final dynamic data = jsonDecode(response.body);
         return Cashup.fromJson(Map<String, dynamic>.from(data));
