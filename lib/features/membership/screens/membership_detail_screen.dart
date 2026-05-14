@@ -3,6 +3,7 @@ import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
 import '../models/membership_plan.dart';
+import '../models/membership_claim.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
@@ -11,6 +12,8 @@ import '../../../core/widgets/attachment_section.dart';
 import 'edit_membership_screen.dart';
 import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
+import 'dependent_claim_screen.dart';
+import 'membership_claim_detail_screen.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -28,6 +31,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   List<Dependent> _dependents = [];
   Map<String, Partner> _dependentPartners = {};
   List<Premium> _premiums = [];
+  List<MembershipClaim> _claims = [];
   String? _error;
 
   @override
@@ -60,11 +64,16 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           debugPrint('Failed to load premiums: $e');
           return <Premium>[];
         }),
+        MembershipService().getClaimsByMembership(widget.membershipId).catchError((e) {
+          debugPrint('Failed to load claims: $e');
+          return <MembershipClaim>[];
+        }),
       ]);
 
       final member = results[0] as Partner;
       final plan = results[1] as MembershipPlan;
       final premiums = results[2] as List<Premium>;
+      final claims = results[3] as List<MembershipClaim>;
       
       // Step 2: Fetch dependent partners individually (resilient)
       final Map<String, Partner> dependentPartners = {};
@@ -90,6 +99,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _dependents = dependents;
           _dependentPartners = dependentPartners;
           _premiums = premiums;
+          _claims = claims;
           _isLoading = false;
         });
       }
@@ -248,6 +258,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildPremiumSection(colorScheme),
           const SizedBox(height: 16),
           _buildDependentsSection(colorScheme),
+          const SizedBox(height: 16),
+          _buildClaimsSection(colorScheme),
           const SizedBox(height: 16),
           _buildAttachmentSection(detail.id),
           const SizedBox(height: 80), // Space for FAB
@@ -562,6 +574,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             }
 
             String displayIdType = partner?.idType ?? dependent.identity?.type.description ?? 'ID';
+            final isDeceased = partner?.status == 'DECEASED';
             
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
@@ -570,11 +583,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               child: ExpansionTile(
                 leading: CircleAvatar(
                   radius: 16,
-                  backgroundColor: colorScheme.secondaryContainer,
+                  backgroundColor: isDeceased ? Colors.purple.withOpacity(0.1) : colorScheme.secondaryContainer,
                   child: Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
-                    style: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: 12, fontWeight: FontWeight.bold)),
+                    style: TextStyle(color: isDeceased ? Colors.purple : colorScheme.onSecondaryContainer, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
-                title: Text('${partner?.title ?? dependent.title?.description ?? ''} $displayName'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                title: Text('${partner?.title ?? dependent.title?.description ?? ''} $displayName'.trim(), 
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: isDeceased ? TextDecoration.lineThrough : null)),
                 subtitle: Text('No: ${partner?.number ?? dependent.number} • ${dependent.relationship.replaceAll('-', ' ')}', style: const TextStyle(fontSize: 12)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -611,6 +625,25 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
+                            if (!isDeceased)
+                              TextButton.icon(
+                                onPressed: () async {
+                                  final result = await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => DependentClaimScreen(
+                                        membership: _detail!,
+                                        member: _member!,
+                                        dependent: dependent,
+                                        dependentPartner: partner,
+                                      ),
+                                    ),
+                                  );
+                                  if (result == true) _fetchData();
+                                },
+                                icon: const Icon(Icons.request_quote_outlined, size: 16, color: Colors.deepPurple),
+                                label: const Text('Process Claim', style: TextStyle(color: Colors.deepPurple)),
+                              ),
+                            const SizedBox(width: 8),
                             TextButton.icon(
                               onPressed: () async {
                                 final result = await Navigator.of(context).push(
@@ -655,6 +688,69 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     );
   }
 
+  Widget _buildClaimsSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('EXISTING CLAIMS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+        ),
+        if (_claims.isEmpty)
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+            child: const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(
+                child: Text('No claims found for this membership', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              ),
+            ),
+          )
+        else
+          ..._claims.map((claim) {
+            Color statusColor;
+            switch (claim.status.toUpperCase()) {
+              case 'APPROVED': statusColor = Colors.green; break;
+              case 'REJECTED': statusColor = Colors.red; break;
+              case 'SUBMITTED': statusColor = Colors.orange; break;
+              default: statusColor = Colors.blue;
+            }
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+              child: ListTile(
+                onTap: () async {
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => MembershipClaimDetailScreen(claimId: claim.id),
+                    ),
+                  );
+                  if (result == true) _fetchData();
+                },
+                leading: CircleAvatar(
+                  backgroundColor: statusColor.withOpacity(0.1),
+                  child: Icon(Icons.assignment_outlined, color: statusColor, size: 20),
+                ),
+                title: Text('Claim #${claim.claimNo}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text('${claim.claimType} • ${claim.claimDate}', style: const TextStyle(fontSize: 12)),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('R ${claim.claimAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text(claim.status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
   Widget _buildAttachmentSection(String membershipId) {
     return Card(
       elevation: 0,
@@ -688,6 +784,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         break;
       case 'INACTIVE':
         color = Colors.red;
+        break;
+      case 'DECEASED':
+        color = Colors.purple;
         break;
       default:
         color = Colors.blue;

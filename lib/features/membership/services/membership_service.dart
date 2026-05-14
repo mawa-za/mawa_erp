@@ -7,6 +7,7 @@ import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
 import '../models/membership_plan.dart';
+import '../models/membership_claim.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
@@ -270,6 +271,119 @@ class MembershipService {
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to create membership plan: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> createMembershipClaim(Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().post('/v2/membership-claim', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to process claim: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<MembershipClaim>> getMembershipClaims({String? membershipId}) async {
+    try {
+      String path = '/v2/membership-claim';
+      if (membershipId != null && membershipId.isNotEmpty) {
+        path += '?membershipId=$membershipId';
+      }
+      
+      final response = await ApiClient().get(path);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => MembershipClaim.fromJson(Map<String, dynamic>.from(json))).toList();
+      } else {
+        throw Exception('Failed to load membership claims: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<MembershipClaim>> getClaimsByMembership(String membershipId) async {
+    try {
+      final response = await ApiClient().get('/v2/membership-claim/membership/$membershipId');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => MembershipClaim.fromJson(Map<String, dynamic>.from(json))).toList();
+      } else {
+        throw Exception('Failed to load membership claims: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<MembershipClaim> getMembershipClaimById(String id) async {
+    try {
+      final response = await ApiClient().get('/v2/membership-claim/$id');
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is List && decoded.isNotEmpty) {
+          return MembershipClaim.fromJson(Map<String, dynamic>.from(decoded.first));
+        }
+        return MembershipClaim.fromJson(decoded as Map<String, dynamic>);
+      } else {
+        throw Exception('Failed to load membership claim: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateMembershipClaim(String id, Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().put('/v2/membership-claim/$id', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to update membership claim: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> submitMembershipClaim(String id) async {
+    try {
+      final response = await ApiClient().post('/v2/membership-claim/$id/submit');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to submit membership claim: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> cancelMembershipClaim(String id) async {
+    try {
+      final response = await ApiClient().post('/v2/membership-claim/$id/cancel');
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to cancel membership claim: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> linkClaims(String parentClaimId, List<String> claimIds) async {
+    try {
+      final response = await ApiClient().post(
+        '/v2/membership-claim/$parentClaimId/linked-claims',
+        body: {'claimIds': claimIds},
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to link claims: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
