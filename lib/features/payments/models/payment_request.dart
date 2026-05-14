@@ -47,6 +47,7 @@ class PaymentRequestDetail {
   final String dueDate;
   final String createdDate;
   final String instructionId;
+  final String status; // Added status
   final Map<String, dynamic> paymentReason;
   final Map<String, dynamic> paymentMethod;
   final Map<String, dynamic> branch;
@@ -62,6 +63,7 @@ class PaymentRequestDetail {
     required this.dueDate,
     required this.createdDate,
     required this.instructionId,
+    required this.status,
     required this.paymentReason,
     required this.paymentMethod,
     required this.branch,
@@ -79,6 +81,7 @@ class PaymentRequestDetail {
       dueDate: json['dueDate'] ?? '',
       createdDate: json['createdDate'] ?? '',
       instructionId: json['instructionId'] ?? '',
+      status: json['status'] ?? 'NEW',
       paymentReason: json['paymentReason'] ?? {},
       paymentMethod: json['paymentMethod'] ?? {},
       branch: json['branch'] ?? {},
@@ -86,6 +89,19 @@ class PaymentRequestDetail {
       recipient: json['recipient'] ?? {},
       employeeResponsible: json['employeeResponsible'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'number': number,
+      'reference': reference,
+      'amount': amount,
+      'dueDate': dueDate,
+      'createdDate': createdDate,
+      'status': status,
+      'recipient': recipient,
+    };
   }
 }
 

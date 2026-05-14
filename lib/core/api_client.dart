@@ -29,42 +29,83 @@ class ApiClient {
   Future<String?> _getTenantId() async {
     if (kIsWeb) return Config.webTenant;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('tenant') ?? Config.webTenant;
+    final tenant = prefs.getString('tenant');
+    if (tenant != null && tenant.isNotEmpty) return tenant;
+    return Config.webTenant.isNotEmpty ? Config.webTenant : null;
   }
 
-  Future<Map<String, String>> _getHeaders() async {
+  Future<Map<String, String>> _getHeaders({bool includeRole = true}) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('accessToken');
     final tenantId = await _getTenantId();
+    final role = prefs.getString('selectedRole');
+    final userId = prefs.getString('userId');
     
     final headers = {
       'Content-Type': 'application/json',
       'X-TenantID': tenantId ?? '',
+      'X-Tenant-Id': tenantId ?? '',
     };
     
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
+    } else {
+      debugPrint('ApiClient: Warning - No accessToken found');
+    }
+
+    if (includeRole && role != null && role.isNotEmpty) {
+      headers['X-Role'] = role;
+    }
+
+    if (userId != null && userId.isNotEmpty) {
+      headers['X-UserID'] = userId;
+      headers['X-User-Id'] = userId;
     }
     
     return headers;
   }
 
-  Future<http.Response> post(String path, {dynamic body}) async {
+  Uri _buildUrl(String host, String path, [Map<String, dynamic>? queryParameters]) {
+    final Uri tempUri = Uri.parse(path);
+    final Map<String, String> combinedParams = Map<String, String>.from(tempUri.queryParameters);
+    
+    if (queryParameters != null) {
+      queryParameters.forEach((key, value) {
+        if (value != null) {
+          combinedParams[key] = value.toString();
+        }
+      });
+    }
+    
+    final String cleanPath = tempUri.path;
+    final String finalPath = cleanPath.startsWith('/') ? cleanPath : '/$cleanPath';
+
+    return Uri.https(
+      host,
+      finalPath,
+      combinedParams.isEmpty ? null : combinedParams,
+    );
+  }
+
+  Future<http.Response> post(String path, {dynamic body, bool includeRole = true}) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path);
+    final headers = await _getHeaders(includeRole: includeRole);
 
     var response = await _client.post(
       url,
-      headers: await _getHeaders(),
+      headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for POST $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.post(
           url,
-          headers: await _getHeaders(),
+          headers: await _getHeaders(includeRole: includeRole),
           body: body != null ? jsonEncode(body) : null,
         );
       }
@@ -73,22 +114,25 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> put(String path, {dynamic body}) async {
+  Future<http.Response> put(String path, {dynamic body, bool includeRole = true}) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path);
+    final headers = await _getHeaders(includeRole: includeRole);
 
     var response = await _client.put(
       url,
-      headers: await _getHeaders(),
+      headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for PUT $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.put(
           url,
-          headers: await _getHeaders(),
+          headers: await _getHeaders(includeRole: includeRole),
           body: body != null ? jsonEncode(body) : null,
         );
       }
@@ -97,32 +141,41 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> get(String path) async {
+  Future<http.Response> get(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path, queryParameters);
+    final headers = await _getHeaders(includeRole: includeRole);
 
-    var response = await _client.get(url, headers: await _getHeaders());
+    debugPrint('ApiClient GET: $url');
+
+    var response = await _client.get(url, headers: headers);
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for GET $url. Body: ${response.body}');
       final success = await _handleUnauthorized();
       if (success) {
-        response = await _client.get(url, headers: await _getHeaders());
+        final retryHeaders = await _getHeaders(includeRole: includeRole);
+        response = await _client.get(url, headers: retryHeaders);
       }
     }
 
     return response;
   }
 
-  Future<http.Response> delete(String path) async {
+  Future<http.Response> delete(String path, {bool includeRole = true}) async {
     final host = await _getApiHost();
-    final url = Uri.parse('https://$host$path');
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path);
+    final headers = await _getHeaders(includeRole: includeRole);
 
-    var response = await _client.delete(url, headers: await _getHeaders());
+    var response = await _client.delete(url, headers: headers);
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for DELETE $url');
       final success = await _handleUnauthorized();
       if (success) {
-        response = await _client.delete(url, headers: await _getHeaders());
+        response = await _client.delete(url, headers: await _getHeaders(includeRole: includeRole));
       }
     }
 
@@ -168,6 +221,7 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           'X-TenantID': tenantId ?? '',
+          'X-Tenant-Id': tenantId ?? '',
         },
         body: jsonEncode({
           'refreshToken': refreshToken,

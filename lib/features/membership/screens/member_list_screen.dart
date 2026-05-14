@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/models/paginated_response.dart';
 import '../models/membership.dart';
@@ -18,7 +19,8 @@ class MemberListScreen extends StatefulWidget {
 class _MemberListScreenState extends State<MemberListScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  
+  Timer? _debounce;
+
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -29,6 +31,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
   Map<String, MembershipPlan> _plans = {};
   Map<String, Partner> _partners = {};
   String? _error;
+  List<String>? _currentMemberIds;
 
   @override
   void initState() {
@@ -41,6 +44,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -50,6 +54,14 @@ class _MemberListScreenState extends State<MemberListScreen> {
         _fetchNextPage();
       }
     }
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), () {
+      _fetchInitialData();
+    });
+    setState(() {});
   }
 
   Future<void> _fetchPartners(List<String> ids) async {
@@ -79,21 +91,47 @@ class _MemberListScreenState extends State<MemberListScreen> {
   }
 
   Future<void> _fetchInitialData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _error = null;
       _currentPage = 0;
       _memberships = [];
       _hasMore = true;
+      _currentMemberIds = null;
     });
 
     try {
+      final query = _searchController.text.trim();
+
+      // Only find partners if there's a search query
+      if (query.isNotEmpty) {
+        try {
+          final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
+          _currentMemberIds = partners.map((p) => p.id).toList();
+
+          // Cache partners to avoid re-fetching them for the list tiles
+          if (mounted) {
+            setState(() {
+              for (var p in partners) {
+                _partners[p.id] = p;
+              }
+            });
+          }
+        } catch (e) {
+          debugPrint('Error fetching partners: $e');
+          _currentMemberIds = [];
+        }
+      }
+
       final results = await Future.wait([
         MembershipService().getMemberships(
           page: _currentPage, 
           size: _pageSize, 
-          sort: ['createdAt,desc'],
-          query: _searchController.text,
+          sort: ['membershipNo,asc'],
+          query: query,
+          memberIds: _currentMemberIds,
         ),
         MembershipService().getMembershipPlans(size: 100),
       ]);
@@ -108,7 +146,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
           _hasMore = !membershipsResponse.last;
         });
 
-        // Fetch partners for initial batch
+        // Fetch partners for initial batch (those not already in cache)
         await _fetchPartners(_memberships.map((m) => m.memberId).toList());
 
         setState(() => _isLoading = false);
@@ -131,8 +169,9 @@ class _MemberListScreenState extends State<MemberListScreen> {
       final response = await MembershipService().getMemberships(
         page: nextPage, 
         size: _pageSize, 
-        sort: ['createdAt,desc'],
-        query: _searchController.text,
+        sort: ['membershipNo,asc'],
+        query: _searchController.text.trim(),
+        memberIds: _currentMemberIds,
       );
 
       if (mounted) {
@@ -216,14 +255,12 @@ class _MemberListScreenState extends State<MemberListScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: TextField(
         controller: _searchController,
-        onChanged: (value) {
-          setState(() {});
-        },
+        onChanged: _onSearchChanged,
         onSubmitted: (value) {
           _fetchInitialData();
         },
         decoration: InputDecoration(
-          hintText: 'Search by policy #, identity # or plan...',
+          hintText: 'Search by policy #, name, identity #...',
           hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
@@ -283,11 +320,15 @@ class _MemberListScreenState extends State<MemberListScreen> {
         children: [
           Icon(Icons.contact_emergency_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('No memberships found', 
+          Text(_searchController.text.isEmpty ? 'No memberships found' : 'No results matching "${_searchController.text}"',
             style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.bold)
           ),
           const SizedBox(height: 8),
-          const Text('Create a new membership to see it here', style: TextStyle(color: Colors.grey)),
+          Text(_searchController.text.isEmpty
+            ? 'Create a new membership to see it here'
+            : 'Try a different search term',
+            style: const TextStyle(color: Colors.grey)
+          ),
         ],
       ),
     );

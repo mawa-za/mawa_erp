@@ -14,7 +14,11 @@ import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
 import '../settings/screens/user_list_screen.dart';
 import '../settings/screens/company_info_screen.dart';
+import '../settings/screens/system_configuration_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
+import '../cashup/screens/cashup_list_screen.dart';
+import '../approvals/screens/approval_workflow_list_screen.dart';
+import '../approvals/screens/approval_list_screen.dart';
 import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -182,6 +186,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('setting')) return Icons.settings_suggest_rounded;
     if (lowerId.contains('report')) return Icons.bar_chart_rounded;
     if (lowerId.contains('company')) return Icons.domain_rounded;
+    if (lowerId.contains('cashup')) return Icons.point_of_sale_rounded;
+    if (lowerId.contains('workflow')) return Icons.account_tree_rounded;
+    if (lowerId.contains('approval')) return Icons.fact_check_rounded;
+    if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     return Icons.apps_rounded;
   }
 
@@ -201,12 +209,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('partner') || description.contains('partner')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
-    } else if (id.contains('user')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const UserListScreen()));
-    } else if (id.contains('company') || description.contains('company')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: true)));
-    } else if (id.contains('setting') || description.contains('setting')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemSettingsScreen()));
+    } else if (id.contains('user') || id.contains('setting') || id.contains('company') || id.contains('workflow') || id.contains('config') || id.contains('role')) {
+      // All configuration consolidated under System Configuration module
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen()));
+    } else if (id.contains('cashup') || description.contains('cashup')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
+    } else if (id.contains('approval')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),

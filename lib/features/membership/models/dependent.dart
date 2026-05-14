@@ -60,16 +60,20 @@ class Dependent {
     String? parseDate(dynamic date) {
       if (date == null) return null;
       if (date is List && date.length >= 3) {
-        final year = date[0];
-        final month = date[1].toString().padLeft(2, '0');
-        final day = date[2].toString().padLeft(2, '0');
+        try {
+          final year = date[0].toString();
+          final month = date[1].toString().padLeft(2, '0');
+          final day = date[2].toString().padLeft(2, '0');
 
-        if (date.length >= 5) {
-          final hour = date[3].toString().padLeft(2, '0');
-          final minute = date[4].toString().padLeft(2, '0');
-          return '$year-$month-$day $hour:$minute';
+          if (date.length >= 5) {
+            final hour = date[3].toString().padLeft(2, '0');
+            final minute = date[4].toString().padLeft(2, '0');
+            return '$year-$month-$day $hour:$minute';
+          }
+          return '$year-$month-$day';
+        } catch (e) {
+          return date.toString();
         }
-        return '$year-$month-$day';
       }
       return date.toString();
     }
@@ -131,11 +135,11 @@ class Dependent {
       lastName: lName,
       number: (json['number'] ?? json['partnerNo'] ?? json['partnerNumber'] ?? 
                depPartnerMap?['number'] ?? depPartnerMap?['partnerNo'] ?? depPartnerMap?['partnerNumber'] ?? '').toString(),
-      status: json['status'] != null ? FieldOption.fromJson(asMap(json['status']) ?? {}) : null,
-      title: json['title'] != null ? FieldOption.fromJson(asMap(json['title']) ?? {}) : null,
+      status: FieldOption.fromDynamic(json['status']),
+      title: FieldOption.fromDynamic(json['title']),
       birthDate: parseDate(json['birthDate'] ?? json['dateOfBirth'] ?? depPartnerMap?['birthDate'] ?? depPartnerMap?['dateOfBirth']),
-      gender: json['gender'] != null ? FieldOption.fromJson(asMap(json['gender']) ?? {}) : null,
-      maritalStatus: json['maritalStatus'] != null ? FieldOption.fromJson(asMap(json['maritalStatus']) ?? {}) : null,
+      gender: FieldOption.fromDynamic(json['gender']),
+      maritalStatus: FieldOption.fromDynamic(json['maritalStatus']),
       identity: identity,
       createdAt: parseDate(json['createdAt']),
       createdBy: (json['createdBy'] ?? '').toString(),
@@ -170,7 +174,7 @@ class DependentIdentity {
 
   factory DependentIdentity.fromJson(Map<String, dynamic> json) {
     return DependentIdentity(
-      type: FieldOption.fromJson(json['type'] is Map ? Map<String, dynamic>.from(json['type']) : {}),
+      type: FieldOption.fromDynamic(json['type']),
       number: (json['number'] ?? '').toString(),
     );
   }
