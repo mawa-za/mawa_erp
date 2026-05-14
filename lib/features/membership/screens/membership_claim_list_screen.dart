@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/membership_claim.dart';
 import '../services/membership_service.dart';
+import 'membership_claim_detail_screen.dart';
 
 class MembershipClaimListScreen extends StatefulWidget {
   const MembershipClaimListScreen({super.key});
@@ -119,8 +120,13 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: InkWell(
-        onTap: () {
-          // TODO: Navigate to detail screen
+        onTap: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => MembershipClaimDetailScreen(claimId: claim.id),
+            ),
+          );
+          if (result == true) _fetchClaims();
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -191,34 +197,41 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
   }
 
   Widget _buildStatusChip(String status) {
-    Color color;
+    Color backgroundColor;
+    Color textColor;
+
     switch (status.toUpperCase()) {
       case 'APPROVED':
-        color = Colors.green;
+        backgroundColor = Colors.green.withOpacity(0.1);
+        textColor = Colors.green.shade700;
         break;
       case 'DRAFT':
-        color = Colors.blue;
+        backgroundColor = Colors.blue.withOpacity(0.1);
+        textColor = Colors.blue.shade700;
         break;
       case 'REJECTED':
-        color = Colors.red;
+        backgroundColor = Colors.red.withOpacity(0.1);
+        textColor = Colors.red.shade700;
         break;
       case 'SUBMITTED':
-        color = Colors.orange;
+        backgroundColor = Colors.orange.withOpacity(0.1);
+        textColor = Colors.orange.shade700;
         break;
       default:
-        color = Colors.grey;
+        backgroundColor = Colors.grey.withOpacity(0.1);
+        textColor = Colors.grey.shade700;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         status.toUpperCase(),
         style: TextStyle(
-          color: color.shade700,
+          color: textColor,
           fontSize: 10,
           fontWeight: FontWeight.bold,
         ),

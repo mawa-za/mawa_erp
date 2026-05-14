@@ -322,9 +322,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildMemberCard(Partner member, ColorScheme colorScheme) {
+    final isDeceased = member.status == 'DECEASED';
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12), 
+        side: BorderSide(color: isDeceased ? Colors.purple.withOpacity(0.3) : Colors.grey.shade200)
+      ),
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(
@@ -342,16 +346,17 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: colorScheme.primaryContainer,
+                    backgroundColor: isDeceased ? Colors.purple.withOpacity(0.1) : colorScheme.primaryContainer,
                     child: Text(member.name2.isNotEmpty ? member.name2[0].toUpperCase() : '?',
-                      style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
+                      style: TextStyle(color: isDeceased ? Colors.purple : colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${member.title ?? ''} ${member.fullName}'.trim(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('${member.title ?? ''} ${member.fullName}'.trim(), 
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, decoration: isDeceased ? TextDecoration.lineThrough : null)),
                         Text('No: ${member.number}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                       ],
                     ),
@@ -372,6 +377,30 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               if (member.phone.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 _buildInfoRow(Icons.phone_outlined, 'Phone', member.phone),
+              ],
+              if (!isDeceased) ...[
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => DependentClaimScreen(
+                              membership: _detail!,
+                              member: _member!,
+                              deceasedPartner: _member!,
+                            ),
+                          ),
+                        );
+                        if (result == true) _fetchData();
+                      },
+                      icon: const Icon(Icons.request_quote_outlined, size: 16, color: Colors.deepPurple),
+                      label: const Text('Process Claim', style: TextStyle(color: Colors.deepPurple)),
+                    ),
+                  ],
+                ),
               ],
             ],
           ),
@@ -634,7 +663,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                                         membership: _detail!,
                                         member: _member!,
                                         dependent: dependent,
-                                        dependentPartner: partner,
+                                        deceasedPartner: partner,
                                       ),
                                     ),
                                   );

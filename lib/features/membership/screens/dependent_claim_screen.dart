@@ -1,22 +1,24 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
+import '../../../core/api_client.dart';
 
 class DependentClaimScreen extends StatefulWidget {
   final MembershipDetail membership;
   final Partner member;
-  final Dependent dependent;
-  final Partner? dependentPartner;
+  final Dependent? dependent; // Null if claiming for main member
+  final Partner? deceasedPartner;
 
   const DependentClaimScreen({
     super.key,
     required this.membership,
     required this.member,
-    required this.dependent,
-    this.dependentPartner,
+    this.dependent,
+    this.deceasedPartner,
   });
 
   @override
@@ -35,17 +37,41 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
   DateTime _dateOfDeath = DateTime.now();
   String _selectedClaimType = 'CASH';
   
+  Partner? _selectedClaimant;
   final List<String> _claimTypes = ['CASH', 'GROCERY', 'TOMBSTONE', 'OTHER'];
 
   @override
   void initState() {
     super.initState();
-    // Default reference-like notes
-    _notesController.text = 'Claim for ${widget.dependent.fullName} (${widget.dependent.relationship})';
+    // Default claimant is the main member for dependent claims
+    if (widget.dependent != null) {
+      _selectedClaimant = widget.member;
+    }
+    
+    final deceasedName = widget.dependent?.fullName ?? widget.member.fullName;
+    _notesController.text = 'Claim for $deceasedName (${widget.dependent?.relationship ?? "Main Member"})';
+  }
+
+  Future<List<Partner>> _searchClaimants(String query) async {
+    if (query.length < 2) return [];
+    try {
+      final response = await ApiClient().get('/v2/partner?query=$query');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Partner.fromJson(json)).toList();
+      }
+    } catch (e) {
+      debugPrint('Error searching partners: $e');
+    }
+    return [];
   }
 
   Future<void> _submitClaim() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedClaimant == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a claimant')));
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -56,13 +82,13 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
       final payload = {
         "membershipId": widget.membership.id,
         "claimType": _selectedClaimType,
-        "deceasedType": "DEPENDENT",
-        "deceasedPartnerId": widget.dependent.dependentPartnerId,
+        "deceasedType": widget.dependent != null ? "DEPENDENT" : "MAIN_MEMBER",
+        "deceasedPartnerId": widget.dependent?.dependentPartnerId ?? widget.member.id,
         "dateOfDeath": DateFormat('yyyy-MM-dd').format(_dateOfDeath),
         "claimDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
         "causeOfDeath": _causeOfDeathController.text.trim(),
         "deathCertificateNo": _deathCertificateController.text.trim(),
-        "claimantPartnerId": widget.member.id,
+        "claimantPartnerId": _selectedClaimant!.id,
         "claimAmountCents": amountCents,
         "notes": _notesController.text.trim(),
         "submit": true,
@@ -91,11 +117,12 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDependentClaim = widget.dependent != null;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('New Membership Claim'),
+        title: Text(isDependentClaim ? 'Dependent Claim' : 'Main Member Claim'),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -109,7 +136,11 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
             children: [
               _buildSummaryCard(colorScheme),
               const SizedBox(height: 24),
-              _buildSectionHeader(Icons.assignment_outlined, 'Claim Information'),
+              _buildSectionHeader(Icons.person_search_outlined, 'Claimant (Beneficiary)'),
+              const SizedBox(height: 12),
+              _buildClaimantSelector(colorScheme),
+              const SizedBox(height: 24),
+              _buildSectionHeader(Icons.assignment_outlined, 'Claim Details'),
               const SizedBox(height: 12),
               _buildClaimForm(colorScheme),
               const SizedBox(height: 32),
@@ -134,6 +165,56 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
     );
   }
 
+  Widget _buildClaimantSelector(ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            SearchAnchor(
+              builder: (context, controller) => SearchBar(
+                controller: controller,
+                onTap: () => controller.openView(),
+                onChanged: (_) => controller.openView(),
+                hintText: 'Search for Claimant...',
+                leading: const Icon(Icons.search),
+                elevation: const WidgetStatePropertyAll(0),
+                backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+              suggestionsBuilder: (context, controller) async {
+                final partners = await _searchClaimants(controller.text);
+                return partners.map((p) => ListTile(
+                  title: Text(p.fullName),
+                  subtitle: Text('No: ${p.number}'),
+                  onTap: () {
+                    setState(() => _selectedClaimant = p);
+                    controller.closeView(p.fullName);
+                  },
+                )).toList();
+              },
+            ),
+            if (_selectedClaimant != null) ...[
+              const Divider(),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(_selectedClaimant!.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('ID: ${_selectedClaimant!.identityNumber}'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => setState(() => _selectedClaimant = null),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(IconData icon, String title) {
     return Row(
       children: [
@@ -153,6 +234,9 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
   }
 
   Widget _buildSummaryCard(ColorScheme colorScheme) {
+    final deceasedName = widget.deceasedPartner?.fullName ?? widget.member.fullName;
+    final relationship = widget.dependent?.relationship.replaceAll('-', ' ') ?? "Main Member";
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -164,11 +248,9 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildSummaryRow('Main Member', widget.member.fullName),
+            _buildSummaryRow('Deceased Person', deceasedName),
             const Divider(height: 16),
-            _buildSummaryRow('Deceased Dependent', widget.dependent.fullName),
-            const Divider(height: 16),
-            _buildSummaryRow('Relationship', widget.dependent.relationship.replaceAll('-', ' ')),
+            _buildSummaryRow('Relationship', relationship),
             const Divider(height: 16),
             _buildSummaryRow('Membership No', widget.membership.membershipNo),
           ],
