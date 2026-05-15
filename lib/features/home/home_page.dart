@@ -353,7 +353,30 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         ),
       ),
-      title: const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          if (_appVersion.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                _appVersion,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
       actions: [
         IconButton(
           icon: const Icon(Icons.notifications_outlined), 
@@ -641,11 +664,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           Text(
             '© 2025 Mawa ERP',
             style: TextStyle(color: Colors.grey[400], fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _appVersion,
-            style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w300),
           ),
         ],
       ),
