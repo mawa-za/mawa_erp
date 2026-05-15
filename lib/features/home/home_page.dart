@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../main.dart';
@@ -34,6 +35,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
   String? _displayName;
   String? _selectedRole;
+  String _appVersion = '';
   List<Workcenter> _workcenters = [];
   List<Workcenter> _filteredWorkcenters = [];
   bool _isLoadingWorkcenters = true;
@@ -49,6 +51,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 800),
     );
     _loadUserInfo();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = 'v${packageInfo.version}+${packageInfo.buildNumber}';
+    });
   }
 
   Future<void> _loadUserInfo() async {
@@ -634,7 +644,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 4),
           Text(
-            'v1.0.0+1',
+            _appVersion,
             style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w300),
           ),
         ],
