@@ -9,13 +9,13 @@ import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
 
-class DependentClaimScreen extends StatefulWidget {
+class MembershipClaimCreateScreen extends StatefulWidget {
   final MembershipDetail membership;
   final Partner member;
-  final Dependent? dependent; // Null if claiming for main member
+  final Dependent? dependent; 
   final Partner? deceasedPartner;
 
-  const DependentClaimScreen({
+  const MembershipClaimCreateScreen({
     super.key,
     required this.membership,
     required this.member,
@@ -24,31 +24,43 @@ class DependentClaimScreen extends StatefulWidget {
   });
 
   @override
-  State<DependentClaimScreen> createState() => _DependentClaimScreenState();
+  State<MembershipClaimCreateScreen> createState() => _MembershipClaimCreateScreenState();
 }
 
-class _DependentClaimScreenState extends State<DependentClaimScreen> {
+class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
   bool _isLoadingOptions = true;
 
   // Form fields
   final _amountController = TextEditingController();
-  final _causeOfDeathController = TextEditingController();
   final _deathCertificateController = TextEditingController();
   final _notesController = TextEditingController();
+  
+  // Banking details
+  final _accHolderController = TextEditingController();
+  final _accNumberController = TextEditingController();
+  final _branchCodeController = TextEditingController();
+  
   DateTime _dateOfDeath = DateTime.now();
   String? _selectedClaimTypeCode;
+  String? _selectedPayoutMethod;
+  String? _selectedAccType;
+  String? _selectedBankCode;
+  String? _selectedCauseOfDeathCode;
   
   Partner? _selectedClaimant;
   List<FieldOption> _claimTypeOptions = [];
+  List<FieldOption> _payoutMethodOptions = [];
+  List<FieldOption> _accTypeOptions = [];
+  List<FieldOption> _bankOptions = [];
+  List<FieldOption> _causeOfDeathOptions = [];
 
   @override
   void initState() {
     super.initState();
     _loadOptions();
     
-    // Default claimant is the main member for dependent claims
     if (widget.dependent != null) {
       _selectedClaimant = widget.member;
     }
@@ -59,16 +71,31 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
 
   Future<void> _loadOptions() async {
     try {
-      final options = await FieldService().getOptionsByField('CLAIM-TYPE');
+      final results = await Future.wait([
+        FieldService().getOptionsByField('CLAIM-TYPE'),
+        FieldService().getOptionsByField('PAYOUT-METHOD'),
+        FieldService().getOptionsByField('BANK-ACCOUNT-TYPE'),
+        FieldService().getOptionsByField('BANK-NAME'),
+        FieldService().getOptionsByField('CAUSE-OF-DEATH'),
+      ]);
+
       setState(() {
-        _claimTypeOptions = options;
-        if (_claimTypeOptions.isNotEmpty) {
-          _selectedClaimTypeCode = _claimTypeOptions.first.code;
-        }
+        _claimTypeOptions = results[0];
+        _payoutMethodOptions = results[1];
+        _accTypeOptions = results[2];
+        _bankOptions = results[3];
+        _causeOfDeathOptions = results[4];
+        
+        if (_claimTypeOptions.isNotEmpty) _selectedClaimTypeCode = _claimTypeOptions.first.code;
+        if (_payoutMethodOptions.isNotEmpty) _selectedPayoutMethod = _payoutMethodOptions.first.code;
+        if (_accTypeOptions.isNotEmpty) _selectedAccType = _accTypeOptions.first.code;
+        if (_bankOptions.isNotEmpty) _selectedBankCode = _bankOptions.first.code;
+        if (_causeOfDeathOptions.isNotEmpty) _selectedCauseOfDeathCode = _causeOfDeathOptions.first.code;
+        
         _isLoadingOptions = false;
       });
     } catch (e) {
-      debugPrint('Error loading claim types: $e');
+      debugPrint('Error loading field options: $e');
       setState(() => _isLoadingOptions = false);
     }
   }
@@ -93,16 +120,24 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a claimant')));
       return;
     }
-    if (_selectedClaimTypeCode == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a claim type')));
-      return;
-    }
 
     setState(() => _isSubmitting = true);
 
     try {
       final double amount = double.tryParse(_amountController.text) ?? 0.0;
       final int amountCents = (amount * 100).toInt();
+      
+      final bool isCashClaim = _selectedClaimTypeCode == 'CASH';
+      
+      final selectedBank = _bankOptions.firstWhere(
+        (opt) => opt.code == _selectedBankCode, 
+        orElse: () => FieldOption(field: '', code: '', type: '', description: '', validFrom: '', validTo: '')
+      );
+
+      final selectedCause = _causeOfDeathOptions.firstWhere(
+        (opt) => opt.code == _selectedCauseOfDeathCode,
+        orElse: () => FieldOption(field: '', code: '', type: '', description: '', validFrom: '', validTo: '')
+      );
 
       final payload = {
         "membershipId": widget.membership.id,
@@ -111,12 +146,19 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
         "deceasedPartnerId": widget.dependent?.dependentPartnerId ?? widget.member.id,
         "dateOfDeath": DateFormat('yyyy-MM-dd').format(_dateOfDeath),
         "claimDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        "causeOfDeath": _causeOfDeathController.text.trim(),
+        "causeOfDeath": selectedCause.description,
         "deathCertificateNo": _deathCertificateController.text.trim(),
         "claimantPartnerId": _selectedClaimant!.id,
         "claimAmountCents": amountCents,
         "notes": _notesController.text.trim(),
         "submit": true,
+        // Only include banking details if it's a CASH claim and not payout method CASH
+        "payoutMethod": isCashClaim ? _selectedPayoutMethod : null,
+        "bankName": (isCashClaim && _selectedPayoutMethod != 'CASH') ? selectedBank.description : null,
+        "accountHolderName": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _accHolderController.text.trim() : null,
+        "accountNumber": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _accNumberController.text.trim() : null,
+        "branchCode": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _branchCodeController.text.trim() : null,
+        "accountType": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _selectedAccType : null,
         "linkedClaimIds": []
       };
 
@@ -170,6 +212,15 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
                   _buildSectionHeader(Icons.assignment_outlined, 'Claim Details'),
                   const SizedBox(height: 12),
                   _buildClaimForm(colorScheme),
+                  
+                  // Payout & Banking section only applies to CASH claim type
+                  if (_selectedClaimTypeCode == 'CASH') ...[
+                    const SizedBox(height: 24),
+                    _buildSectionHeader(Icons.account_balance_outlined, 'Payout & Banking'),
+                    const SizedBox(height: 12),
+                    _buildBankingForm(colorScheme),
+                  ],
+                  
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
@@ -319,7 +370,14 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
                 value: opt.code,
                 child: Text(opt.description),
               )).toList(),
-              onChanged: (v) => setState(() => _selectedClaimTypeCode = v!),
+              onChanged: (v) => setState(() {
+                _selectedClaimTypeCode = v!;
+                if (_selectedClaimTypeCode != 'CASH') {
+                  _selectedPayoutMethod = null;
+                } else if (_selectedPayoutMethod == null && _payoutMethodOptions.isNotEmpty) {
+                  _selectedPayoutMethod = _payoutMethodOptions.first.code;
+                }
+              }),
               validator: (v) => v == null ? 'Required' : null,
             ),
             const SizedBox(height: 16),
@@ -371,14 +429,19 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
               textCapitalization: TextCapitalization.characters,
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _causeOfDeathController,
+            DropdownButtonFormField<String>(
+              value: _selectedCauseOfDeathCode,
               decoration: const InputDecoration(
                 labelText: 'Cause of Death',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.description_outlined),
               ),
-              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              items: _causeOfDeathOptions.map((opt) => DropdownMenuItem(
+                value: opt.code,
+                child: Text(opt.description),
+              )).toList(),
+              onChanged: (v) => setState(() => _selectedCauseOfDeathCode = v!),
+              validator: (v) => v == null ? 'Required' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -396,12 +459,101 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
     );
   }
 
+  Widget _buildBankingForm(ColorScheme colorScheme) {
+    final showBankFields = _selectedPayoutMethod != 'CASH';
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            DropdownButtonFormField<String>(
+              value: _selectedPayoutMethod,
+              decoration: const InputDecoration(
+                labelText: 'Payout Method',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+              ),
+              items: _payoutMethodOptions.map((opt) => DropdownMenuItem(
+                value: opt.code,
+                child: Text(opt.description),
+              )).toList(),
+              onChanged: (v) => setState(() => _selectedPayoutMethod = v!),
+            ),
+            if (showBankFields) ...[
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _selectedBankCode,
+                decoration: const InputDecoration(
+                  labelText: 'Bank Name',
+                  border: OutlineInputBorder(),
+                ),
+                items: _bankOptions.map((opt) => DropdownMenuItem(
+                  value: opt.code,
+                  child: Text(opt.description),
+                )).toList(),
+                onChanged: (v) => setState(() => _selectedBankCode = v!),
+                validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _accHolderController,
+                decoration: const InputDecoration(labelText: 'Account Holder', border: OutlineInputBorder()),
+                validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _accNumberController,
+                decoration: const InputDecoration(labelText: 'Account Number', border: OutlineInputBorder()),
+                keyboardType: TextInputType.number,
+                validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _branchCodeController,
+                      decoration: const InputDecoration(labelText: 'Branch Code', border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedAccType,
+                      decoration: const InputDecoration(labelText: 'Account Type', border: OutlineInputBorder()),
+                      items: _accTypeOptions.map((opt) => DropdownMenuItem(
+                        value: opt.code,
+                        child: Text(opt.description),
+                      )).toList(),
+                      onChanged: (v) => setState(() => _selectedAccType = v!),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
-    _causeOfDeathController.dispose();
     _deathCertificateController.dispose();
     _notesController.dispose();
+    _accHolderController.dispose();
+    _accNumberController.dispose();
+    _branchCodeController.dispose();
     super.dispose();
   }
 }

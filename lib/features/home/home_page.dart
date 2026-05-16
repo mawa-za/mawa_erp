@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
+import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
 import '../../main.dart';
 import '../auth/change_password_screen.dart';
@@ -39,7 +40,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   String _appVersion = '';
   List<Workcenter> _workcenters = [];
   List<Workcenter> _filteredWorkcenters = [];
+  List<ModuleUsage> _recentModules = [];
+  List<ModuleUsage> _frequentModules = [];
   bool _isLoadingWorkcenters = true;
+  bool _isLoadingRecent = true;
+  bool _isLoadingFrequent = true;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   late AnimationController _animationController;
@@ -54,6 +59,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
     _loadUserInfo();
     _loadAppVersion();
+    _fetchRecentModules();
+    _fetchFrequentModules();
   }
 
   Future<void> _loadAppVersion() async {
@@ -95,6 +102,36 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }
     } catch (e) {
       setState(() => _isLoadingWorkcenters = false);
+    }
+  }
+
+  Future<void> _fetchRecentModules() async {
+    try {
+      final recent = await _moduleUsageService.getRecentlyUsed(limit: 6);
+      if (mounted) {
+        setState(() {
+          _recentModules = recent;
+          _isLoadingRecent = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching recent modules: $e');
+      if (mounted) setState(() => _isLoadingRecent = false);
+    }
+  }
+
+  Future<void> _fetchFrequentModules() async {
+    try {
+      final frequent = await _moduleUsageService.getFrequentlyUsed(limit: 6);
+      if (mounted) {
+        setState(() {
+          _frequentModules = frequent;
+          _isLoadingFrequent = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching frequent modules: $e');
+      if (mounted) setState(() => _isLoadingFrequent = false);
     }
   }
 
@@ -219,32 +256,75 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       moduleName: wc.description,
       workcenterId: wc.id,
     );
+    _fetchRecentModules(); 
+    _fetchFrequentModules();
 
-    if (id == 'membership-claim') {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
+    if (id == 'invoice-create') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id == 'membership-claim') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('invoic') || description.contains('invoic')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('plan') || description.contains('plan') || id.contains('product')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('payroll') || description.contains('payroll')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('claim') || description.contains('claim')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('group') || id.contains('society') || description.contains('group') || description.contains('society')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('payment') || description.contains('payment')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('partner') || description.contains('partner')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('user') || id.contains('setting') || id.contains('company') || id.contains('workflow') || id.contains('config') || id.contains('role')) {
       // All configuration consolidated under System Configuration module
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('cashup') || description.contains('cashup')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else if (id.contains('approval')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
@@ -274,6 +354,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (!_isLoadingRecent && _recentModules.isNotEmpty) ...[
+                          _buildRecentModulesSection(colorScheme),
+                          const SizedBox(height: 32),
+                        ],
+                        if (!_isLoadingFrequent && _frequentModules.isNotEmpty) ...[
+                          _buildFrequentModulesSection(colorScheme),
+                          const SizedBox(height: 32),
+                        ],
                         _buildQuickActions(colorScheme),
                         const SizedBox(height: 32),
                         _buildSearchBar(colorScheme),
@@ -450,6 +538,152 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildRecentModulesSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          'Recently Used', 
+          Icons.history_rounded,
+          onAction: () async {
+            await _moduleUsageService.resetUsage();
+            _fetchRecentModules();
+            _fetchFrequentModules();
+          },
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _recentModules.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final usage = _recentModules[index];
+              return InkWell(
+                onTap: () {
+                  final wc = _workcenters.firstWhere(
+                    (w) => w.id == usage.moduleCode,
+                    orElse: () => Workcenter(
+                      id: usage.moduleCode,
+                      description: usage.moduleName ?? 'Unknown',
+                      position: 0,
+                    ),
+                  );
+                  _navigateToWorkcenter(wc);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 100,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getIconData(usage.moduleCode),
+                        color: colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        usage.moduleName ?? 'Module',
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFrequentModulesSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Frequently Used', Icons.auto_graph_rounded),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _frequentModules.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final usage = _frequentModules[index];
+              return InkWell(
+                onTap: () {
+                  final wc = _workcenters.firstWhere(
+                    (w) => w.id == usage.moduleCode,
+                    orElse: () => Workcenter(
+                      id: usage.moduleCode,
+                      description: usage.moduleName ?? 'Unknown',
+                      position: 0,
+                    ),
+                  );
+                  _navigateToWorkcenter(wc);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 100,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colorScheme.secondaryContainer.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getIconData(usage.moduleCode),
+                        color: colorScheme.secondary,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        usage.moduleName ?? 'Module',
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildQuickActions(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,7 +699,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               Colors.blue,
               () {
                 _moduleUsageService.trackUsage(moduleCode: 'invoice-create', moduleName: 'New Invoice');
-                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()));
+                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())).then((_) {
+                  _fetchRecentModules();
+                  _fetchFrequentModules();
+                });
               },
             ),
             const SizedBox(width: 12),
@@ -476,7 +713,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               Colors.green,
               () {
                 _moduleUsageService.trackUsage(moduleCode: 'member-add', moduleName: 'Add Member');
-                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
+                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())).then((_) {
+                  _fetchRecentModules();
+                  _fetchFrequentModules();
+                });
               },
             ),
             const SizedBox(width: 12),
@@ -487,7 +727,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               Colors.orange,
               () {
                 _moduleUsageService.trackUsage(moduleCode: 'payment-request-create', moduleName: 'New Payment Request');
-                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
+                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())).then((_) {
+                  _fetchRecentModules();
+                  _fetchFrequentModules();
+                });
               },
             ),
           ],
@@ -565,27 +808,37 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildSectionHeader(String title, IconData icon, {VoidCallback? onAction}) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            shape: BoxShape.circle,
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title, 
+              style: const TextStyle(
+                fontSize: 18, 
+                fontWeight: FontWeight.bold, 
+                letterSpacing: -0.5,
+                color: Color(0xFF1A1C1E),
+              )
+            ),
+          ],
+        ),
+        if (onAction != null)
+          TextButton(
+            onPressed: onAction,
+            child: const Text('Clear', style: TextStyle(fontSize: 12)),
           ),
-          child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          title, 
-          style: const TextStyle(
-            fontSize: 18, 
-            fontWeight: FontWeight.bold, 
-            letterSpacing: -0.5,
-            color: Color(0xFF1A1C1E),
-          )
-        ),
       ],
     );
   }

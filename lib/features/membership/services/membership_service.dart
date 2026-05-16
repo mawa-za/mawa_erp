@@ -191,20 +191,15 @@ class MembershipService {
       ];
 
       if (oldId != null && oldId.isNotEmpty && oldId != membershipId && oldId != 'null') {
-        requests.add(ApiClient().get('/v2/premium?membershipId=$oldId'));
+        final oldIdResponse = await ApiClient().get('/v2/premium?membershipId=$oldId');
+        requests.add(Future.value(oldIdResponse));
       }
 
       final responses = await Future.wait(requests);
       final List<Premium> allPremiums = [];
       final Set<String> seenIds = {};
 
-      for (var response in requests) {
-        // Wait for results
-      }
-      
-      final actualResponses = await Future.wait(requests);
-
-      for (var response in actualResponses) {
+      for (var response in responses) {
         if (response.statusCode == 200) {
           final dynamic decoded = jsonDecode(response.body);
           
@@ -309,10 +304,8 @@ class MembershipService {
 
   Future<List<MembershipClaim>> getMembershipClaims({String? membershipId}) async {
     try {
-      // Use /all for general list as per other endpoints, or root with filter
-      String path = (membershipId == null || membershipId.isEmpty) 
-          ? '/v2/membership-claim/all' 
-          : '/v2/membership-claim';
+      // Corrected to use /v2/membership-claim base endpoint which is the "getAll" operation in Swagger
+      String path = '/v2/membership-claim';
 
       if (membershipId != null && membershipId.isNotEmpty) {
         path += '?membershipId=$membershipId';
