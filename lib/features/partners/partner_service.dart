@@ -29,16 +29,16 @@ class PartnerService {
     }
   }
 
-  Future<List<Partner>> getPartners({String query = '', String? role}) async {
+  Future<List<Partner>> getPartners({String? query, String? role}) async {
     try {
       final Map<String, dynamic> params = {};
-      if (query.isNotEmpty) params['query'] = query;
+      if (query != null && query.isNotEmpty) params['query'] = query;
       if (role != null && role.isNotEmpty) params['role'] = role;
 
       final response = await _apiClient.get('/v2/partner', queryParameters: params);
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        List<dynamic> data = (decoded is List) ? decoded : (decoded['content'] ?? []);
+        List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => Partner.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partners: ${response.statusCode}');
@@ -48,15 +48,12 @@ class PartnerService {
     }
   }
 
-  // Wrapper for backward compatibility
-  Future<List<Partner>> getPartnersByRole(String role, {String query = ''}) async {
-    return getPartners(role: role, query: query);
-  }
-
-  Future<void> createPartner(Map<String, dynamic> partnerInboundDto) async {
+  Future<Partner> createPartner(Map<String, dynamic> partnerInboundDto) async {
     try {
       final response = await _apiClient.post('/v2/partner', body: partnerInboundDto);
-      if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return Partner.fromJson(jsonDecode(response.body));
+      } else {
         throw Exception('Failed to create partner: ${response.body}');
       }
     } catch (e) {
@@ -64,10 +61,12 @@ class PartnerService {
     }
   }
 
-  Future<void> editPartner(String id, Map<String, dynamic> partnerEditDto) async {
+  Future<Partner> editPartner(String id, Map<String, dynamic> partnerEditDto) async {
     try {
       final response = await _apiClient.put('/v2/partner/$id', body: partnerEditDto);
-      if (response.statusCode != 200) {
+      if (response.statusCode == 200) {
+        return Partner.fromJson(jsonDecode(response.body));
+      } else {
         throw Exception('Failed to edit partner: ${response.body}');
       }
     } catch (e) {
@@ -104,7 +103,7 @@ class PartnerService {
       final response = await _apiClient.get('/v2/partner/$partnerId/identity');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+        final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerIdentity.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partner identities: ${response.statusCode}');
@@ -137,7 +136,7 @@ class PartnerService {
   }
 
   // Global search by identity
-  Future<Partner?> getIdentity(String idType, String idNumber) async {
+  Future<PartnerIdentity?> getIdentity(String idType, String idNumber) async {
     try {
       final response = await _apiClient.get('/v2/partner/identity', queryParameters: {
         'idType': idType,
@@ -145,7 +144,33 @@ class PartnerService {
       });
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        return Partner.fromJson(decoded as Map<String, dynamic>);
+        return PartnerIdentity.fromJson(decoded as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> deleteIdentity(String idType, String idNumber) async {
+    try {
+      final response = await _apiClient.delete('/v2/partner/identity', queryParameters: {
+        'idType': idType,
+        'idNumber': idNumber,
+      });
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete identity: ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> validateIdentity(String id, String type) async {
+    try {
+      final response = await _apiClient.get('/validate/identity/$id', queryParameters: {'type': type});
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
       }
       return null;
     } catch (e) {
@@ -155,15 +180,37 @@ class PartnerService {
 
   // --- Contact Management ---
 
-  Future<List<PartnerContact>> getPartnerContacts(String partnerId) async {
+  Future<List<PartnerContact>> getPartnerContacts(String partnerId, {String? value, String? type}) async {
     try {
-      final response = await _apiClient.get('/v2/partner/$partnerId/contact');
+      final response = await _apiClient.get('/v2/partner/$partnerId/contact', queryParameters: {
+        if (value != null) 'value': value,
+        if (type != null) 'type': type,
+      });
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+        final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerContact.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partner contacts: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Global contact search
+  Future<List<PartnerContact>> getPartnersContact({String? value, String? type}) async {
+    try {
+      final response = await _apiClient.get('/v2/partner/contact', queryParameters: {
+        if (value != null) 'value': value,
+        if (type != null) 'type': type,
+      });
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        final List<dynamic> data = decoded is List ? decoded : [];
+        return data.map((json) => PartnerContact.fromJson(Map<String, dynamic>.from(json))).toList();
+      } else {
+        throw Exception('Failed to load contacts: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -212,12 +259,13 @@ class PartnerService {
 
   // --- Attribute Management ---
 
-  Future<List<Map<String, dynamic>>> getAttributes(String id) async {
+  Future<List<PartnerAttribute>> getAttributes(String id) async {
     try {
       final response = await _apiClient.get('/v2/partner/$id/attribute');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(decoded is List ? decoded : (decoded['content'] ?? []));
+        final List<dynamic> data = decoded is List ? decoded : [];
+        return data.map((json) => PartnerAttribute.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load attributes: ${response.statusCode}');
       }
@@ -273,7 +321,7 @@ class PartnerService {
       final response = await _apiClient.get('/v2/partner/$partnerId/role');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        final List<dynamic> data = decoded is List ? decoded : (decoded['content'] ?? []);
+        final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerRole.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
         throw Exception('Failed to load partner roles: ${response.statusCode}');

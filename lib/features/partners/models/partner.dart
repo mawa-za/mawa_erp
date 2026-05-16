@@ -300,3 +300,39 @@ class PartnerContact {
     };
   }
 }
+
+class PartnerAttribute {
+  final String? partner;
+  final String attribute;
+  final String value;
+  final String? validFrom;
+  final String? validTo;
+
+  PartnerAttribute({
+    this.partner,
+    required this.attribute,
+    required this.value,
+    this.validFrom,
+    this.validTo,
+  });
+
+  factory PartnerAttribute.fromJson(Map<String, dynamic> json) {
+    return PartnerAttribute(
+      partner: json['partner']?.toString(),
+      attribute: (json['attribute'] ?? '').toString(),
+      value: (json['value'] ?? '').toString(),
+      validFrom: json['validFrom']?.toString(),
+      validTo: json['validTo']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (partner != null) 'partner': partner,
+      'attribute': attribute,
+      'value': value,
+      if (validFrom != null) 'validFrom': validFrom,
+      if (validTo != null) 'validTo': validTo,
+    };
+  }
+}
