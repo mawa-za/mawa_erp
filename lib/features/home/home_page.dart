@@ -567,6 +567,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     orElse: () => Workcenter(
                       id: usage.moduleCode,
                       description: usage.moduleName ?? 'Unknown',
+                      defaultFunction: '',
+                      path: '',
                       position: 0,
                     ),
                   );
@@ -639,6 +641,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     orElse: () => Workcenter(
                       id: usage.moduleCode,
                       description: usage.moduleName ?? 'Unknown',
+                      defaultFunction: '',
+                      path: '',
                       position: 0,
                     ),
                   );
