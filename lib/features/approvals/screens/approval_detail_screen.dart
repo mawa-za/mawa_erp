@@ -1,4 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../invoicing/screens/invoice_detail_screen.dart';
+import '../../membership/screens/membership_claim_detail_screen.dart';
+import '../../payments/screens/payment_request_detail_screen.dart';
+import '../../cashup/screens/cashup_detail_screen.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 
@@ -49,6 +54,35 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     }
   }
 
+  void _viewOriginalTransaction() {
+    final id = _approval.referenceId;
+    final type = _approval.approvalType.toUpperCase();
+
+    Widget? screen;
+    switch (type) {
+      case 'INVOICE':
+        screen = InvoiceDetailScreen(invoiceId: id);
+        break;
+      case 'CLAIM':
+        screen = MembershipClaimDetailScreen(claimId: id);
+        break;
+      case 'PAYMENT':
+        screen = PaymentRequestDetailScreen(paymentId: id);
+        break;
+      case 'CASHUP':
+        screen = CashupDetailScreen(cashupId: id);
+        break;
+    }
+
+    if (screen != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => screen!));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Detail screen for this type is not yet implemented')),
+      );
+    }
+  }
+
   Future<void> _takeAction(String action) async {
     setState(() => _isLoading = true);
     try {
@@ -79,10 +113,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Action $action performed successfully')),
         );
-        // Optionally pop if approved/rejected/cancelled fully
-        if (_approval.status != 'PENDING' && _approval.status != 'IN_PROGRESS') {
-           // Navigator.pop(context, true); 
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -104,6 +134,14 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         title: const Text('Approval Details'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new_rounded),
+            onPressed: _viewOriginalTransaction,
+            tooltip: 'View Original Transaction',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -257,6 +295,11 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   }
 
   Widget _buildPayloadCard() {
+    Map<String, dynamic> data = {};
+    try {
+      data = jsonDecode(_approval.payloadJson!);
+    } catch (_) {}
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -268,20 +311,22 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PAYLOAD DATA', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+            const Text('TRANSACTION DATA', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
             const Divider(),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _approval.payloadJson ?? '',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
+            if (data.isEmpty)
+              Text(_approval.payloadJson ?? '', style: const TextStyle(fontFamily: 'monospace', fontSize: 12))
+            else
+              ...data.entries.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 100, child: Text(e.key, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold))),
+                    Expanded(child: Text(e.value.toString(), style: const TextStyle(fontSize: 11))),
+                  ],
+                ),
+              )),
           ],
         ),
       ),

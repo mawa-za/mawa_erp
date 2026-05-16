@@ -17,16 +17,16 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
   bool _isLoading = true;
   List<PaymentRequestSummary> _payments = [];
   String? _error;
-  String _selectedStatus = 'AWAITING-APPROVAL';
+  String _selectedStatus = 'PENDING_APPROVAL';
 
   final List<String> _statuses = [
     'ALL',
-    'NEW',
-    'AWAITING-APPROVAL',
-    'PROCESSED',
-    'REJECTED',
+    'DRAFT',
+    'PENDING_APPROVAL',
     'APPROVED',
-    'SENT-TO-BANK'
+    'REJECTED',
+    'CANCELLED',
+    'PAID'
   ];
 
   @override
@@ -44,7 +44,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
     try {
       String path = '/v2/payment-request';
       if (_selectedStatus != 'ALL') {
-        path += '?status=$_selectedStatus';
+        path = '/v2/payment-request/status/$_selectedStatus';
       }
 
       final response = await ApiClient().get(path);
@@ -133,7 +133,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
               label: Text(
-                status.replaceAll('-', ' '), 
+                status.replaceAll('_', ' '), 
                 style: TextStyle(
                   fontSize: 11, 
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -205,18 +205,18 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            title: Text(payment.recipient, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            title: Text(payment.payeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                Text('${payment.paymentReason} - ${payment.reference}', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                Text('${payment.paymentReason ?? ''} - ${payment.externalReference ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
                 const SizedBox(height: 2),
                 Row(
                   children: [
                     Icon(Icons.calendar_today, size: 10, color: Colors.grey[400]),
                     const SizedBox(width: 4),
-                    Text('Due: ${payment.dueDate}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    Text('Due: ${payment.requestedPaymentDate ?? ''}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   ],
                 ),
               ],
@@ -226,7 +226,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'R ${payment.amount.toStringAsFixed(2)}',
+                  '${payment.currency} ${payment.amount.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontWeight: FontWeight.w900, 
                     fontSize: 15,
@@ -253,15 +253,15 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
   Widget _buildStatusChip(String status) {
     Color color;
     switch (status.toUpperCase()) {
-      case 'PROCESSED':
+      case 'PAID':
       case 'APPROVED':
         color = Colors.green;
         break;
       case 'REJECTED':
-      case 'FAILED':
+      case 'CANCELLED':
         color = Colors.red;
         break;
-      case 'AWAITING-APPROVAL':
+      case 'PENDING_APPROVAL':
         color = Colors.orange;
         break;
       default:
@@ -276,7 +276,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
         border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
-        status,
+        status.replaceAll('_', ' '),
         style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
       ),
     );

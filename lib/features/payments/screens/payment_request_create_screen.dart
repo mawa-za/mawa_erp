@@ -23,15 +23,13 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
   // Form Fields
   Partner? _selectedRecipient;
-  User? _selectedEmployee;
-  final _reasonController = TextEditingController();
   final _referenceController = TextEditingController();
   final _amountController = TextEditingController();
+  final _notesController = TextEditingController();
   DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
 
   String? _selectedPaymentReason;
   String? _selectedPaymentMethod;
-  String? _selectedBranch;
   String? _selectedType;
 
   // Bank Account Fields
@@ -44,7 +42,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   // Options
   List<FieldOption> _reasonOptions = [];
   List<FieldOption> _methodOptions = [];
-  List<FieldOption> _branchOptions = [];
   List<FieldOption> _typeOptions = [];
   List<FieldOption> _accountTypeOptions = [];
   bool _isLoadingOptions = true;
@@ -57,23 +54,22 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
   Future<void> _loadOptions() async {
     try {
-      final reasons = await FieldService().getOptionsByField('PAYMENT-REASON');
-      final methods = await FieldService().getOptionsByField('PAYMENT-METHOD');
-      final branches = await FieldService().getOptionsByField('BRANCH');
-      final types = await FieldService().getOptionsByField('PAYMENT-REQUEST-TYPE');
-      final accTypes = await FieldService().getOptionsByField('BANK-ACCOUNT-TYPE');
+      final results = await Future.wait([
+        FieldService().getOptionsByField('PAYMENT-REASON'),
+        FieldService().getOptionsByField('PAYMENT-METHOD'),
+        FieldService().getOptionsByField('PAYMENT-REQUEST-TYPE'),
+        FieldService().getOptionsByField('BANK-ACCOUNT-TYPE'),
+      ]);
 
       setState(() {
-        _reasonOptions = reasons;
-        _methodOptions = methods;
-        _branchOptions = branches;
-        _typeOptions = types;
-        _accountTypeOptions = accTypes;
+        _reasonOptions = results[0];
+        _methodOptions = results[1];
+        _typeOptions = results[2];
+        _accountTypeOptions = results[3];
         _isLoadingOptions = false;
 
         if (_reasonOptions.isNotEmpty) _selectedPaymentReason = _reasonOptions.first.code;
         if (_methodOptions.isNotEmpty) _selectedPaymentMethod = _methodOptions.first.code;
-        if (_branchOptions.isNotEmpty) _selectedBranch = _branchOptions.first.code;
         if (_typeOptions.isNotEmpty) _selectedType = _typeOptions.first.code;
       });
     } catch (e) {
@@ -96,20 +92,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
     return [];
   }
 
-  Future<List<User>> _searchUsers(String query) async {
-    try {
-      final users = await UserService().getUsers();
-      if (query.isEmpty) return users;
-      return users.where((u) =>
-        u.username.toLowerCase().contains(query.toLowerCase()) ||
-        (u.email?.toLowerCase().contains(query.toLowerCase()) ?? false)
-      ).toList();
-    } catch (e) {
-      debugPrint('Error searching users: $e');
-      return [];
-    }
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedRecipient == null) {
       if (_selectedRecipient == null) {
@@ -126,30 +108,29 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
       final bool isEFT = _selectedPaymentMethod == 'EFT';
 
       final payload = {
-        "recipientId": _selectedRecipient!.id,
-        "paymentReason": _selectedPaymentReason,
-        "reference": _referenceController.text,
+        "requestType": _selectedType,
+        "sourceType": "MANUAL",
+        "payeePartnerId": _selectedRecipient!.id,
+        "payeeName": _selectedRecipient!.fullName,
         "amount": double.tryParse(_amountController.text) ?? 0.0,
-        "dueDate": _dueDate.toUtc().toIso8601String(),
-        "type": _selectedType,
+        "currency": "ZAR",
         "paymentMethod": _selectedPaymentMethod,
-        "employeeResponsibleId": _selectedEmployee?.id,
-        "branch": _selectedBranch,
-        "bankAccount": isEFT ? {
-          "objectId": _selectedRecipient!.id,
-          "accountHolder": _accountHolderController.text,
-          "bankName": _bankNameController.text,
-          "accountNumber": _accountNumberController.text,
-          "branchCode": _branchCodeController.text,
-          "accountType": _selectedAccountType
-        } : null
+        "bankName": isEFT ? _bankNameController.text : null,
+        "accountHolder": isEFT ? _accountHolderController.text : null,
+        "accountNumber": isEFT ? _accountNumberController.text : null,
+        "branchCode": isEFT ? _branchCodeController.text : null,
+        "accountType": isEFT ? _selectedAccountType : null,
+        "externalReference": _referenceController.text,
+        "paymentReason": _selectedPaymentReason,
+        "notes": _notesController.text,
+        "requestedPaymentDate": DateFormat('yyyy-MM-dd').format(_dueDate)
       };
 
       await PaymentRequestService().createPaymentRequest(payload);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment request created successfully'), behavior: SnackBarBehavior.floating),
+          const SnackBar(content: Text('Payment request created successfully'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
         );
         Navigator.of(context).pop(true);
       }
@@ -273,7 +254,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
             onTap: () {
               setState(() {
                 _selectedRecipient = partner;
-                _accountHolderController.text = partner.fullName; // Default account holder
+                _accountHolderController.text = partner.fullName; 
                 controller.closeView(partner.fullName);
               });
             },
@@ -320,67 +301,26 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            _buildDropdown('Request Type', _selectedType, _typeOptions, (val) => setState(() => _selectedType = val)),
+            const SizedBox(height: 16),
             _buildDropdown('Payment Reason', _selectedPaymentReason, _reasonOptions, (val) => setState(() => _selectedPaymentReason = val)),
             const SizedBox(height: 16),
-            _buildTextField(_referenceController, 'Reference', Icons.tag),
+            _buildTextField(_referenceController, 'External Reference', Icons.tag),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(child: _buildTextField(_amountController, 'Amount', Icons.attach_money, keyboardType: const TextInputType.numberWithOptions(decimal: true))),
                 const SizedBox(width: 16),
-                Expanded(child: _buildDatePicker('Due Date')),
+                Expanded(child: _buildDatePicker('Requested Payment Date')),
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: _buildDropdown('Type', _selectedType, _typeOptions, (val) => setState(() => _selectedType = val))),
-                const SizedBox(width: 16),
-                Expanded(child: _buildDropdown('Payment Method', _selectedPaymentMethod, _methodOptions, (val) => setState(() => _selectedPaymentMethod = val))),
-              ],
-            ),
+            _buildDropdown('Payment Method', _selectedPaymentMethod, _methodOptions, (val) => setState(() => _selectedPaymentMethod = val)),
             const SizedBox(height: 16),
-            _buildDropdown('Branch', _selectedBranch, _branchOptions, (val) => setState(() => _selectedBranch = val)),
-            const SizedBox(height: 16),
-            _buildEmployeeSearch(),
+            _buildTextField(_notesController, 'Notes', Icons.notes, isRequired: false),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildEmployeeSearch() {
-    return SearchAnchor(
-      builder: (context, controller) {
-        return TextField(
-          controller: controller,
-          onTap: () => controller.openView(),
-          readOnly: true,
-          decoration: InputDecoration(
-            labelText: 'Employee Responsible',
-            prefixIcon: const Icon(Icons.person_search_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            suffixIcon: _selectedEmployee != null
-              ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _selectedEmployee = null))
-              : const Icon(Icons.arrow_drop_down),
-          ),
-        );
-      },
-      suggestionsBuilder: (context, controller) async {
-        final users = await _searchUsers(controller.text);
-        return users.map((user) {
-          return ListTile(
-            title: Text(user.username),
-            subtitle: Text(user.email ?? ''),
-            onTap: () {
-              setState(() {
-                _selectedEmployee = user;
-                controller.closeView(user.username);
-              });
-            },
-          );
-        }).toList();
-      },
     );
   }
 
@@ -417,6 +357,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool isRequired = true}) {
     return TextFormField(
       controller: controller,
+      style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
@@ -477,7 +418,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(DateFormat('yyyy-MM-dd').format(_dueDate)),
+            Text(DateFormat('yyyy-MM-dd').format(_dueDate), style: const TextStyle(fontSize: 14)),
             const Icon(Icons.calendar_today, size: 18),
           ],
         ),
@@ -487,9 +428,9 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
   @override
   void dispose() {
-    _reasonController.dispose();
     _referenceController.dispose();
     _amountController.dispose();
+    _notesController.dispose();
     _accountHolderController.dispose();
     _bankNameController.dispose();
     _accountNumberController.dispose();
