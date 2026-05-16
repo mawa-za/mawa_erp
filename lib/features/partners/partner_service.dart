@@ -48,6 +48,11 @@ class PartnerService {
     }
   }
 
+  // Wrapper for backward compatibility
+  Future<List<Partner>> getPartnersByRole(String role, {String query = ''}) async {
+    return getPartners(role: role, query: query);
+  }
+
   Future<Partner> createPartner(Map<String, dynamic> partnerInboundDto) async {
     try {
       final response = await _apiClient.post('/v2/partner', body: partnerInboundDto);

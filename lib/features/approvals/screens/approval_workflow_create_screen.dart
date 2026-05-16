@@ -19,8 +19,17 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   List<ApprovalStep> _steps = [];
   bool _isSaving = false;
 
-  final List<String> _approvalTypes = ['CLAIM', 'PAYMENT', 'LEAVE'];
-  final List<String> _approverTypes = ['ROLE', 'MANAGER', 'USER'];
+  final List<String> _approvalTypes = [
+    'CLAIM',
+    'PAYMENT',
+    'LEAVE',
+    'CASHUP',
+    'INVOICE',
+    'PURCHASE_ORDER',
+    'JOURNAL'
+  ];
+  
+  final List<String> _approverTypes = ['USER', 'ROLE', 'GROUP', 'MANAGER'];
 
   @override
   void initState() {

@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import '../services/invoice_service.dart';
+import '../../approvals/models/approval.dart';
+import '../../approvals/services/approval_service.dart';
 import 'invoice_pdf_preview_screen.dart';
 import 'invoice_create_screen.dart' hide Partner;
 
@@ -20,6 +23,7 @@ class InvoiceDetailScreen extends StatefulWidget {
 class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   bool _isLoading = true;
   bool _isSendingEmail = false;
+  bool _isSubmitting = false;
   InvoiceDetail? _detail;
   Partner? _partner;
   String? _error;
@@ -166,6 +170,43 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
+  Future<void> _submitForApproval() async {
+    if (_detail == null) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+
+      final submission = ApprovalSubmission(
+        approvalType: 'INVOICE',
+        referenceId: _detail!.id,
+        referenceNo: _detail!.number,
+        title: 'Invoice Approval: ${_detail!.number}',
+        description: 'Approval requested for invoice to ${_partner?.fullName ?? _detail!.customerName} for R ${_detail!.totalAmount.toStringAsFixed(2)}',
+        requesterId: userId,
+        payloadJson: jsonEncode(_detail!.toJson()),
+      );
+
+      await ApprovalService().submitApproval(submission);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invoice submitted for approval successfully')),
+        );
+        _fetchInvoiceDetails();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit for approval: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -178,6 +219,18 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         centerTitle: true,
         actions: [
           if (_detail != null) ...[
+            if (_detail!.status == 'DRAFT' || _detail!.status == 'NEW')
+              TextButton.icon(
+                onPressed: _isSubmitting ? null : _submitForApproval,
+                icon: _isSubmitting
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.send_rounded, size: 18),
+                label: const Text('SUBMIT'),
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
             TextButton.icon(
               onPressed: _isSendingEmail ? null : _handleEmail,
               icon: _isSendingEmail 
@@ -617,6 +670,9 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         break;
       case 'DRAFT':
         color = Colors.grey;
+        break;
+      case 'AWAITING-APPROVAL':
+        color = Colors.orange;
         break;
       default:
         color = Colors.orange;

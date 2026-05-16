@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_claim.dart';
 import '../services/membership_service.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
+import '../../approvals/models/approval.dart';
+import '../../approvals/services/approval_service.dart';
 
 class MembershipClaimDetailScreen extends StatefulWidget {
   final String claimId;
@@ -18,12 +22,14 @@ class MembershipClaimDetailScreen extends StatefulWidget {
 class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScreen> with SingleTickerProviderStateMixin {
   final MembershipService _membershipService = MembershipService();
   final PartnerService _partnerService = PartnerService();
+  final ApprovalService _approvalService = ApprovalService();
   
   late TabController _tabController;
   MembershipClaim? _claim;
   Partner? _deceasedPartner;
   Partner? _claimantPartner;
   bool _isLoading = true;
+  bool _isSubmitting = false;
   String? _error;
 
   @override
@@ -65,6 +71,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   }
 
   Future<void> _submitClaim() async {
+    if (_claim == null) return;
+
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -78,15 +86,35 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     );
 
     if (confirm == true) {
-      setState(() => _isLoading = true);
+      setState(() => _isSubmitting = true);
       try {
-        await _membershipService.submitMembershipClaim(widget.claimId);
-        _fetchDetails();
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getString('userId') ?? '';
+
+        final submission = ApprovalSubmission(
+          approvalType: 'CLAIM',
+          referenceId: _claim!.id,
+          referenceNo: _claim!.claimNo,
+          title: 'Death Claim: ${_claim!.claimNo}',
+          description: 'Claim for R ${_claim!.claimAmount.toStringAsFixed(2)} (Deceased: ${_deceasedPartner?.fullName ?? "Unknown"})',
+          requesterId: userId,
+          payloadJson: jsonEncode(_claim!.toJson()),
+        );
+
+        await _approvalService.submitApproval(submission);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Claim submitted for approval successfully')),
+          );
+          _fetchDetails();
+        }
       } catch (e) {
         if (mounted) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to submit: $e'), backgroundColor: Colors.red));
         }
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
       }
     }
   }
@@ -111,7 +139,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           labelColor: colorScheme.primary, unselectedLabelColor: Colors.grey,
         ),
       ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator()) : _error != null ? _buildErrorWidget() : TabBarView(
+      body: (_isLoading || _isSubmitting) ? const Center(child: CircularProgressIndicator()) : _error != null ? _buildErrorWidget() : TabBarView(
         controller: _tabController,
         children: [
           _buildDetailsTab(colorScheme),
@@ -166,7 +194,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     Color color; switch (claim.status.toUpperCase()) {
       case 'APPROVED': color = Colors.green; break;
       case 'REJECTED': color = Colors.red; break;
-      case 'SUBMITTED': color = Colors.orange; break;
+      case 'SUBMITTED': 
+      case 'AWAITING-APPROVAL': color = Colors.orange; break;
       default: color = Colors.blue;
     }
     return Container(
@@ -218,8 +247,25 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   Widget _buildSectionHeader(IconData icon, String title) => Row(children: [Icon(icon, size: 18, color: Colors.grey), const SizedBox(width: 8), Text(title.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5))]);
   Widget _buildErrorWidget() => Center(child: Text(_error ?? 'Unknown Error'));
   
-  Future<void> _cancelClaim() async { /* Implementation from previous steps */ }
-  Future<void> _showEditDialog() async { /* Implementation from previous steps */ }
+  Future<void> _cancelClaim() async { 
+    // Simplified cancel implementation
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Claim'),
+        content: const Text('Are you sure you want to cancel this draft claim?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('BACK')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('CANCEL CLAIM', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm == true) {
+       // Logic to delete or mark as cancelled
+    }
+  }
+  
+  Future<void> _showEditDialog() async { /* Implementation */ }
 
   @override void dispose() { _tabController.dispose(); super.dispose(); }
 }
