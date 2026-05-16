@@ -111,6 +111,34 @@ class MembershipClaim {
           .toList(),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'claimNo': claimNo,
+      'membershipId': membershipId,
+      'claimType': claimType,
+      'deceasedType': deceasedType,
+      'deceasedPartnerId': deceasedPartnerId,
+      'dateOfDeath': dateOfDeath,
+      'claimDate': claimDate,
+      'causeOfDeath': causeOfDeath,
+      'deathCertificateNo': deathCertificateNo,
+      'claimantPartnerId': claimantPartnerId,
+      'claimAmountCents': claimAmountCents,
+      'combinedClaimAmountCents': combinedClaimAmountCents,
+      'status': status,
+      'rejectionReason': rejectionReason,
+      'notes': notes,
+      'parentCombinationClaim': parentCombinationClaim,
+      'linkedToCombinationClaim': linkedToCombinationClaim,
+      'createdAt': createdAt,
+      'createdBy': createdBy,
+      'updatedAt': updatedAt,
+      'updatedBy': updatedBy,
+      'linkedClaims': linkedClaims.map((e) => e.toJson()).toList(),
+    };
+  }
 }
 
 class LinkedClaim {
@@ -152,5 +180,17 @@ class LinkedClaim {
       claimAmountCents: toInt(json['claimAmountCents']),
       status: (json['status'] ?? '').toString(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'linkId': linkId,
+      'claimId': claimId,
+      'claimNo': claimNo,
+      'membershipId': membershipId,
+      'claimType': claimType,
+      'claimAmountCents': claimAmountCents,
+      'status': status,
+    };
   }
 }
