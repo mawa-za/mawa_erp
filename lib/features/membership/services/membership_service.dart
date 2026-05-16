@@ -198,7 +198,13 @@ class MembershipService {
       final List<Premium> allPremiums = [];
       final Set<String> seenIds = {};
 
-      for (var response in responses) {
+      for (var response in requests) {
+        // Wait for results
+      }
+      
+      final actualResponses = await Future.wait(requests);
+
+      for (var response in actualResponses) {
         if (response.statusCode == 200) {
           final dynamic decoded = jsonDecode(response.body);
           
@@ -303,7 +309,11 @@ class MembershipService {
 
   Future<List<MembershipClaim>> getMembershipClaims({String? membershipId}) async {
     try {
-      String path = '/v2/membership-claim';
+      // Use /all for general list as per other endpoints, or root with filter
+      String path = (membershipId == null || membershipId.isEmpty) 
+          ? '/v2/membership-claim/all' 
+          : '/v2/membership-claim';
+
       if (membershipId != null && membershipId.isNotEmpty) {
         path += '?membershipId=$membershipId';
       }

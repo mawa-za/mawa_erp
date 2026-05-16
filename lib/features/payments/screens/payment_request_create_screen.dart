@@ -201,10 +201,12 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
                     _buildPaymentDetailsCard(colorScheme),
                     const SizedBox(height: 24),
 
-                    _buildSectionHeader(Icons.account_balance_outlined, 'Bank Account Details'),
-                    const SizedBox(height: 8),
-                    _buildBankDetailsCard(colorScheme),
-                    const SizedBox(height: 32),
+                    if (_selectedPaymentMethod == 'EFT') ...[
+                      _buildSectionHeader(Icons.account_balance_outlined, 'Bank Account Details'),
+                      const SizedBox(height: 8),
+                      _buildBankDetailsCard(colorScheme),
+                      const SizedBox(height: 32),
+                    ],
 
                     SizedBox(
                       width: double.infinity,

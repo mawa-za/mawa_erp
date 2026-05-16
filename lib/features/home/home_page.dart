@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
+import '../../core/services/module_usage_service.dart';
 import '../../main.dart';
 import '../auth/change_password_screen.dart';
 import '../auth/role_selection_screen.dart';
@@ -42,6 +43,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   late AnimationController _animationController;
+  final ModuleUsageService _moduleUsageService = ModuleUsageService();
 
   @override
   void initState() {
@@ -117,7 +119,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
     if (userId == null) return;
 
-    final response = await ApiClient().get('/user/$userId/role');
+    final response = await ApiClient().get('/v2/user/$userId/role');
     
     if (response.statusCode == 200) {
       final List<dynamic> roles = jsonDecode(response.body);
@@ -187,6 +189,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
+    if (lowerId == 'membership-claim') return Icons.request_quote_rounded;
     if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_rounded;
     if (lowerId.contains('plan') || lowerId.contains('product')) return Icons.inventory_2_rounded;
     if (lowerId.contains('payroll')) return Icons.payments_rounded;
@@ -210,7 +213,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final id = wc.id.toLowerCase();
     final description = wc.description.toLowerCase();
 
-    if (id.contains('invoic') || description.contains('invoic')) {
+    // Track module usage
+    _moduleUsageService.trackUsage(
+      moduleCode: wc.id,
+      moduleName: wc.description,
+      workcenterId: wc.id,
+    );
+
+    if (id == 'membership-claim') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
+    } else if (id.contains('invoic') || description.contains('invoic')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
     } else if (id.contains('plan') || description.contains('plan') || id.contains('product')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
@@ -451,7 +463,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               Icons.add_task_rounded, 
               'New Invoice', 
               Colors.blue,
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())),
+              () {
+                _moduleUsageService.trackUsage(moduleCode: 'invoice-create', moduleName: 'New Invoice');
+                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()));
+              },
             ),
             const SizedBox(width: 12),
             _buildQuickActionBtn(
@@ -459,7 +474,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               Icons.person_add_alt_1_rounded, 
               'Add Member', 
               Colors.green,
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())), // Navigate to list, assuming they can add from there
+              () {
+                _moduleUsageService.trackUsage(moduleCode: 'member-add', moduleName: 'Add Member');
+                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
+              },
             ),
             const SizedBox(width: 12),
             _buildQuickActionBtn(
@@ -467,7 +485,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               Icons.request_quote_rounded, 
               'Payment', 
               Colors.orange,
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())),
+              () {
+                _moduleUsageService.trackUsage(moduleCode: 'payment-request-create', moduleName: 'New Payment Request');
+                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
+              },
             ),
           ],
         ),
