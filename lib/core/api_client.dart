@@ -12,6 +12,7 @@ class ApiClient {
   final http.Client _client = http.Client();
   Completer<bool>? _refreshCompleter;
 
+  // Stream to notify UI of logout events
   final _logoutController = StreamController<bool>.broadcast();
   Stream<bool> get logoutStream => _logoutController.stream;
 
@@ -48,6 +49,8 @@ class ApiClient {
     
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
+    } else {
+      debugPrint('ApiClient: Warning - No accessToken found');
     }
 
     if (includeRole && role != null && role.isNotEmpty) {
@@ -97,6 +100,7 @@ class ApiClient {
     );
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for POST $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.post(
@@ -123,6 +127,7 @@ class ApiClient {
     );
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for PUT $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.put(
@@ -142,12 +147,16 @@ class ApiClient {
     final url = _buildUrl(host, path, queryParameters);
     final headers = await _getHeaders(includeRole: includeRole);
 
+    debugPrint('ApiClient GET: $url');
+
     var response = await _client.get(url, headers: headers);
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for GET $url. Body: ${response.body}');
       final success = await _handleUnauthorized();
       if (success) {
-        response = await _client.get(url, headers: await _getHeaders(includeRole: includeRole));
+        final retryHeaders = await _getHeaders(includeRole: includeRole);
+        response = await _client.get(url, headers: retryHeaders);
       }
     }
 
@@ -163,6 +172,7 @@ class ApiClient {
     var response = await _client.delete(url, headers: headers);
 
     if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for DELETE $url');
       final success = await _handleUnauthorized();
       if (success) {
         response = await _client.delete(url, headers: await _getHeaders(includeRole: includeRole));
@@ -173,13 +183,17 @@ class ApiClient {
   }
 
   Future<bool> _handleUnauthorized() async {
-    if (_refreshCompleter != null) return _refreshCompleter!.future;
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
     _refreshCompleter = Completer<bool>();
     try {
       final success = await _refreshToken();
       _refreshCompleter!.complete(success);
       return success;
     } catch (e) {
+      debugPrint('Error during token refresh: $e');
       _refreshCompleter!.complete(false);
       return false;
     } finally {
@@ -195,10 +209,12 @@ class ApiClient {
       final tenantId = await _getTenantId();
 
       if (refreshToken == null || refreshToken.isEmpty) {
+        debugPrint('No refresh token available');
         await _handleLogout();
         return false;
       }
 
+      debugPrint('Attempting to refresh token...');
       final url = Uri.parse('https://$host/v2/refresh-token');
       final response = await http.post(
         url,
@@ -207,8 +223,12 @@ class ApiClient {
           'X-TenantID': tenantId ?? '',
           'X-Tenant-Id': tenantId ?? '',
         },
-        body: jsonEncode({'refreshToken': refreshToken}),
+        body: jsonEncode({
+          'refreshToken': refreshToken,
+        }),
       );
+
+      debugPrint('Refresh token response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -217,14 +237,19 @@ class ApiClient {
 
         if (newAccessToken != null) {
           await prefs.setString('accessToken', newAccessToken);
-          if (newRefreshToken != null) await prefs.setString('refreshToken', newRefreshToken);
+          if (newRefreshToken != null) {
+            await prefs.setString('refreshToken', newRefreshToken);
+          }
+          debugPrint('Token refreshed successfully');
           return true;
         }
       } 
       
+      debugPrint('Token refresh failed. Status: ${response.statusCode}, Body: ${response.body}');
       await _handleLogout();
       return false;
     } catch (e) {
+      debugPrint('Exception during _refreshToken: $e');
       return false;
     }
   }
