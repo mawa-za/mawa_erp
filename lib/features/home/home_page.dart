@@ -381,8 +381,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                           _buildFrequentModulesSection(colorScheme),
                           const SizedBox(height: 32),
                         ],
-                        _buildQuickActions(colorScheme),
-                        const SizedBox(height: 32),
                         _buildSearchBar(colorScheme),
                         const SizedBox(height: 32),
                         if (modules.isNotEmpty) ...[
@@ -704,93 +702,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildQuickActions(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('Quick Actions', Icons.bolt_rounded),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            _buildQuickActionBtn(
-              colorScheme, 
-              Icons.add_task_rounded, 
-              'New Invoice', 
-              Colors.blue,
-              () {
-                _moduleUsageService.trackUsage(moduleCode: 'invoice-create', moduleName: 'New Invoice');
-                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())).then((_) {
-                  _fetchRecentModules();
-                  _fetchFrequentModules();
-                });
-              },
-            ),
-            const SizedBox(width: 12),
-            _buildQuickActionBtn(
-              colorScheme, 
-              Icons.person_add_alt_1_rounded, 
-              'Add Member', 
-              Colors.green,
-              () {
-                _moduleUsageService.trackUsage(moduleCode: 'member-add', moduleName: 'Add Member');
-                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())).then((_) {
-                  _fetchRecentModules();
-                  _fetchFrequentModules();
-                });
-              },
-            ),
-            const SizedBox(width: 12),
-            _buildQuickActionBtn(
-              colorScheme, 
-              Icons.request_quote_rounded, 
-              'Payment', 
-              Colors.orange,
-              () {
-                _moduleUsageService.trackUsage(moduleCode: 'payment-request-create', moduleName: 'New Payment Request');
-                Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())).then((_) {
-                  _fetchRecentModules();
-                  _fetchFrequentModules();
-                });
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionBtn(ColorScheme colorScheme, IconData icon, String label, Color color, VoidCallback onTap) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.2)),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color.withOpacity(0.8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

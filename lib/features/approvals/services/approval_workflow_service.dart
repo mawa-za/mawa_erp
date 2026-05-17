@@ -1,26 +1,16 @@
 import 'dart:convert';
 import '../../../core/api_client.dart';
-import '../../../core/models/paginated_response.dart';
 import '../models/approval_workflow.dart';
 
 class ApprovalWorkflowService {
   final ApiClient _apiClient = ApiClient();
 
-  Future<PaginatedResponse<ApprovalWorkflow>> getWorkflows({int page = 0, int size = 20}) async {
-    final response = await _apiClient.get(
-      '/v2/approvals/workflows',
-      queryParameters: {
-        'page': page,
-        'size': size,
-      },
-    );
+  Future<List<ApprovalWorkflow>> getWorkflows() async {
+    final response = await _apiClient.get('/v2/approval-workflow');
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return PaginatedResponse.fromJson(
-        data,
-        (item) => ApprovalWorkflow.fromJson(item),
-      );
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => ApprovalWorkflow.fromJson(item)).toList();
     } else {
       throw Exception('Failed to load approval workflows: ${response.statusCode}');
     }
@@ -28,7 +18,7 @@ class ApprovalWorkflowService {
 
   Future<ApprovalWorkflow> createWorkflow(ApprovalWorkflow workflow) async {
     final response = await _apiClient.post(
-      '/v2/approvals/workflows',
+      '/v2/approval-workflow',
       body: workflow.toJson(),
     );
 
@@ -41,7 +31,7 @@ class ApprovalWorkflowService {
   }
 
   Future<ApprovalWorkflow> getWorkflowById(String id) async {
-    final response = await _apiClient.get('/v2/approvals/workflows/$id');
+    final response = await _apiClient.get('/v2/approval-workflow/$id');
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -53,7 +43,7 @@ class ApprovalWorkflowService {
 
   Future<ApprovalWorkflow> updateWorkflow(String id, ApprovalWorkflow workflow) async {
     final response = await _apiClient.put(
-      '/v2/approvals/workflows/$id',
+      '/v2/approval-workflow/$id',
       body: workflow.toJson(),
     );
 
@@ -66,7 +56,7 @@ class ApprovalWorkflowService {
   }
 
   Future<void> deleteWorkflow(String id) async {
-    final response = await _apiClient.delete('/v2/approvals/workflows/$id');
+    final response = await _apiClient.delete('/v2/approval-workflow/$id');
 
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to delete approval workflow: ${response.statusCode}');
