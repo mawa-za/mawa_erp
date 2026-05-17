@@ -108,6 +108,27 @@ class InvoiceDetail {
       balanceCents: json['balanceCents'] ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'invoiceNo': number,
+      'externalRef': reference,
+      'partnerId': customerId,
+      'invoiceDate': DateFormat('yyyy-MM-dd').format(invoiceDate),
+      'dueDate': dueDate != null ? DateFormat('yyyy-MM-dd').format(dueDate!) : null,
+      'status': status,
+      'currency': currency,
+      'subtotalCents': subtotalCents,
+      'taxCents': taxCents,
+      'discountCents': discountCents,
+      'totalCents': totalCents,
+      'paidCents': paidCents,
+      'balanceCents': balanceCents,
+      'lines': items.map((e) => e.toJson()).toList(),
+      'payments': payments.map((e) => e.toJson()).toList(),
+    };
+  }
 }
 
 class InvoiceItem {
@@ -163,6 +184,20 @@ class InvoiceItem {
       totalCents: json['totalCents'] ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'productId': productId,
+      'description': productName,
+      'quantity': quantity,
+      'unitPriceCents': unitPriceCents,
+      'discountCents': discountCents,
+      'taxCents': taxCents,
+      'subtotalCents': subtotalCents,
+      'totalCents': totalCents,
+    };
+  }
 }
 
 class InvoicePayment {
@@ -197,5 +232,15 @@ class InvoicePayment {
       paymentMethod: json['paymentMethod'] ?? '',
       referenceNo: json['referenceNo'] ?? '',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'paymentDate': paymentDate.toIso8601String(),
+      'amountCents': amountCents,
+      'paymentMethod': paymentMethod,
+      'referenceNo': referenceNo,
+    };
   }
 }

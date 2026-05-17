@@ -53,12 +53,23 @@ class ApprovalService {
     }
   }
 
-  Future<Approval> takeAction(String id, String action, {String? comment}) async {
+  Future<List<ApprovalAction>> getAuditTrail(String approvalRequestId) async {
+    final response = await _apiClient.get('/v2/approvals/$approvalRequestId/audit');
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => ApprovalAction.fromJson(item)).toList();
+    } else {
+      throw Exception('Failed to load audit trail: ${response.statusCode}');
+    }
+  }
+
+  Future<Approval> approve(String id, {String? comments, String? actionBy}) async {
     final response = await _apiClient.post(
-      '/v2/approvals/$id/action',
+      '/v2/approvals/$id/approve',
       body: {
-        'action': action,
-        'comment': comment,
+        'comments': comments,
+        'actionBy': actionBy,
       },
     );
 
@@ -66,7 +77,41 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw Exception('Failed to perform action: ${response.statusCode}');
+      throw Exception('Failed to approve: ${response.statusCode}');
+    }
+  }
+
+  Future<Approval> reject(String id, {String? comments, String? actionBy}) async {
+    final response = await _apiClient.post(
+      '/v2/approvals/$id/reject',
+      body: {
+        'comments': comments,
+        'actionBy': actionBy,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Approval.fromJson(data);
+    } else {
+      throw Exception('Failed to reject: ${response.statusCode}');
+    }
+  }
+
+  Future<Approval> cancel(String id, {String? comments, String? actionBy}) async {
+    final response = await _apiClient.post(
+      '/v2/approvals/$id/cancel',
+      body: {
+        'comments': comments,
+        'actionBy': actionBy,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Approval.fromJson(data);
+    } else {
+      throw Exception('Failed to cancel: ${response.statusCode}');
     }
   }
 }

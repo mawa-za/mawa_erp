@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
@@ -12,7 +13,7 @@ import '../../../core/widgets/attachment_section.dart';
 import 'edit_membership_screen.dart';
 import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
-import 'dependent_claim_screen.dart';
+import 'membership_claim_create_screen.dart';
 import 'membership_claim_detail_screen.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
@@ -387,7 +388,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                       onPressed: () async {
                         final result = await Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => DependentClaimScreen(
+                            builder: (context) => MembershipClaimCreateScreen(
                               membership: _detail!,
                               member: _member!,
                               deceasedPartner: _member!,
@@ -659,7 +660,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                                 onPressed: () async {
                                   final result = await Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (context) => DependentClaimScreen(
+                                      builder: (context) => MembershipClaimCreateScreen(
                                         membership: _detail!,
                                         member: _member!,
                                         dependent: dependent,

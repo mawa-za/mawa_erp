@@ -30,7 +30,6 @@ class Cashup {
     if (rawDate is String) {
       formattedDate = rawDate;
     } else if (rawDate is List && rawDate.length >= 3) {
-      // Handle array format [year, month, day]
       final year = rawDate[0];
       final month = rawDate[1].toString().padLeft(2, '0');
       final day = rawDate[2].toString().padLeft(2, '0');
@@ -50,6 +49,20 @@ class Cashup {
           .map((p) => CashupPayment.fromJson(p))
           .toList(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'cashupNo': cashupNo,
+      'deviceId': deviceId,
+      'userId': userId,
+      'cashupDate': cashupDate,
+      'totalCents': totalCents,
+      'receiptCount': receiptCount,
+      'status': status,
+      'payments': payments.map((p) => p.toJson()).toList(),
+    };
   }
 }
 
@@ -72,5 +85,13 @@ class CashupPayment {
       amountCents: json['amountCents'] ?? 0,
       paymentCount: json['paymentCount'] ?? 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'paymentMethod': paymentMethod,
+      'amountCents': amountCents,
+      'paymentCount': paymentCount,
+    };
   }
 }

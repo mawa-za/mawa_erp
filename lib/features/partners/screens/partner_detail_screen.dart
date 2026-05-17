@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
+import '../../membership/models/group_society.dart';
+import '../../membership/screens/group_society_detail_screen.dart';
+import '../../membership/services/membership_service.dart';
 import '../models/partner.dart';
 import '../models/partner_identity.dart';
 import '../partner_service.dart';
@@ -20,8 +23,10 @@ class PartnerDetailScreen extends StatefulWidget {
 }
 
 class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
+  final MembershipService _membershipService = MembershipService();
   bool _isLoading = true;
   Partner? _partner;
+  GroupSociety? _society;
   List<PartnerRole> _detailedRoles = [];
   List<PartnerIdentity> _detailedIdentities = [];
   String? _error;
@@ -45,14 +50,18 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         final Map<String, dynamic> data = jsonDecode(response.body);
         final partner = Partner.fromJson(data);
         
-        // Fetch detailed roles and identities separately
-        final roles = await PartnerService().getPartnerRoles(widget.partnerId);
-        final identities = await PartnerService().getPartnerIdentities(widget.partnerId);
+        // Fetch detailed roles, identities, and society account in parallel
+        final results = await Future.wait([
+          PartnerService().getPartnerRoles(widget.partnerId).catchError((_) => <PartnerRole>[]),
+          PartnerService().getPartnerIdentities(widget.partnerId).catchError((_) => <PartnerIdentity>[]),
+          _membershipService.getGroupSocietyByPartner(widget.partnerId).catchError((_) => null),
+        ]);
         
         setState(() {
           _partner = partner;
-          _detailedRoles = roles;
-          _detailedIdentities = identities;
+          _detailedRoles = results[0] as List<PartnerRole>;
+          _detailedIdentities = results[1] as List<PartnerIdentity>;
+          _society = results[2] as GroupSociety?;
           _isLoading = false;
         });
       } else {
@@ -180,6 +189,10 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeaderCard(partner, colorScheme),
+          if (_society != null) ...[
+            const SizedBox(height: 16),
+            _buildSocietyShortcut(colorScheme),
+          ],
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -256,6 +269,31 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           else
             ...partner.addresses.map((addr) => _buildAddressCard(addr, colorScheme)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSocietyShortcut(ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blue.shade200),
+      ),
+      color: Colors.blue.shade50,
+      child: ListTile(
+        leading: const Icon(Icons.groups_outlined, color: Colors.blue),
+        title: const Text('Group Society Account', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+        subtitle: Text('Balance: R ${_society!.availableBalance.toStringAsFixed(2)}'),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.blue),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => GroupSocietyDetailScreen(societyId: _society!.id),
+            ),
+          );
+        },
       ),
     );
   }

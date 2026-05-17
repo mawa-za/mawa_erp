@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
+import '../../approvals/models/approval.dart';
+import '../../approvals/services/approval_service.dart';
 
 class PayrollBatchDetailScreen extends StatefulWidget {
   final String batchId;
@@ -11,7 +15,11 @@ class PayrollBatchDetailScreen extends StatefulWidget {
 }
 
 class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
+  final _service = PayrollService();
+  final _approvalService = ApprovalService();
+  
   bool _isLoading = true;
+  bool _isSubmitting = false;
   PayrollBatchDetail? _batch;
   String? _error;
 
@@ -28,7 +36,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
     });
 
     try {
-      final detail = await PayrollService().getPayrollBatch(widget.batchId);
+      final detail = await _service.getPayrollBatch(widget.batchId);
       setState(() {
         _batch = detail;
         _isLoading = false;
@@ -38,6 +46,42 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
         _error = 'Failed to load details: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _submitForApproval() async {
+    if (_batch == null) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+
+      final submission = ApprovalSubmission(
+        approvalType: 'PAYMENT', // Payroll batches often map to PAYMENT approval type
+        referenceId: _batch!.id,
+        referenceNo: _batch!.batchNo,
+        title: 'Payroll Batch Approval: ${_batch!.batchNo}',
+        description: 'Approval requested for ${_batch!.items.length} salary payments for period ${_batch!.payPeriod}. Total: R ${_calculateTotal()}',
+        requesterId: userId,
+      );
+
+      await _approvalService.submitApproval(submission);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payroll batch submitted for approval'), backgroundColor: Colors.green),
+        );
+        _fetchDetail();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -54,15 +98,18 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         actions: [
-          if (_batch != null)
-            IconButton(
-              icon: const Icon(Icons.print_rounded),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Report generation coming soon')),
-                );
-              },
+          if (_batch != null && (_batch!.status == 'NEW' || _batch!.status == 'DRAFT'))
+            TextButton.icon(
+              onPressed: _isSubmitting ? null : _submitForApproval,
+              icon: _isSubmitting 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.send_rounded, size: 18),
+              label: const Text('SUBMIT'),
             ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _fetchDetail,
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -200,9 +247,9 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
   Widget _buildStatusChip(String status) {
     Color color;
     switch (status.toUpperCase()) {
-      case 'PROCESSED': color = Colors.green; break;
-      case 'FAILED': color = Colors.red; break;
-      case 'NEW': color = Colors.orange; break;
+      case 'PROCESSED': case 'APPROVED': color = Colors.green; break;
+      case 'REJECTED': case 'FAILED': color = Colors.red; break;
+      case 'PENDING': case 'NEW': color = Colors.orange; break;
       default: color = Colors.blue;
     }
 
@@ -213,7 +260,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status,
+        status.toUpperCase(),
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );

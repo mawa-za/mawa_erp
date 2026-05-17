@@ -3,6 +3,7 @@ import 'settings_screen.dart';
 import 'user_list_screen.dart';
 import 'company_info_screen.dart';
 import 'role_list_screen.dart';
+import 'field_option_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 
@@ -11,8 +12,6 @@ class SystemConfigurationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -30,6 +29,15 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.settings_applications_outlined,
             color: Colors.blue,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SystemSettingsScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Field Options',
+            subtitle: 'Manage dropdown lists and field values',
+            icon: Icons.list_alt_outlined,
+            color: Colors.indigo,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FieldOptionListScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
