@@ -17,9 +17,6 @@ class PartnerService {
       final response = await _apiClient.get('/v2/partner/$id');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        if (decoded is List && decoded.isNotEmpty) {
-          return Partner.fromJson(Map<String, dynamic>.from(decoded.first));
-        }
         return Partner.fromJson(decoded as Map<String, dynamic>);
       } else {
         throw Exception('Failed to load partner: ${response.statusCode}');
