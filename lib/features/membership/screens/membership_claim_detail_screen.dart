@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_claim.dart';
+import '../models/membership_detail.dart';
 import '../services/membership_service.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
+import '../screens/membership_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
@@ -28,6 +30,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   MembershipClaim? _claim;
   Partner? _deceasedPartner;
   Partner? _claimantPartner;
+  MembershipDetail? _membershipDetail;
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _error;
@@ -50,6 +53,9 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       final results = await Future.wait([
         _partnerService.getPartnerById(claim.deceasedPartnerId).catchError((_) => null),
         _partnerService.getPartnerById(claim.claimantPartnerId).catchError((_) => null),
+        if (claim.membershipId.isNotEmpty) 
+          _membershipService.getMembershipDetail(claim.membershipId).catchError((_) => null)
+        else Future.value(null)
       ]);
 
       if (mounted) {
@@ -57,6 +63,9 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _claim = claim;
           _deceasedPartner = results[0] as Partner?;
           _claimantPartner = results[1] as Partner?;
+          if (results.length > 2) {
+             _membershipDetail = results[2] as MembershipDetail?;
+          }
           _isLoading = false;
         });
       }
@@ -175,6 +184,23 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildStatusBanner(claim),
           const SizedBox(height: 20),
           _buildAmountCard(claim, colorScheme),
+          
+          if (_membershipDetail != null) ...[
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionHeader(Icons.card_membership_outlined, 'Membership details'),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => MembershipDetailScreen(membershipId: _membershipDetail!.id))),
+                  child: const Text('View Membership', style: TextStyle(fontSize: 12)),
+                )
+              ]
+            ),
+            const SizedBox(height: 12),
+            _buildMembershipCard(_membershipDetail!, colorScheme),
+          ],
+          
           const SizedBox(height: 24),
           _buildSectionHeader(Icons.person_outline, 'People Involved'),
           const SizedBox(height: 12),
@@ -213,6 +239,39 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         const Text('Claim Amount', style: TextStyle(color: Colors.white70, fontSize: 13)),
         Text('R ${claim.claimAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
       ]),
+    );
+  }
+
+  Widget _buildMembershipCard(MembershipDetail detail, ColorScheme colorScheme) {
+    return Card(
+      elevation: 0, margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.shield_outlined, size: 20, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(detail.planName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                  child: Text(detail.status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            _buildInfoRow('Membership No', detail.membershipNo),
+            _buildInfoRow('Start Date', detail.startDate),
+            _buildInfoRow('Join Date', detail.joinDate ?? 'N/A'),
+            _buildInfoRow('Paid Up To', detail.paidUpToPeriod ?? 'N/A'),
+          ],
+        ),
+      ),
     );
   }
 
