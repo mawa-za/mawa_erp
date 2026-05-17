@@ -37,7 +37,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     setState(() => _isLoading = true);
     
     try {
-      final response = await ApiClient().get('/attachment?objectId=${widget.objectId}');
+      final response = await ApiClient().get('/v2/attachment?objectId=${widget.objectId}');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         
@@ -248,7 +248,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
           'file': base64Content,
         };
 
-        final response = await ApiClient().post('/attachment', body: payload);
+        final response = await ApiClient().post('/v2/attachment', body: payload);
         if (response.statusCode == 200 || response.statusCode == 201) {
           await _loadAttachments();
           if (mounted) {
@@ -413,7 +413,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     );
 
     try {
-      final response = await ApiClient().get('/attachment/${attachment.id}');
+      final response = await ApiClient().get('/v2/attachment/${attachment.id}');
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading
 

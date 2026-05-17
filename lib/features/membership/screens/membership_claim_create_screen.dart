@@ -73,7 +73,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     try {
       final results = await Future.wait([
         FieldService().getOptionsByField('CLAIM-TYPE'),
-        FieldService().getOptionsByField('PAYOUT-METHOD'),
+        FieldService().getOptionsByField('PAYMENT-METHOD'),
         FieldService().getOptionsByField('BANK-ACCOUNT-TYPE'),
         FieldService().getOptionsByField('BANK-NAME'),
         FieldService().getOptionsByField('CAUSE-OF-DEATH'),

@@ -12,25 +12,50 @@ class FieldOptionListScreen extends StatefulWidget {
 class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
   final FieldService _service = FieldService();
   bool _isLoading = true;
-  List<FieldOption> _options = [];
+  List<Map<String, dynamic>> _fields = [];
+  Map<String, List<FieldOption>> _groupedOptions = {};
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchOptions();
+    _fetchData();
   }
 
-  Future<void> _fetchOptions() async {
+  Future<void> _fetchData() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
+      // First get the list of distinct fields
+      final fields = await _service.getFields();
+      
+      // Then get all options to group them
       final options = await _service.getOptions();
+      
+      final Map<String, List<FieldOption>> groups = {};
+      
+      // Initialize groups with empty lists for all fields
+      for (var field in fields) {
+        final fieldCode = field['code']?.toString() ?? '';
+        if (fieldCode.isNotEmpty) {
+          groups[fieldCode] = [];
+        }
+      }
+      
+      // Populate the groups with actual options
+      for (var option in options) {
+        if (!groups.containsKey(option.field)) {
+          groups[option.field] = [];
+        }
+        groups[option.field]!.add(option);
+      }
+
       if (mounted) {
         setState(() {
-          _options = options;
+          _fields = fields;
+          _groupedOptions = groups;
           _isLoading = false;
         });
       }
@@ -44,15 +69,51 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
     }
   }
 
-  Map<String, List<FieldOption>> _groupOptions() {
-    final Map<String, List<FieldOption>> groups = {};
-    for (var option in _options) {
-      if (!groups.containsKey(option.field)) {
-        groups[option.field] = [];
+  Future<void> _addField() async {
+    final fieldController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Field'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: fieldController,
+                decoration: const InputDecoration(labelText: 'Field Name/Code (e.g. GENDER)'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('CREATE'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final fieldName = fieldController.text.trim().toUpperCase();
+      if (fieldName.isEmpty) return;
+
+      try {
+        await _service.addField({
+          'description': fieldName,
+          'validFrom': DateTime.now().toIso8601String().split('T')[0],
+          'validTo': '2099-12-31'
+        });
+        _fetchData();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+        }
       }
-      groups[option.field]!.add(option);
     }
-    return groups;
   }
 
   Future<void> _addOrEditOption({FieldOption? option, String? initialField}) async {
@@ -104,8 +165,9 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
 
     if (result == true) {
       try {
+        final field = fieldController.text.trim().toUpperCase();
         final data = {
-          'field': fieldController.text.trim().toUpperCase(),
+          'field': field,
           'code': codeController.text.trim().toUpperCase(),
           'description': descriptionController.text.trim(),
           'type': typeController.text.trim(),
@@ -116,9 +178,9 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
         if (isEditing) {
           await _service.updateOption(option.field, option.code, data);
         } else {
-          await _service.saveOption(data);
+          await _service.saveOption(field, data);
         }
-        _fetchOptions();
+        _fetchData();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
@@ -146,7 +208,7 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
     if (confirm == true) {
       try {
         await _service.deleteOption(option.field, option.code);
-        _fetchOptions();
+        _fetchData();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
@@ -157,16 +219,15 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final grouped = _groupOptions();
-    final sortedFields = grouped.keys.toList()..sort();
+    final sortedFields = _groupedOptions.keys.toList()..sort();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Field Options'),
         actions: [
-          IconButton(onPressed: _fetchOptions, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _fetchData, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _addField, icon: const Icon(Icons.add_box_outlined)),
         ],
       ),
       body: _isLoading
@@ -178,17 +239,19 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
                   itemCount: sortedFields.length,
                   itemBuilder: (context, index) {
                     final field = sortedFields[index];
-                    final options = grouped[field]!;
+                    final options = _groupedOptions[field]!;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       child: ExpansionTile(
                         title: Text(field, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('${options.length} options'),
+                        subtitle: Text(options.isEmpty ? 'No options' : '${options.length} options'),
                         trailing: IconButton(
                           icon: const Icon(Icons.add_circle_outline),
                           onPressed: () => _addOrEditOption(initialField: field),
                         ),
-                        children: options.map((opt) => ListTile(
+                        children: options.isEmpty 
+                          ? [const Padding(padding: EdgeInsets.all(16.0), child: Text('No options defined for this field', style: TextStyle(color: Colors.grey)))]
+                          : options.map((opt) => ListTile(
                           title: Text(opt.description),
                           subtitle: Text('Code: ${opt.code} | Type: ${opt.type}'),
                           trailing: Row(
@@ -209,10 +272,6 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _addOrEditOption(),
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
