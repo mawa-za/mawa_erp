@@ -307,7 +307,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     );
 
     try {
-      final response = await ApiClient().get('/attachment/${attachment.id}');
+      final response = await ApiClient().get('/v2/attachment/${attachment.id}');
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading
 
