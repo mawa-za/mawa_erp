@@ -35,7 +35,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     setState(() => _isLoading = true);
     
     try {
-      final response = await ApiClient().get('/v2/attachment?objectId=${widget.objectId}');
+      final response = await ApiClient().get('/attachment?objectId=${widget.objectId}');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         
@@ -246,7 +246,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
           'file': base64Content,
         };
 
-        final response = await ApiClient().post('/v2/attachment', body: payload);
+        final response = await ApiClient().post('/attachment', body: payload);
         if (response.statusCode == 200 || response.statusCode == 201) {
           await _loadAttachments();
           if (mounted) {
@@ -307,15 +307,17 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     );
 
     try {
-      final response = await ApiClient().get('/v2/attachment/${attachment.id}');
+      final response = await ApiClient().get('/attachment/${attachment.id}');
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading
 
       if (response.statusCode == 200) {
+        // Since it returns a raw base64 string, we parse it directly
         final base64String = response.body.replaceAll('"', '');
         final bytes = base64Decode(base64String);
 
         if (kIsWeb) {
+          // Use the attachment's stored extension to determine mime type
           final mimeType = _getMimeType(attachment.extension);
           final url = 'data:$mimeType;base64,$base64String';
           if (await canLaunchUrl(Uri.parse(url))) {
@@ -329,6 +331,8 @@ class _AttachmentSectionState extends State<AttachmentSection> {
           await file.writeAsBytes(bytes);
           await OpenFilex.open(file.path);
         }
+      } else {
+        throw Exception('Failed to fetch document: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
