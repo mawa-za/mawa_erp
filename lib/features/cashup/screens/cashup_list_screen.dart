@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/services/user_service.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 import 'cashup_detail_screen.dart';
@@ -13,7 +14,9 @@ class CashupListScreen extends StatefulWidget {
 
 class _CashupListScreenState extends State<CashupListScreen> {
   final CashupService _cashupService = CashupService();
+  final UserService _userService = UserService();
   List<Cashup> _cashups = [];
+  final Map<String, String> _userNames = {};
   bool _isLoading = true;
   String? _error;
 
@@ -42,6 +45,20 @@ class _CashupListScreenState extends State<CashupListScreen> {
         fromDate: fromStr,
         toDate: toStr,
       );
+
+      // Fetch user details for unique user IDs
+      final userIds = cashups.map((c) => c.userId).toSet();
+      for (final id in userIds) {
+        if (!_userNames.containsKey(id)) {
+          try {
+            final user = await _userService.getUser(id);
+            _userNames[id] = user.displayName ?? user.username;
+          } catch (e) {
+            debugPrint('Error fetching user $id: $e');
+            _userNames[id] = id; // Fallback to ID
+          }
+        }
+      }
 
       setState(() {
         _cashups = cashups;
@@ -192,7 +209,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildMiniInfo('Receipts', cashup.receiptCount.toString()),
-                  _buildMiniInfo('User', cashup.userId),
+                  _buildMiniInfo('User', _userNames[cashup.userId] ?? cashup.userId),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [

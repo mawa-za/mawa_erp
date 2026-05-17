@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../models/payment_request.dart';
+import '../services/payment_request_service.dart';
 
 class PaymentRequestDetailScreen extends StatefulWidget {
   final String paymentId;
@@ -16,9 +18,11 @@ class PaymentRequestDetailScreen extends StatefulWidget {
 }
 
 class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen> {
+  final _service = PaymentRequestService();
   bool _isLoading = true;
-  bool _isSubmitting = false;
-  PaymentRequestDetail? _detail;
+  bool _isActionLoading = false;
+  PaymentRequestResponse? _detail;
+  List<PaymentRequestStatusHistoryEntity> _history = [];
   BankReport? _bankReport;
   String? _error;
 
@@ -35,27 +39,23 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     });
 
     try {
-      final detailResponse = await ApiClient().get('/v2/payment-request/${widget.paymentId}');
+      final results = await Future.wait([
+        _service.getPaymentRequestById(widget.paymentId),
+        _service.getPaymentRequestHistory(widget.paymentId),
+        ApiClient().get('/v2/payment-request/${widget.paymentId}/bank-report'),
+      ]);
 
-      if (detailResponse.statusCode == 200) {
-        final detailData = jsonDecode(detailResponse.body);
-        _detail = PaymentRequestDetail.fromJson(detailData);
-
-        // Fetch Bank Report
-        final bankResponse = await ApiClient().get('/v2/payment-request/${widget.paymentId}/bank-report');
-        if (bankResponse.statusCode == 200) {
-          _bankReport = BankReport.fromJson(jsonDecode(bankResponse.body));
-        }
-
-        setState(() {
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = 'Failed to load details: ${detailResponse.statusCode}';
-          _isLoading = false;
-        });
+      _detail = results[0] as PaymentRequestResponse;
+      _history = results[1] as List<PaymentRequestStatusHistoryEntity>;
+      
+      final bankResponse = results[2] as dynamic;
+      if (bankResponse.statusCode == 200) {
+        _bankReport = BankReport.fromJson(jsonDecode(bankResponse.body));
       }
+
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _error = 'An error occurred: $e';
@@ -66,58 +66,128 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
 
   Future<void> _submitForApproval() async {
     if (_detail == null) return;
-
-    setState(() => _isSubmitting = true);
+    setState(() => _isActionLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId') ?? '';
-
-      final submission = ApprovalSubmission(
-        approvalType: 'PAYMENT',
-        referenceId: _detail!.id,
-        referenceNo: _detail!.number,
-        title: 'Payment Request: ${_detail!.number}',
-        description: 'Approval requested for payment of R ${_detail!.amount.toStringAsFixed(2)} to ${_detail!.recipient['fullName'] ?? _detail!.recipient['name1']}',
-        requesterId: userId,
-        payloadJson: jsonEncode(_detail!.toJson()),
-      );
-
-      await ApprovalService().submitApproval(submission);
-
+      await _service.submitPaymentRequest(_detail!.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Submitted for approval successfully')),
-        );
-        _fetchData(); // Refresh to show new status
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted for approval successfully')));
+        _fetchData();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit: $e'), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
     } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      if (mounted) setState(() => _isActionLoading = false);
+    }
+  }
+
+  Future<void> _cancelRequest() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Request'),
+        content: const Text('Are you sure you want to cancel this payment request?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('NO')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('YES, CANCEL', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isActionLoading = true);
+    try {
+      await _service.cancelPaymentRequest(_detail!.id, comment: "Cancelled by user via Mobile App");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request cancelled')));
+        _fetchData();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
+    }
+  }
+
+  Future<void> _markAsPaid() async {
+    final refController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Mark as Paid'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: refController,
+                decoration: const InputDecoration(labelText: 'Payment Reference', hintText: 'E.g. Bank Ref #'),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('Payment Date', style: TextStyle(fontSize: 14)),
+                subtitle: Text(DateFormat('yyyy-MM-dd').format(selectedDate)),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) setDialogState(() => selectedDate = picked);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('MARK PAID'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isActionLoading = true);
+    try {
+      await _service.markAsPaid(_detail!.id, {
+        "paidDate": DateFormat('yyyy-MM-dd').format(selectedDate),
+        "paidReference": refController.text.trim(),
+        "comment": "Marked as paid via Mobile App"
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request marked as PAID'), backgroundColor: Colors.green));
+        _fetchData();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(_detail != null ? 'Request #${_detail!.number}' : 'Payment Detail'),
+        title: Text(_detail != null ? 'Request #${_detail!.requestNo}' : 'Payment Detail'),
         actions: [
-          if (_detail != null && _detail!.status == 'NEW')
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-              child: FilledButton.icon(
-                onPressed: _isSubmitting ? null : _submitForApproval,
-                icon: _isSubmitting
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.send_rounded, size: 18),
-                label: const Text('SUBMIT'),
-              ),
-            ),
+          if (_detail != null) ...[
+            if (_detail!.status == 'DRAFT')
+              IconButton(onPressed: _isActionLoading ? null : _submitForApproval, icon: const Icon(Icons.send_rounded), tooltip: 'Submit'),
+            if (_detail!.status == 'APPROVED')
+              IconButton(onPressed: _isActionLoading ? null : _markAsPaid, icon: const Icon(Icons.paid_outlined), tooltip: 'Mark Paid'),
+            if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL')
+              IconButton(onPressed: _isActionLoading ? null : _cancelRequest, icon: const Icon(Icons.cancel_outlined, color: Colors.red), tooltip: 'Cancel'),
+          ],
         ],
       ),
       body: _buildBody(),
@@ -143,7 +213,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     final colorScheme = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -151,22 +221,32 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           const SizedBox(height: 24),
           _buildSectionTitle('General Information'),
           _buildInfoCard([
-            _buildInfoRow('Reference', _detail!.reference),
-            _buildInfoRow('Payment Reason', _detail!.paymentReason['description'] ?? ''),
-            _buildInfoRow('Payment Method', _detail!.paymentMethod['description'] ?? ''),
-            _buildInfoRow('Branch', _detail!.branch['description'] ?? ''),
-            _buildInfoRow('Created Date', _detail!.createdDate),
-            _buildInfoRow('Due Date', _detail!.dueDate),
+            _buildInfoRow('Reference', _detail!.externalReference ?? 'N/A'),
+            _buildInfoRow('Payment Reason', _detail!.paymentReason ?? 'N/A'),
+            _buildInfoRow('Payment Method', _detail!.paymentMethod),
+            _buildInfoRow('Created Date', _detail!.createdAt),
+            _buildInfoRow('Due Date', _detail!.requestedPaymentDate ?? 'N/A'),
             _buildInfoRow('Status', _detail!.status, isStatus: true),
           ]),
           const SizedBox(height: 24),
-          _buildSectionTitle('Recipient Details'),
+          _buildSectionTitle('Recipient & Banking'),
           _buildInfoCard([
-            _buildInfoRow('Name', '${_detail!.recipient['name2'] ?? ''} ${_detail!.recipient['name1'] ?? ''}'),
-            _buildInfoRow('ID Number', _detail!.recipient['identity']?['number'] ?? 'N/A'),
-            _buildInfoRow('Partner Number', _detail!.recipient['number'] ?? ''),
-            _buildInfoRow('Status', _detail!.recipient['status']?['description'] ?? ''),
+            _buildInfoRow('Payee Name', _detail!.payeeName),
+            _buildInfoRow('Bank', _detail!.bankName ?? 'N/A'),
+            _buildInfoRow('Account Holder', _detail!.accountHolder ?? 'N/A'),
+            _buildInfoRow('Account Number', _detail!.accountNumber ?? 'N/A'),
+            _buildInfoRow('Branch Code', _detail!.branchCode ?? 'N/A'),
           ]),
+
+          if (_detail!.status == 'PAID') ...[
+            const SizedBox(height: 24),
+            _buildSectionTitle('Payment Completion'),
+            _buildInfoCard([
+              _buildInfoRow('Paid Date', _detail!.paidDate ?? 'N/A'),
+              _buildInfoRow('Paid Reference', _detail!.paidReference ?? 'N/A'),
+              _buildInfoRow('Paid By', _detail!.paidBy ?? 'N/A'),
+            ]),
+          ],
 
           if (_bankReport != null) ...[
             const SizedBox(height: 24),
@@ -175,17 +255,40 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           ],
 
           const SizedBox(height: 24),
-          _buildSectionTitle('Audit Trail'),
-          _buildInfoCard([
-            _buildInfoRow('Created By', '${_detail!.createdBy['name2'] ?? ''} ${_detail!.createdBy['name1'] ?? ''}'),
-            if (_detail!.employeeResponsible != null)
-              _buildInfoRow('Responsible', '${_detail!.employeeResponsible!['name2'] ?? ''} ${_detail!.employeeResponsible!['name1'] ?? ''}'),
-            _buildInfoRow('Instruction ID', _detail!.instructionId, isSmall: true),
-          ]),
+          _buildSectionTitle('Status History'),
+          _buildHistoryCard(),
+          
           const SizedBox(height: 24),
           AttachmentSection(objectId: widget.paymentId),
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _history.length,
+        separatorBuilder: (context, index) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final h = _history[index];
+          return ListTile(
+            dense: true,
+            title: Text('${h.oldStatus} → ${h.newStatus}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (h.comment != null) Text(h.comment!, style: const TextStyle(fontStyle: FontStyle.italic)),
+                Text('By ${h.changedBy} on ${h.changedAt}', style: const TextStyle(fontSize: 11)),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -213,29 +316,13 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                 const SizedBox(width: 8),
                 Text(
                   isRejected ? 'Bank Rejected (RJCT)' : 'Bank Accepted (${report.groupStatus})',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isRejected ? Colors.red : Colors.green,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: isRejected ? Colors.red : Colors.green),
                 ),
               ],
             ),
             const Divider(),
             _buildInfoRow('Initiating Party', report.groupHeader['initiatingPartyName'] ?? '', isDark: true),
-            _buildInfoRow('Message ID', report.groupHeader['messageId'] ?? '', isSmall: true, isDark: true),
             _buildInfoRow('Creation Time', report.groupHeader['creationDateTime'] ?? '', isDark: true),
-
-            if (report.statusReasonInformation.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text('Reason:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ...report.statusReasonInformation.map((info) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '${info['reason']}: ${info['additionalInformation']}',
-                  style: const TextStyle(fontSize: 12, color: Colors.black87),
-                ),
-              )),
-            ],
           ],
         ),
       ),
@@ -249,8 +336,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [colorScheme.primary, colorScheme.primaryContainer],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -259,18 +345,15 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           const Text('Total Amount', style: TextStyle(color: Colors.white70, fontSize: 14)),
           const SizedBox(height: 4),
           Text(
-            'R ${_detail!.amount.toStringAsFixed(2)}',
+            '${_detail!.currency} ${_detail!.amount.toStringAsFixed(2)}',
             style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(20),
-            ),
+            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
             child: Text(
-              _detail!.paymentReason['code'] ?? 'PAYMENT',
+              _detail!.requestType.replaceAll('_', ' '),
               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ),
@@ -282,37 +365,25 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-      ),
+      child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
     );
   }
 
   Widget _buildInfoCard(List<Widget> children) {
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(children: children),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
+      child: Padding(padding: const EdgeInsets.all(16.0), child: Column(children: children)),
     );
   }
 
   Widget _buildInfoRow(String label, String value, {bool isSmall = false, bool isDark = false, bool isStatus = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(label, style: TextStyle(color: isDark ? Colors.black54 : Colors.grey.shade600, fontSize: 13)),
-          ),
+          Expanded(flex: 2, child: Text(label, style: TextStyle(color: isDark ? Colors.black54 : Colors.grey.shade600, fontSize: 12))),
           Expanded(
             flex: 3,
             child: isStatus
@@ -325,25 +396,10 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: _getStatusColor(value).withOpacity(0.5)),
                     ),
-                    child: Text(
-                      value,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        color: _getStatusColor(value),
-                      ),
-                    ),
+                    child: Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: _getStatusColor(value))),
                   ),
                 )
-              : Text(
-                  value,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: isSmall ? 11 : 14,
-                    color: isDark ? Colors.black : Colors.black87,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
+              : Text(value, style: TextStyle(fontWeight: FontWeight.w600, fontSize: isSmall ? 11 : 13, color: isDark ? Colors.black : Colors.black87), textAlign: TextAlign.right),
           ),
         ],
       ),
@@ -352,18 +408,11 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
 
   Color _getStatusColor(String status) {
     switch (status.toUpperCase()) {
-      case 'APPROVED':
-      case 'PROCESSED':
-        return Colors.green;
-      case 'REJECTED':
-        return Colors.red;
-      case 'AWAITING-APPROVAL':
-      case 'PENDING':
-        return Colors.orange;
-      case 'NEW':
-        return Colors.blue;
-      default:
-        return Colors.grey;
+      case 'APPROVED': case 'PAID': return Colors.green;
+      case 'REJECTED': case 'CANCELLED': return Colors.red;
+      case 'PENDING_APPROVAL': return Colors.orange;
+      case 'DRAFT': return Colors.blue;
+      default: return Colors.grey;
     }
   }
 }

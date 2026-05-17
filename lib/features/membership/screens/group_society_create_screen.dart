@@ -1,0 +1,270 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import '../../../core/api_client.dart';
+import '../../partners/models/partner.dart';
+import '../services/membership_service.dart';
+
+class GroupSocietyCreateScreen extends StatefulWidget {
+  const GroupSocietyCreateScreen({super.key});
+
+  @override
+  State<GroupSocietyCreateScreen> createState() => _GroupSocietyCreateScreenState();
+}
+
+class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _membershipService = MembershipService();
+  bool _isSubmitting = false;
+
+  Partner? _selectedPartner;
+  final _groupNoController = TextEditingController();
+  final _openingBalanceController = TextEditingController(text: '0.00');
+  String _selectedType = 'GROUP';
+  String _selectedStatus = 'ACTIVE';
+
+  final List<String> _statusOptions = ['ACTIVE', 'INACTIVE', 'DORMANT'];
+  final List<String> _typeOptions = ['GROUP', 'SOCIETY', 'BURIAL'];
+
+  Future<List<Partner>> _searchPartners(String query) async {
+    if (query.length < 2) return [];
+    try {
+      // Searching specifically for organisations or groups might be better, 
+      // but let's use the general search for now.
+      final response = await ApiClient().get('/v2/partner?query=$query');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Partner.fromJson(json)).toList();
+      }
+    } catch (e) {
+      debugPrint('Error searching partners: $e');
+    }
+    return [];
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedPartner == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a partner organisation')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final double amount = double.tryParse(_openingBalanceController.text) ?? 0.0;
+      final payload = {
+        "partnerId": _selectedPartner!.id,
+        "groupNo": _groupNoController.text.trim(),
+        "societyType": _selectedType,
+        "status": _selectedStatus,
+        "openingBalanceCents": (amount * 100).toInt()
+      };
+
+      await _membershipService.createGroupSociety(payload);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group Society created successfully'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text('New Group Society'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(Icons.business_outlined, 'Select Partner'),
+              const SizedBox(height: 12),
+              _buildPartnerSelector(),
+              const SizedBox(height: 24),
+              _buildSectionHeader(Icons.assignment_outlined, 'Society Details'),
+              const SizedBox(height: 12),
+              _buildFormFields(),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton(
+                  onPressed: _isSubmitting ? null : _submit,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isSubmitting 
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('CREATE GROUP SOCIETY', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPartnerSelector() {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            SearchAnchor(
+              builder: (context, controller) => SearchBar(
+                controller: controller,
+                onTap: () => controller.openView(),
+                onChanged: (_) => controller.openView(),
+                hintText: 'Search Organisation/Group...',
+                leading: const Icon(Icons.search),
+                elevation: const WidgetStatePropertyAll(0),
+                backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+              ),
+              suggestionsBuilder: (context, controller) async {
+                final partners = await _searchPartners(controller.text);
+                return partners.map((p) => ListTile(
+                  title: Text(p.fullName),
+                  subtitle: Text('No: ${p.number} • ${p.type}'),
+                  onTap: () {
+                    setState(() => _selectedPartner = p);
+                    controller.closeView(p.fullName);
+                  },
+                )).toList();
+              },
+            ),
+            if (_selectedPartner != null) ...[
+              const Divider(),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: const Icon(Icons.business),
+                ),
+                title: Text(_selectedPartner!.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Partner No: ${_selectedPartner!.number}'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => setState(() => _selectedPartner = null),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormFields() {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextFormField(
+              controller: _groupNoController,
+              decoration: const InputDecoration(
+                labelText: 'Group Number',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.numbers),
+              ),
+              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedType,
+              decoration: const InputDecoration(
+                labelText: 'Society Type',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category_outlined),
+              ),
+              items: _typeOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              onChanged: (v) => setState(() => _selectedType = v!),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedStatus,
+              decoration: const InputDecoration(
+                labelText: 'Initial Status',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.info_outline),
+              ),
+              items: _statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (v) => setState(() => _selectedStatus = v!),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _openingBalanceController,
+              decoration: const InputDecoration(
+                labelText: 'Opening Balance',
+                prefixText: 'R ',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Required';
+                if (double.tryParse(v) == null) return 'Invalid amount';
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _groupNoController.dispose();
+    _openingBalanceController.dispose();
+    super.dispose();
+  }
+}

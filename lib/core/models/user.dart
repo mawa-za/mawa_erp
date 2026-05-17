@@ -3,6 +3,7 @@ import '../../features/partners/models/partner.dart';
 class User {
   final String id;
   final String username;
+  final String? displayName;
   final String? email;
   final String? cellphone;
   final String type;
@@ -15,6 +16,7 @@ class User {
   User({
     required this.id,
     required this.username,
+    this.displayName,
     this.email,
     this.cellphone,
     required this.type,
@@ -29,6 +31,7 @@ class User {
     return User(
       id: (json['id'] ?? '').toString(),
       username: (json['username'] ?? '').toString(),
+      displayName: json['displayName']?.toString(),
       email: json['email']?.toString(),
       cellphone: json['cellphone']?.toString(),
       type: (json['type'] ?? '').toString(),
@@ -46,6 +49,7 @@ class User {
     return {
       'id': id,
       'username': username,
+      'displayName': displayName,
       'email': email,
       'cellphone': cellphone,
       'type': type,
