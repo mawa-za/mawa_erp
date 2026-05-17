@@ -241,9 +241,9 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         
         final payload = {
           'objectId': widget.objectId,
-          'documentType': selectedDocType!.toJson(),
+          'documentType': selectedDocType!.code,
           'extension': extension,
-          'content': base64Content,
+          'file': base64Content,
         };
 
         final response = await ApiClient().post('/v2/attachment', body: payload);

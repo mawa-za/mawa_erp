@@ -168,18 +168,6 @@ class PartnerService {
     }
   }
 
-  Future<Map<String, dynamic>?> validateIdentity(String id, String type) async {
-    try {
-      final response = await _apiClient.get('/validate/identity/$id', queryParameters: {'type': type});
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
   // --- Contact Management ---
 
   Future<List<PartnerContact>> getPartnerContacts(String partnerId, {String? value, String? type}) async {

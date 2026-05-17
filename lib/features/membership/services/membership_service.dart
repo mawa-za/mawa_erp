@@ -671,17 +671,19 @@ class MembershipService {
     }
   }
 
-  Future<GroupSociety> getGroupSocietyByPartner(String partnerId) async {
+  Future<GroupSociety?> getGroupSocietyByPartner(String partnerId) async {
     try {
       final response = await ApiClient().get('/v2/group-society/by-partner/$partnerId');
       if (response.statusCode == 200) {
         final dynamic data = jsonDecode(response.body);
         return GroupSociety.fromJson(Map<String, dynamic>.from(data));
+      } else if (response.statusCode == 404) {
+        return null;
       } else {
         throw Exception('Failed to find group society for partner: ${response.statusCode}');
       }
     } catch (e) {
-      rethrow;
+      return null;
     }
   }
 
