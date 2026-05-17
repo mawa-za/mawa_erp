@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:printing/printing.dart';
 import '../api_client.dart';
 import '../models/attachment.dart';
 import '../models/field_option.dart';
@@ -286,6 +288,110 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     }
   }
 
+  void _showImagePreview(Uint8List bytes, Attachment att, String base64String) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black87,
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
+                  child: Text(att.description, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.download, color: Colors.white),
+                      onPressed: () => _downloadOrOpenFile(bytes, att, base64String),
+                      tooltip: 'Download',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Flexible(
+              child: InteractiveViewer(
+                child: Image.memory(bytes, fit: BoxFit.contain),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPdfPreview(Uint8List bytes, Attachment att) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text(att.description),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 1,
+          ),
+          body: PdfPreview(
+            build: (format) async => bytes,
+            allowPrinting: true,
+            allowSharing: true,
+            canChangeOrientation: false,
+            canChangePageFormat: false,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadOrOpenFile(Uint8List bytes, Attachment att, String base64String) async {
+    try {
+      if (kIsWeb) {
+        final mimeType = _getMimeType(att.extension);
+        final url = 'data:$mimeType;base64,$base64String';
+        if (await canLaunchUrl(Uri.parse(url))) {
+          await launchUrl(Uri.parse(url), webOnlyWindowName: '_blank');
+        } else {
+          throw 'Could not launch $url';
+        }
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/${att.id}.${att.extension}');
+        await file.writeAsBytes(bytes);
+        final result = await OpenFilex.open(file.path);
+        
+        if (result.type != ResultType.done && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open file: ${result.message}'),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error downloading attachment: $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _viewAttachment(Attachment attachment) async {
     showDialog(
       context: context,
@@ -307,29 +413,21 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     );
 
     try {
-      final response = await ApiClient().get('/v2/attachment/${attachment.id}');
+      final response = await ApiClient().get('/attachment/${attachment.id}');
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading
 
       if (response.statusCode == 200) {
-        // Since it returns a raw base64 string, we parse it directly
         final base64String = response.body.replaceAll('"', '');
         final bytes = base64Decode(base64String);
+        final ext = attachment.extension.toLowerCase();
 
-        if (kIsWeb) {
-          // Use the attachment's stored extension to determine mime type
-          final mimeType = _getMimeType(attachment.extension);
-          final url = 'data:$mimeType;base64,$base64String';
-          if (await canLaunchUrl(Uri.parse(url))) {
-            await launchUrl(Uri.parse(url), webOnlyWindowName: '_blank');
-          } else {
-            throw 'Could not launch $url';
-          }
+        if (['jpg', 'jpeg', 'png'].contains(ext)) {
+          _showImagePreview(bytes, attachment, base64String);
+        } else if (ext == 'pdf') {
+          _showPdfPreview(bytes, attachment);
         } else {
-          final tempDir = await getTemporaryDirectory();
-          final file = File('${tempDir.path}/${attachment.id}.${attachment.extension}');
-          await file.writeAsBytes(bytes);
-          await OpenFilex.open(file.path);
+          _downloadOrOpenFile(bytes, attachment, base64String);
         }
       } else {
         throw Exception('Failed to fetch document: ${response.statusCode}');
