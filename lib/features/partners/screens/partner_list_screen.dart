@@ -6,7 +6,16 @@ import 'partner_create_screen.dart';
 import 'partner_detail_screen.dart';
 
 class PartnerListScreen extends StatefulWidget {
-  const PartnerListScreen({super.key});
+  final String? role;
+  final String? title;
+  final bool allowCreate;
+
+  const PartnerListScreen({
+    super.key,
+    this.role,
+    this.title,
+    this.allowCreate = true,
+  });
 
   @override
   State<PartnerListScreen> createState() => _PartnerListScreenState();
@@ -35,13 +44,11 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
     });
 
     try {
-      // Updated to the new endpoint /v2/partner
-      // Including query parameters as requested: always include query and role even if blank
       String path = '/v2/partner';
       
       final Map<String, String> params = {
         'query': _searchController.text,
-        'role': '',
+        'role': widget.role ?? '',
       };
       
       final uri = Uri.parse(path).replace(queryParameters: params);
@@ -55,7 +62,6 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           if (_selectedType == 'ALL') {
             _partners = allPartners;
           } else {
-            // "split after api response" - local filtering by type
             _partners = allPartners.where((p) => p.type == _selectedType).toList();
           }
           _isLoading = false;
@@ -81,7 +87,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Business Partners'),
+        title: Text(widget.title ?? 'Business Partners'),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
@@ -107,7 +113,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           Expanded(child: _buildBody(colorScheme)),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: widget.allowCreate ? FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const PartnerCreateScreen()),
@@ -117,7 +123,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           }
         },
         child: const Icon(Icons.add),
-      ),
+      ) : null,
     );
   }
 

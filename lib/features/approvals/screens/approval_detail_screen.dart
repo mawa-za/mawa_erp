@@ -1,4 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../invoicing/screens/invoice_detail_screen.dart';
+import '../../membership/screens/membership_claim_detail_screen.dart';
+import '../../payments/screens/payment_request_detail_screen.dart';
+import '../../cashup/screens/cashup_detail_screen.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 
@@ -14,13 +19,16 @@ class ApprovalDetailScreen extends StatefulWidget {
 class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   final ApprovalService _service = ApprovalService();
   late Approval _approval;
+  List<ApprovalAction> _auditTrail = [];
   bool _isLoading = false;
+  bool _isLoadingAudit = true;
   final _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _approval = widget.approval;
+    _fetchAuditTrail();
   }
 
   @override
@@ -29,23 +37,82 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _fetchAuditTrail() async {
+    try {
+      final audit = await _service.getAuditTrail(_approval.id);
+      if (mounted) {
+        setState(() {
+          _auditTrail = audit;
+          _isLoadingAudit = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAudit = false);
+      }
+      debugPrint('Error fetching audit trail: $e');
+    }
+  }
+
+  void _viewOriginalTransaction() {
+    final id = _approval.referenceId;
+    final type = _approval.approvalType.toUpperCase();
+
+    Widget? screen;
+    switch (type) {
+      case 'INVOICE':
+        screen = InvoiceDetailScreen(invoiceId: id);
+        break;
+      case 'CLAIM':
+        screen = MembershipClaimDetailScreen(claimId: id);
+        break;
+      case 'PAYMENT':
+        screen = PaymentRequestDetailScreen(paymentId: id);
+        break;
+      case 'CASHUP':
+        screen = CashupDetailScreen(cashupId: id);
+        break;
+    }
+
+    if (screen != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => screen!));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Detail screen for this type is not yet implemented')),
+      );
+    }
+  }
+
   Future<void> _takeAction(String action) async {
     setState(() => _isLoading = true);
     try {
-      final updated = await _service.takeAction(
-        _approval.id,
-        action,
-        comment: _commentController.text.trim(),
-      );
+      Approval updated;
+      final comment = _commentController.text.trim();
+      
+      switch (action.toUpperCase()) {
+        case 'APPROVE':
+          updated = await _service.approve(_approval.id, comments: comment);
+          break;
+        case 'REJECT':
+          updated = await _service.reject(_approval.id, comments: comment);
+          break;
+        case 'CANCEL':
+          updated = await _service.cancel(_approval.id, comments: comment);
+          break;
+        default:
+          throw Exception('Unknown action: $action');
+      }
+
       if (mounted) {
         setState(() {
           _approval = updated;
           _isLoading = false;
+          _commentController.clear();
         });
+        _fetchAuditTrail(); // Refresh audit trail
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Action $action performed successfully')),
         );
-        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -67,6 +134,14 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         title: const Text('Approval Details'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new_rounded),
+            onPressed: _viewOriginalTransaction,
+            tooltip: 'View Original Transaction',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -77,9 +152,12 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                 const SizedBox(height: 16),
                 _buildDetailsCard(),
                 const SizedBox(height: 16),
+                _buildAuditTrailCard(),
+                const SizedBox(height: 16),
                 if (_approval.payloadJson != null) _buildPayloadCard(),
                 const SizedBox(height: 24),
-                if (_approval.status == 'PENDING') _buildActionSection(colorScheme),
+                if (_approval.status == 'PENDING' || _approval.status == 'IN_PROGRESS') 
+                  _buildActionSection(colorScheme),
               ],
             ),
     );
@@ -148,7 +226,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     );
   }
 
-  Widget _buildPayloadCard() {
+  Widget _buildAuditTrailCard() {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -160,20 +238,95 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PAYLOAD DATA', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+            const Text('AUDIT TRAIL', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+            const Divider(),
+            if (_isLoadingAudit)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else if (_auditTrail.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('No history found', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _auditTrail.length,
+                separatorBuilder: (context, index) => const Divider(height: 1, indent: 40),
+                itemBuilder: (context, index) {
+                  final action = _auditTrail[index];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: _getActionColor(action.action).withOpacity(0.1),
+                      child: Icon(_getActionIcon(action.action), size: 18, color: _getActionColor(action.action)),
+                    ),
+                    title: Row(
+                      children: [
+                        Text(action.action, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        const Spacer(),
+                        Text(action.actionAt.split('T')[0], style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('By: ${action.actionBy}', style: const TextStyle(fontSize: 12)),
+                        if (action.comments != null && action.comments!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Comment: ${action.comments}',
+                              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPayloadCard() {
+    Map<String, dynamic> data = {};
+    try {
+      data = jsonDecode(_approval.payloadJson!);
+    } catch (_) {}
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('TRANSACTION DATA', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
             const Divider(),
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _approval.payloadJson ?? '',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
+            if (data.isEmpty)
+              Text(_approval.payloadJson ?? '', style: const TextStyle(fontFamily: 'monospace', fontSize: 12))
+            else
+              ...data.entries.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 100, child: Text(e.key, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold))),
+                    Expanded(child: Text(e.value.toString(), style: const TextStyle(fontSize: 11))),
+                  ],
+                ),
+              )),
           ],
         ),
       ),
@@ -223,6 +376,15 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: () => _takeAction('CANCEL'),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+            child: const Text('CANCEL REQUEST'),
+          ),
+        ),
       ],
     );
   }
@@ -262,9 +424,42 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       case 'REJECTED':
         return Colors.red;
       case 'PENDING':
+      case 'IN_PROGRESS':
         return Colors.orange;
-      default:
+      case 'CANCELLED':
         return Colors.grey;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  Color _getActionColor(String action) {
+    switch (action.toUpperCase()) {
+      case 'APPROVED':
+        return Colors.green;
+      case 'REJECTED':
+        return Colors.red;
+      case 'SUBMITTED':
+        return Colors.blue;
+      case 'CANCELLED':
+        return Colors.grey;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  IconData _getActionIcon(String action) {
+    switch (action.toUpperCase()) {
+      case 'APPROVED':
+        return Icons.check_circle_outline;
+      case 'REJECTED':
+        return Icons.cancel_outlined;
+      case 'SUBMITTED':
+        return Icons.send_outlined;
+      case 'CANCELLED':
+        return Icons.block_outlined;
+      default:
+        return Icons.comment_outlined;
     }
   }
 }

@@ -87,10 +87,10 @@ class ApiClient {
     );
   }
 
-  Future<http.Response> post(String path, {dynamic body, bool includeRole = true}) async {
+  Future<http.Response> post(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
-    final url = _buildUrl(host, path);
+    final url = _buildUrl(host, path, queryParameters);
     final headers = await _getHeaders(includeRole: includeRole);
 
     var response = await _client.post(
@@ -114,10 +114,10 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> put(String path, {dynamic body, bool includeRole = true}) async {
+  Future<http.Response> put(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
-    final url = _buildUrl(host, path);
+    final url = _buildUrl(host, path, queryParameters);
     final headers = await _getHeaders(includeRole: includeRole);
 
     var response = await _client.put(
@@ -163,10 +163,10 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> delete(String path, {bool includeRole = true}) async {
+  Future<http.Response> delete(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
-    final url = _buildUrl(host, path);
+    final url = _buildUrl(host, path, queryParameters);
     final headers = await _getHeaders(includeRole: includeRole);
 
     var response = await _client.delete(url, headers: headers);
