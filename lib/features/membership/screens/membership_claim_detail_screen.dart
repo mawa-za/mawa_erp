@@ -255,7 +255,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
               children: [
                 Icon(Icons.shield_outlined, size: 20, color: colorScheme.primary),
                 const SizedBox(width: 8),
-                Text(detail.planName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(detail.planId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -266,7 +266,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             ),
             const Divider(height: 24),
             _buildInfoRow('Membership No', detail.membershipNo),
-            _buildInfoRow('Start Date', detail.startDate),
+            _buildInfoRow('Start Date', detail.startDate ?? 'N/A'),
             _buildInfoRow('Join Date', detail.joinDate ?? 'N/A'),
             _buildInfoRow('Paid Up To', detail.paidUpToPeriod ?? 'N/A'),
           ],
