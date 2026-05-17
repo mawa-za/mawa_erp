@@ -226,6 +226,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
+    if (lowerId == 'employee') return Icons.badge_rounded;
+    if (lowerId == 'supplier') return Icons.local_shipping_rounded;
+    if (lowerId == 'customer') return Icons.person_pin_rounded;
+    if (lowerId == 'client') return Icons.handshake_rounded;
+    if (lowerId == 'member') return Icons.card_membership_rounded;
     if (lowerId == 'membership-claim') return Icons.request_quote_rounded;
     if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_rounded;
     if (lowerId.contains('plan') || lowerId.contains('product')) return Icons.inventory_2_rounded;
@@ -247,7 +252,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
-    final id = wc.id.toLowerCase();
+    final id = wc.id.toUpperCase();
     final description = wc.description.toLowerCase();
 
     // Track module usage
@@ -259,68 +264,82 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _fetchRecentModules(); 
     _fetchFrequentModules();
 
-    if (id == 'invoice-create') {
+    // Check for new partner-based modules
+    if (['EMPLOYEE', 'SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => PartnerListScreen(
+          role: id,
+          title: '${id[0]}${id.substring(1).toLowerCase()}s',
+          allowCreate: false,
+        ),
+      )).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+      return;
+    }
+
+    if (id == 'INVOICE-CREATE') {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id == 'membership-claim') {
+    } else if (id == 'MEMBERSHIP-CLAIM') {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('invoic') || description.contains('invoic')) {
+    } else if (id.contains('INVOIC') || description.contains('invoic')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('plan') || description.contains('plan') || id.contains('product')) {
+    } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
+    } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('payroll') || description.contains('payroll')) {
+    } else if (id.contains('PAYROLL') || description.contains('payroll')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('claim') || description.contains('claim')) {
+    } else if (id.contains('CLAIM') || description.contains('claim')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('group') || id.contains('society') || description.contains('group') || description.contains('society')) {
+    } else if (id.contains('GROUP') || id.contains('SOCIETY') || description.contains('group') || description.contains('society')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('payment') || description.contains('payment')) {
+    } else if (id.contains('PAYMENT') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('partner') || description.contains('partner')) {
+    } else if (id.contains('PARTNER') || description.contains('partner')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('user') || id.contains('setting') || id.contains('company') || id.contains('workflow') || id.contains('config') || id.contains('role')) {
-      // All configuration consolidated under System Configuration module
+    } else if (id.contains('USER') || id.contains('SETTING') || id.contains('COMPANY') || id.contains('WORKFLOW') || id.contains('CONFIG') || id.contains('ROLE')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('cashup') || description.contains('cashup')) {
+    } else if (id.contains('CASHUP') || description.contains('cashup')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();
       });
-    } else if (id.contains('approval')) {
+    } else if (id.contains('APPROVAL')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen())).then((_) {
         _fetchRecentModules();
         _fetchFrequentModules();

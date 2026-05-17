@@ -1,35 +1,81 @@
-class ApprovalStep {
-  final int stepNo;
-  final String stepName;
-  final String approverType;
+class ApprovalWorkflowStepApprover {
+  final String? id;
+  final String approverType; // USER, ROLE, GROUP, MANAGER
   final String approverValue;
-  final int requiredApprovals;
+  final String? approverName;
+  final bool active;
 
-  ApprovalStep({
-    required this.stepNo,
-    required this.stepName,
+  ApprovalWorkflowStepApprover({
+    this.id,
     required this.approverType,
     required this.approverValue,
-    required this.requiredApprovals,
+    this.approverName,
+    this.active = true,
   });
 
-  factory ApprovalStep.fromJson(Map<String, dynamic> json) {
-    return ApprovalStep(
-      stepNo: json['stepNo'] ?? 0,
-      stepName: json['stepName'] ?? '',
-      approverType: json['approverType'] ?? '',
-      approverValue: json['approverValue'] ?? '',
-      requiredApprovals: json['requiredApprovals'] ?? 0,
+  factory ApprovalWorkflowStepApprover.fromJson(Map<String, dynamic> json) {
+    return ApprovalWorkflowStepApprover(
+      id: json['id']?.toString(),
+      approverType: json['approverType']?.toString() ?? '',
+      approverValue: json['approverValue']?.toString() ?? '',
+      approverName: json['approverName']?.toString(),
+      active: json['active'] == true,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'stepNo': stepNo,
-      'stepName': stepName,
+      if (id != null) 'id': id,
       'approverType': approverType,
       'approverValue': approverValue,
+      if (approverName != null) 'approverName': approverName,
+      'active': active,
+    };
+  }
+}
+
+class ApprovalStep {
+  final String? id;
+  final int stepNo;
+  final String stepName;
+  final String approvalMode; // ANY_ONE, ALL
+  final int requiredApprovals;
+  final bool active;
+  final List<ApprovalWorkflowStepApprover> approvers;
+
+  ApprovalStep({
+    this.id,
+    required this.stepNo,
+    required this.stepName,
+    this.approvalMode = 'ANY_ONE',
+    required this.requiredApprovals,
+    this.active = true,
+    required this.approvers,
+  });
+
+  factory ApprovalStep.fromJson(Map<String, dynamic> json) {
+    return ApprovalStep(
+      id: json['id']?.toString(),
+      stepNo: json['stepNo'] ?? 0,
+      stepName: json['stepName']?.toString() ?? '',
+      approvalMode: json['approvalMode']?.toString() ?? 'ANY_ONE',
+      requiredApprovals: json['requiredApprovals'] ?? 0,
+      active: json['active'] == true,
+      approvers: (json['approvers'] as List? ?? [])
+          .map((a) => ApprovalWorkflowStepApprover.fromJson(Map<String, dynamic>.from(a)))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      'stepNo': stepNo,
+      'stepName': stepName,
+      'approvalMode': approvalMode,
       'requiredApprovals': requiredApprovals,
+      'active': active,
+      'approvers': approvers.map((a) => a.toJson()).toList(),
     };
   }
 }
@@ -39,51 +85,74 @@ class ApprovalWorkflow {
   final String approvalType;
   final String name;
   final String description;
+  final double? minAmount;
+  final double? maxAmount;
+  final bool active;
   final List<ApprovalStep> steps;
-  final bool? active;
-  final String? createdAt;
-  final String? createdBy;
-  final String? updatedAt;
-  final String? updatedBy;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   ApprovalWorkflow({
     this.id,
     required this.approvalType,
     required this.name,
     required this.description,
+    this.minAmount,
+    this.maxAmount,
+    this.active = true,
     required this.steps,
-    this.active,
     this.createdAt,
-    this.createdBy,
     this.updatedAt,
-    this.updatedBy,
   });
 
   factory ApprovalWorkflow.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDateTime(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is String) return DateTime.tryParse(raw);
+      if (raw is List) {
+        if (raw.length < 3) return null;
+        try {
+          return DateTime(
+            raw[0] as int,
+            raw[1] as int,
+            raw[2] as int,
+            raw.length > 3 ? raw[3] as int : 0,
+            raw.length > 4 ? raw[4] as int : 0,
+            raw.length > 5 ? raw[5] as int : 0,
+          );
+        } catch (e) {
+          return null;
+        }
+      }
+      return null;
+    }
+
     return ApprovalWorkflow(
-      id: json['id'],
-      approvalType: json['approvalType'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
+      id: json['id']?.toString(),
+      approvalType: json['approvalType']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      minAmount: (json['minAmount'] as num?)?.toDouble(),
+      maxAmount: (json['maxAmount'] as num?)?.toDouble(),
+      active: json['active'] == true,
       steps: (json['steps'] as List? ?? [])
-          .map((step) => ApprovalStep.fromJson(step))
+          .map((step) => ApprovalStep.fromJson(Map<String, dynamic>.from(step)))
           .toList(),
-      active: json['active'],
-      createdAt: json['createdAt'],
-      createdBy: json['createdBy'],
-      updatedAt: json['updatedAt'],
-      updatedBy: json['updatedBy'],
+      createdAt: parseDateTime(json['createdAt']),
+      updatedAt: parseDateTime(json['updatedAt']),
     );
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = {
+    return {
+      if (id != null) 'id': id,
       'approvalType': approvalType,
       'name': name,
       'description': description,
+      if (minAmount != null) 'minAmount': minAmount,
+      if (maxAmount != null) 'maxAmount': maxAmount,
+      'active': active,
       'steps': steps.map((step) => step.toJson()).toList(),
     };
-    if (id != null) data['id'] = id;
-    return data;
   }
 }

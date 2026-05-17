@@ -22,16 +22,42 @@ class ModuleUsage {
   });
 
   factory ModuleUsage.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDateTime(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is String) {
+        if (raw.isEmpty) return null;
+        return DateTime.tryParse(raw);
+      }
+      if (raw is List) {
+        if (raw.length < 3) return null;
+        try {
+          return DateTime(
+            raw[0] as int,
+            raw[1] as int,
+            raw[2] as int,
+            raw.length > 3 ? raw[3] as int : 0,
+            raw.length > 4 ? raw[4] as int : 0,
+            raw.length > 5 ? raw[5] as int : 0,
+          );
+        } catch (e) {
+          return null;
+        }
+      }
+      return null;
+    }
+
     return ModuleUsage(
-      id: json['id'],
-      userId: json['userId'],
-      moduleCode: json['moduleCode'] ?? '',
-      moduleName: json['moduleName'],
-      modulePath: json['modulePath'],
-      workcenterId: json['workcenterId'],
-      usageCount: json['usageCount'],
-      firstUsedAt: json['firstUsedAt'] != null ? DateTime.parse(json['firstUsedAt']) : null,
-      lastUsedAt: json['lastUsedAt'] != null ? DateTime.parse(json['lastUsedAt']) : null,
+      id: json['id']?.toString(),
+      userId: json['userId']?.toString(),
+      moduleCode: json['moduleCode']?.toString() ?? '',
+      moduleName: json['moduleName']?.toString(),
+      modulePath: json['modulePath']?.toString(),
+      workcenterId: json['workcenterId']?.toString(),
+      usageCount: json['usageCount'] is int 
+          ? json['usageCount'] 
+          : int.tryParse(json['usageCount']?.toString() ?? ''),
+      firstUsedAt: parseDateTime(json['firstUsedAt']),
+      lastUsedAt: parseDateTime(json['lastUsedAt']),
     );
   }
 

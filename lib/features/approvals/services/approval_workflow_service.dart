@@ -8,7 +8,7 @@ class ApprovalWorkflowService {
 
   Future<PaginatedResponse<ApprovalWorkflow>> getWorkflows({int page = 0, int size = 20}) async {
     final response = await _apiClient.get(
-      '/v2/approvals/workflows/all',
+      '/v2/approvals/workflows',
       queryParameters: {
         'page': page,
         'size': size,
