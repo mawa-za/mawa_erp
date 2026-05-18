@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../models/payment_request.dart';
 
@@ -20,12 +21,28 @@ class PaymentRequestService {
       
       final response = await _apiClient.get(path);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => PaymentRequestResponse.fromJson(json)).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        List<dynamic> data;
+        
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'] ?? [];
+        } else if (decoded is Map) {
+          // If it's a map but not a standard paginated response, it might be a single item or something else
+          // But based on common patterns in this app, we check for a list.
+          data = [];
+          debugPrint('PaymentRequestService: Unexpected Map response format: $decoded');
+        } else {
+          data = [];
+        }
+        
+        return data.map((json) => PaymentRequestResponse.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load payment requests');
+        throw Exception('Failed to load payment requests: ${response.statusCode}');
       }
     } catch (e) {
+      debugPrint('PaymentRequestService Error: $e');
       rethrow;
     }
   }
