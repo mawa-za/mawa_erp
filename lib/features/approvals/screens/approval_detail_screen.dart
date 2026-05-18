@@ -1,12 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../invoicing/screens/invoice_detail_screen.dart';
-import '../../membership/screens/membership_claim_detail_screen.dart';
-import '../../payments/screens/payment_request_detail_screen.dart';
-import '../../cashup/screens/cashup_detail_screen.dart';
-import '../../leave_requests/screens/leave_request_detail_screen.dart';
-import '../../payroll/screens/payroll_batch_detail_screen.dart';
+import '../../../core/widgets/attachment_section.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 
@@ -57,61 +52,26 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     }
   }
 
-  void _viewOriginalTransaction() {
-    final id = _approval.referenceId;
-    final type = _approval.approvalType.toUpperCase();
-
-    Widget? screen;
-    switch (type) {
-      case 'INVOICE':
-        screen = InvoiceDetailScreen(invoiceId: id);
-        break;
-      case 'CLAIM':
-        screen = MembershipClaimDetailScreen(claimId: id);
-        break;
-      case 'PAYMENT':
-        screen = PayrollBatchDetailScreen(batchId: id);
-        break;
-      case 'PAYMENT_REQUEST':
-        screen = PaymentRequestDetailScreen(paymentId: id);
-        break;
-      case 'CASHUP':
-        screen = CashupDetailScreen(cashupId: id);
-        break;
-      case 'LEAVE':
-        screen = LeaveRequestDetailScreen(requestId: id);
-        break;
-    }
-
-    if (screen != null) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => screen!));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Detail screen for this type is not yet implemented')),
-      );
-    }
-  }
-
   Future<void> _takeAction(String action) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('${action[0]}${action.substring(1).toLowerCase()} Request', 
-            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
-        content: Text('Confirm decision to $action this approval request?'),
+            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+        content: Text('Confirm your decision to $action this approval request?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text('CANCEL', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-              backgroundColor: action == 'APPROVE' ? const Color(0xFF059669) : (action == 'REJECT' ? const Color(0xFFDC2626) : const Color(0xFF475569)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              backgroundColor: action == 'APPROVE' ? const Color(0xFF10B981) : (action == 'REJECT' ? const Color(0xFFEF4444) : const Color(0xFF334155)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text(action),
+            child: Text(action, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -174,20 +134,12 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text('Approval Details', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        title: const Text('Review Workflow', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
-        scrolledUnderElevation: 2,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.open_in_new_rounded, size: 20),
-            onPressed: _viewOriginalTransaction,
-            tooltip: 'View Original Source',
-          ),
-          const SizedBox(width: 8),
-        ],
+        scrolledUnderElevation: 1,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
@@ -202,11 +154,11 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                       children: [
                         _buildHeroHeader(),
                         const SizedBox(height: 16),
-                        _buildMetadataGrid(),
+                        _buildIdentificationSheet(),
                         const SizedBox(height: 16),
-                        if (_approval.payloadJson != null) _buildTransactionSheet(),
+                        _buildAttachmentSection(),
                         const SizedBox(height: 16),
-                        _buildTimelineCard(),
+                        _buildActivityLogSection(),
                         const SizedBox(height: 32),
                         if (_approval.status == 'PENDING' || _approval.status == 'IN_PROGRESS' || _approval.status == 'PENDING_APPROVAL') 
                           _buildActionDecisionCard(),
@@ -226,11 +178,13 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,74 +192,58 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildBadge(_approval.status, statusColor),
+              _buildModernBadge(_approval.status, statusColor),
               Text(
                 _formatFullDate(_approval.createdAt),
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 4,
-                height: 32,
+                height: 40,
                 decoration: BoxDecoration(color: typeColor, borderRadius: BorderRadius.circular(2)),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
-                child: Text(
-                  _approval.title,
-                  style: const TextStyle(
-                    fontSize: 22, 
-                    fontWeight: FontWeight.w800, 
-                    color: Color(0xFF1E293B), 
-                    letterSpacing: -0.5,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _approval.title,
+                      style: const TextStyle(
+                        fontSize: 24, 
+                        fontWeight: FontWeight.w900, 
+                        color: Color(0xFF0F172A), 
+                        letterSpacing: -0.5,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _approval.approvalType.replaceAll('_', ' '),
+                      style: TextStyle(color: typeColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
             _approval.description,
-            style: const TextStyle(color: Color(0xFF475569), fontSize: 15, height: 1.5, fontWeight: FontWeight.w500),
+            style: const TextStyle(color: Color(0xFF475569), fontSize: 16, height: 1.5, fontWeight: FontWeight.w400),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetadataGrid() {
-    return Row(
-      children: [
-        Expanded(child: _buildSmallMetadataBox('REQUESTER', _approval.requesterId, Icons.person_outline)),
-        const SizedBox(width: 12),
-        Expanded(child: _buildSmallMetadataBox('REFERENCE', _approval.referenceNo, Icons.tag_rounded)),
-      ],
-    );
-  }
-
-  Widget _buildSmallMetadataBox(String label, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8), letterSpacing: 1.0)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 28),
           Row(
             children: [
-              Icon(icon, size: 14, color: const Color(0xFF64748B)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF334155)), overflow: TextOverflow.ellipsis)),
+              _buildMiniIndicator(Icons.tag_rounded, _approval.referenceNo),
+              const SizedBox(width: 16),
+              _buildMiniIndicator(Icons.account_tree_outlined, 'Step ${_approval.currentStepNo}'),
             ],
           ),
         ],
@@ -313,86 +251,79 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     );
   }
 
-  Widget _buildTransactionSheet() {
-    Map<String, dynamic> data = {};
-    try {
-      data = jsonDecode(_approval.payloadJson!);
-    } catch (_) {}
-
-    return _buildSectionLayout(
-      title: 'DATA SUMMARY',
-      icon: Icons.list_alt_rounded,
-      child: data.isEmpty
-          ? const Text('No detailed data provided.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13))
-          : Column(
-              children: data.entries.map((e) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          _camelCaseToLabel(e.key).toUpperCase(),
-                          style: const TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 3,
-                        child: Text(
-                          _formatSmartValue(e.key, e.value.toString()),
-                          style: const TextStyle(
-                            color: Color(0xFF0F172A),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+  Widget _buildModernBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1), 
+        borderRadius: BorderRadius.circular(100), 
+        border: Border.all(color: color.withOpacity(0.3), width: 1)
+      ),
+      child: Text(text.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.8)),
     );
   }
 
-  String _formatSmartValue(String key, String value) {
-    final lower = key.toLowerCase();
-    if (lower.contains('cents') || lower.contains('amount') || lower.contains('total') || lower.contains('price')) {
-      double val = double.tryParse(value) ?? 0;
-      if (lower.contains('cents')) val = val / 100;
-      return 'R ${NumberFormat('#,##0.00').format(val)}';
-    }
-    if (lower.contains('date') || lower.contains('at')) {
-      try {
-        final dt = DateTime.parse(value);
-        return DateFormat('MMM d, yyyy').format(dt);
-      } catch (_) {}
-    }
-    return value;
+  Widget _buildMiniIndicator(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF94A3B8)),
+        const SizedBox(width: 6),
+        Text(text, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w700)),
+      ],
+    );
   }
 
-  Widget _buildTimelineCard() {
+  Widget _buildIdentificationSheet() {
     return _buildSectionLayout(
-      title: 'APPROVAL TIMELINE',
+      title: 'IDENTIFICATION',
+      icon: Icons.fingerprint_rounded,
+      child: Column(
+        children: [
+          _buildInfoRow('Reference ID', _approval.referenceId),
+          _buildInfoRow('Requester ID', _approval.requesterId),
+          _buildInfoRow('Workflow Step', 'Step ${_approval.currentStepNo}'),
+          if (_approval.finalActionBy != null)
+            _buildInfoRow('Processed By', _approval.finalActionBy!),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(value, style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentSection() {
+    return _buildSectionLayout(
+      title: 'EVIDENCE & DOCUMENTS',
+      icon: Icons.attach_file_rounded,
+      child: AttachmentSection(objectId: _approval.referenceId),
+    );
+  }
+
+  Widget _buildActivityLogSection() {
+    return _buildSectionLayout(
+      title: 'ACTIVITY LOG',
       icon: Icons.history_rounded,
       child: _isLoadingAudit
           ? const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)))
           : Column(
-              children: _auditTrail.map((action) => _buildTimelineItem(action, action == _auditTrail.last)).toList(),
+              children: _auditTrail.map((action) => _buildTimelineStep(action, action == _auditTrail.last)).toList(),
             ),
     );
   }
 
-  Widget _buildTimelineItem(ApprovalAction action, bool isLast) {
+  Widget _buildTimelineStep(ApprovalAction action, bool isLast) {
     final color = _getActionColor(action.action);
     return IntrinsicHeight(
       child: Row(
@@ -415,13 +346,13 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           const SizedBox(width: 16),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.only(bottom: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text(action.action, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF1E293B))),
+                      Text(action.action, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1E293B))),
                       const Spacer(),
                       Text(_formatShortDate(action.actionAt), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold)),
                     ],
@@ -450,10 +381,10 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
   Widget _buildActionDecisionCard() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(32),
         border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.15)),
         boxShadow: [
           BoxShadow(color: const Color(0xFF4F46E5).withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 8)),
@@ -462,7 +393,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('TAKE DECISION', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF4F46E5), fontSize: 11, letterSpacing: 1.5)),
+          const Text('DECISION HUB', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF4F46E5), fontSize: 11, letterSpacing: 1.5)),
           const SizedBox(height: 16),
           TextField(
             controller: _commentController,
@@ -524,7 +455,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
@@ -533,7 +464,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           Row(
             children: [
               Icon(icon, size: 16, color: const Color(0xFF0F172A)),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A), fontSize: 11, letterSpacing: 1.0)),
             ],
           ),
@@ -542,20 +473,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildBadge(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(100), border: Border.all(color: color.withOpacity(0.3))),
-      child: Text(text.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5)),
-    );
-  }
-
-  String _camelCaseToLabel(String text) {
-    if (text.isEmpty) return text;
-    final result = text.replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(0)}');
-    return result[0].toUpperCase() + result.substring(1);
   }
 
   String _formatShortDate(String dateStr) {
