@@ -2,12 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/widgets/attachment_section.dart';
-import '../../invoicing/screens/invoice_detail_screen.dart';
-import '../../membership/screens/membership_claim_detail_screen.dart';
-import '../../payments/screens/payment_request_detail_screen.dart';
-import '../../cashup/screens/cashup_detail_screen.dart';
-import '../../leave_requests/screens/leave_request_detail_screen.dart';
-import '../../payroll/screens/payroll_batch_detail_screen.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 
@@ -55,41 +49,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         setState(() => _isLoadingAudit = false);
       }
       debugPrint('Error fetching audit trail: $e');
-    }
-  }
-
-  void _viewOriginalTransaction() {
-    final id = _approval.referenceId;
-    final type = _approval.approvalType.toUpperCase();
-
-    Widget? screen;
-    switch (type) {
-      case 'INVOICE':
-        screen = InvoiceDetailScreen(invoiceId: id);
-        break;
-      case 'CLAIM':
-        screen = MembershipClaimDetailScreen(claimId: id);
-        break;
-      case 'PAYMENT':
-        screen = PayrollBatchDetailScreen(batchId: id);
-        break;
-      case 'PAYMENT_REQUEST':
-        screen = PaymentRequestDetailScreen(paymentId: id);
-        break;
-      case 'CASHUP':
-        screen = CashupDetailScreen(cashupId: id);
-        break;
-      case 'LEAVE':
-        screen = LeaveRequestDetailScreen(requestId: id);
-        break;
-    }
-
-    if (screen != null) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => screen!));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Detail screen for this type is not yet implemented')),
-      );
     }
   }
 
@@ -181,14 +140,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
         scrolledUnderElevation: 1,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.open_in_new_rounded, size: 20, color: Color(0xFF64748B)),
-            onPressed: _viewOriginalTransaction,
-            tooltip: 'View Original Source',
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
@@ -204,8 +155,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                         _buildHeroHeader(),
                         const SizedBox(height: 16),
                         _buildIdentificationSheet(),
-                        const SizedBox(height: 16),
-                        if (_approval.payloadJson != null) _buildTransactionDataSection(),
                         const SizedBox(height: 16),
                         _buildAttachmentSection(),
                         const SizedBox(height: 16),
@@ -352,76 +301,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildTransactionDataSection() {
-    Map<String, dynamic> data = {};
-    try {
-      data = jsonDecode(_approval.payloadJson!);
-    } catch (_) {}
-
-    return _buildSectionLayout(
-      title: 'VOUCHER SUMMARY',
-      icon: Icons.assignment_outlined,
-      child: data.isEmpty
-          ? const Text('No detailed data provided.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13))
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: data.entries.map((e) => _buildDetailEntry(e.key, e.value.toString())).toList(),
-            ),
-    );
-  }
-
-  Widget _buildDetailEntry(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _camelCaseToLabel(label).toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _formatSmartValue(label, value),
-            style: const TextStyle(
-              color: Color(0xFF0F172A),
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-        ],
-      ),
-    );
-  }
-
-  String _formatSmartValue(String key, String value) {
-    final lower = key.toLowerCase();
-    if (lower.contains('cents') || lower.contains('amount') || lower.contains('total') || lower.contains('price')) {
-      double val = double.tryParse(value) ?? 0;
-      if (lower.contains('cents')) val = val / 100;
-      return 'R ${NumberFormat('#,##0.00').format(val)}';
-    }
-    if (lower.contains('date') || lower.contains('at')) {
-      try {
-        final dt = DateTime.parse(value);
-        return DateFormat('MMM d, yyyy').format(dt);
-      } catch (_) {}
-    }
-    // Shorten long IDs
-    if (value.length > 20 && value.contains('-')) {
-       return value.split('-').first.toUpperCase();
-    }
-    return value;
   }
 
   Widget _buildAttachmentSection() {
@@ -594,12 +473,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         ],
       ),
     );
-  }
-
-  String _camelCaseToLabel(String text) {
-    if (text.isEmpty) return text;
-    final result = text.replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(0)}');
-    return result[0].toUpperCase() + result.substring(1);
   }
 
   String _formatShortDate(String dateStr) {
