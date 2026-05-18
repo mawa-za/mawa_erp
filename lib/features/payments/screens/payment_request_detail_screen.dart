@@ -321,8 +321,16 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               ],
             ),
             const Divider(),
-            _buildInfoRow('Initiating Party', report.groupHeader['initiatingPartyName'] ?? '', isDark: true),
-            _buildInfoRow('Creation Time', report.groupHeader['creationDateTime'] ?? '', isDark: true),
+            _buildInfoRow('Initiating Party', report.groupHeader?.initiatingPartyName ?? 'N/A', isDark: true),
+            _buildInfoRow('Creation Time', report.groupHeader?.creationDateTime ?? 'N/A', isDark: true),
+            if (isRejected && report.statusReasonInformation.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text('Reasons:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ...report.statusReasonInformation.map((r) => Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text('• ${r.reason}: ${r.additionalInformation ?? ""}', style: const TextStyle(fontSize: 12)),
+              )),
+            ],
           ],
         ),
       ),
