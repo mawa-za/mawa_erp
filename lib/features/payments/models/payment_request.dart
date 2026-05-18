@@ -176,25 +176,153 @@ class PaymentRequestStatusHistoryEntity {
 class BankReport {
   final String instructionId;
   final String groupStatus;
-  final Map<String, dynamic> groupHeader;
-  final Map<String, dynamic> originalGroupHeader;
-  final List<dynamic> statusReasonInformation;
+  final BankGroupHeader? groupHeader;
+  final OriginalGroupHeader? originalGroupHeader;
+  final List<StatusReasonInformation> statusReasonInformation;
+  final List<OriginalPaymentInformation> originalPaymentInformation;
 
   BankReport({
     required this.instructionId,
     required this.groupStatus,
-    required this.groupHeader,
-    required this.originalGroupHeader,
+    this.groupHeader,
+    this.originalGroupHeader,
     required this.statusReasonInformation,
+    required this.originalPaymentInformation,
   });
 
   factory BankReport.fromJson(Map<String, dynamic> json) {
     return BankReport(
       instructionId: (json['instructionId'] ?? '').toString(),
       groupStatus: (json['groupStatus'] ?? '').toString(),
-      groupHeader: Map<String, dynamic>.from(json['groupHeader'] ?? {}),
-      originalGroupHeader: Map<String, dynamic>.from(json['originalGroupHeader'] ?? {}),
-      statusReasonInformation: List<dynamic>.from(json['statusReasonInformation'] ?? []),
+      groupHeader: json['groupHeader'] != null ? BankGroupHeader.fromJson(json['groupHeader']) : null,
+      originalGroupHeader: json['originalGroupHeader'] != null ? OriginalGroupHeader.fromJson(json['originalGroupHeader']) : null,
+      statusReasonInformation: (json['statusReasonInformation'] as List?)
+          ?.map((e) => StatusReasonInformation.fromJson(e))
+          .toList() ?? [],
+      originalPaymentInformation: (json['originalPaymentInformation'] as List?)
+          ?.map((e) => OriginalPaymentInformation.fromJson(e))
+          .toList() ?? [],
+    );
+  }
+}
+
+class BankGroupHeader {
+  final String? messageId;
+  final String? creationDateTime;
+  final String? initiatingPartyName;
+  final String? initiatingPartyBIC;
+  final int? totalNumberOfTransactions;
+  final double? totalControlSum;
+
+  BankGroupHeader({
+    this.messageId,
+    this.creationDateTime,
+    this.initiatingPartyName,
+    this.initiatingPartyBIC,
+    this.totalNumberOfTransactions,
+    this.totalControlSum,
+  });
+
+  factory BankGroupHeader.fromJson(Map<String, dynamic> json) {
+    return BankGroupHeader(
+      messageId: json['messageId']?.toString(),
+      creationDateTime: json['creationDateTime']?.toString(),
+      initiatingPartyName: json['initiatingPartyName']?.toString(),
+      initiatingPartyBIC: json['initiatingPartyBIC']?.toString(),
+      totalNumberOfTransactions: json['totalNumberOfTransactions'] as int?,
+      totalControlSum: (json['totalControlSum'] as num?)?.toDouble(),
+    );
+  }
+}
+
+class OriginalGroupHeader {
+  final String? originalMessageId;
+  final String? originalCreationDateTime;
+  final String? originalInitiatingPartyName;
+  final String? originalInitiatingPartyBIC;
+  final int? originalTotalNumberOfTransactions;
+  final double? originalTotalControlSum;
+
+  OriginalGroupHeader({
+    this.originalMessageId,
+    this.originalCreationDateTime,
+    this.originalInitiatingPartyName,
+    this.originalInitiatingPartyBIC,
+    this.originalTotalNumberOfTransactions,
+    this.originalTotalControlSum,
+  });
+
+  factory OriginalGroupHeader.fromJson(Map<String, dynamic> json) {
+    return OriginalGroupHeader(
+      originalMessageId: json['originalMessageId']?.toString(),
+      originalCreationDateTime: json['originalCreationDateTime']?.toString(),
+      originalInitiatingPartyName: json['originalInitiatingPartyName']?.toString(),
+      originalInitiatingPartyBIC: json['originalInitiatingPartyBIC']?.toString(),
+      originalTotalNumberOfTransactions: json['originalTotalNumberOfTransactions'] as int?,
+      originalTotalControlSum: (json['originalTotalControlSum'] as num?)?.toDouble(),
+    );
+  }
+}
+
+class StatusReasonInformation {
+  final String? reason;
+  final String? additionalInformation;
+
+  StatusReasonInformation({this.reason, this.additionalInformation});
+
+  factory StatusReasonInformation.fromJson(Map<String, dynamic> json) {
+    return StatusReasonInformation(
+      reason: json['reason']?.toString(),
+      additionalInformation: json['additionalInformation']?.toString(),
+    );
+  }
+}
+
+class OriginalPaymentInformation {
+  final String? originalPaymentInformationId;
+  final String? paymentInformationStatus;
+  final List<StatusReasonInformation> statusReasonInformation;
+  final List<TransactionInfoAndStatus> transactionInfoAndStatus;
+
+  OriginalPaymentInformation({
+    this.originalPaymentInformationId,
+    this.paymentInformationStatus,
+    required this.statusReasonInformation,
+    required this.transactionInfoAndStatus,
+  });
+
+  factory OriginalPaymentInformation.fromJson(Map<String, dynamic> json) {
+    return OriginalPaymentInformation(
+      originalPaymentInformationId: json['originalPaymentInformationId']?.toString(),
+      paymentInformationStatus: json['paymentInformationStatus']?.toString(),
+      statusReasonInformation: (json['statusReasonInformation'] as List?)
+          ?.map((e) => StatusReasonInformation.fromJson(e))
+          .toList() ?? [],
+      transactionInfoAndStatus: (json['transactionInfoAndStatus'] as List?)
+          ?.map((e) => TransactionInfoAndStatus.fromJson(e))
+          .toList() ?? [],
+    );
+  }
+}
+
+class TransactionInfoAndStatus {
+  final String? originalEndToEndId;
+  final String? transactionStatus;
+  final List<StatusReasonInformation> statusReasonInformation;
+
+  TransactionInfoAndStatus({
+    this.originalEndToEndId,
+    this.transactionStatus,
+    required this.statusReasonInformation,
+  });
+
+  factory TransactionInfoAndStatus.fromJson(Map<String, dynamic> json) {
+    return TransactionInfoAndStatus(
+      originalEndToEndId: json['originalEndToEndId']?.toString(),
+      transactionStatus: json['transactionStatus']?.toString(),
+      statusReasonInformation: (json['statusReasonInformation'] as List?)
+          ?.map((e) => StatusReasonInformation.fromJson(e))
+          .toList() ?? [],
     );
   }
 }
