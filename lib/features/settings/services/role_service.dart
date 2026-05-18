@@ -31,6 +31,14 @@ class RoleService {
     }
   }
 
+  Future<void> deleteRole(String roleId) async {
+    final response = await _apiClient.delete('/role/$roleId');
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to delete role: ${response.statusCode}');
+    }
+  }
+
   Future<List<Workcenter>> getAllWorkcenters() async {
     final response = await _apiClient.get('/workcenter');
 
