@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../invoicing/screens/invoice_detail_screen.dart';
 import '../../membership/screens/membership_claim_detail_screen.dart';
 import '../../payments/screens/payment_request_detail_screen.dart';
 import '../../cashup/screens/cashup_detail_screen.dart';
+import '../../leave_requests/screens/leave_request_detail_screen.dart';
+import '../../payroll/screens/payroll_batch_detail_screen.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 
@@ -67,11 +70,16 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         screen = MembershipClaimDetailScreen(claimId: id);
         break;
       case 'PAYMENT':
+        screen = PayrollBatchDetailScreen(batchId: id);
+        break;
       case 'PAYMENT_REQUEST':
         screen = PaymentRequestDetailScreen(paymentId: id);
         break;
       case 'CASHUP':
         screen = CashupDetailScreen(cashupId: id);
+        break;
+      case 'LEAVE':
+        screen = LeaveRequestDetailScreen(requestId: id);
         break;
     }
 
@@ -85,6 +93,32 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   }
 
   Future<void> _takeAction(String action) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('${action[0]}${action.substring(1).toLowerCase()} Request', 
+            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+        content: Text('Confirm decision to $action this approval request?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: action == 'APPROVE' ? const Color(0xFF059669) : (action == 'REJECT' ? const Color(0xFFDC2626) : const Color(0xFF475569)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     setState(() => _isLoading = true);
     try {
       Approval updated;
@@ -110,17 +144,26 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           _isLoading = false;
           _commentController.clear();
         });
-        _fetchAuditTrail(); // Refresh audit trail
+        _fetchAuditTrail(); 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action $action performed successfully')),
+          SnackBar(
+            content: Text('Action $action completed successfully'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
-        Navigator.pop(context, true); // Return true to refresh list
+        Navigator.pop(context, true); 
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -128,277 +171,374 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text('Approval Details'),
+        title: const Text('Approval Details', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        centerTitle: true,
         backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        scrolledUnderElevation: 2,
         actions: [
           IconButton(
-            icon: const Icon(Icons.open_in_new_rounded),
+            icon: const Icon(Icons.open_in_new_rounded, size: 20),
             onPressed: _viewOriginalTransaction,
-            tooltip: 'View Original Transaction',
+            tooltip: 'View Original Source',
           ),
           const SizedBox(width: 8),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildHeader(colorScheme),
-                const SizedBox(height: 16),
-                _buildDetailsCard(),
-                const SizedBox(height: 16),
-                _buildAuditTrailCard(),
-                const SizedBox(height: 16),
-                if (_approval.payloadJson != null) _buildPayloadCard(),
-                const SizedBox(height: 24),
-                if (_approval.status == 'PENDING' || _approval.status == 'IN_PROGRESS') 
-                  _buildActionSection(colorScheme),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildHeader(ColorScheme colorScheme) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildBadge(_approval.status, _getStatusColor(_approval.status)),
-                Text(
-                  _approval.createdAt.split('T')[0],
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
+          : CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeroHeader(),
+                        const SizedBox(height: 16),
+                        _buildMetadataGrid(),
+                        const SizedBox(height: 16),
+                        if (_approval.payloadJson != null) _buildTransactionSheet(),
+                        const SizedBox(height: 16),
+                        _buildTimelineCard(),
+                        const SizedBox(height: 32),
+                        if (_approval.status == 'PENDING' || _approval.status == 'IN_PROGRESS' || _approval.status == 'PENDING_APPROVAL') 
+                          _buildActionDecisionCard(),
+                        const SizedBox(height: 48),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              _approval.title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _approval.description,
-              style: TextStyle(color: Colors.grey[700]),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildDetailsCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+  Widget _buildHeroHeader() {
+    final statusColor = _getStatusColor(_approval.status);
+    final typeColor = _getTypeColor(_approval.approvalType);
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('INFORMATION', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
-            const Divider(),
-            _buildDetailRow('Reference No', _approval.referenceNo),
-            _buildDetailRow('Type', _approval.approvalType),
-            _buildDetailRow('Requester ID', _approval.requesterId),
-            _buildDetailRow('Workflow Step', 'Step ${_approval.currentStepNo}'),
-            if (_approval.finalActionBy != null) _buildDetailRow('Processed By', _approval.finalActionBy!),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAuditTrailCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('AUDIT TRAIL', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
-            const Divider(),
-            if (_isLoadingAudit)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              )
-            else if (_auditTrail.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('No history found', style: TextStyle(color: Colors.grey, fontSize: 12)),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _auditTrail.length,
-                separatorBuilder: (context, index) => const Divider(height: 1, indent: 40),
-                itemBuilder: (context, index) {
-                  final action = _auditTrail[index];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: _getActionColor(action.action).withOpacity(0.1),
-                      child: Icon(_getActionIcon(action.action), size: 18, color: _getActionColor(action.action)),
-                    ),
-                    title: Row(
-                      children: [
-                        Text(action.action, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        const Spacer(),
-                        Text(action.actionAt.split('T')[0], style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                      ],
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('By: ${action.actionBy}', style: const TextStyle(fontSize: 12)),
-                        if (action.comments != null && action.comments!.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'Comment: ${action.comments}',
-                              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildBadge(_approval.status, statusColor),
+              Text(
+                _formatFullDate(_approval.createdAt),
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold),
               ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 4,
+                height: 32,
+                decoration: BoxDecoration(color: typeColor, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _approval.title,
+                  style: const TextStyle(
+                    fontSize: 22, 
+                    fontWeight: FontWeight.w800, 
+                    color: Color(0xFF1E293B), 
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _approval.description,
+            style: const TextStyle(color: Color(0xFF475569), fontSize: 15, height: 1.5, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildPayloadCard() {
+  Widget _buildMetadataGrid() {
+    return Row(
+      children: [
+        Expanded(child: _buildSmallMetadataBox('REQUESTER', _approval.requesterId, Icons.person_outline)),
+        const SizedBox(width: 12),
+        Expanded(child: _buildSmallMetadataBox('REFERENCE', _approval.referenceNo, Icons.tag_rounded)),
+      ],
+    );
+  }
+
+  Widget _buildSmallMetadataBox(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8), letterSpacing: 1.0)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(icon, size: 14, color: const Color(0xFF64748B)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF334155)), overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionSheet() {
     Map<String, dynamic> data = {};
     try {
       data = jsonDecode(_approval.payloadJson!);
     } catch (_) {}
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('TRANSACTION DATA', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
-            const Divider(),
-            const SizedBox(height: 8),
-            if (data.isEmpty)
-              Text(_approval.payloadJson ?? '', style: const TextStyle(fontFamily: 'monospace', fontSize: 12))
-            else
-              ...data.entries.map((e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(width: 100, child: Text(e.key, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold))),
-                    Expanded(child: Text(e.value.toString(), style: const TextStyle(fontSize: 11))),
-                  ],
-                ),
-              )),
-          ],
-        ),
-      ),
+    return _buildSectionLayout(
+      title: 'DATA SUMMARY',
+      icon: Icons.list_alt_rounded,
+      child: data.isEmpty
+          ? const Text('No detailed data provided.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13))
+          : Column(
+              children: data.entries.map((e) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          _camelCaseToLabel(e.key).toUpperCase(),
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          _formatSmartValue(e.key, e.value.toString()),
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
     );
   }
 
-  Widget _buildActionSection(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('YOUR ACTION', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _commentController,
-          decoration: const InputDecoration(
-            hintText: 'Add a comment (optional)...',
-            border: OutlineInputBorder(),
-            fillColor: Colors.white,
-            filled: true,
-          ),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => _takeAction('REJECT'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text('REJECT', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
+  String _formatSmartValue(String key, String value) {
+    final lower = key.toLowerCase();
+    if (lower.contains('cents') || lower.contains('amount') || lower.contains('total') || lower.contains('price')) {
+      double val = double.tryParse(value) ?? 0;
+      if (lower.contains('cents')) val = val / 100;
+      return 'R ${NumberFormat('#,##0.00').format(val)}';
+    }
+    if (lower.contains('date') || lower.contains('at')) {
+      try {
+        final dt = DateTime.parse(value);
+        return DateFormat('MMM d, yyyy').format(dt);
+      } catch (_) {}
+    }
+    return value;
+  }
+
+  Widget _buildTimelineCard() {
+    return _buildSectionLayout(
+      title: 'APPROVAL TIMELINE',
+      icon: Icons.history_rounded,
+      child: _isLoadingAudit
+          ? const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)))
+          : Column(
+              children: _auditTrail.map((action) => _buildTimelineItem(action, action == _auditTrail.last)).toList(),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: FilledButton(
-                onPressed: () => _takeAction('APPROVE'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text('APPROVE', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: TextButton(
-            onPressed: () => _takeAction('CANCEL'),
-            style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-            child: const Text('CANCEL REQUEST'),
-          ),
-        ),
-      ],
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+  Widget _buildTimelineItem(ApprovalAction action, bool isLast) {
+    final color = _getActionColor(action.action);
+    return IntrinsicHeight(
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600])),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Column(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.only(top: 6),
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(width: 1, color: const Color(0xFFE2E8F0), margin: const EdgeInsets.symmetric(vertical: 4)),
+                ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(action.action, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF1E293B))),
+                      const Spacer(),
+                      Text(_formatShortDate(action.actionAt), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text('by ${action.actionBy}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500)),
+                  if (action.comments != null && action.comments!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: Text(action.comments!, style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: Color(0xFF334155), height: 1.4)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionDecisionCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF4F46E5).withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('TAKE DECISION', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF4F46E5), fontSize: 11, letterSpacing: 1.5)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _commentController,
+            style: const TextStyle(fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Add an optional comment for the audit log...',
+              hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+              fillColor: const Color(0xFFF8FAFC),
+              filled: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.all(16),
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _takeAction('REJECT'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFEF4444),
+                    side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('REJECT', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => _takeAction('APPROVE'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('APPROVE', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: TextButton(
+              onPressed: () => _takeAction('CANCEL'), 
+              child: const Text('WITHDRAW REQUEST', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold))
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLayout({required String title, required IconData icon, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: const Color(0xFF0F172A)),
+              const SizedBox(width: 8),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A), fontSize: 11, letterSpacing: 1.0)),
+            ],
+          ),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1, color: Color(0xFFF1F5F9))),
+          child,
         ],
       ),
     );
@@ -406,62 +546,77 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
   Widget _buildBadge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(100), border: Border.all(color: color.withOpacity(0.3))),
+      child: Text(text.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5)),
     );
+  }
+
+  String _camelCaseToLabel(String text) {
+    if (text.isEmpty) return text;
+    final result = text.replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(0)}');
+    return result[0].toUpperCase() + result.substring(1);
+  }
+
+  String _formatShortDate(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      return DateFormat('MMM d, HH:mm').format(dt);
+    } catch (_) {
+      return dateStr.split('T')[0];
+    }
+  }
+
+  String _formatFullDate(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      return DateFormat('EEEE, d MMMM yyyy').format(dt);
+    } catch (_) {
+      return dateStr.split('T')[0];
+    }
   }
 
   Color _getStatusColor(String status) {
     switch (status.toUpperCase()) {
-      case 'APPROVED':
-        return Colors.green;
-      case 'REJECTED':
-        return Colors.red;
+      case 'APPROVED': return const Color(0xFF059669);
+      case 'REJECTED': return const Color(0xFFDC2626);
       case 'PENDING':
-      case 'IN_PROGRESS':
-        return Colors.orange;
-      case 'CANCELLED':
-        return Colors.grey;
-      default:
-        return Colors.blue;
+      case 'PENDING_APPROVAL':
+      case 'IN_PROGRESS': return const Color(0xFFD97706);
+      case 'CANCELLED': return const Color(0xFF64748B);
+      default: return const Color(0xFF2563EB);
+    }
+  }
+
+  Color _getTypeColor(String type) {
+    switch (type.toUpperCase()) {
+      case 'INVOICE': return const Color(0xFF0891B2);
+      case 'CLAIM': return const Color(0xFF7C3AED);
+      case 'PAYMENT': return const Color(0xFF2563EB);
+      case 'PAYMENT_REQUEST': return const Color(0xFF4F46E5);
+      case 'CASHUP': return const Color(0xFFEA580C);
+      case 'LEAVE': return const Color(0xFFDB2777);
+      default: return const Color(0xFF475569);
     }
   }
 
   Color _getActionColor(String action) {
     switch (action.toUpperCase()) {
-      case 'APPROVED':
-        return Colors.green;
-      case 'REJECTED':
-        return Colors.red;
-      case 'SUBMITTED':
-        return Colors.blue;
-      case 'CANCELLED':
-        return Colors.grey;
-      default:
-        return Colors.orange;
+      case 'APPROVED': return const Color(0xFF059669);
+      case 'REJECTED': return const Color(0xFFDC2626);
+      case 'SUBMITTED': return const Color(0xFF2563EB);
+      case 'CANCELLED': return const Color(0xFF64748B);
+      default: return const Color(0xFFD97706);
     }
   }
 
   IconData _getActionIcon(String action) {
     switch (action.toUpperCase()) {
-      case 'APPROVED':
-        return Icons.check_circle_outline;
-      case 'REJECTED':
-        return Icons.cancel_outlined;
-      case 'SUBMITTED':
-        return Icons.send_outlined;
-      case 'CANCELLED':
-        return Icons.block_outlined;
-      default:
-        return Icons.comment_outlined;
+      case 'APPROVED': return Icons.check_circle_rounded;
+      case 'REJECTED': return Icons.cancel_rounded;
+      case 'SUBMITTED': return Icons.send_rounded;
+      case 'CANCELLED': return Icons.block_rounded;
+      default: return Icons.comment_rounded;
     }
   }
 }

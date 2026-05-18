@@ -19,6 +19,7 @@ class PaymentRequestDetailScreen extends StatefulWidget {
 
 class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen> {
   final _service = PaymentRequestService();
+  final _approvalService = ApprovalService();
   bool _isLoading = true;
   bool _isActionLoading = false;
   PaymentRequestResponse? _detail;
@@ -68,7 +69,22 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     if (_detail == null) return;
     setState(() => _isActionLoading = true);
     try {
-      await _service.submitPaymentRequest(_detail!.id);
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+
+      final submission = ApprovalSubmission(
+        approvalType: 'PAYMENT_REQUEST',
+        referenceId: _detail!.id,
+        referenceNo: _detail!.requestNo,
+        title: 'Payment Approval: ${_detail!.requestNo}',
+        description: 'Approval requested for payment to ${_detail!.payeeName} for ${_detail!.currency} ${_detail!.amount.toStringAsFixed(2)}',
+        requesterId: userId,
+        payloadJson: jsonEncode(_detail!.toJson()),
+      );
+
+      // We call the unified approval submission endpoint
+      await _approvalService.submitApproval(submission);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted for approval successfully')));
         _fetchData();
@@ -185,7 +201,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               IconButton(onPressed: _isActionLoading ? null : _submitForApproval, icon: const Icon(Icons.send_rounded), tooltip: 'Submit'),
             if (_detail!.status == 'APPROVED')
               IconButton(onPressed: _isActionLoading ? null : _markAsPaid, icon: const Icon(Icons.paid_outlined), tooltip: 'Mark Paid'),
-            if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL')
+            if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL' || _detail!.status == 'PENDING')
               IconButton(onPressed: _isActionLoading ? null : _cancelRequest, icon: const Icon(Icons.cancel_outlined, color: Colors.red), tooltip: 'Cancel'),
           ],
         ],
@@ -418,7 +434,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     switch (status.toUpperCase()) {
       case 'APPROVED': case 'PAID': return Colors.green;
       case 'REJECTED': case 'CANCELLED': return Colors.red;
-      case 'PENDING_APPROVAL': return Colors.orange;
+      case 'PENDING_APPROVAL': case 'PENDING': return Colors.orange;
       case 'DRAFT': return Colors.blue;
       default: return Colors.grey;
     }

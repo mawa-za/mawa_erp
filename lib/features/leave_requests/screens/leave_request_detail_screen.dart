@@ -46,9 +46,19 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
       final request = await _service.getLeaveRequestById(widget.requestId);
       
       final results = await Future.wait([
-        _userService.getUser(request.employeeId).catchError((_) => User(id: request.employeeId, username: 'Unknown')),
+        _userService.getUser(request.employeeId).catchError((_) => User(
+          id: request.employeeId, 
+          username: 'Unknown',
+          type: 'EMPLOYEE',
+          status: 'ACTIVE',
+        )),
         if (request.approverId != null)
-          _userService.getUser(request.approverId!).catchError((_) => User(id: request.approverId!, username: 'Unknown'))
+          _userService.getUser(request.approverId!).catchError((_) => User(
+            id: request.approverId!, 
+            username: 'Unknown',
+            type: 'APPROVER',
+            status: 'ACTIVE',
+          ))
         else
           Future.value(null),
       ]);
