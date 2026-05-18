@@ -69,10 +69,6 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     if (_detail == null) return;
     setState(() => _isActionLoading = true);
     try {
-      // Step 1: Submit the payment request status change
-      await _service.submitPaymentRequest(_detail!.id);
-
-      // Step 2: Create the Approval Request entry
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId') ?? '';
 
@@ -86,6 +82,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         payloadJson: jsonEncode(_detail!.toJson()),
       );
 
+      // We call the unified approval submission endpoint
       await _approvalService.submitApproval(submission);
 
       if (mounted) {
@@ -204,7 +201,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               IconButton(onPressed: _isActionLoading ? null : _submitForApproval, icon: const Icon(Icons.send_rounded), tooltip: 'Submit'),
             if (_detail!.status == 'APPROVED')
               IconButton(onPressed: _isActionLoading ? null : _markAsPaid, icon: const Icon(Icons.paid_outlined), tooltip: 'Mark Paid'),
-            if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL')
+            if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL' || _detail!.status == 'PENDING')
               IconButton(onPressed: _isActionLoading ? null : _cancelRequest, icon: const Icon(Icons.cancel_outlined, color: Colors.red), tooltip: 'Cancel'),
           ],
         ],
@@ -437,7 +434,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     switch (status.toUpperCase()) {
       case 'APPROVED': case 'PAID': return Colors.green;
       case 'REJECTED': case 'CANCELLED': return Colors.red;
-      case 'PENDING_APPROVAL': return Colors.orange;
+      case 'PENDING_APPROVAL': case 'PENDING': return Colors.orange;
       case 'DRAFT': return Colors.blue;
       default: return Colors.grey;
     }

@@ -67,25 +67,55 @@ class Approval {
     this.updatedBy,
   });
 
-  factory Approval.fromJson(Map<String, dynamic> json) => Approval(
-    id: json['id'] ?? '',
-    approvalType: json['approvalType'] ?? '',
-    referenceId: json['referenceId'] ?? '',
-    referenceNo: json['referenceNo'] ?? '',
-    title: json['title'] ?? '',
-    description: json['description'] ?? '',
-    requesterId: json['requesterId'] ?? '',
-    workflowId: json['workflowId'],
-    currentStepNo: json['currentStepNo'] ?? 0,
-    status: json['status'] ?? 'PENDING',
-    payloadJson: json['payloadJson'],
-    finalActionBy: json['finalActionBy'],
-    finalActionAt: json['finalActionAt'],
-    createdAt: json['createdAt'] ?? '',
-    createdBy: json['createdBy'],
-    updatedAt: json['updatedAt'] ?? '',
-    updatedBy: json['updatedBy'],
-  );
+  factory Approval.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    return Approval(
+      id: (json['id'] ?? '').toString(),
+      approvalType: (json['approvalType'] ?? '').toString(),
+      referenceId: (json['referenceId'] ?? '').toString(),
+      referenceNo: (json['referenceNo'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      requesterId: (json['requesterId'] ?? '').toString(),
+      workflowId: json['workflowId']?.toString(),
+      currentStepNo: toInt(json['currentStepNo']),
+      status: (json['status'] ?? 'PENDING').toString(),
+      payloadJson: json['payloadJson']?.toString(),
+      finalActionBy: json['finalActionBy']?.toString(),
+      finalActionAt: json['finalActionAt']?.toString(),
+      createdAt: (json['createdAt'] ?? '').toString(),
+      createdBy: json['createdBy']?.toString(),
+      updatedAt: (json['updatedAt'] ?? '').toString(),
+      updatedBy: json['updatedBy']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'approvalType': approvalType,
+    'referenceId': referenceId,
+    'referenceNo': referenceNo,
+    'title': title,
+    'description': description,
+    'requesterId': requesterId,
+    'workflowId': workflowId,
+    'currentStepNo': currentStepNo,
+    'status': status,
+    'payloadJson': payloadJson,
+    'finalActionBy': finalActionBy,
+    'finalActionAt': finalActionAt,
+    'createdAt': createdAt,
+    'createdBy': createdBy,
+    'updatedAt': updatedAt,
+    'updatedBy': updatedBy,
+  };
 }
 
 class ApprovalAction {
@@ -107,13 +137,23 @@ class ApprovalAction {
     this.comments,
   });
 
-  factory ApprovalAction.fromJson(Map<String, dynamic> json) => ApprovalAction(
-    id: json['id'] ?? '',
-    approvalRequestId: json['approvalRequestId'] ?? '',
-    stepNo: json['stepNo'] ?? 0,
-    action: json['action'] ?? '',
-    actionBy: json['actionBy'] ?? '',
-    actionAt: json['actionAt'] ?? '',
-    comments: json['comments'],
-  );
+  factory ApprovalAction.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    return ApprovalAction(
+      id: (json['id'] ?? '').toString(),
+      approvalRequestId: (json['approvalRequestId'] ?? '').toString(),
+      stepNo: toInt(json['stepNo']),
+      action: (json['action'] ?? '').toString(),
+      actionBy: (json['actionBy'] ?? '').toString(),
+      actionAt: (json['actionAt'] ?? '').toString(),
+      comments: json['comments']?.toString(),
+    );
+  }
 }
