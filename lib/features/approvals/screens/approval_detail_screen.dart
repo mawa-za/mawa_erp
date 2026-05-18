@@ -67,6 +67,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         screen = MembershipClaimDetailScreen(claimId: id);
         break;
       case 'PAYMENT':
+      case 'PAYMENT_REQUEST':
         screen = PaymentRequestDetailScreen(paymentId: id);
         break;
       case 'CASHUP':
@@ -113,6 +114,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Action $action performed successfully')),
         );
+        Navigator.pop(context, true); // Return true to refresh list
       }
     } catch (e) {
       if (mounted) {
@@ -156,7 +158,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                 const SizedBox(height: 16),
                 if (_approval.payloadJson != null) _buildPayloadCard(),
                 const SizedBox(height: 24),
-                if (_approval.status == 'PENDING' || _approval.status == 'IN_PROGRESS') 
+                if (_approval.status == 'PENDING' || _approval.status == 'PENDING_APPROVAL' || _approval.status == 'IN_PROGRESS') 
                   _buildActionSection(colorScheme),
               ],
             ),
@@ -424,6 +426,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       case 'REJECTED':
         return Colors.red;
       case 'PENDING':
+      case 'PENDING_APPROVAL':
       case 'IN_PROGRESS':
         return Colors.orange;
       case 'CANCELLED':
