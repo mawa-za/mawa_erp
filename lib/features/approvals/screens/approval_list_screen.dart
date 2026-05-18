@@ -59,7 +59,7 @@ class _ApprovalListScreenState extends State<ApprovalListScreen> with SingleTick
       body: TabBarView(
         controller: _tabController,
         children: [
-          _ApprovalListView(status: 'PENDING', service: _service),
+          _ApprovalListView(status: 'PENDING_APPROVAL', service: _service),
           _ApprovalListView(status: 'IN_PROGRESS', service: _service),
           _ApprovalListView(status: 'APPROVED', service: _service),
           _ApprovalListView(status: 'REJECTED', service: _service),

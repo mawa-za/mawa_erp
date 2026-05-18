@@ -7,7 +7,7 @@ class ApprovalService {
 
   Future<Approval> submitApproval(ApprovalSubmission submission) async {
     final response = await _apiClient.post(
-      '/v2/approvals/submit',
+      '/v2/approval/submit',
       body: submission.toJson(),
     );
 
@@ -30,7 +30,7 @@ class ApprovalService {
     if (requesterId != null) queryParams['requesterId'] = requesterId;
 
     final response = await _apiClient.get(
-      '/v2/approvals',
+      '/v2/approval',
       queryParameters: queryParams,
     );
 
@@ -43,7 +43,7 @@ class ApprovalService {
   }
 
   Future<Approval> getApprovalById(String id) async {
-    final response = await _apiClient.get('/v2/approvals/$id');
+    final response = await _apiClient.get('/v2/approval/$id');
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -54,7 +54,7 @@ class ApprovalService {
   }
 
   Future<List<ApprovalAction>> getAuditTrail(String approvalRequestId) async {
-    final response = await _apiClient.get('/v2/approvals/$approvalRequestId/audit');
+    final response = await _apiClient.get('/v2/approval/$approvalRequestId/audit');
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
@@ -66,7 +66,7 @@ class ApprovalService {
 
   Future<Approval> approve(String id, {String? comments, String? actionBy}) async {
     final response = await _apiClient.post(
-      '/v2/approvals/$id/approve',
+      '/v2/approval/$id/approve',
       body: {
         'comments': comments,
         'actionBy': actionBy,
@@ -83,7 +83,7 @@ class ApprovalService {
 
   Future<Approval> reject(String id, {String? comments, String? actionBy}) async {
     final response = await _apiClient.post(
-      '/v2/approvals/$id/reject',
+      '/v2/approval/$id/reject',
       body: {
         'comments': comments,
         'actionBy': actionBy,
@@ -100,7 +100,7 @@ class ApprovalService {
 
   Future<Approval> cancel(String id, {String? comments, String? actionBy}) async {
     final response = await _apiClient.post(
-      '/v2/approvals/$id/cancel',
+      '/v2/approval/$id/cancel',
       body: {
         'comments': comments,
         'actionBy': actionBy,
