@@ -19,6 +19,7 @@ class PaymentRequestDetailScreen extends StatefulWidget {
 
 class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen> {
   final _service = PaymentRequestService();
+  final _approvalService = ApprovalService();
   bool _isLoading = true;
   bool _isActionLoading = false;
   PaymentRequestResponse? _detail;
@@ -68,7 +69,25 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     if (_detail == null) return;
     setState(() => _isActionLoading = true);
     try {
+      // Step 1: Submit the payment request status change
       await _service.submitPaymentRequest(_detail!.id);
+
+      // Step 2: Create the Approval Request entry
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+
+      final submission = ApprovalSubmission(
+        approvalType: 'PAYMENT_REQUEST',
+        referenceId: _detail!.id,
+        referenceNo: _detail!.requestNo,
+        title: 'Payment Approval: ${_detail!.requestNo}',
+        description: 'Approval requested for payment to ${_detail!.payeeName} for ${_detail!.currency} ${_detail!.amount.toStringAsFixed(2)}',
+        requesterId: userId,
+        payloadJson: jsonEncode(_detail!.toJson()),
+      );
+
+      await _approvalService.submitApproval(submission);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted for approval successfully')));
         _fetchData();
