@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../models/approval.dart';
 
@@ -29,16 +30,31 @@ class ApprovalService {
     if (approvalType != null) queryParams['approvalType'] = approvalType;
     if (requesterId != null) queryParams['requesterId'] = requesterId;
 
-    final response = await _apiClient.get(
-      '/v2/approval',
-      queryParameters: queryParams,
-    );
+    try {
+      final response = await _apiClient.get(
+        '/v2/approval',
+        queryParameters: queryParams,
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((item) => Approval.fromJson(item)).toList();
-    } else {
-      throw Exception('Failed to load approvals: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        List<dynamic> data;
+        
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded.containsKey('content')) {
+          data = decoded['content'] ?? [];
+        } else {
+          data = [];
+        }
+        
+        return data.map((item) => Approval.fromJson(Map<String, dynamic>.from(item))).toList();
+      } else {
+        throw Exception('Failed to load approvals: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('ApprovalService Error: $e');
+      rethrow;
     }
   }
 
