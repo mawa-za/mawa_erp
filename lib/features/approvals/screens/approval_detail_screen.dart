@@ -158,7 +158,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                 const SizedBox(height: 16),
                 if (_approval.payloadJson != null) _buildPayloadCard(),
                 const SizedBox(height: 24),
-                if (_approval.status == 'PENDING' || _approval.status == 'PENDING_APPROVAL' || _approval.status == 'IN_PROGRESS') 
+                if (_approval.status == 'PENDING' || _approval.status == 'IN_PROGRESS') 
                   _buildActionSection(colorScheme),
               ],
             ),
@@ -426,7 +426,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       case 'REJECTED':
         return Colors.red;
       case 'PENDING':
-      case 'PENDING_APPROVAL':
       case 'IN_PROGRESS':
         return Colors.orange;
       case 'CANCELLED':

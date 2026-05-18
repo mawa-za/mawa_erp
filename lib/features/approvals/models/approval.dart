@@ -38,7 +38,7 @@ class Approval {
   final String requesterId;
   final String? workflowId;
   final int currentStepNo;
-  final String status; // PENDING_APPROVAL, IN_PROGRESS, APPROVED, REJECTED, CANCELLED
+  final String status; // PENDING, IN_PROGRESS, APPROVED, REJECTED, CANCELLED
   final String? payloadJson;
   final String? finalActionBy;
   final String? finalActionAt;
@@ -77,7 +77,7 @@ class Approval {
     requesterId: json['requesterId'] ?? '',
     workflowId: json['workflowId'],
     currentStepNo: json['currentStepNo'] ?? 0,
-    status: json['status'] ?? 'PENDING_APPROVAL',
+    status: json['status'] ?? 'PENDING',
     payloadJson: json['payloadJson'],
     finalActionBy: json['finalActionBy'],
     finalActionAt: json['finalActionAt'],
