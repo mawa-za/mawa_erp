@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
 import '../services/payroll_service.dart';
+import '../../../core/widgets/app_dropdown.dart';
 
 class PayrollBatchCreateScreen extends StatefulWidget {
   const PayrollBatchCreateScreen({super.key});
@@ -41,10 +42,10 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         'amount': TextEditingController(),
         'paymentReference': TextEditingController(),
         'salaryReference': TextEditingController(),
-        'bankName': TextEditingController(),
+        'bankName': null,
         'branchCode': TextEditingController(),
         'accountNo': TextEditingController(),
-        'accountType': 'CURRENT',
+        'accountType': null,
         'accountHolderName': TextEditingController(),
       });
     });
@@ -103,7 +104,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
             'employeeId': partner?.id,
             'employeeNo': partner?.number,
             'employeeName': partner?.fullName,
-            'bankName': (item['bankName'] as TextEditingController).text,
+            'bankName': item['bankName'],
             'branchCode': (item['branchCode'] as TextEditingController).text,
             'accountNo': (item['accountNo'] as TextEditingController).text,
             'accountType': item['accountType'],
@@ -401,10 +402,10 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
                     Expanded(
                       flex: 2,
                       child: _buildInputLabel('Acc Type', 
-                        DropdownButtonFormField<String>(
+                        AppDropdownField(
+                          field: 'BANK-ACCOUNT-TYPE',
+                          label: 'Select Type',
                           value: item['accountType'],
-                          decoration: _inputDecoration(''),
-                          items: ['CURRENT', 'SAVINGS', 'TRANSMISSION'].map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
                           onChanged: (val) => setState(() => item['accountType'] = val),
                         )
                       ),
@@ -416,9 +417,11 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
                   children: [
                     Expanded(
                       child: _buildInputLabel('Bank Name', 
-                        TextFormField(
-                          controller: item['bankName'],
-                          decoration: _inputDecoration('Bank'),
+                        AppDropdownField(
+                          field: 'BANK-NAME',
+                          label: 'Select Bank',
+                          value: item['bankName'],
+                          onChanged: (val) => setState(() => item['bankName'] = val),
                         )
                       ),
                     ),
@@ -559,7 +562,6 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
       (item['amount'] as TextEditingController).dispose();
       (item['paymentReference'] as TextEditingController).dispose();
       (item['salaryReference'] as TextEditingController).dispose();
-      (item['bankName'] as TextEditingController).dispose();
       (item['branchCode'] as TextEditingController).dispose();
       (item['accountNo'] as TextEditingController).dispose();
       (item['accountHolderName'] as TextEditingController).dispose();
