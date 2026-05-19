@@ -31,7 +31,7 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
       final response = await _service.getWorkflows();
       if (mounted) {
         setState(() {
-          _workflows = response.content;
+          _workflows = response;
           _isLoading = false;
         });
       }

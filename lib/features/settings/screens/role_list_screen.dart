@@ -119,6 +119,45 @@ class _RoleListScreenState extends State<RoleListScreen> {
     }
   }
 
+  Future<void> _deleteRole(Role role) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Role'),
+        content: Text('Are you sure you want to delete the role "${role.id}"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _roleService.deleteRole(role.id);
+        _fetchRoles();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Role deleted successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -167,17 +206,27 @@ class _RoleListScreenState extends State<RoleListScreen> {
                             ),
                             title: Text(role.id, style: const TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Text(role.description),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.settings_outlined),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => RoleWorkcenterAssignmentScreen(role: role),
-                                  ),
-                                );
-                              },
-                              tooltip: 'Assign Workcenters',
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.settings_outlined),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => RoleWorkcenterAssignmentScreen(role: role),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Assign Workcenters',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                  onPressed: () => _deleteRole(role),
+                                  tooltip: 'Delete Role',
+                                ),
+                              ],
                             ),
                             onTap: () {
                               Navigator.push(

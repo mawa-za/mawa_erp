@@ -1,132 +1,328 @@
-class PaymentRequestSummary {
+class PaymentRequestResponse {
   final String id;
-  final String recipient;
-  final String paymentReason;
-  final String reference;
+  final String requestNo;
+  final String requestType;
+  final String sourceType;
+  final String? sourceId;
+  final String? payeePartnerId;
+  final String payeeName;
   final double amount;
-  final String dueDate;
+  final String currency;
   final String paymentMethod;
+  final String? bankName;
+  final String? accountHolder;
+  final String? accountNumber;
+  final String? branchCode;
+  final String? accountType;
+  final String? invoiceNo;
+  final String? externalReference;
+  final String? paymentReason;
+  final String? notes;
+  final String? requestedPaymentDate;
   final String status;
-  final String transactionNumber;
-  final String dateCreated;
+  final String? approvalRequestId;
+  final String? paidDate;
+  final String? paidReference;
+  final String? paidBy;
+  final String createdAt;
+  final String createdBy;
+  final String updatedAt;
+  final String? updatedBy;
 
-  PaymentRequestSummary({
+  PaymentRequestResponse({
     required this.id,
-    required this.recipient,
-    required this.paymentReason,
-    required this.reference,
+    required this.requestNo,
+    required this.requestType,
+    required this.sourceType,
+    this.sourceId,
+    this.payeePartnerId,
+    required this.payeeName,
     required this.amount,
-    required this.dueDate,
+    required this.currency,
     required this.paymentMethod,
+    this.bankName,
+    this.accountHolder,
+    this.accountNumber,
+    this.branchCode,
+    this.accountType,
+    this.invoiceNo,
+    this.externalReference,
+    this.paymentReason,
+    this.notes,
+    this.requestedPaymentDate,
     required this.status,
-    required this.transactionNumber,
-    required this.dateCreated,
-  });
-
-  factory PaymentRequestSummary.fromJson(Map<String, dynamic> json) {
-    return PaymentRequestSummary(
-      id: json['id'] ?? '',
-      recipient: json['recipient'] ?? '',
-      paymentReason: json['paymentReason'] ?? '',
-      reference: json['reference'] ?? '',
-      amount: (json['amount'] ?? 0.0).toDouble(),
-      dueDate: json['dueDate'] ?? '',
-      paymentMethod: json['paymentMethod'] ?? '',
-      status: json['status'] ?? '',
-      transactionNumber: json['transactionNumber'] ?? '',
-      dateCreated: json['dateCreated'] ?? '',
-    );
-  }
-}
-
-class PaymentRequestDetail {
-  final String id;
-  final String number;
-  final String reference;
-  final double amount;
-  final String dueDate;
-  final String createdDate;
-  final String instructionId;
-  final String status; // Added status
-  final Map<String, dynamic> paymentReason;
-  final Map<String, dynamic> paymentMethod;
-  final Map<String, dynamic> branch;
-  final Map<String, dynamic> createdBy;
-  final Map<String, dynamic> recipient;
-  final Map<String, dynamic>? employeeResponsible;
-
-  PaymentRequestDetail({
-    required this.id,
-    required this.number,
-    required this.reference,
-    required this.amount,
-    required this.dueDate,
-    required this.createdDate,
-    required this.instructionId,
-    required this.status,
-    required this.paymentReason,
-    required this.paymentMethod,
-    required this.branch,
+    this.approvalRequestId,
+    this.paidDate,
+    this.paidReference,
+    this.paidBy,
+    required this.createdAt,
     required this.createdBy,
-    required this.recipient,
-    this.employeeResponsible,
+    required this.updatedAt,
+    this.updatedBy,
   });
 
-  factory PaymentRequestDetail.fromJson(Map<String, dynamic> json) {
-    return PaymentRequestDetail(
-      id: json['id'] ?? '',
-      number: json['number'] ?? '',
-      reference: json['reference'] ?? '',
+  // Compatibility getters for UI
+  String get recipient => payeeName;
+  String get reference => externalReference ?? '';
+  String get dueDate => requestedPaymentDate ?? '';
+  String get number => requestNo;
+  String get createdDate => createdAt;
+  String get instructionId => requestNo;
+
+  factory PaymentRequestResponse.fromJson(Map<String, dynamic> json) {
+    return PaymentRequestResponse(
+      id: (json['id'] ?? '').toString(),
+      requestNo: (json['requestNo'] ?? '').toString(),
+      requestType: (json['requestType'] ?? '').toString(),
+      sourceType: (json['sourceType'] ?? '').toString(),
+      sourceId: json['sourceId']?.toString(),
+      payeePartnerId: json['payeePartnerId']?.toString(),
+      payeeName: (json['payeeName'] ?? '').toString(),
       amount: (json['amount'] ?? 0.0).toDouble(),
-      dueDate: json['dueDate'] ?? '',
-      createdDate: json['createdDate'] ?? '',
-      instructionId: json['instructionId'] ?? '',
-      status: json['status'] ?? 'NEW',
-      paymentReason: json['paymentReason'] ?? {},
-      paymentMethod: json['paymentMethod'] ?? {},
-      branch: json['branch'] ?? {},
-      createdBy: json['createdBy'] ?? {},
-      recipient: json['recipient'] ?? {},
-      employeeResponsible: json['employeeResponsible'],
+      currency: (json['currency'] ?? 'ZAR').toString(),
+      paymentMethod: (json['paymentMethod'] ?? '').toString(),
+      bankName: json['bankName']?.toString(),
+      accountHolder: json['accountHolder']?.toString(),
+      accountNumber: json['accountNumber']?.toString(),
+      branchCode: json['branchCode']?.toString(),
+      accountType: json['accountType']?.toString(),
+      invoiceNo: json['invoiceNo']?.toString(),
+      externalReference: json['externalReference']?.toString(),
+      paymentReason: json['paymentReason']?.toString(),
+      notes: json['notes']?.toString(),
+      requestedPaymentDate: json['requestedPaymentDate']?.toString(),
+      status: (json['status'] ?? 'DRAFT').toString(),
+      approvalRequestId: json['approvalRequestId']?.toString(),
+      paidDate: json['paidDate']?.toString(),
+      paidReference: json['paidReference']?.toString(),
+      paidBy: json['paidBy']?.toString(),
+      createdAt: (json['createdAt'] ?? '').toString(),
+      createdBy: (json['createdBy'] ?? '').toString(),
+      updatedAt: (json['updatedAt'] ?? '').toString(),
+      updatedBy: json['updatedBy']?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'number': number,
-      'reference': reference,
+      'requestNo': requestNo,
+      'requestType': requestType,
+      'sourceType': sourceType,
+      'sourceId': sourceId,
+      'payeePartnerId': payeePartnerId,
+      'payeeName': payeeName,
       'amount': amount,
-      'dueDate': dueDate,
-      'createdDate': createdDate,
+      'currency': currency,
+      'paymentMethod': paymentMethod,
+      'bankName': bankName,
+      'accountHolder': accountHolder,
+      'accountNumber': accountNumber,
+      'branchCode': branchCode,
+      'accountType': accountType,
+      'invoiceNo': invoiceNo,
+      'externalReference': externalReference,
+      'paymentReason': paymentReason,
+      'notes': notes,
+      'requestedPaymentDate': requestedPaymentDate,
       'status': status,
-      'recipient': recipient,
+      'approvalRequestId': approvalRequestId,
+      'paidDate': paidDate,
+      'paidReference': paidReference,
+      'paidBy': paidBy,
+      'createdAt': createdAt,
+      'createdBy': createdBy,
+      'updatedAt': updatedAt,
+      'updatedBy': updatedBy,
     };
+  }
+}
+
+typedef PaymentRequestSummary = PaymentRequestResponse;
+typedef PaymentRequestDetail = PaymentRequestResponse;
+
+class PaymentRequestStatusHistoryEntity {
+  final String id;
+  final String paymentRequestId;
+  final String oldStatus;
+  final String newStatus;
+  final String? comment;
+  final String changedAt;
+  final String changedBy;
+
+  PaymentRequestStatusHistoryEntity({
+    required this.id,
+    required this.paymentRequestId,
+    required this.oldStatus,
+    required this.newStatus,
+    this.comment,
+    required this.changedAt,
+    required this.changedBy,
+  });
+
+  factory PaymentRequestStatusHistoryEntity.fromJson(Map<String, dynamic> json) {
+    return PaymentRequestStatusHistoryEntity(
+      id: (json['id'] ?? '').toString(),
+      paymentRequestId: (json['paymentRequestId'] ?? '').toString(),
+      oldStatus: (json['oldStatus'] ?? '').toString(),
+      newStatus: (json['newStatus'] ?? '').toString(),
+      comment: json['comment']?.toString(),
+      changedAt: (json['changedAt'] ?? '').toString(),
+      changedBy: (json['changedBy'] ?? '').toString(),
+    );
   }
 }
 
 class BankReport {
   final String instructionId;
   final String groupStatus;
-  final Map<String, dynamic> groupHeader;
-  final Map<String, dynamic> originalGroupHeader;
-  final List<dynamic> statusReasonInformation;
+  final BankGroupHeader? groupHeader;
+  final OriginalGroupHeader? originalGroupHeader;
+  final List<StatusReasonInformation> statusReasonInformation;
+  final List<OriginalPaymentInformation> originalPaymentInformation;
 
   BankReport({
     required this.instructionId,
     required this.groupStatus,
-    required this.groupHeader,
-    required this.originalGroupHeader,
+    this.groupHeader,
+    this.originalGroupHeader,
     required this.statusReasonInformation,
+    required this.originalPaymentInformation,
   });
 
   factory BankReport.fromJson(Map<String, dynamic> json) {
     return BankReport(
-      instructionId: json['instructionId'] ?? '',
-      groupStatus: json['groupStatus'] ?? '',
-      groupHeader: json['groupHeader'] ?? {},
-      originalGroupHeader: json['originalGroupHeader'] ?? {},
-      statusReasonInformation: json['statusReasonInformation'] ?? [],
+      instructionId: (json['instructionId'] ?? '').toString(),
+      groupStatus: (json['groupStatus'] ?? '').toString(),
+      groupHeader: json['groupHeader'] != null ? BankGroupHeader.fromJson(json['groupHeader']) : null,
+      originalGroupHeader: json['originalGroupHeader'] != null ? OriginalGroupHeader.fromJson(json['originalGroupHeader']) : null,
+      statusReasonInformation: (json['statusReasonInformation'] as List?)
+          ?.map((e) => StatusReasonInformation.fromJson(e))
+          .toList() ?? [],
+      originalPaymentInformation: (json['originalPaymentInformation'] as List?)
+          ?.map((e) => OriginalPaymentInformation.fromJson(e))
+          .toList() ?? [],
+    );
+  }
+}
+
+class BankGroupHeader {
+  final String? messageId;
+  final String? creationDateTime;
+  final String? initiatingPartyName;
+  final String? initiatingPartyBIC;
+  final int? totalNumberOfTransactions;
+  final double? totalControlSum;
+
+  BankGroupHeader({
+    this.messageId,
+    this.creationDateTime,
+    this.initiatingPartyName,
+    this.initiatingPartyBIC,
+    this.totalNumberOfTransactions,
+    this.totalControlSum,
+  });
+
+  factory BankGroupHeader.fromJson(Map<String, dynamic> json) {
+    return BankGroupHeader(
+      messageId: json['messageId']?.toString(),
+      creationDateTime: json['creationDateTime']?.toString(),
+      initiatingPartyName: json['initiatingPartyName']?.toString(),
+      initiatingPartyBIC: json['initiatingPartyBIC']?.toString(),
+      totalNumberOfTransactions: json['totalNumberOfTransactions'] as int?,
+      totalControlSum: (json['totalControlSum'] as num?)?.toDouble(),
+    );
+  }
+}
+
+class OriginalGroupHeader {
+  final String? originalMessageId;
+  final String? originalCreationDateTime;
+  final String? originalInitiatingPartyName;
+  final String? originalInitiatingPartyBIC;
+  final int? originalTotalNumberOfTransactions;
+  final double? originalTotalControlSum;
+
+  OriginalGroupHeader({
+    this.originalMessageId,
+    this.originalCreationDateTime,
+    this.originalInitiatingPartyName,
+    this.originalInitiatingPartyBIC,
+    this.originalTotalNumberOfTransactions,
+    this.originalTotalControlSum,
+  });
+
+  factory OriginalGroupHeader.fromJson(Map<String, dynamic> json) {
+    return OriginalGroupHeader(
+      originalMessageId: json['originalMessageId']?.toString(),
+      originalCreationDateTime: json['originalCreationDateTime']?.toString(),
+      originalInitiatingPartyName: json['originalInitiatingPartyName']?.toString(),
+      originalInitiatingPartyBIC: json['originalInitiatingPartyBIC']?.toString(),
+      originalTotalNumberOfTransactions: json['originalTotalNumberOfTransactions'] as int?,
+      originalTotalControlSum: (json['originalTotalControlSum'] as num?)?.toDouble(),
+    );
+  }
+}
+
+class StatusReasonInformation {
+  final String? reason;
+  final String? additionalInformation;
+
+  StatusReasonInformation({this.reason, this.additionalInformation});
+
+  factory StatusReasonInformation.fromJson(Map<String, dynamic> json) {
+    return StatusReasonInformation(
+      reason: json['reason']?.toString(),
+      additionalInformation: json['additionalInformation']?.toString(),
+    );
+  }
+}
+
+class OriginalPaymentInformation {
+  final String? originalPaymentInformationId;
+  final String? paymentInformationStatus;
+  final List<StatusReasonInformation> statusReasonInformation;
+  final List<TransactionInfoAndStatus> transactionInfoAndStatus;
+
+  OriginalPaymentInformation({
+    this.originalPaymentInformationId,
+    this.paymentInformationStatus,
+    required this.statusReasonInformation,
+    required this.transactionInfoAndStatus,
+  });
+
+  factory OriginalPaymentInformation.fromJson(Map<String, dynamic> json) {
+    return OriginalPaymentInformation(
+      originalPaymentInformationId: json['originalPaymentInformationId']?.toString(),
+      paymentInformationStatus: json['paymentInformationStatus']?.toString(),
+      statusReasonInformation: (json['statusReasonInformation'] as List?)
+          ?.map((e) => StatusReasonInformation.fromJson(e))
+          .toList() ?? [],
+      transactionInfoAndStatus: (json['transactionInfoAndStatus'] as List?)
+          ?.map((e) => TransactionInfoAndStatus.fromJson(e))
+          .toList() ?? [],
+    );
+  }
+}
+
+class TransactionInfoAndStatus {
+  final String? originalEndToEndId;
+  final String? transactionStatus;
+  final List<StatusReasonInformation> statusReasonInformation;
+
+  TransactionInfoAndStatus({
+    this.originalEndToEndId,
+    this.transactionStatus,
+    required this.statusReasonInformation,
+  });
+
+  factory TransactionInfoAndStatus.fromJson(Map<String, dynamic> json) {
+    return TransactionInfoAndStatus(
+      originalEndToEndId: json['originalEndToEndId']?.toString(),
+      transactionStatus: json['transactionStatus']?.toString(),
+      statusReasonInformation: (json['statusReasonInformation'] as List?)
+          ?.map((e) => StatusReasonInformation.fromJson(e))
+          .toList() ?? [],
     );
   }
 }

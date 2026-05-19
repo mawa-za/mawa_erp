@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
+import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
+import '../../../core/widgets/app_dropdown.dart';
 
 class PayrollBatchCreateScreen extends StatefulWidget {
-  const PayrollBatchCreateScreen({super.key});
+  final String? batchId;
+  const PayrollBatchCreateScreen({super.key, this.batchId});
 
   @override
   State<PayrollBatchCreateScreen> createState() => _PayrollBatchCreateScreenState();
@@ -24,14 +27,74 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
 
   final List<Map<String, dynamic>> _items = [];
   bool _isSubmitting = false;
+  bool _isLoading = false;
+  int? _expandedIndex;
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _payPeriodController.text = DateFormat('yyyyMM').format(now);
-    _batchNoController.text = 'PAY-${_payPeriodController.text}-001';
-    _descriptionController.text = 'Salary Payment - ${DateFormat('MMMM yyyy').format(now)}';
+    if (widget.batchId != null) {
+      _loadBatchData();
+    } else {
+      final now = DateTime.now();
+      _payPeriodController.text = DateFormat('yyyyMM').format(now);
+      _batchNoController.text = 'PAY-${_payPeriodController.text}-001';
+      _descriptionController.text = 'Salary Payment - ${DateFormat('MMMM yyyy').format(now)}';
+    }
+  }
+
+  Future<void> _loadBatchData() async {
+    setState(() => _isLoading = true);
+    try {
+      final detail = await PayrollService().getPayrollBatch(widget.batchId!);
+      setState(() {
+        _batchNoController.text = detail.batchNo;
+        _descriptionController.text = detail.description;
+        _payPeriodController.text = detail.payPeriod;
+        _notesController.text = detail.notes;
+        try {
+          _paymentDate = DateFormat('yyyy-MM-dd').parse(detail.paymentDate);
+        } catch (_) {
+          _paymentDate = DateTime.now();
+        }
+
+        _items.clear();
+        for (var item in detail.items) {
+          _items.add({
+            'id': item.id,
+            'partner': Partner(
+              id: item.employeeId ?? '',
+              number: item.employeeNo ?? '',
+              type: 'INDIVIDUAL',
+              name1: '',
+              name2: item.employeeName ?? '',
+              name3: '',
+              identityNumber: '',
+              status: 'ACTIVE',
+            ),
+            'amount': TextEditingController(text: item.amount.toStringAsFixed(2)),
+            'paymentReference': TextEditingController(text: item.paymentReference),
+            'salaryReference': TextEditingController(text: item.salaryReference),
+            'bankName': item.bankName,
+            'branchCode': TextEditingController(text: item.branchCode),
+            'accountNo': TextEditingController(text: item.accountNo),
+            'accountType': item.accountType,
+            'accountHolderName': TextEditingController(text: item.accountHolderName),
+          });
+        }
+        if (_items.isNotEmpty) {
+          _expandedIndex = 0;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading batch: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _addItem() {
@@ -41,18 +104,24 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         'amount': TextEditingController(),
         'paymentReference': TextEditingController(),
         'salaryReference': TextEditingController(),
-        'bankName': TextEditingController(),
+        'bankName': null,
         'branchCode': TextEditingController(),
         'accountNo': TextEditingController(),
-        'accountType': 'CURRENT',
+        'accountType': null,
         'accountHolderName': TextEditingController(),
       });
+      _expandedIndex = _items.length - 1;
     });
   }
 
   void _removeItem(int index) {
     setState(() {
       _items.removeAt(index);
+      if (_expandedIndex == index) {
+        _expandedIndex = null;
+      } else if (_expandedIndex != null && _expandedIndex! > index) {
+        _expandedIndex = _expandedIndex! - 1;
+      }
     });
   }
 
@@ -100,10 +169,11 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
           final partner = item['partner'] as Partner?;
           final amountDouble = double.tryParse((item['amount'] as TextEditingController).text) ?? 0.0;
           return {
+            'id': item['id'],
             'employeeId': partner?.id,
             'employeeNo': partner?.number,
             'employeeName': partner?.fullName,
-            'bankName': (item['bankName'] as TextEditingController).text,
+            'bankName': item['bankName'],
             'branchCode': (item['branchCode'] as TextEditingController).text,
             'accountNo': (item['accountNo'] as TextEditingController).text,
             'accountType': item['accountType'],
@@ -115,11 +185,15 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         }).toList(),
       };
 
-      await PayrollService().createPayrollBatch(payload);
+      if (widget.batchId != null) {
+        await PayrollService().updatePayrollBatch(widget.batchId!, payload);
+      } else {
+        await PayrollService().createPayrollBatch(payload);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payroll batch created successfully'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text('Payroll batch ${widget.batchId != null ? 'updated' : 'created'} successfully'), behavior: SnackBarBehavior.floating),
         );
         Navigator.pop(context, true);
       }
@@ -141,54 +215,56 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('New Payroll Run'),
+        title: Text(widget.batchId != null ? 'Edit Payroll Run' : 'New Payroll Run'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
       ),
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            _buildQuickSummary(colorScheme),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildSectionHeader(Icons.info_outline_rounded, 'BATCH DETAILS'),
-                  const SizedBox(height: 12),
-                  _buildBatchHeader(colorScheme),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                _buildQuickSummary(colorScheme),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
                     children: [
-                      _buildSectionHeader(Icons.people_outline_rounded, 'EMPLOYEE PAYMENTS'),
-                      TextButton.icon(
-                        onPressed: _addItem,
-                        icon: const Icon(Icons.person_add_rounded, size: 18),
-                        label: const Text('ADD EMPLOYEE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        style: TextButton.styleFrom(
-                          foregroundColor: colorScheme.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
+                      _buildSectionHeader(Icons.info_outline_rounded, 'BATCH DETAILS'),
+                      const SizedBox(height: 12),
+                      _buildBatchHeader(colorScheme),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildSectionHeader(Icons.people_outline_rounded, 'EMPLOYEE PAYMENTS'),
+                          TextButton.icon(
+                            onPressed: _addItem,
+                            icon: const Icon(Icons.person_add_rounded, size: 18),
+                            label: const Text('ADD EMPLOYEE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            style: TextButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 8),
+                      if (_items.isEmpty)
+                        _buildEmptyState()
+                      else
+                        ...List.generate(_items.length, (index) => _buildItemCard(index, colorScheme)),
+                      const SizedBox(height: 40),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  if (_items.isEmpty)
-                    _buildEmptyState()
-                  else
-                    ...List.generate(_items.length, (index) => _buildItemCard(index, colorScheme)),
-                  const SizedBox(height: 40),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomBar(colorScheme),
+          ),
+      bottomNavigationBar: _isLoading ? null : _buildBottomBar(colorScheme),
     );
   }
 
@@ -338,6 +414,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
   Widget _buildItemCard(int index, ColorScheme colorScheme) {
     final item = _items[index];
     final bool hasEmployee = item['partner'] != null;
+    final bool isExpanded = _expandedIndex == index;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -345,111 +422,139 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-        border: Border.all(color: hasEmployee ? colorScheme.primary.withOpacity(0.1) : Colors.transparent),
+        border: Border.all(color: isExpanded ? colorScheme.primary.withOpacity(0.1) : Colors.transparent),
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: hasEmployee ? colorScheme.primary.withOpacity(0.05) : Colors.grey[50],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: hasEmployee ? colorScheme.primary : Colors.grey[300],
-                  child: Text((index + 1).toString(), style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  hasEmployee ? (item['partner'] as Partner).fullName : 'Select Employee',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: hasEmployee ? Colors.black87 : Colors.grey[500]),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => _removeItem(index),
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildEmployeeSearch(index, colorScheme),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: _buildInputLabel('Amount', 
-                        TextFormField(
-                          controller: item['amount'],
-                          decoration: _inputDecoration('0.00').copyWith(prefixText: 'R '),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          onChanged: (_) => setState(() {}),
-                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                        )
-                      ),
+          InkWell(
+            onTap: () => setState(() => _expandedIndex = isExpanded ? null : index),
+            borderRadius: isExpanded 
+                ? const BorderRadius.vertical(top: Radius.circular(16)) 
+                : BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: hasEmployee ? (isExpanded ? colorScheme.primary.withOpacity(0.05) : Colors.white) : Colors.grey[50],
+                borderRadius: isExpanded 
+                    ? const BorderRadius.vertical(top: Radius.circular(16)) 
+                    : BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: hasEmployee ? colorScheme.primary : Colors.grey[300],
+                    child: Text((index + 1).toString(), style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasEmployee ? (item['partner'] as Partner).fullName : 'Select Employee',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: hasEmployee ? Colors.black87 : Colors.grey[500]),
+                        ),
+                        if (!isExpanded && hasEmployee)
+                          Text(
+                            'Amount: R ${(double.tryParse((item['amount'] as TextEditingController).text) ?? 0.0).toStringAsFixed(2)}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: _buildInputLabel('Acc Type', 
-                        DropdownButtonFormField<String>(
-                          value: item['accountType'],
-                          decoration: _inputDecoration(''),
-                          items: ['CURRENT', 'SAVINGS', 'TRANSMISSION'].map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
-                          onChanged: (val) => setState(() => item['accountType'] = val),
-                        )
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInputLabel('Bank Name', 
-                        TextFormField(
-                          controller: item['bankName'],
-                          decoration: _inputDecoration('Bank'),
-                        )
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildInputLabel('Branch Code', 
-                        TextFormField(
-                          controller: item['branchCode'],
-                          decoration: _inputDecoration('Code'),
-                        )
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildInputLabel('Account Number', 
-                  TextFormField(
-                    controller: item['accountNo'],
-                    decoration: _inputDecoration('Enter account number'),
-                  )
-                ),
-                const SizedBox(height: 12),
-                _buildInputLabel('Payment Reference', 
-                  TextFormField(
-                    controller: item['paymentReference'],
-                    decoration: _inputDecoration('Appears on their statement'),
-                  )
-                ),
-              ],
+                  ),
+                  IconButton(
+                    onPressed: () => _removeItem(index),
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: Colors.grey[400],
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  _buildEmployeeSearch(index, colorScheme),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildInputLabel('Amount', 
+                          TextFormField(
+                            controller: item['amount'],
+                            decoration: _inputDecoration('0.00').copyWith(prefixText: 'R '),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setState(() {}),
+                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                          )
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: _buildInputLabel('Acc Type', 
+                          AppDropdownField(
+                            field: 'BANK-ACCOUNT-TYPE',
+                            label: 'Select Type',
+                            value: item['accountType'],
+                            onChanged: (val) => setState(() => item['accountType'] = val),
+                          )
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildInputLabel('Bank Name', 
+                          AppDropdownField(
+                            field: 'BANK-NAME',
+                            label: 'Select Bank',
+                            value: item['bankName'],
+                            onChanged: (val) => setState(() => item['bankName'] = val),
+                          )
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildInputLabel('Branch Code', 
+                          TextFormField(
+                            controller: item['branchCode'],
+                            decoration: _inputDecoration('Code'),
+                          )
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInputLabel('Account Number', 
+                    TextFormField(
+                      controller: item['accountNo'],
+                      decoration: _inputDecoration('Enter account number'),
+                    )
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInputLabel('Payment Reference', 
+                    TextFormField(
+                      controller: item['paymentReference'],
+                      decoration: _inputDecoration('Appears on their statement'),
+                    )
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -457,6 +562,8 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
 
   Widget _buildEmployeeSearch(int index, ColorScheme colorScheme) {
     final item = _items[index];
+    final controller = TextEditingController(text: item['partner']?.fullName ?? '');
+    
     return SearchAnchor(
       builder: (context, controller) {
         return TextField(
@@ -543,7 +650,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
           ),
           child: _isSubmitting
               ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-              : const Text('CREATE PAYROLL BATCH', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+              : Text(widget.batchId != null ? 'UPDATE PAYROLL BATCH' : 'CREATE PAYROLL BATCH', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
         ),
       ),
     );
@@ -559,7 +666,6 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
       (item['amount'] as TextEditingController).dispose();
       (item['paymentReference'] as TextEditingController).dispose();
       (item['salaryReference'] as TextEditingController).dispose();
-      (item['bankName'] as TextEditingController).dispose();
       (item['branchCode'] as TextEditingController).dispose();
       (item['accountNo'] as TextEditingController).dispose();
       (item['accountHolderName'] as TextEditingController).dispose();

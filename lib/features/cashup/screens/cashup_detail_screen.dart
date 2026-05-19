@@ -1,5 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/api_client.dart';
+import '../../../core/services/user_service.dart';
+import '../../../core/widgets/attachment_section.dart';
+import '../../approvals/models/approval.dart';
+import '../../approvals/services/approval_service.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 
@@ -13,8 +20,13 @@ class CashupDetailScreen extends StatefulWidget {
 
 class _CashupDetailScreenState extends State<CashupDetailScreen> {
   final CashupService _cashupService = CashupService();
+  final UserService _userService = UserService();
+  final ApprovalService _approvalService = ApprovalService();
+  
   Cashup? _cashup;
+  String? _userName;
   bool _isLoading = true;
+  bool _isSubmitting = false;
   String? _error;
 
   @override
@@ -31,8 +43,19 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
     try {
       final cashup = await _cashupService.getCashupById(widget.cashupId);
+      
+      // Fetch user name
+      String? userName;
+      try {
+        final user = await _userService.getUser(cashup.userId);
+        userName = user.displayName ?? user.username;
+      } catch (e) {
+        debugPrint('Error fetching user ${cashup.userId}: $e');
+      }
+
       setState(() {
         _cashup = cashup;
+        _userName = userName;
         _isLoading = false;
       });
     } catch (e) {
@@ -40,6 +63,57 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _submitForApproval() async {
+    if (_cashup == null) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Submit Cashup'),
+        content: const Text('Are you sure you want to submit this cashup for verification?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('SUBMIT')),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+
+      final submission = ApprovalSubmission(
+        approvalType: 'CASHUP',
+        referenceId: _cashup!.id,
+        referenceNo: _cashup!.cashupNo.toString(),
+        title: 'Cashup Verification: #${_cashup!.cashupNo}',
+        description: 'Verification requested for R ${_cashup!.totalAmount.toStringAsFixed(2)} collected on ${_cashup!.cashupDate} by ${_userName ?? _cashup!.userId}',
+        requesterId: userId,
+        payloadJson: jsonEncode(_cashup!.toJson()),
+      );
+
+      await _approvalService.submitApproval(submission);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cashup submitted for approval successfully'), backgroundColor: Colors.green),
+        );
+        _fetchDetails();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -52,6 +126,20 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       appBar: AppBar(
         title: Text(_cashup != null ? 'Cashup #${_cashup!.cashupNo}' : 'Cashup Details'),
         actions: [
+          if (_cashup != null && (_cashup!.status == 'NEW' || _cashup!.status == 'DRAFT'))
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton.icon(
+                onPressed: _isSubmitting ? null : _submitForApproval,
+                icon: _isSubmitting 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send_rounded, size: 18),
+                label: const Text('SUBMIT'),
+                style: TextButton.styleFrom(
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchDetails,
@@ -73,7 +161,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: colorScheme.error.withOpacity(0.5)),
+            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error.withOpacity(0.5)),
             const SizedBox(height: 16),
             const Text('Failed to load cashup details', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -98,6 +186,11 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
           _buildInfoSection(cashup),
           const SizedBox(height: 16),
           _buildPaymentsSection(cashup, colorScheme),
+          const SizedBox(height: 16),
+          AttachmentSection(
+            objectId: widget.cashupId,
+            documentTypeField: 'DOCUMENT-TYPE-CASHUP',
+          ),
           const SizedBox(height: 32),
         ],
       ),
@@ -161,7 +254,11 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
             const SizedBox(height: 8),
             _buildInfoRow(Icons.devices_outlined, 'Device ID', cashup.deviceId),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.person_outline, 'User ID', cashup.userId),
+            _buildInfoRow(Icons.person_outline, 'User', _userName ?? cashup.userId),
+            if (_userName != null) ...[
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.badge_outlined, 'User ID', cashup.userId),
+            ],
             const SizedBox(height: 8),
             _buildInfoRow(Icons.receipt_long_outlined, 'Receipt Count', cashup.receiptCount.toString()),
           ],

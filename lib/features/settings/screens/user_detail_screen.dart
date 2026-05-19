@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
+import '../models/role.dart';
+import '../services/role_service.dart';
 
 class UserDetailScreen extends StatefulWidget {
   final String userId;
@@ -11,19 +13,14 @@ class UserDetailScreen extends StatefulWidget {
 }
 
 class _UserDetailScreenState extends State<UserDetailScreen> {
+  final UserService _userService = UserService();
+  final RoleService _roleService = RoleService();
+  
   bool _isLoading = true;
   User? _user;
   List<Map<String, dynamic>> _assignedRoles = [];
+  List<Role> _availableRoles = [];
   String? _error;
-
-  final List<String> _availableRoles = [
-    'SYSTEM-ADMINISTRATOR',
-    'MEMBERSHIP-MAINTAINER',
-    'INVOICE-CLERK',
-    'PAYMENT-OFFICER',
-    'PARTNER-MANAGER',
-    'REPORT-VIEWER',
-  ];
 
   @override
   void initState() {
@@ -38,16 +35,18 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       _error = null;
     });
     try {
-      // Fetch user and roles in parallel
+      // Fetch user, assigned roles, and all available roles in parallel
       final results = await Future.wait([
-        UserService().getUser(widget.userId),
-        UserService().getUserRoles(widget.userId),
+        _userService.getUser(widget.userId),
+        _userService.getUserRoles(widget.userId),
+        _roleService.getRoles(),
       ]);
 
       if (mounted) {
         setState(() {
           _user = results[0] as User;
           _assignedRoles = List<Map<String, dynamic>>.from(results[1] as List);
+          _availableRoles = results[2] as List<Role>;
           _isLoading = false;
         });
       }
@@ -63,9 +62,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   Future<void> _handleAction(String action) async {
     try {
-      if (action == 'lock') await UserService().lockUser(widget.userId);
-      if (action == 'unlock') await UserService().unlockUser(widget.userId);
-      if (action == 'reset') await UserService().resetUser(widget.userId);
+      if (action == 'lock') await _userService.lockUser(widget.userId);
+      if (action == 'unlock') await _userService.unlockUser(widget.userId);
+      if (action == 'reset') await _userService.resetUser(widget.userId);
       
       _fetchUserDetails();
       if (mounted) {
@@ -93,26 +92,32 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           title: const Text('Manage User Roles'),
           content: SizedBox(
             width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: _availableRoles.map((roleId) {
-                final isSelected = selectedRoleIds.contains(roleId);
-                return CheckboxListTile(
-                  title: Text(roleId.replaceAll('-', ' '), style: const TextStyle(fontSize: 14)),
-                  value: isSelected,
-                  activeColor: colorScheme.primary,
-                  onChanged: (bool? value) {
-                    setDialogState(() {
-                      if (value == true) {
-                        selectedRoleIds.add(roleId);
-                      } else {
-                        selectedRoleIds.remove(roleId);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-            ),
+            child: _availableRoles.isEmpty 
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No roles available to assign.'),
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  children: _availableRoles.map((role) {
+                    final isSelected = selectedRoleIds.contains(role.id);
+                    return CheckboxListTile(
+                      title: Text(role.id.replaceAll('-', ' '), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      subtitle: Text(role.description, style: const TextStyle(fontSize: 12)),
+                      value: isSelected,
+                      activeColor: colorScheme.primary,
+                      onChanged: (bool? value) {
+                        setDialogState(() {
+                          if (value == true) {
+                            selectedRoleIds.add(role.id);
+                          } else {
+                            selectedRoleIds.remove(role.id);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
           ),
           actions: [
             TextButton(
@@ -131,7 +136,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     if (result != null) {
       setState(() => _isLoading = true);
       try {
-        await UserService().updateUserRoles(widget.userId, result);
+        await _userService.updateUserRoles(widget.userId, result);
         _fetchUserDetails();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -161,6 +166,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchUserDetails,
+            tooltip: 'Refresh',
+          ),
           if (_user != null)
             PopupMenuButton<String>(
               onSelected: _handleAction,

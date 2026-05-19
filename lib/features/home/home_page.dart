@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
+import '../../core/models/module_usage.dart';
+import '../../core/services/module_usage_service.dart';
 import '../../main.dart';
 import '../auth/change_password_screen.dart';
 import '../auth/role_selection_screen.dart';
@@ -9,11 +12,12 @@ import '../invoicing/screens/invoice_create_screen.dart';
 import '../invoicing/screens/invoice_list_screen.dart';
 import '../membership/screens/member_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
+import '../membership/screens/membership_claim_list_screen.dart';
+import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
 import '../settings/screens/user_list_screen.dart';
-import '../settings/screens/company_info_screen.dart';
 import '../settings/screens/system_configuration_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
@@ -32,12 +36,18 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
   String? _displayName;
   String? _selectedRole;
+  String _appVersion = '';
   List<Workcenter> _workcenters = [];
   List<Workcenter> _filteredWorkcenters = [];
+  List<ModuleUsage> _recentModules = [];
+  List<ModuleUsage> _frequentModules = [];
   bool _isLoadingWorkcenters = true;
+  bool _isLoadingRecent = true;
+  bool _isLoadingFrequent = true;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   late AnimationController _animationController;
+  final ModuleUsageService _moduleUsageService = ModuleUsageService();
 
   @override
   void initState() {
@@ -47,6 +57,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 800),
     );
     _loadUserInfo();
+    _loadAppVersion();
+    _fetchRecentModules();
+    _fetchFrequentModules();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = 'v${packageInfo.version}+${packageInfo.buildNumber}';
+    });
   }
 
   Future<void> _loadUserInfo() async {
@@ -84,6 +104,36 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+  Future<void> _fetchRecentModules() async {
+    try {
+      final recent = await _moduleUsageService.getRecentlyUsed(limit: 6);
+      if (mounted) {
+        setState(() {
+          _recentModules = recent;
+          _isLoadingRecent = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching recent modules: $e');
+      if (mounted) setState(() => _isLoadingRecent = false);
+    }
+  }
+
+  Future<void> _fetchFrequentModules() async {
+    try {
+      final frequent = await _moduleUsageService.getFrequentlyUsed(limit: 6);
+      if (mounted) {
+        setState(() {
+          _frequentModules = frequent;
+          _isLoadingFrequent = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching frequent modules: $e');
+      if (mounted) setState(() => _isLoadingFrequent = false);
+    }
+  }
+
   void _applySearch(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -105,7 +155,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
     if (userId == null) return;
 
-    final response = await ApiClient().get('/user/$userId/role');
+    final response = await ApiClient().get('/v2/user/$userId/role');
     
     if (response.statusCode == 200) {
       final List<dynamic> roles = jsonDecode(response.body);
@@ -175,10 +225,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
+    if (lowerId == 'employee') return Icons.badge_rounded;
+    if (lowerId == 'supplier') return Icons.local_shipping_rounded;
+    if (lowerId == 'customer') return Icons.person_pin_rounded;
+    if (lowerId == 'client') return Icons.handshake_rounded;
+    if (lowerId == 'member') return Icons.card_membership_rounded;
+    if (lowerId == 'membership-claim') return Icons.request_quote_rounded;
     if (lowerId.contains('membership') || lowerId.contains('member')) return Icons.people_rounded;
     if (lowerId.contains('plan') || lowerId.contains('product')) return Icons.inventory_2_rounded;
     if (lowerId.contains('payroll')) return Icons.payments_rounded;
-    if (lowerId.contains('claim') || lowerId.contains('payment')) return Icons.account_balance_wallet_rounded;
+    if (lowerId.contains('claim')) return Icons.request_quote_rounded;
+    if (lowerId.contains('payment')) return Icons.account_balance_wallet_rounded;
     if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups_rounded;
     if (lowerId.contains('invoic')) return Icons.description_rounded;
     if (lowerId.contains('partner')) return Icons.business_center_rounded;
@@ -194,28 +251,98 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
-    final id = wc.id.toLowerCase();
+    final id = wc.id.toUpperCase();
     final description = wc.description.toLowerCase();
 
-    if (id.contains('invoic') || description.contains('invoic')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
-    } else if (id.contains('plan') || description.contains('plan') || id.contains('product')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
-    } else if (id.contains('membership') || id.contains('member') || description.contains('membership')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
-    } else if (id.contains('payroll') || description.contains('payroll')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen()));
-    } else if (id.contains('claim') || id.contains('payment') || description.contains('payment')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
-    } else if (id.contains('partner') || description.contains('partner')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
-    } else if (id.contains('user') || id.contains('setting') || id.contains('company') || id.contains('workflow') || id.contains('config') || id.contains('role')) {
-      // All configuration consolidated under System Configuration module
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen()));
-    } else if (id.contains('cashup') || description.contains('cashup')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
-    } else if (id.contains('approval')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
+    // Track module usage
+    _moduleUsageService.trackUsage(
+      moduleCode: wc.id,
+      moduleName: wc.description,
+      workcenterId: wc.id,
+    );
+    _fetchRecentModules(); 
+    _fetchFrequentModules();
+
+    // Check for new partner-based modules
+    if (['EMPLOYEE', 'SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => PartnerListScreen(
+          role: id,
+          title: '${id[0]}${id.substring(1).toLowerCase()}s',
+          allowCreate: false,
+        ),
+      )).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+      return;
+    }
+
+    if (id == 'INVOICE-CREATE') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id == 'MEMBERSHIP-CLAIM') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('INVOIC') || description.contains('invoic')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('PAYROLL') || description.contains('payroll')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('CLAIM') || description.contains('claim')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('GROUP') || id.contains('SOCIETY') || description.contains('group') || description.contains('society')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('PAYMENT') || description.contains('payment')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('PARTNER') || description.contains('partner')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('USER') || id.contains('SETTING') || id.contains('COMPANY') || id.contains('WORKFLOW') || id.contains('CONFIG') || id.contains('ROLE')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('CASHUP') || description.contains('cashup')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
+    } else if (id.contains('APPROVAL')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen())).then((_) {
+        _fetchRecentModules();
+        _fetchFrequentModules();
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
@@ -245,8 +372,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildQuickActions(colorScheme),
-                        const SizedBox(height: 32),
+                        if (!_isLoadingRecent && _recentModules.isNotEmpty) ...[
+                          _buildRecentModulesSection(colorScheme),
+                          const SizedBox(height: 32),
+                        ],
+                        if (!_isLoadingFrequent && _frequentModules.isNotEmpty) ...[
+                          _buildFrequentModulesSection(colorScheme),
+                          const SizedBox(height: 32),
+                        ],
                         _buildSearchBar(colorScheme),
                         const SizedBox(height: 32),
                         if (modules.isNotEmpty) ...[
@@ -336,7 +469,30 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         ),
       ),
-      title: const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          if (_appVersion.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                _appVersion,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
       actions: [
         IconButton(
           icon: const Icon(Icons.notifications_outlined), 
@@ -368,9 +524,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         ),
         onSelected: (value) {
-          if (value == 'company_info') {
-            Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: true)));
-          }
           if (value == 'change_role') _changeRole();
           if (value == 'change_password') {
             Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ChangePasswordScreen()));
@@ -389,7 +542,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               ],
             ),
           ),
-          const PopupMenuItem(value: 'company_info', child: ListTile(leading: Icon(Icons.business_outlined), title: Text('Company Profile'), contentPadding: EdgeInsets.zero)),
           const PopupMenuItem(value: 'change_role', child: ListTile(leading: Icon(Icons.switch_account_outlined), title: Text('Switch Role'), contentPadding: EdgeInsets.zero)),
           const PopupMenuItem(value: 'change_password', child: ListTile(leading: Icon(Icons.lock_outline), title: Text('Security'), contentPadding: EdgeInsets.zero)),
           const PopupMenuItem(value: 'logout', child: ListTile(leading: Icon(Icons.logout, color: Colors.red), title: Text('Sign Out', style: TextStyle(color: Colors.red)), contentPadding: EdgeInsets.zero)),
@@ -398,72 +550,153 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildQuickActions(ColorScheme colorScheme) {
+  Widget _buildRecentModulesSection(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('Quick Actions', Icons.bolt_rounded),
+        _buildSectionHeader(
+          'Recently Used', 
+          Icons.history_rounded,
+          onAction: () async {
+            await _moduleUsageService.resetUsage();
+            _fetchRecentModules();
+            _fetchFrequentModules();
+          },
+        ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            _buildQuickActionBtn(
-              colorScheme, 
-              Icons.add_task_rounded, 
-              'New Invoice', 
-              Colors.blue,
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())),
-            ),
-            const SizedBox(width: 12),
-            _buildQuickActionBtn(
-              colorScheme, 
-              Icons.person_add_alt_1_rounded, 
-              'Add Member', 
-              Colors.green,
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())), // Navigate to list, assuming they can add from there
-            ),
-            const SizedBox(width: 12),
-            _buildQuickActionBtn(
-              colorScheme, 
-              Icons.request_quote_rounded, 
-              'Payment', 
-              Colors.orange,
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())),
-            ),
-          ],
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _recentModules.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final usage = _recentModules[index];
+              return InkWell(
+                onTap: () {
+                  final wc = _workcenters.firstWhere(
+                    (w) => w.id == usage.moduleCode,
+                    orElse: () => Workcenter(
+                      id: usage.moduleCode,
+                      description: usage.moduleName ?? 'Unknown',
+                      defaultFunction: '',
+                      path: '',
+                      position: 0,
+                    ),
+                  );
+                  _navigateToWorkcenter(wc);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 100,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getIconData(usage.moduleCode),
+                        color: colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        usage.moduleName ?? 'Module',
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildQuickActionBtn(ColorScheme colorScheme, IconData icon, String label, Color color, VoidCallback onTap) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.2)),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color.withOpacity(0.8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+  Widget _buildFrequentModulesSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Frequently Used', Icons.auto_graph_rounded),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _frequentModules.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final usage = _frequentModules[index];
+              return InkWell(
+                onTap: () {
+                  final wc = _workcenters.firstWhere(
+                    (w) => w.id == usage.moduleCode,
+                    orElse: () => Workcenter(
+                      id: usage.moduleCode,
+                      description: usage.moduleName ?? 'Unknown',
+                      defaultFunction: '',
+                      path: '',
+                      position: 0,
+                    ),
+                  );
+                  _navigateToWorkcenter(wc);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 100,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colorScheme.secondaryContainer.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getIconData(usage.moduleCode),
+                        color: colorScheme.secondary,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        usage.moduleName ?? 'Module',
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+              );
+            },
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -504,27 +737,37 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildSectionHeader(String title, IconData icon, {VoidCallback? onAction}) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            shape: BoxShape.circle,
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title, 
+              style: const TextStyle(
+                fontSize: 18, 
+                fontWeight: FontWeight.bold, 
+                letterSpacing: -0.5,
+                color: Color(0xFF1A1C1E),
+              )
+            ),
+          ],
+        ),
+        if (onAction != null)
+          TextButton(
+            onPressed: onAction,
+            child: const Text('Clear', style: TextStyle(fontSize: 12)),
           ),
-          child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          title, 
-          style: const TextStyle(
-            fontSize: 18, 
-            fontWeight: FontWeight.bold, 
-            letterSpacing: -0.5,
-            color: Color(0xFF1A1C1E),
-          )
-        ),
       ],
     );
   }
@@ -624,11 +867,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           Text(
             '© 2025 Mawa ERP',
             style: TextStyle(color: Colors.grey[400], fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'v1.0.0+1',
-            style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w300),
           ),
         ],
       ),

@@ -19,8 +19,20 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   List<ApprovalStep> _steps = [];
   bool _isSaving = false;
 
-  final List<String> _approvalTypes = ['CLAIM', 'PAYMENT', 'LEAVE'];
-  final List<String> _approverTypes = ['ROLE', 'MANAGER', 'USER'];
+  final List<String> _approvalTypes = [
+    'CLAIM',
+    'PAYMENT',
+    'LEAVE',
+    'CASHUP',
+    'INVOICE',
+    'PURCHASE_ORDER',
+    'JOURNAL',
+    'PAYMENT_REQUEST',
+    'SUPPLIER_INVOICE',
+    'CUSTOMER_REFUND'
+  ];
+  
+  final List<String> _approverTypes = ['USER', 'ROLE', 'GROUP', 'MANAGER'];
 
   @override
   void initState() {
@@ -45,8 +57,12 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
       _steps.add(ApprovalStep(
         stepNo: _steps.length + 1,
         stepName: 'Step ${_steps.length + 1}',
-        approverType: 'ROLE',
-        approverValue: '',
+        approvers: [
+          ApprovalWorkflowStepApprover(
+            approverType: 'ROLE',
+            approverValue: '',
+          )
+        ],
         requiredApprovals: 1,
       ));
     });
@@ -57,12 +73,15 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
       _steps.removeAt(index);
       // Re-index steps
       for (int i = 0; i < _steps.length; i++) {
+        final current = _steps[i];
         _steps[i] = ApprovalStep(
+          id: current.id,
           stepNo: i + 1,
-          stepName: _steps[i].stepName,
-          approverType: _steps[i].approverType,
-          approverValue: _steps[i].approverValue,
-          requiredApprovals: _steps[i].requiredApprovals,
+          stepName: current.stepName,
+          approvalMode: current.approvalMode,
+          active: current.active,
+          approvers: current.approvers,
+          requiredApprovals: current.requiredApprovals,
         );
       }
     });
@@ -199,6 +218,9 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   }
 
   Widget _buildStepCard(int index, ApprovalStep step, ColorScheme colorScheme) {
+    final approverType = step.approvers.isNotEmpty ? step.approvers.first.approverType : 'ROLE';
+    final approverValue = step.approvers.isNotEmpty ? step.approvers.first.approverValue : '';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -222,10 +244,12 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
                     style: const TextStyle(fontWeight: FontWeight.bold),
                     onChanged: (val) {
                       _steps[index] = ApprovalStep(
+                        id: step.id,
                         stepNo: step.stepNo,
                         stepName: val,
-                        approverType: step.approverType,
-                        approverValue: step.approverValue,
+                        approvalMode: step.approvalMode,
+                        active: step.active,
+                        approvers: step.approvers,
                         requiredApprovals: step.requiredApprovals,
                       );
                     },
@@ -243,16 +267,30 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: step.approverType,
+                    value: _approverTypes.contains(approverType) ? approverType : _approverTypes.first,
                     decoration: const InputDecoration(labelText: 'Approver Type', border: OutlineInputBorder(), isDense: true),
                     items: _approverTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                     onChanged: (val) {
                       setState(() {
+                        final approvers = List<ApprovalWorkflowStepApprover>.from(step.approvers);
+                        if (approvers.isEmpty) {
+                          approvers.add(ApprovalWorkflowStepApprover(approverType: val!, approverValue: ''));
+                        } else {
+                          approvers[0] = ApprovalWorkflowStepApprover(
+                            id: approvers[0].id,
+                            approverType: val!,
+                            approverValue: approvers[0].approverValue,
+                            approverName: approvers[0].approverName,
+                            active: approvers[0].active,
+                          );
+                        }
                         _steps[index] = ApprovalStep(
+                          id: step.id,
                           stepNo: step.stepNo,
                           stepName: step.stepName,
-                          approverType: val!,
-                          approverValue: step.approverValue,
+                          approvalMode: step.approvalMode,
+                          active: step.active,
+                          approvers: approvers,
                           requiredApprovals: step.requiredApprovals,
                         );
                       });
@@ -262,14 +300,28 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
-                    initialValue: step.approverValue,
+                    initialValue: approverValue,
                     decoration: const InputDecoration(labelText: 'Approver Value', border: OutlineInputBorder(), isDense: true),
                     onChanged: (val) {
+                      final approvers = List<ApprovalWorkflowStepApprover>.from(step.approvers);
+                      if (approvers.isEmpty) {
+                        approvers.add(ApprovalWorkflowStepApprover(approverType: 'ROLE', approverValue: val));
+                      } else {
+                        approvers[0] = ApprovalWorkflowStepApprover(
+                          id: approvers[0].id,
+                          approverType: approvers[0].approverType,
+                          approverValue: val,
+                          approverName: approvers[0].approverName,
+                          active: approvers[0].active,
+                        );
+                      }
                       _steps[index] = ApprovalStep(
+                        id: step.id,
                         stepNo: step.stepNo,
                         stepName: step.stepName,
-                        approverType: step.approverType,
-                        approverValue: val,
+                        approvalMode: step.approvalMode,
+                        active: step.active,
+                        approvers: approvers,
                         requiredApprovals: step.requiredApprovals,
                       );
                     },
@@ -285,10 +337,12 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
               onChanged: (val) {
                 final intVal = int.tryParse(val) ?? 1;
                 _steps[index] = ApprovalStep(
+                  id: step.id,
                   stepNo: step.stepNo,
                   stepName: step.stepName,
-                  approverType: step.approverType,
-                  approverValue: step.approverValue,
+                  approvalMode: step.approvalMode,
+                  active: step.active,
+                  approvers: step.approvers,
                   requiredApprovals: intVal,
                 );
               },

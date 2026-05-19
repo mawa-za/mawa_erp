@@ -69,10 +69,11 @@ class Partner {
       return obj.toString();
     }
 
+    // Support both PartnerDto (id/number) and PartnerViewEntity/PartnerOutboundDto (partnerId/partnerNo)
     final id = (json['id'] ?? json['partnerId'] ?? '').toString();
     final number = (json['number'] ?? json['partnerNo'] ?? '').toString();
     
-    final type = getStringFromObj(json['type']);
+    final type = getStringFromObj(json['type'] ?? json['partnerType']);
     final status = getStringFromObj(json['status']);
     final title = getStringFromObj(json['title']);
     final gender = getStringFromObj(json['gender']);
@@ -88,64 +89,50 @@ class Partner {
       roles = [json['partnerRole'].toString()];
     }
 
-    String? parseDate(String? rawDate) {
-      if (rawDate == null || rawDate.isEmpty) return null;
-      if (!rawDate.contains(',')) return rawDate;
-      try {
-        // Try short format: Jan 23, 1995
-        return DateFormat("MMM d, yyyy").parse(rawDate.trim()).toIso8601String();
-      } catch (_) {
+    String? parseDate(dynamic rawDate) {
+      if (rawDate == null) return null;
+      if (rawDate is String) {
+        if (rawDate.isEmpty) return null;
+        if (!rawDate.contains(',')) return rawDate;
         try {
-          // Try long format: Sep 5, 2024, 12:00:00 AM
-          return DateFormat("MMM d, yyyy, hh:mm:ss a").parse(rawDate.trim()).toIso8601String();
+          return DateFormat("MMM d, yyyy").parse(rawDate.trim()).toIso8601String();
         } catch (_) {
-          return rawDate;
+          try {
+            return DateFormat("MMM d, yyyy, hh:mm:ss a").parse(rawDate.trim()).toIso8601String();
+          } catch (_) {
+            return rawDate;
+          }
         }
       }
-    }
-
-    // Name handling with more fallbacks
-    String n1 = (json['name1'] ?? json['lastName'] ?? json['last_name'] ?? '').toString().trim();
-    String n2 = (json['name2'] ?? json['firstName'] ?? json['first_name'] ?? '').toString().trim();
-
-    if (n1.isEmpty && n2.isEmpty) {
-      final fullNameVal = (json['fullName'] ?? json['full_name'] ?? json['name'] ?? '').toString();
-      if (fullNameVal.isNotEmpty) {
-        final parts = fullNameVal.split(' ');
-        if (parts.length > 1) {
-          n2 = parts.sublist(0, parts.length - 1).join(' ');
-          n1 = parts.last;
-        } else {
-          n2 = fullNameVal;
-        }
+      // Handle array format [yyyy, mm, dd]
+      if (rawDate is List && rawDate.length >= 3) {
+        return DateTime(rawDate[0], rawDate[1], rawDate[2]).toIso8601String();
       }
+      return rawDate.toString();
     }
 
     return Partner(
       id: id,
       number: number,
       type: type.isEmpty ? 'INDIVIDUAL' : type,
-      name1: n1,
-      name2: n2,
-      name3: (json['name3'] ?? json['middleName'] ?? json['middle_name'] ?? '').toString().trim(),
+      name1: (json['name1'] ?? json['lastName'] ?? '').toString().trim(),
+      name2: (json['name2'] ?? json['firstName'] ?? '').toString().trim(),
+      name3: (json['name3'] ?? json['middleName'] ?? '').toString().trim(),
       name4: json['name4']?.toString(),
       identityNumber: (identityObj?['number'] ??
                         json['identityNumber'] ??
-                        json['identityNo'] ??
-                        json['idNumber'] ??
-                        json['idNo'] ??
                         '').toString(),
       idType: getStringFromObj(identityObj?['type'], key: 'description') != ''
                 ? getStringFromObj(identityObj?['type'], key: 'description')
-                : (json['identityType'] ?? json['idType'] ?? 'ID').toString(),
+                : (json['identityType'] ?? 'ID').toString(),
       status: status.isEmpty ? 'ACTIVE' : status,
       title: title,
-      birthDate: parseDate(json['birthDate']?.toString()),
+      birthDate: parseDate(json['birthDate']),
       gender: gender,
       maritalStatus: maritalStatus,
       language: language,
       email: (json['email'] ?? '').toString(),
-      phone: (json['phone'] ?? json['cellphone'] ?? json['cell_phone'] ?? '').toString(),
+      phone: (json['phone'] ?? json['contactNumber'] ?? json['cellphone'] ?? '').toString(),
       addresses: (json['addresses'] as List? ?? [])
           .map((a) => PartnerAddress.fromJson(Map<String, dynamic>.from(a)))
           .toList(),
@@ -279,6 +266,7 @@ class PartnerContact {
   final String? partner;
   final String type; 
   final String value;
+  final String? description;
   final String? validFrom;
   final String? validTo;
 
@@ -286,6 +274,7 @@ class PartnerContact {
     this.partner,
     required this.type,
     required this.value,
+    this.description,
     this.validFrom,
     this.validTo,
   });
@@ -295,6 +284,7 @@ class PartnerContact {
       partner: json['partner']?.toString(),
       type: (json['type'] ?? '').toString(),
       value: (json['value'] ?? '').toString(),
+      description: json['description']?.toString(),
       validFrom: json['validFrom']?.toString(),
       validTo: json['validTo']?.toString(),
     );
@@ -304,6 +294,42 @@ class PartnerContact {
     return {
       if (partner != null) 'partner': partner,
       'type': type,
+      'value': value,
+      if (validFrom != null) 'validFrom': validFrom,
+      if (validTo != null) 'validTo': validTo,
+    };
+  }
+}
+
+class PartnerAttribute {
+  final String? partner;
+  final String attribute;
+  final String value;
+  final String? validFrom;
+  final String? validTo;
+
+  PartnerAttribute({
+    this.partner,
+    required this.attribute,
+    required this.value,
+    this.validFrom,
+    this.validTo,
+  });
+
+  factory PartnerAttribute.fromJson(Map<String, dynamic> json) {
+    return PartnerAttribute(
+      partner: json['partner']?.toString(),
+      attribute: (json['attribute'] ?? '').toString(),
+      value: (json['value'] ?? '').toString(),
+      validFrom: json['validFrom']?.toString(),
+      validTo: json['validTo']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (partner != null) 'partner': partner,
+      'attribute': attribute,
       'value': value,
       if (validFrom != null) 'validFrom': validFrom,
       if (validTo != null) 'validTo': validTo,

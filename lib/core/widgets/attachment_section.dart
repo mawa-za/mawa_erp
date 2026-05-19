@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:printing/printing.dart';
 import '../api_client.dart';
 import '../models/attachment.dart';
 import '../models/field_option.dart';
@@ -13,7 +15,15 @@ import '../services/field_service.dart';
 
 class AttachmentSection extends StatefulWidget {
   final String objectId;
-  const AttachmentSection({super.key, required this.objectId});
+  final bool readOnly;
+  final String documentTypeField;
+  
+  const AttachmentSection({
+    super.key, 
+    required this.objectId,
+    this.readOnly = false,
+    this.documentTypeField = 'DOCUMENT-TYPE',
+  });
 
   @override
   State<AttachmentSection> createState() => _AttachmentSectionState();
@@ -78,7 +88,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
 
   Future<void> _uploadAttachment() async {
     try {
-      final List<FieldOption> docTypes = await FieldService().getOptionsByField('DOCUMENT-TYPE');
+      final List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
       
       if (!mounted) return;
 
@@ -117,8 +127,8 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                   DropdownButtonFormField<FieldOption>(
                     decoration: InputDecoration(
                       hintText: 'Select category',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       filled: true,
                       fillColor: Colors.grey.shade50,
@@ -241,9 +251,9 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         
         final payload = {
           'objectId': widget.objectId,
-          'documentType': selectedDocType!.toJson(),
+          'documentType': selectedDocType!.code,
           'extension': extension,
-          'content': base64Content,
+          'file': base64Content,
         };
 
         final response = await ApiClient().post('/v2/attachment', body: payload);
@@ -286,6 +296,110 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     }
   }
 
+  void _showImagePreview(Uint8List bytes, Attachment att, String base64String) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black87,
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
+                  child: Text(att.description, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.download, color: Colors.white),
+                      onPressed: () => _downloadOrOpenFile(bytes, att, base64String),
+                      tooltip: 'Download',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Flexible(
+              child: InteractiveViewer(
+                child: Image.memory(bytes, fit: BoxFit.contain),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPdfPreview(Uint8List bytes, Attachment att) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text(att.description),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 1,
+          ),
+          body: PdfPreview(
+            build: (format) async => bytes,
+            allowPrinting: true,
+            allowSharing: true,
+            canChangeOrientation: false,
+            canChangePageFormat: false,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadOrOpenFile(Uint8List bytes, Attachment att, String base64String) async {
+    try {
+      if (kIsWeb) {
+        final mimeType = _getMimeType(att.extension);
+        final url = 'data:$mimeType;base64,$base64String';
+        if (await canLaunchUrl(Uri.parse(url))) {
+          await launchUrl(Uri.parse(url), webOnlyWindowName: '_blank');
+        } else {
+          throw 'Could not launch $url';
+        }
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/${att.id}.${att.extension}');
+        await file.writeAsBytes(bytes);
+        final result = await OpenFilex.open(file.path);
+        
+        if (result.type != ResultType.done && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open file: ${result.message}'),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error downloading attachment: $e'),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _viewAttachment(Attachment attachment) async {
     showDialog(
       context: context,
@@ -314,21 +428,17 @@ class _AttachmentSectionState extends State<AttachmentSection> {
       if (response.statusCode == 200) {
         final base64String = response.body.replaceAll('"', '');
         final bytes = base64Decode(base64String);
+        final ext = attachment.extension.toLowerCase();
 
-        if (kIsWeb) {
-          final mimeType = _getMimeType(attachment.extension);
-          final url = 'data:$mimeType;base64,$base64String';
-          if (await canLaunchUrl(Uri.parse(url))) {
-            await launchUrl(Uri.parse(url), webOnlyWindowName: '_blank');
-          } else {
-            throw 'Could not launch $url';
-          }
+        if (['jpg', 'jpeg', 'png'].contains(ext)) {
+          _showImagePreview(bytes, attachment, base64String);
+        } else if (ext == 'pdf') {
+          _showPdfPreview(bytes, attachment);
         } else {
-          final tempDir = await getTemporaryDirectory();
-          final file = File('${tempDir.path}/${attachment.id}.${attachment.extension}');
-          await file.writeAsBytes(bytes);
-          await OpenFilex.open(file.path);
+          _downloadOrOpenFile(bytes, attachment, base64String);
         }
+      } else {
+        throw Exception('Failed to fetch document: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
@@ -376,18 +486,19 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                 ),
               ],
             ),
-            if (_isUploading)
-              const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            else
-              TextButton.icon(
-                onPressed: _uploadAttachment,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.blue.shade700,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+            if (!widget.readOnly)
+              if (_isUploading)
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                TextButton.icon(
+                  onPressed: _uploadAttachment,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
                 ),
-              ),
           ],
         ),
         const SizedBox(height: 12),
