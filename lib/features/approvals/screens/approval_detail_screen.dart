@@ -1,7 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/models/user.dart';
+import '../../../core/services/user_service.dart';
 import '../../../core/widgets/attachment_section.dart';
+import '../../invoicing/screens/invoice_detail_screen.dart';
+import '../../membership/screens/membership_claim_detail_screen.dart';
+import '../../payments/screens/payment_request_detail_screen.dart';
+import '../../cashup/screens/cashup_detail_screen.dart';
+import '../../leave_requests/screens/leave_request_detail_screen.dart';
+import '../../payroll/screens/payroll_batch_detail_screen.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 
@@ -16,16 +24,19 @@ class ApprovalDetailScreen extends StatefulWidget {
 
 class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   final ApprovalService _service = ApprovalService();
+  final UserService _userService = UserService();
   late Approval _approval;
   List<ApprovalAction> _auditTrail = [];
   bool _isLoading = false;
   bool _isLoadingAudit = true;
   final _commentController = TextEditingController();
+  final Map<String, String> _userNameCache = {};
 
   @override
   void initState() {
     super.initState();
     _approval = widget.approval;
+    _resolveInitialNames();
     _fetchAuditTrail();
   }
 
@@ -33,6 +44,38 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   void dispose() {
     _commentController.dispose();
     super.dispose();
+  }
+
+  void _resolveInitialNames() {
+    _resolveUserName(_approval.requesterId);
+    if (_approval.finalActionBy != null) {
+      _resolveUserName(_approval.finalActionBy!);
+    }
+  }
+
+  Future<void> _resolveUserName(String userId) async {
+    if (userId.isEmpty || _userNameCache.containsKey(userId)) return;
+    try {
+      final user = await _userService.getUser(userId);
+      if (mounted) {
+        setState(() {
+          _userNameCache[userId] = user.displayName ?? user.username;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error resolving user $userId: $e');
+    }
+  }
+
+  String _getDisplayName(String id) {
+    if (_userNameCache.containsKey(id)) {
+      return _userNameCache[id]!;
+    }
+    // If it's a UUID, show a shortened version while loading
+    if (id.length > 20 && id.contains('-')) {
+      return 'ID: ${id.split('-').first}...';
+    }
+    return id;
   }
 
   Future<void> _fetchAuditTrail() async {
@@ -43,12 +86,50 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           _auditTrail = audit;
           _isLoadingAudit = false;
         });
+        for (var action in audit) {
+          _resolveUserName(action.actionBy);
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingAudit = false);
       }
       debugPrint('Error fetching audit trail: $e');
+    }
+  }
+
+  void _viewOriginalTransaction() {
+    final id = _approval.referenceId;
+    final type = _approval.approvalType.toUpperCase();
+
+    Widget? screen;
+    switch (type) {
+      case 'INVOICE':
+        screen = InvoiceDetailScreen(invoiceId: id);
+        break;
+      case 'CLAIM':
+        screen = MembershipClaimDetailScreen(claimId: id);
+        break;
+      case 'PAYMENT':
+        screen = PayrollBatchDetailScreen(batchId: id);
+        break;
+      case 'PAYMENT_REQUEST':
+        screen = PaymentRequestDetailScreen(paymentId: id);
+        break;
+      case 'CASHUP':
+        screen = CashupDetailScreen(cashupId: id);
+        break;
+      case 'LEAVE':
+        screen = LeaveRequestDetailScreen(requestId: id);
+        break;
+    }
+
+    if (screen != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => screen!));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Detail screen for this type is not yet implemented')),
+      );
     }
   }
 
@@ -104,6 +185,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           _isLoading = false;
           _commentController.clear();
         });
+        _resolveInitialNames();
         _fetchAuditTrail(); 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -140,6 +222,14 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
         scrolledUnderElevation: 1,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new_rounded, size: 20, color: Color(0xFF64748B)),
+            onPressed: _viewOriginalTransaction,
+            tooltip: 'View Original Source',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
@@ -280,11 +370,26 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       icon: Icons.fingerprint_rounded,
       child: Column(
         children: [
-          _buildInfoRow('Reference ID', _approval.referenceId),
-          _buildInfoRow('Requester ID', _approval.requesterId),
+          _buildInfoRow('Reference', '${_approval.referenceNo} (${_approval.referenceId})'),
+          _buildInfoRow('Requester', _getDisplayName(_approval.requesterId)),
           _buildInfoRow('Workflow Step', 'Step ${_approval.currentStepNo}'),
           if (_approval.finalActionBy != null)
-            _buildInfoRow('Processed By', _approval.finalActionBy!),
+            _buildInfoRow('Processed By', _getDisplayName(_approval.finalActionBy!)),
+          const Divider(height: 24, color: Color(0xFFF1F5F9)),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _viewOriginalTransaction,
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: const Text('VIEW SOURCE TRANSACTION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF4F46E5),
+                side: const BorderSide(color: Color(0xFF4F46E5)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -307,7 +412,10 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     return _buildSectionLayout(
       title: 'EVIDENCE & DOCUMENTS',
       icon: Icons.attach_file_rounded,
-      child: AttachmentSection(objectId: _approval.referenceId),
+      child: AttachmentSection(
+        objectId: _approval.referenceId,
+        readOnly: true,
+      ),
     );
   }
 
@@ -358,7 +466,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text('by ${action.actionBy}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text('by ${_getDisplayName(action.actionBy)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500)),
                   if (action.comments != null && action.comments!.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(top: 10),

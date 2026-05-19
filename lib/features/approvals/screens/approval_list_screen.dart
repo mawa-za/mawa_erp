@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/user_service.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 import 'approval_detail_screen.dart';
@@ -84,6 +85,8 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
   bool _isLoading = true;
   List<Approval> _approvals = [];
   String? _error;
+  final UserService _userService = UserService();
+  final Map<String, String> _userNameCache = {};
 
   @override
   void initState() {
@@ -103,6 +106,7 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
           _approvals = results;
           _isLoading = false;
         });
+        _resolveUserNames();
       }
     } catch (e) {
       if (mounted) {
@@ -112,6 +116,36 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
         });
       }
     }
+  }
+
+  void _resolveUserNames() {
+    for (var approval in _approvals) {
+      _resolveUserName(approval.requesterId);
+    }
+  }
+
+  Future<void> _resolveUserName(String userId) async {
+    if (userId.isEmpty || _userNameCache.containsKey(userId)) return;
+    try {
+      final user = await _userService.getUser(userId);
+      if (mounted) {
+        setState(() {
+          _userNameCache[userId] = user.displayName ?? user.username;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error resolving user $userId: $e');
+    }
+  }
+
+  String _getDisplayName(String id) {
+    if (_userNameCache.containsKey(id)) {
+      return _userNameCache[id]!;
+    }
+    if (id.length > 8 && id.contains('-')) {
+      return id.split('-').first;
+    }
+    return id;
   }
 
   @override
@@ -157,6 +191,9 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
                       _buildBadge(approval.approvalType, _getTypeColor(approval.approvalType)),
                       const SizedBox(width: 8),
                       Text(approval.referenceNo, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      const Spacer(),
+                      Text('by ${_getDisplayName(approval.requesterId)}', 
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[500])),
                     ],
                   ),
                 ],
