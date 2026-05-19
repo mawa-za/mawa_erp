@@ -1,16 +1,71 @@
-# mawa_erp
+# Mawa ERP
 
-Mawa ERP
+Mawa ERP is a comprehensive Enterprise Resource Planning (ERP) application built with Flutter. It provides a suite of tools for managing various business operations, including invoicing, payroll, memberships, and more.
+
+## Project Structure
+
+The project follows a feature-first architecture, organizing code by functional modules.
+
+- `lib/core/`: Contains shared components used across multiple features.
+    - `api_client.dart`: Centralized API communication.
+    - `models/`: Common data models.
+    - `services/`: Shared business logic services.
+    - `widgets/`: Reusable UI components (e.g., `app_dropdown.dart`, `partner_search_dropdown.dart`).
+    - `config.dart`: App-wide configuration.
+- `lib/features/`: Contains individual functional modules.
+    - `auth`: Authentication flows (Login, Password Reset).
+    - `home`: Main dashboard and navigation.
+    - `invoicing`: Invoice creation, management, and PDF previews.
+    - `payroll`: Payroll processing and management.
+    - `membership`: Membership tracking and details.
+    - `partners`: Management of business partners (customers/vendors).
+    - `payments`: Payment processing and history.
+    - `leave_requests`: Employee leave management.
+    - `approvals`: Workflow approval systems.
+    - `cashup`: Cash management operations.
+    - `setup`: Initial application configuration (Tenant and API Host settings).
+    - `settings`: Application-wide settings.
+
+## Key Features
+
+- **Multi-Tenant Support:** Configurable tenant settings during initial setup.
+- **Authentication:** Secure login and session management.
+- **Deep Linking:** Supports deep links for specific actions like password resets, membership details, and invoice previews.
+- **Invoicing:** Create and preview invoices with PDF support.
+- **Module-Based Design:** Easily extensible for new business features.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+### Prerequisites
 
-A few resources to get you started if this is your first Flutter project:
+- Flutter SDK (latest stable version recommended)
+- Android Studio / VS Code with Flutter extension
+- Access to the Mawa ERP backend API
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Installation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1.  Clone the repository:
+    ```bash
+    git clone <repository-url>
+    ```
+2.  Install dependencies:
+    ```bash
+    flutter pub get
+    ```
+3.  Run the application:
+    ```bash
+    flutter run
+    ```
+
+## Configuration
+
+On first launch (mobile), the app will prompt for:
+- **Tenant ID**: Your organization's unique identifier.
+- **API Host**: The base URL of the backend services.
+
+On Web, these configurations are typically pre-set or handled differently.
+
+## Development
+
+- **State Management:** The app uses standard Flutter state management (StatefulWidgets) and some Stream-based updates (e.g., `ApiClient` logout stream).
+- **Styling:** Uses Material 3 design principles with a custom color scheme.
