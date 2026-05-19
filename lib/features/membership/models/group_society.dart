@@ -44,9 +44,9 @@ class GroupSociety {
       return 0;
     }
 
-    String parseDate(dynamic date) {
-      if (date == null) return '';
-      if (date is String) return date;
+    String? parseDate(dynamic date) {
+      if (date == null) return null;
+      if (date is String) return date.isEmpty ? null : date;
       if (date is List && date.length >= 3) {
         try {
           final year = date[0].toString();
@@ -76,9 +76,9 @@ class GroupSociety {
       totalClaimedCents: toInt(json['totalClaimedCents']),
       lastPaymentDate: parseDate(json['lastPaymentDate']),
       lastClaimDate: parseDate(json['lastClaimDate']),
-      createdAt: parseDate(json['createdAt']),
+      createdAt: parseDate(json['createdAt']) ?? '',
       createdBy: (json['createdBy'] ?? '').toString(),
-      updatedAt: parseDate(json['updatedAt']),
+      updatedAt: parseDate(json['updatedAt']) ?? '',
       updatedBy: json['updatedBy']?.toString(),
     );
   }

@@ -42,27 +42,43 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     });
 
     try {
-      final results = await Future.wait([
-        _membershipService.getGroupSocietyById(widget.societyId),
-        _membershipService.getGroupSocietyContacts(widget.societyId),
-        _membershipService.getGroupSocietyStatement(widget.societyId),
-      ]);
+      // 1. Fetch core society details first
+      final society = await _membershipService.getGroupSocietyById(widget.societyId);
+      
+      // 2. Try to fetch secondary details in parallel but don't let them crash the whole screen
+      List<GroupSocietyContact> contacts = [];
+      List<GroupSocietyPayment> payments = [];
 
-      final society = results[0] as GroupSociety;
+      try {
+        final results = await Future.wait([
+          _membershipService.getGroupSocietyContacts(widget.societyId),
+          _membershipService.getGroupSocietyStatement(widget.societyId),
+        ]);
+        contacts = results[0] as List<GroupSocietyContact>;
+        payments = results[1] as List<GroupSocietyPayment>;
+      } catch (e) {
+        debugPrint('Error fetching secondary society details: $e');
+        // We continue with empty lists if these fail
+      }
+
       if (mounted) {
         setState(() {
           _society = society;
-          _contacts = results[1] as List<GroupSocietyContact>;
-          _payments = results[2] as List<GroupSocietyPayment>;
+          _contacts = contacts;
+          _payments = payments;
           _isLoading = false;
         });
 
-        // Lazy load partner
+        // Lazy load partner info
         _partnerService.getPartnerById(society.partnerId).then((p) {
           if (mounted) setState(() => _partner = p);
-        }).catchError((_) => null);
+        }).catchError((e) {
+          debugPrint('Error loading partner for society: $e');
+          return null;
+        });
       }
     } catch (e) {
+      debugPrint('Error loading group society details: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -171,16 +187,25 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             FilledButton(
               onPressed: () async {
+                final amountText = amountController.text.trim();
+                if (amountText.isEmpty) return;
+                final amount = double.tryParse(amountText);
+                if (amount == null) return;
+
                 final payload = {
-                  "amountCents": (double.tryParse(amountController.text)! * 100).toInt(),
+                  "amountCents": (amount * 100).toInt(),
                   "paymentDate": DateFormat('yyyy-MM-dd').format(selectedDate),
                   "paymentMethod": selectedMethod,
                   "period": periodController.text.trim(),
                   "referenceNo": refController.text.trim(),
                   "notes": notesController.text.trim()
                 };
-                await _membershipService.addGroupSocietyPayment(widget.societyId, payload);
-                if (context.mounted) Navigator.pop(context, true);
+                try {
+                  await _membershipService.addGroupSocietyPayment(widget.societyId, payload);
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
               },
               child: const Text('RECORD'),
             ),
@@ -224,14 +249,23 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             FilledButton(
               onPressed: () async {
+                final amountText = amountController.text.trim();
+                if (amountText.isEmpty) return;
+                final amount = double.tryParse(amountText);
+                if (amount == null) return;
+
                 final payload = {
-                  "amountCents": (double.tryParse(amountController.text)! * 100).toInt(),
+                  "amountCents": (amount * 100).toInt(),
                   "claimDate": DateFormat('yyyy-MM-dd').format(claimDate),
                   "claimNo": claimNoController.text.trim(),
                   "notes": notesController.text.trim()
                 };
-                await _membershipService.debitGroupSocietyClaim(widget.societyId, payload);
-                if (context.mounted) Navigator.pop(context, true);
+                try {
+                  await _membershipService.debitGroupSocietyClaim(widget.societyId, payload);
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (e) {
+                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
               },
               child: const Text('DEBIT'),
             ),
@@ -268,14 +302,23 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             FilledButton(
               onPressed: () async {
+                final amountText = amountController.text.trim();
+                if (amountText.isEmpty) return;
+                final amount = double.tryParse(amountText);
+                if (amount == null) return;
+
                 final payload = {
-                  "amountCents": (double.tryParse(amountController.text)! * 100).toInt(),
+                  "amountCents": (amount * 100).toInt(),
                   "adjustmentDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
                   "direction": direction,
                   "referenceNo": refController.text.trim(),
                 };
-                await _membershipService.adjustGroupSocietyBalance(widget.societyId, payload);
-                if (context.mounted) Navigator.pop(context, true);
+                try {
+                  await _membershipService.adjustGroupSocietyBalance(widget.societyId, payload);
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
               },
               child: const Text('APPLY'),
             ),
@@ -333,7 +376,11 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
       ),
       body: _isLoading ? const Center(child: CircularProgressIndicator()) : _error != null ? _buildErrorWidget() : TabBarView(
         controller: _tabController,
-        children: [ _buildOverviewTab(colorScheme), _buildContactsTab(colorScheme), _buildHistoryTab(colorScheme) ],
+        children: [ 
+          _society != null ? _buildOverviewTab(colorScheme) : const Center(child: Text('No data available')), 
+          _buildContactsTab(colorScheme), 
+          _buildHistoryTab(colorScheme) 
+        ],
       ),
       floatingActionButton: _buildMultiActionFAB(colorScheme),
     );
@@ -361,12 +408,13 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
   }
 
   Widget _buildOverviewTab(ColorScheme colorScheme) {
+    final s = _society!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(children: [
-        _buildStatusBanner(_society!),
+        _buildStatusBanner(s),
         const SizedBox(height: 20),
-        _buildFinancialGrid(_society!),
+        _buildFinancialGrid(s),
         const SizedBox(height: 24),
         _buildSectionHeader(Icons.business_outlined, 'Linked Partner'),
         const SizedBox(height: 12),
@@ -374,7 +422,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
         const SizedBox(height: 24),
         _buildSectionHeader(Icons.info_outline, 'Activity Context'),
         const SizedBox(height: 12),
-        _buildInfoCard(_society!),
+        _buildInfoCard(s),
       ]),
     );
   }
@@ -413,7 +461,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
               Padding(padding: const EdgeInsets.all(16), child: Column(children: [
                 _buildInfoRow('Reference', p.referenceNo ?? 'N/A'),
                 _buildInfoRow('Balance After', 'R ${p.balanceAfter.toStringAsFixed(2)}'),
-                if (p.notes != null) Text(p.notes!, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                if (p.notes != null && p.notes!.isNotEmpty) Text(p.notes!, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
               ])),
             ],
           ),
@@ -446,7 +494,17 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     final groupNoController = TextEditingController(text: _society!.groupNo);
     final balanceController = TextEditingController(text: _society!.availableBalance.toStringAsFixed(2));
     String selectedType = _society!.societyType; String selectedStatus = _society!.status;
-    final result = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text('Edit Society'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextFormField(controller: groupNoController, decoration: const InputDecoration(labelText: 'Group Number')), DropdownButtonFormField<String>(value: selectedType, items: ['GROUP', 'SOCIETY', 'BURIAL'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(), onChanged: (v) => setDialogState(() => selectedType = v!)), DropdownButtonFormField<String>(value: selectedStatus, items: ['ACTIVE', 'INACTIVE', 'DORMANT'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(), onChanged: (v) => setDialogState(() => selectedStatus = v!))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')), FilledButton(onPressed: () async { final payload = {"partnerId": _society!.partnerId, "groupNo": groupNoController.text, "societyType": selectedType, "status": selectedStatus, "openingBalanceCents": (double.tryParse(balanceController.text)! * 100).toInt() }; await _membershipService.postGroupSocietyUpdate(widget.societyId, payload); if (context.mounted) Navigator.pop(context, true); }, child: const Text('SAVE'))])));
+    final result = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text('Edit Society'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextFormField(controller: groupNoController, decoration: const InputDecoration(labelText: 'Group Number')), DropdownButtonFormField<String>(value: selectedType, items: ['GROUP', 'SOCIETY', 'BURIAL'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(), onChanged: (v) => setDialogState(() => selectedType = v!)), DropdownButtonFormField<String>(value: selectedStatus, items: ['ACTIVE', 'INACTIVE', 'DORMANT'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(), onChanged: (v) => setDialogState(() => selectedStatus = v!))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')), FilledButton(onPressed: () async { 
+      final amountText = balanceController.text.trim();
+      final amount = double.tryParse(amountText) ?? 0;
+      final payload = {"partnerId": _society!.partnerId, "groupNo": groupNoController.text, "societyType": selectedType, "status": selectedStatus, "openingBalanceCents": (amount * 100).toInt() }; 
+      try {
+        await _membershipService.postGroupSocietyUpdate(widget.societyId, payload); 
+        if (context.mounted) Navigator.pop(context, true); 
+      } catch (e) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }, child: const Text('SAVE'))])));
     if (result == true) _fetchDetails();
   }
 

@@ -42,36 +42,53 @@ class GroupSocietyPayment {
   double get balanceAfter => balanceAfterCents / 100.0;
 
   factory GroupSocietyPayment.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     String parseDate(dynamic date) {
       if (date == null) return '';
       if (date is String) return date;
       if (date is List && date.length >= 3) {
-        final year = date[0];
-        final month = date[1].toString().padLeft(2, '0');
-        final day = date[2].toString().padLeft(2, '0');
-        return '$year-$month-$day';
+        try {
+          final year = date[0].toString();
+          final month = date[1].toString().padLeft(2, '0');
+          final day = date[2].toString().padLeft(2, '0');
+          if (date.length >= 5) {
+            final hour = date[3].toString().padLeft(2, '0');
+            final minute = date[4].toString().padLeft(2, '0');
+            return '$year-$month-$day $hour:$minute';
+          }
+          return '$year-$month-$day';
+        } catch (e) {
+          return date.toString();
+        }
       }
       return date.toString();
     }
 
     return GroupSocietyPayment(
-      id: json['id'] ?? '',
-      groupSocietyId: json['groupSocietyId'] ?? '',
-      txnType: json['txnType'] ?? '',
-      direction: json['direction'] ?? '',
-      amountCents: json['amountCents'] ?? 0,
-      balanceBeforeCents: json['balanceBeforeCents'] ?? 0,
-      balanceAfterCents: json['balanceAfterCents'] ?? 0,
+      id: (json['id'] ?? '').toString(),
+      groupSocietyId: (json['groupSocietyId'] ?? '').toString(),
+      txnType: (json['txnType'] ?? '').toString(),
+      direction: (json['direction'] ?? '').toString(),
+      amountCents: toInt(json['amountCents']),
+      balanceBeforeCents: toInt(json['balanceBeforeCents']),
+      balanceAfterCents: toInt(json['balanceAfterCents']),
       txnDate: parseDate(json['txnDate']),
-      txnDatetime: json['txnDatetime'] ?? '',
-      referenceType: json['referenceType'],
-      referenceId: json['referenceId'],
-      referenceNo: json['referenceNo'],
-      paymentMethod: json['paymentMethod'],
-      period: json['period'],
-      notes: json['notes'],
-      createdAt: json['createdAt'] ?? '',
-      createdBy: json['createdBy'] ?? '',
+      txnDatetime: parseDate(json['txnDatetime']),
+      referenceType: json['referenceType']?.toString(),
+      referenceId: json['referenceId']?.toString(),
+      referenceNo: json['referenceNo']?.toString(),
+      paymentMethod: json['paymentMethod']?.toString(),
+      period: json['period']?.toString(),
+      notes: json['notes']?.toString(),
+      createdAt: parseDate(json['createdAt']),
+      createdBy: (json['createdBy'] ?? '').toString(),
     );
   }
 }
