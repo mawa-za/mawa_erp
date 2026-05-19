@@ -9,9 +9,12 @@ class PayrollService {
 
   final ApiClient _apiClient = ApiClient();
 
-  Future<List<PayrollBatchSummary>> getPayrollBatches() async {
+  Future<List<PayrollBatchSummary>> getPayrollBatches({String? payPeriod}) async {
     try {
-      final response = await _apiClient.get('/v2/payroll-payment-batch');
+      final response = await _apiClient.get(
+        '/v2/payroll-payment-batch',
+        queryParameters: payPeriod != null ? {'payPeriod': payPeriod} : null,
+      );
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => PayrollBatchSummary.fromJson(json)).toList();

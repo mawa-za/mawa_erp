@@ -16,10 +16,12 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   bool _isLoading = true;
   List<PayrollBatchSummary> _batches = [];
   String? _error;
+  late String _selectedPayPeriod;
 
   @override
   void initState() {
     super.initState();
+    _selectedPayPeriod = DateFormat('yyyyMM').format(DateTime.now());
     _fetchBatches();
   }
 
@@ -30,7 +32,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
     });
 
     try {
-      final batches = await PayrollService().getPayrollBatches();
+      final batches = await PayrollService().getPayrollBatches(payPeriod: _selectedPayPeriod);
       setState(() {
         _batches = batches;
         _isLoading = false;
@@ -40,6 +42,30 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         _error = 'Failed to load payroll batches: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _selectPayPeriod() async {
+    final now = DateTime.now();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(
+        int.parse(_selectedPayPeriod.substring(0, 4)),
+        int.parse(_selectedPayPeriod.substring(4)),
+      ),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 1),
+      helpText: 'Select Pay Period Month',
+    );
+
+    if (picked != null) {
+      final newPeriod = DateFormat('yyyyMM').format(picked);
+      if (newPeriod != _selectedPayPeriod) {
+        setState(() {
+          _selectedPayPeriod = newPeriod;
+        });
+        _fetchBatches();
+      }
     }
   }
 
@@ -198,6 +224,11 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         surfaceTintColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.calendar_month_rounded),
+            onPressed: _selectPayPeriod,
+            tooltip: 'Select Period',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _fetchBatches,
             tooltip: 'Refresh',
@@ -205,7 +236,12 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          _buildPeriodIndicator(colorScheme),
+          Expanded(child: _buildBody()),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.push(
@@ -217,6 +253,42 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         label: const Text('New Payroll Run'),
         icon: const Icon(Icons.add_rounded),
         elevation: 4,
+      ),
+    );
+  }
+
+  Widget _buildPeriodIndicator(ColorScheme colorScheme) {
+    String formattedDate = '';
+    try {
+      final year = int.parse(_selectedPayPeriod.substring(0, 4));
+      final month = int.parse(_selectedPayPeriod.substring(4));
+      formattedDate = DateFormat('MMMM yyyy').format(DateTime(year, month));
+    } catch (e) {
+      formattedDate = _selectedPayPeriod;
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.access_time_rounded, size: 16, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            'Showing batches for: ',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          Text(
+            formattedDate,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: colorScheme.primary),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: _selectPayPeriod,
+            child: const Text('Change', style: TextStyle(fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
@@ -233,7 +305,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
           children: [
             Icon(Icons.error_outline_rounded, size: 48, color: Colors.red[300]),
             const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(onPressed: _fetchBatches, child: const Text('Retry')),
           ],
@@ -252,7 +324,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
               style: TextStyle(fontSize: 16, color: Colors.grey[600], fontWeight: FontWeight.w500)
             ),
             const SizedBox(height: 8),
-            Text('Start by creating a new payroll run',
+            Text('For period $_selectedPayPeriod',
               style: TextStyle(fontSize: 13, color: Colors.grey[400])
             ),
           ],
@@ -417,6 +489,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
     Color color;
     switch (status.toUpperCase()) {
       case 'PROCESSED':
+      case 'PAID':
         color = Colors.green;
         break;
       case 'FAILED':
@@ -424,6 +497,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         break;
       case 'AWAITING-APPROVAL':
       case 'NEW':
+      case 'DRAFT':
         color = Colors.orange;
         break;
       default:
