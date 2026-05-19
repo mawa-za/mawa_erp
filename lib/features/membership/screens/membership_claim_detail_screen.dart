@@ -152,7 +152,13 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         controller: _tabController,
         children: [
           _buildDetailsTab(colorScheme),
-          SingleChildScrollView(padding: const EdgeInsets.all(16), child: AttachmentSection(objectId: widget.claimId)),
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16), 
+            child: AttachmentSection(
+              objectId: widget.claimId,
+              documentTypeField: 'DOCUMENT-TYPE-CLAIM',
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: _buildBottomActions(colorScheme),
