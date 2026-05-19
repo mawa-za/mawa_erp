@@ -9,9 +9,12 @@ class PayrollService {
 
   final ApiClient _apiClient = ApiClient();
 
-  Future<List<PayrollBatchSummary>> getPayrollBatches() async {
+  Future<List<PayrollBatchSummary>> getPayrollBatches({String? payPeriod}) async {
     try {
-      final response = await _apiClient.get('/v2/payroll-payment-batch');
+      final response = await _apiClient.get(
+        '/v2/payroll-payment-batch',
+        queryParameters: payPeriod != null ? {'payPeriod': payPeriod} : null,
+      );
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => PayrollBatchSummary.fromJson(json)).toList();
@@ -44,6 +47,20 @@ class PayrollService {
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Failed to create payroll batch: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updatePayrollBatch(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.put(
+        '/v2/payroll-payment-batch/$id',
+        body: data,
+      );
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Failed to update payroll batch: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

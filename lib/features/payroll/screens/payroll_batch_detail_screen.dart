@@ -5,6 +5,7 @@ import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
+import 'payroll_batch_create_screen.dart';
 
 class PayrollBatchDetailScreen extends StatefulWidget {
   final String batchId;
@@ -98,7 +99,20 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         actions: [
-          if (_batch != null && (_batch!.status == 'NEW' || _batch!.status == 'DRAFT'))
+          if (_batch != null && (_batch!.status == 'NEW' || _batch!.status == 'DRAFT')) ...[
+            TextButton.icon(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PayrollBatchCreateScreen(batchId: _batch!.id),
+                  ),
+                );
+                if (result == true) _fetchDetail();
+              },
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: const Text('EDIT'),
+            ),
             TextButton.icon(
               onPressed: _isSubmitting ? null : _submitForApproval,
               icon: _isSubmitting 
@@ -106,6 +120,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
                 : const Icon(Icons.send_rounded, size: 18),
               label: const Text('SUBMIT'),
             ),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _fetchDetail,
@@ -249,7 +264,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
     switch (status.toUpperCase()) {
       case 'PROCESSED': case 'APPROVED': color = Colors.green; break;
       case 'REJECTED': case 'FAILED': color = Colors.red; break;
-      case 'PENDING': case 'NEW': color = Colors.orange; break;
+      case 'PENDING': case 'NEW': case 'DRAFT': color = Colors.orange; break;
       default: color = Colors.blue;
     }
 
