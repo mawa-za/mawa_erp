@@ -116,7 +116,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
         "claimantPartnerId": _selectedClaimant!.id,
         "claimAmountCents": amountCents,
         "notes": _notesController.text.trim(),
-        "submit": true,
+        "submit": false,
         "linkedClaimIds": []
       };
 
@@ -124,7 +124,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Claim submitted successfully'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Claim created successfully'), backgroundColor: Colors.green),
         );
         Navigator.pop(context, true);
       }
@@ -181,7 +181,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
                       ),
                       child: _isSubmitting 
                           ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('SUBMIT MEMBERSHIP CLAIM', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          : const Text('CREATE MEMBERSHIP CLAIM', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                     ),
                   ),
                   const SizedBox(height: 40),
