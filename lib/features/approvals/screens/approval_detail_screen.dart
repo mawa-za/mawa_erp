@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/widgets/attachment_section.dart';
@@ -162,18 +163,21 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId');
+      
       Approval updated;
       final comment = _commentController.text.trim();
       
       switch (action.toUpperCase()) {
         case 'APPROVE':
-          updated = await _service.approve(_approval.id, comments: comment);
+          updated = await _service.approve(_approval.id, comments: comment, actionBy: userId);
           break;
         case 'REJECT':
-          updated = await _service.reject(_approval.id, comments: comment);
+          updated = await _service.reject(_approval.id, comments: comment, actionBy: userId);
           break;
         case 'CANCEL':
-          updated = await _service.cancel(_approval.id, comments: comment);
+          updated = await _service.cancel(_approval.id, comments: comment, actionBy: userId);
           break;
         default:
           throw Exception('Unknown action: $action');
