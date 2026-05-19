@@ -275,7 +275,10 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           _buildHistoryCard(),
           
           const SizedBox(height: 24),
-          AttachmentSection(objectId: widget.paymentId),
+          AttachmentSection(
+            objectId: widget.paymentId,
+            documentTypeField: 'DOCUMENT-TYPE-PAYMENT-REQUEST',
+          ),
           const SizedBox(height: 40),
         ],
       ),
