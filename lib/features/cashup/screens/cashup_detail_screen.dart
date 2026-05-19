@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../../../core/services/user_service.dart';
+import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../models/cashup.dart';
@@ -185,6 +186,11 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
           _buildInfoSection(cashup),
           const SizedBox(height: 16),
           _buildPaymentsSection(cashup, colorScheme),
+          const SizedBox(height: 16),
+          AttachmentSection(
+            objectId: widget.cashupId,
+            documentTypeField: 'DOCUMENT-TYPE-CASHUP',
+          ),
           const SizedBox(height: 32),
         ],
       ),
