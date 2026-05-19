@@ -15,7 +15,13 @@ import '../services/field_service.dart';
 
 class AttachmentSection extends StatefulWidget {
   final String objectId;
-  const AttachmentSection({super.key, required this.objectId});
+  final bool readOnly;
+  
+  const AttachmentSection({
+    super.key, 
+    required this.objectId,
+    this.readOnly = false,
+  });
 
   @override
   State<AttachmentSection> createState() => _AttachmentSectionState();
@@ -119,8 +125,8 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                   DropdownButtonFormField<FieldOption>(
                     decoration: InputDecoration(
                       hintText: 'Select category',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       filled: true,
                       fillColor: Colors.grey.shade50,
@@ -478,18 +484,19 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                 ),
               ],
             ),
-            if (_isUploading)
-              const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            else
-              TextButton.icon(
-                onPressed: _uploadAttachment,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.blue.shade700,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+            if (!widget.readOnly)
+              if (_isUploading)
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                TextButton.icon(
+                  onPressed: _uploadAttachment,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
                 ),
-              ),
           ],
         ),
         const SizedBox(height: 12),
