@@ -26,18 +26,39 @@ class GroupSocietyContact {
   });
 
   factory GroupSocietyContact.fromJson(Map<String, dynamic> json) {
+    String parseDate(dynamic date) {
+      if (date == null) return '';
+      if (date is String) return date;
+      if (date is List && date.length >= 3) {
+        try {
+          final year = date[0].toString();
+          final month = date[1].toString().padLeft(2, '0');
+          final day = date[2].toString().padLeft(2, '0');
+          if (date.length >= 5) {
+            final hour = date[3].toString().padLeft(2, '0');
+            final minute = date[4].toString().padLeft(2, '0');
+            return '$year-$month-$day $hour:$minute';
+          }
+          return '$year-$month-$day';
+        } catch (e) {
+          return date.toString();
+        }
+      }
+      return date.toString();
+    }
+
     return GroupSocietyContact(
-      id: json['id'] ?? '',
-      groupSocietyId: json['groupSocietyId'] ?? '',
-      contactName: json['contactName'] ?? '',
-      role: json['role'],
-      mobileNo: json['mobileNo'],
-      email: json['email'],
-      primaryContact: json['primaryContact'] ?? false,
-      createdAt: json['createdAt'] ?? '',
-      createdBy: json['createdBy'] ?? '',
-      updatedAt: json['updatedAt'] ?? '',
-      updatedBy: json['updatedBy'],
+      id: (json['id'] ?? '').toString(),
+      groupSocietyId: (json['groupSocietyId'] ?? '').toString(),
+      contactName: (json['contactName'] ?? '').toString(),
+      role: json['role']?.toString(),
+      mobileNo: json['mobileNo']?.toString(),
+      email: json['email']?.toString(),
+      primaryContact: json['primaryContact'] == true,
+      createdAt: parseDate(json['createdAt']),
+      createdBy: (json['createdBy'] ?? '').toString(),
+      updatedAt: parseDate(json['updatedAt']),
+      updatedBy: json['updatedBy']?.toString(),
     );
   }
 }

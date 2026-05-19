@@ -42,25 +42,35 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     });
 
     try {
-      final results = await Future.wait([
-        _membershipService.getGroupSocietyById(widget.societyId),
-        _membershipService.getGroupSocietyContacts(widget.societyId),
-        _membershipService.getGroupSocietyStatement(widget.societyId),
-      ]);
+      final society = await _membershipService.getGroupSocietyById(widget.societyId);
+      List<GroupSocietyContact> contacts = [];
+      List<GroupSocietyPayment> payments = [];
 
-      final society = results[0] as GroupSociety;
+      try {
+        final results = await Future.wait([
+          _membershipService.getGroupSocietyContacts(widget.societyId),
+          _membershipService.getGroupSocietyStatement(widget.societyId),
+        ]);
+        contacts = results[0] as List<GroupSocietyContact>;
+        payments = results[1] as List<GroupSocietyPayment>;
+      } catch (e) {
+        debugPrint('Error fetching secondary society details: $e');
+      }
+
       if (mounted) {
         setState(() {
           _society = society;
-          _contacts = results[1] as List<GroupSocietyContact>;
-          _payments = results[2] as List<GroupSocietyPayment>;
+          _contacts = contacts;
+          _payments = payments;
           _isLoading = false;
         });
 
-        // Lazy load partner
         _partnerService.getPartnerById(society.partnerId).then((p) {
           if (mounted) setState(() => _partner = p);
-        }).catchError((_) => null);
+        }).catchError((e) {
+          debugPrint('Error loading partner for society: $e');
+          return null;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -171,16 +181,25 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             FilledButton(
               onPressed: () async {
+                final amountText = amountController.text.trim();
+                if (amountText.isEmpty) return;
+                final amount = double.tryParse(amountText);
+                if (amount == null) return;
+
                 final payload = {
-                  "amountCents": (double.tryParse(amountController.text)! * 100).toInt(),
+                  "amountCents": (amount * 100).toInt(),
                   "paymentDate": DateFormat('yyyy-MM-dd').format(selectedDate),
                   "paymentMethod": selectedMethod,
                   "period": periodController.text.trim(),
                   "referenceNo": refController.text.trim(),
                   "notes": notesController.text.trim()
                 };
-                await _membershipService.addGroupSocietyPayment(widget.societyId, payload);
-                if (context.mounted) Navigator.pop(context, true);
+                try {
+                  await _membershipService.addGroupSocietyPayment(widget.societyId, payload);
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
               },
               child: const Text('RECORD'),
             ),
@@ -224,14 +243,23 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             FilledButton(
               onPressed: () async {
+                final amountText = amountController.text.trim();
+                if (amountText.isEmpty) return;
+                final amount = double.tryParse(amountText);
+                if (amount == null) return;
+
                 final payload = {
-                  "amountCents": (double.tryParse(amountController.text)! * 100).toInt(),
+                  "amountCents": (amount * 100).toInt(),
                   "claimDate": DateFormat('yyyy-MM-dd').format(claimDate),
                   "claimNo": claimNoController.text.trim(),
                   "notes": notesController.text.trim()
                 };
-                await _membershipService.debitGroupSocietyClaim(widget.societyId, payload);
-                if (context.mounted) Navigator.pop(context, true);
+                try {
+                  await _membershipService.debitGroupSocietyClaim(widget.societyId, payload);
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (e) {
+                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
               },
               child: const Text('DEBIT'),
             ),
@@ -268,14 +296,23 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             FilledButton(
               onPressed: () async {
+                final amountText = amountController.text.trim();
+                if (amountText.isEmpty) return;
+                final amount = double.tryParse(amountText);
+                if (amount == null) return;
+
                 final payload = {
-                  "amountCents": (double.tryParse(amountController.text)! * 100).toInt(),
+                  "amountCents": (amount * 100).toInt(),
                   "adjustmentDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
                   "direction": direction,
                   "referenceNo": refController.text.trim(),
                 };
-                await _membershipService.adjustGroupSocietyBalance(widget.societyId, payload);
-                if (context.mounted) Navigator.pop(context, true);
+                try {
+                  await _membershipService.adjustGroupSocietyBalance(widget.societyId, payload);
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
               },
               child: const Text('APPLY'),
             ),
@@ -305,10 +342,12 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(_partner?.fullName ?? 'Society Details'),
-        backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchDetails),
           if (_society != null)
@@ -329,12 +368,28 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
               ],
             ),
         ],
-        bottom: TabBar(controller: _tabController, tabs: const [Tab(text: 'Dashboard'), Tab(text: 'Contacts'), Tab(text: 'Statement')], labelColor: colorScheme.primary, unselectedLabelColor: Colors.grey),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorSize: TabBarIndicatorSize.label,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+          tabs: const [Tab(text: 'Dashboard'), Tab(text: 'Contacts'), Tab(text: 'Statement')],
+          labelColor: colorScheme.primary,
+          unselectedLabelColor: Colors.grey,
+        ),
       ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator()) : _error != null ? _buildErrorWidget() : TabBarView(
-        controller: _tabController,
-        children: [ _buildOverviewTab(colorScheme), _buildContactsTab(colorScheme), _buildHistoryTab(colorScheme) ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _buildErrorWidget()
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _society != null ? _buildOverviewTab(colorScheme) : const Center(child: Text('No data available')),
+                    _buildContactsTab(colorScheme),
+                    _buildHistoryTab(colorScheme)
+                  ],
+                ),
       floatingActionButton: _buildMultiActionFAB(colorScheme),
     );
   }
@@ -349,8 +404,19 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(color: colorScheme.primary, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: colorScheme.primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]),
-        child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add, color: Colors.white), SizedBox(width: 8), Text('TRANSACTION', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]),
+        decoration: BoxDecoration(
+          color: colorScheme.primary,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [BoxShadow(color: colorScheme.primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, color: Colors.white),
+            SizedBox(width: 8),
+            Text('TRANSACTION', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
       itemBuilder: (context) => [
         const PopupMenuItem(value: 'pay', child: ListTile(leading: Icon(Icons.add_card, color: Colors.green), title: Text('Record Payment'), contentPadding: EdgeInsets.zero)),
@@ -361,21 +427,223 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
   }
 
   Widget _buildOverviewTab(ColorScheme colorScheme) {
-    return SingleChildScrollView(
+    final s = _society!;
+    return RefreshIndicator(
+      onRefresh: _fetchDetails,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildBalanceHeader(s, colorScheme),
+            const SizedBox(height: 24),
+            _buildQuickStats(s),
+            const SizedBox(height: 32),
+            _buildSectionHeader(Icons.business_rounded, 'Linked Partner Account'),
+            const SizedBox(height: 12),
+            if (_partner != null) _buildPartnerProfileCard(_partner!, colorScheme),
+            const SizedBox(height: 32),
+            _buildSectionHeader(Icons.analytics_outlined, 'Activity Context'),
+            const SizedBox(height: 12),
+            _buildContextGrid(s),
+            const SizedBox(height: 100), // FAB spacing
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBalanceHeader(GroupSociety s, ColorScheme colorScheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: colorScheme.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Available Balance', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14, fontWeight: FontWeight.w500)),
+              _buildStatusPill(s.status),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'R ${s.availableBalance.toStringAsFixed(2)}',
+            style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              _buildHeaderInfoItem(Icons.group_outlined, 'Group No', s.groupNo),
+              const SizedBox(width: 32),
+              _buildHeaderInfoItem(Icons.category_outlined, 'Type', s.societyType),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderInfoItem(IconData icon, String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: Colors.white.withOpacity(0.6), size: 14),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11)),
+          ],
+        ),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _buildQuickStats(GroupSociety s) {
+    return Row(
+      children: [
+        Expanded(child: _buildSummaryCard('Total Paid', 'R ${s.totalPaid.toStringAsFixed(2)}', Icons.arrow_upward, Colors.green)),
+        const SizedBox(width: 12),
+        Expanded(child: _buildSummaryCard('Total Claims', 'R ${s.totalClaimed.toStringAsFixed(2)}', Icons.arrow_downward, Colors.red)),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard(String label, String value, IconData icon, Color color) {
+    return Container(
       padding: const EdgeInsets.all(16),
-      child: Column(children: [
-        _buildStatusBanner(_society!),
-        const SizedBox(height: 20),
-        _buildFinancialGrid(_society!),
-        const SizedBox(height: 24),
-        _buildSectionHeader(Icons.business_outlined, 'Linked Partner'),
-        const SizedBox(height: 12),
-        if (_partner != null) _buildPartnerCard(_partner!, colorScheme),
-        const SizedBox(height: 24),
-        _buildSectionHeader(Icons.info_outline, 'Activity Context'),
-        const SizedBox(height: 12),
-        _buildInfoCard(_society!),
-      ]),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 12),
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          FittedBox(child: Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPartnerProfileCard(Partner p, ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: Colors.grey.shade100),
+      ),
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => PartnerDetailScreen(partnerId: p.id))),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: colorScheme.primaryContainer,
+                child: Text(p.fullName.substring(0, 1).toUpperCase(), style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 20)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 2),
+                    Text('Partner ID: ${p.number}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Colors.grey[400]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContextGrid(GroupSociety s) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          _buildContextRow(Icons.calendar_today_outlined, 'Last Payment Date', s.lastPaymentDate ?? 'No payments yet'),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+          _buildContextRow(Icons.money_off_csred_outlined, 'Last Claim Date', s.lastClaimDate ?? 'No claims yet'),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+          _buildContextRow(Icons.history_outlined, 'Created On', s.createdAt),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
+          _buildContextRow(Icons.person_outline, 'Created By', s.createdBy),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContextRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[400]),
+        const SizedBox(width: 12),
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        const Spacer(),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _buildStatusPill(String status) {
+    Color c;
+    switch (status.toUpperCase()) {
+      case 'ACTIVE': c = Colors.green; break;
+      case 'SUSPENDED': c = Colors.orange; break;
+      case 'CLOSED': c = Colors.red; break;
+      default: c = Colors.grey;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+      child: Text(status.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.grey[800]),
+        const SizedBox(width: 8),
+        Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.grey[800], letterSpacing: 0.2)),
+      ],
     );
   }
 
@@ -387,7 +655,20 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
         itemCount: _contacts.length,
         itemBuilder: (context, index) {
           final c = _contacts[index];
-          return Card(elevation: 0, margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: ListTile(leading: CircleAvatar(backgroundColor: c.primaryContact ? Colors.amber[50] : colorScheme.primaryContainer.withOpacity(0.3), child: Icon(c.primaryContact ? Icons.star : Icons.person, color: c.primaryContact ? Colors.amber[700] : colorScheme.primary)), title: Text(c.contactName, style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: Text(c.role ?? "Representative"), trailing: c.mobileNo != null ? const Icon(Icons.phone, size: 16) : null));
+          return Card(
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade100)),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: c.primaryContact ? Colors.amber[50] : colorScheme.primaryContainer.withOpacity(0.3),
+                child: Icon(c.primaryContact ? Icons.star_rounded : Icons.person_outline_rounded, color: c.primaryContact ? Colors.amber[700] : colorScheme.primary),
+              ),
+              title: Text(c.contactName, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(c.role ?? "Representative"),
+              trailing: c.mobileNo != null ? IconButton(icon: const Icon(Icons.phone_outlined, size: 20), onPressed: () {}) : null,
+            ),
+          );
         },
       ),
       Positioned(bottom: 16, right: 16, child: FloatingActionButton.small(onPressed: _showAddContactDialog, child: const Icon(Icons.person_add))),
@@ -403,18 +684,38 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
         final p = _payments[index];
         final isCredit = p.direction.toUpperCase() == 'CREDIT';
         return Card(
-          elevation: 0, margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade100)),
           child: ExpansionTile(
-            leading: Icon(isCredit ? Icons.add_circle_outline : Icons.remove_circle_outline, color: isCredit ? Colors.green : Colors.red),
+            shape: const RoundedRectangleBorder(side: BorderSide.none),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: (isCredit ? Colors.green : Colors.red).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(isCredit ? Icons.add_rounded : Icons.remove_rounded, color: isCredit ? Colors.green : Colors.red),
+            ),
             title: Text('R ${p.amount.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.w900, color: isCredit ? Colors.green : Colors.red)),
-            subtitle: Text('${p.txnType} • ${p.txnDate}'),
+            subtitle: Text('${p.txnType} • ${p.txnDate}', style: const TextStyle(fontSize: 12)),
             children: [
-              Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-                _buildInfoRow('Reference', p.referenceNo ?? 'N/A'),
-                _buildInfoRow('Balance After', 'R ${p.balanceAfter.toStringAsFixed(2)}'),
-                if (p.notes != null) Text(p.notes!, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
-              ])),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildInfoRow('Reference', p.referenceNo ?? 'N/A'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Balance After', 'R ${p.balanceAfter.toStringAsFixed(2)}'),
+                    if (p.notes != null && p.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10)),
+                        child: Text(p.notes!, style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey[700])),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         );
@@ -422,20 +723,10 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     );
   }
 
-  Widget _buildStatusBanner(GroupSociety s) {
-    Color c; switch(s.status.toUpperCase()){case 'ACTIVE': c=Colors.green; break; case 'SUSPENDED': c=Colors.grey; break; case 'CLOSED': c=Colors.red; break; default: c=Colors.orange;}
-    return Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: c.withOpacity(0.3))), child: Center(child: Text(s.status.toUpperCase(), style: TextStyle(color: c, fontWeight: FontWeight.bold, letterSpacing: 1))));
-  }
-
-  Widget _buildFinancialGrid(GroupSociety s) => GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.6, children: [_buildStatCard('Balance', 'R ${s.availableBalance.toStringAsFixed(2)}', Colors.green), _buildStatCard('Total Paid', 'R ${s.totalPaid.toStringAsFixed(2)}', Colors.blue), _buildStatCard('Total Claims', 'R ${s.totalClaimed.toStringAsFixed(2)}', Colors.red), _buildStatCard('Group No', s.groupNo, Colors.grey[800]!)]);
-  Widget _buildStatCard(String l, String v, Color c) => Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [Text(l, style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.bold)), const SizedBox(height: 4), FittedBox(child: Text(v, style: TextStyle(color: c, fontWeight: FontWeight.w900, fontSize: 17)))])));
-  Widget _buildPartnerCard(Partner p, ColorScheme cs) => Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: ListTile(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => PartnerDetailScreen(partnerId: p.id))), leading: CircleAvatar(backgroundColor: cs.secondaryContainer, child: const Icon(Icons.business, size: 20)), title: Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)), subtitle: Text('No: ${p.number}'), trailing: const Icon(Icons.chevron_right, size: 16)));
-  Widget _buildInfoCard(GroupSociety s) => Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)), child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [_buildInfoRow('Type', s.societyType), _buildInfoRow('Last Payment', s.lastPaymentDate ?? 'Never'), _buildInfoRow('Last Claim', s.lastClaimDate ?? 'Never')])));
   Widget _buildInfoRow(String l, String v) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: TextStyle(color: Colors.grey[600], fontSize: 13)), Text(v, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))]);
-  Widget _buildSectionHeader(IconData i, String t) => Row(children: [Icon(i, size: 18, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 8), Text(t.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5))]);
-  Widget _buildEmptyWidget(IconData i, String m) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, size: 48, color: Colors.grey[300]), const SizedBox(height: 12), Text(m, style: const TextStyle(color: Colors.grey))]));
+  Widget _buildEmptyWidget(IconData i, String m) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, size: 48, color: Colors.grey[200]), const SizedBox(height: 12), Text(m, style: const TextStyle(color: Colors.grey))]));
   Widget _buildErrorWidget() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.error_outline, size: 48, color: Colors.red), const SizedBox(height: 16), Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center), const SizedBox(height: 16), ElevatedButton(onPressed: _fetchDetails, child: const Text('RETRY'))]));
-  
+
   Future<void> _deleteSociety() async {
     final bool? confirm = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Delete Society'), content: const Text('Permanently delete this society?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')), TextButton(onPressed: () => Navigator.pop(context, true), style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('DELETE'))]));
     if (confirm == true) { setState(() => _isLoading = true); try { await _membershipService.deleteGroupSociety(widget.societyId); if (mounted) Navigator.pop(context, true); } catch (e) { if (mounted) setState(() => _isLoading = false); } }
@@ -446,7 +737,17 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     final groupNoController = TextEditingController(text: _society!.groupNo);
     final balanceController = TextEditingController(text: _society!.availableBalance.toStringAsFixed(2));
     String selectedType = _society!.societyType; String selectedStatus = _society!.status;
-    final result = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text('Edit Society'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextFormField(controller: groupNoController, decoration: const InputDecoration(labelText: 'Group Number')), DropdownButtonFormField<String>(value: selectedType, items: ['GROUP', 'SOCIETY', 'BURIAL'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(), onChanged: (v) => setDialogState(() => selectedType = v!)), DropdownButtonFormField<String>(value: selectedStatus, items: ['ACTIVE', 'INACTIVE', 'DORMANT'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(), onChanged: (v) => setDialogState(() => selectedStatus = v!))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')), FilledButton(onPressed: () async { final payload = {"partnerId": _society!.partnerId, "groupNo": groupNoController.text, "societyType": selectedType, "status": selectedStatus, "openingBalanceCents": (double.tryParse(balanceController.text)! * 100).toInt() }; await _membershipService.postGroupSocietyUpdate(widget.societyId, payload); if (context.mounted) Navigator.pop(context, true); }, child: const Text('SAVE'))])));
+    final result = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text('Edit Society'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextFormField(controller: groupNoController, decoration: const InputDecoration(labelText: 'Group Number')), DropdownButtonFormField<String>(value: selectedType, items: ['GROUP', 'SOCIETY', 'BURIAL'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(), onChanged: (v) => setDialogState(() => selectedType = v!)), DropdownButtonFormField<String>(value: selectedStatus, items: ['ACTIVE', 'INACTIVE', 'DORMANT'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(), onChanged: (v) => setDialogState(() => selectedStatus = v!))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')), FilledButton(onPressed: () async {
+      final amountText = balanceController.text.trim();
+      final amount = double.tryParse(amountText) ?? 0;
+      final payload = {"partnerId": _society!.partnerId, "groupNo": groupNoController.text, "societyType": selectedType, "status": selectedStatus, "openingBalanceCents": (amount * 100).toInt() };
+      try {
+        await _membershipService.postGroupSocietyUpdate(widget.societyId, payload);
+        if (context.mounted) Navigator.pop(context, true);
+      } catch (e) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }, child: const Text('SAVE'))])));
     if (result == true) _fetchDetails();
   }
 
