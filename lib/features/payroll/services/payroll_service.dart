@@ -53,6 +53,20 @@ class PayrollService {
     }
   }
 
+  Future<void> updatePayrollBatch(String id, Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.put(
+        '/v2/payroll-payment-batch/$id',
+        body: data,
+      );
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Failed to update payroll batch: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> copyPayrollBatch(String sourceId, Map<String, dynamic> payload) async {
     try {
       final response = await _apiClient.post(

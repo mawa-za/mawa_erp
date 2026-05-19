@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
+import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
 import '../../../core/widgets/app_dropdown.dart';
 
 class PayrollBatchCreateScreen extends StatefulWidget {
-  const PayrollBatchCreateScreen({super.key});
+  final String? batchId;
+  const PayrollBatchCreateScreen({super.key, this.batchId});
 
   @override
   State<PayrollBatchCreateScreen> createState() => _PayrollBatchCreateScreenState();
@@ -25,14 +27,70 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
 
   final List<Map<String, dynamic>> _items = [];
   bool _isSubmitting = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _payPeriodController.text = DateFormat('yyyyMM').format(now);
-    _batchNoController.text = 'PAY-${_payPeriodController.text}-001';
-    _descriptionController.text = 'Salary Payment - ${DateFormat('MMMM yyyy').format(now)}';
+    if (widget.batchId != null) {
+      _loadBatchData();
+    } else {
+      final now = DateTime.now();
+      _payPeriodController.text = DateFormat('yyyyMM').format(now);
+      _batchNoController.text = 'PAY-${_payPeriodController.text}-001';
+      _descriptionController.text = 'Salary Payment - ${DateFormat('MMMM yyyy').format(now)}';
+    }
+  }
+
+  Future<void> _loadBatchData() async {
+    setState(() => _isLoading = true);
+    try {
+      final detail = await PayrollService().getPayrollBatch(widget.batchId!);
+      setState(() {
+        _batchNoController.text = detail.batchNo;
+        _descriptionController.text = detail.description;
+        _payPeriodController.text = detail.payPeriod;
+        _notesController.text = detail.notes;
+        try {
+          _paymentDate = DateFormat('yyyy-MM-dd').parse(detail.paymentDate);
+        } catch (_) {
+          _paymentDate = DateTime.now();
+        }
+
+        _items.clear();
+        for (var item in detail.items) {
+          _items.add({
+            'id': item.id,
+            'partner': Partner(
+              id: item.employeeId ?? '',
+              number: item.employeeNo ?? '',
+              type: 'INDIVIDUAL',
+              name1: '',
+              name2: item.employeeName ?? '',
+              name3: '',
+              identityNumber: '',
+              status: 'ACTIVE',
+            ),
+            'amount': TextEditingController(text: item.amount.toStringAsFixed(2)),
+            'paymentReference': TextEditingController(text: item.paymentReference),
+            'salaryReference': TextEditingController(text: item.salaryReference),
+            'bankName': item.bankName,
+            'branchCode': TextEditingController(text: item.branchCode),
+            'accountNo': TextEditingController(text: item.accountNo),
+            'accountType': item.accountType,
+            'accountHolderName': TextEditingController(text: item.accountHolderName),
+          });
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading batch: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _addItem() {
@@ -101,6 +159,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
           final partner = item['partner'] as Partner?;
           final amountDouble = double.tryParse((item['amount'] as TextEditingController).text) ?? 0.0;
           return {
+            'id': item['id'],
             'employeeId': partner?.id,
             'employeeNo': partner?.number,
             'employeeName': partner?.fullName,
@@ -116,11 +175,15 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         }).toList(),
       };
 
-      await PayrollService().createPayrollBatch(payload);
+      if (widget.batchId != null) {
+        await PayrollService().updatePayrollBatch(widget.batchId!, payload);
+      } else {
+        await PayrollService().createPayrollBatch(payload);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payroll batch created successfully'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text('Payroll batch ${widget.batchId != null ? 'updated' : 'created'} successfully'), behavior: SnackBarBehavior.floating),
         );
         Navigator.pop(context, true);
       }
@@ -142,54 +205,56 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('New Payroll Run'),
+        title: Text(widget.batchId != null ? 'Edit Payroll Run' : 'New Payroll Run'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
       ),
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            _buildQuickSummary(colorScheme),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildSectionHeader(Icons.info_outline_rounded, 'BATCH DETAILS'),
-                  const SizedBox(height: 12),
-                  _buildBatchHeader(colorScheme),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                _buildQuickSummary(colorScheme),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
                     children: [
-                      _buildSectionHeader(Icons.people_outline_rounded, 'EMPLOYEE PAYMENTS'),
-                      TextButton.icon(
-                        onPressed: _addItem,
-                        icon: const Icon(Icons.person_add_rounded, size: 18),
-                        label: const Text('ADD EMPLOYEE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        style: TextButton.styleFrom(
-                          foregroundColor: colorScheme.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
+                      _buildSectionHeader(Icons.info_outline_rounded, 'BATCH DETAILS'),
+                      const SizedBox(height: 12),
+                      _buildBatchHeader(colorScheme),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildSectionHeader(Icons.people_outline_rounded, 'EMPLOYEE PAYMENTS'),
+                          TextButton.icon(
+                            onPressed: _addItem,
+                            icon: const Icon(Icons.person_add_rounded, size: 18),
+                            label: const Text('ADD EMPLOYEE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            style: TextButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 8),
+                      if (_items.isEmpty)
+                        _buildEmptyState()
+                      else
+                        ...List.generate(_items.length, (index) => _buildItemCard(index, colorScheme)),
+                      const SizedBox(height: 40),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  if (_items.isEmpty)
-                    _buildEmptyState()
-                  else
-                    ...List.generate(_items.length, (index) => _buildItemCard(index, colorScheme)),
-                  const SizedBox(height: 40),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomBar(colorScheme),
+          ),
+      bottomNavigationBar: _isLoading ? null : _buildBottomBar(colorScheme),
     );
   }
 
@@ -460,6 +525,8 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
 
   Widget _buildEmployeeSearch(int index, ColorScheme colorScheme) {
     final item = _items[index];
+    final controller = TextEditingController(text: item['partner']?.fullName ?? '');
+    
     return SearchAnchor(
       builder: (context, controller) {
         return TextField(
@@ -546,7 +613,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
           ),
           child: _isSubmitting
               ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-              : const Text('CREATE PAYROLL BATCH', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+              : Text(widget.batchId != null ? 'UPDATE PAYROLL BATCH' : 'CREATE PAYROLL BATCH', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
         ),
       ),
     );

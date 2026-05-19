@@ -361,11 +361,12 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => PayrollBatchDetailScreen(batchId: batch.id)),
             );
+            if (result == true) _fetchBatches();
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
@@ -460,10 +461,30 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_horiz_rounded, color: Colors.grey),
                       padding: EdgeInsets.zero,
-                      onSelected: (val) {
-                        if (val == 'copy') _copyBatch(batch);
+                      onSelected: (val) async {
+                        if (val == 'copy') {
+                          _copyBatch(batch);
+                        } else if (val == 'edit') {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PayrollBatchCreateScreen(batchId: batch.id),
+                            ),
+                          );
+                          if (result == true) _fetchBatches();
+                        }
                       },
                       itemBuilder: (context) => [
+                        if (batch.status == 'NEW' || batch.status == 'DRAFT')
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: ListTile(
+                              leading: Icon(Icons.edit_rounded, size: 20),
+                              title: Text('Edit Batch'),
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                            )
+                          ),
                         const PopupMenuItem(
                           value: 'copy',
                           child: ListTile(
