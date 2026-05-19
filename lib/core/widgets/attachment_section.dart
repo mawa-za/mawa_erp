@@ -16,11 +16,13 @@ import '../services/field_service.dart';
 class AttachmentSection extends StatefulWidget {
   final String objectId;
   final bool readOnly;
+  final String documentTypeField;
   
   const AttachmentSection({
     super.key, 
     required this.objectId,
     this.readOnly = false,
+    this.documentTypeField = 'DOCUMENT-TYPE',
   });
 
   @override
@@ -86,7 +88,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
 
   Future<void> _uploadAttachment() async {
     try {
-      final List<FieldOption> docTypes = await FieldService().getOptionsByField('DOCUMENT-TYPE');
+      final List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
       
       if (!mounted) return;
 
