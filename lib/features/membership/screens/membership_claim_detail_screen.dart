@@ -114,7 +114,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Claim submitted for approval successfully')),
+            const SnackBar(content: Text('Claim submitted for approval successfully'), backgroundColor: Colors.green),
           );
           _fetchDetails();
         }
@@ -313,7 +313,6 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   Widget _buildErrorWidget() => Center(child: Text(_error ?? 'Unknown Error'));
   
   Future<void> _cancelClaim() async { 
-    // Simplified cancel implementation
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -326,7 +325,18 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       ),
     );
     if (confirm == true) {
-       // Logic to delete or mark as cancelled
+       setState(() => _isSubmitting = true);
+       try {
+         await _membershipService.cancelMembershipClaim(widget.claimId);
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Claim cancelled successfully')));
+           _fetchDetails();
+         }
+       } catch (e) {
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+       } finally {
+         if (mounted) setState(() => _isSubmitting = false);
+       }
     }
   }
   
