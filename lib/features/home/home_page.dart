@@ -18,7 +18,6 @@ import '../payments/screens/payment_request_list_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
 import '../settings/screens/user_list_screen.dart';
-import '../settings/screens/company_info_screen.dart';
 import '../settings/screens/system_configuration_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
@@ -525,9 +524,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           ),
         ),
         onSelected: (value) {
-          if (value == 'company_info') {
-            Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: true)));
-          }
           if (value == 'change_role') _changeRole();
           if (value == 'change_password') {
             Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ChangePasswordScreen()));
@@ -546,7 +542,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               ],
             ),
           ),
-          const PopupMenuItem(value: 'company_info', child: ListTile(leading: Icon(Icons.business_outlined), title: Text('Company Profile'), contentPadding: EdgeInsets.zero)),
           const PopupMenuItem(value: 'change_role', child: ListTile(leading: Icon(Icons.switch_account_outlined), title: Text('Switch Role'), contentPadding: EdgeInsets.zero)),
           const PopupMenuItem(value: 'change_password', child: ListTile(leading: Icon(Icons.lock_outline), title: Text('Security'), contentPadding: EdgeInsets.zero)),
           const PopupMenuItem(value: 'logout', child: ListTile(leading: Icon(Icons.logout, color: Colors.red), title: Text('Sign Out', style: TextStyle(color: Colors.red)), contentPadding: EdgeInsets.zero)),
