@@ -28,6 +28,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
   final List<Map<String, dynamic>> _items = [];
   bool _isSubmitting = false;
   bool _isLoading = false;
+  int? _expandedIndex;
 
   @override
   void initState() {
@@ -81,6 +82,9 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
             'accountHolderName': TextEditingController(text: item.accountHolderName),
           });
         }
+        if (_items.isNotEmpty) {
+          _expandedIndex = 0;
+        }
       });
     } catch (e) {
       if (mounted) {
@@ -106,12 +110,18 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         'accountType': null,
         'accountHolderName': TextEditingController(),
       });
+      _expandedIndex = _items.length - 1;
     });
   }
 
   void _removeItem(int index) {
     setState(() {
       _items.removeAt(index);
+      if (_expandedIndex == index) {
+        _expandedIndex = null;
+      } else if (_expandedIndex != null && _expandedIndex! > index) {
+        _expandedIndex = _expandedIndex! - 1;
+      }
     });
   }
 
@@ -404,6 +414,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
   Widget _buildItemCard(int index, ColorScheme colorScheme) {
     final item = _items[index];
     final bool hasEmployee = item['partner'] != null;
+    final bool isExpanded = _expandedIndex == index;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -411,113 +422,139 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-        border: Border.all(color: hasEmployee ? colorScheme.primary.withOpacity(0.1) : Colors.transparent),
+        border: Border.all(color: isExpanded ? colorScheme.primary.withOpacity(0.1) : Colors.transparent),
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: hasEmployee ? colorScheme.primary.withOpacity(0.05) : Colors.grey[50],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: hasEmployee ? colorScheme.primary : Colors.grey[300],
-                  child: Text((index + 1).toString(), style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  hasEmployee ? (item['partner'] as Partner).fullName : 'Select Employee',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: hasEmployee ? Colors.black87 : Colors.grey[500]),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => _removeItem(index),
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildEmployeeSearch(index, colorScheme),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: _buildInputLabel('Amount', 
-                        TextFormField(
-                          controller: item['amount'],
-                          decoration: _inputDecoration('0.00').copyWith(prefixText: 'R '),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          onChanged: (_) => setState(() {}),
-                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                        )
-                      ),
+          InkWell(
+            onTap: () => setState(() => _expandedIndex = isExpanded ? null : index),
+            borderRadius: isExpanded 
+                ? const BorderRadius.vertical(top: Radius.circular(16)) 
+                : BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: hasEmployee ? (isExpanded ? colorScheme.primary.withOpacity(0.05) : Colors.white) : Colors.grey[50],
+                borderRadius: isExpanded 
+                    ? const BorderRadius.vertical(top: Radius.circular(16)) 
+                    : BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: hasEmployee ? colorScheme.primary : Colors.grey[300],
+                    child: Text((index + 1).toString(), style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasEmployee ? (item['partner'] as Partner).fullName : 'Select Employee',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: hasEmployee ? Colors.black87 : Colors.grey[500]),
+                        ),
+                        if (!isExpanded && hasEmployee)
+                          Text(
+                            'Amount: R ${(double.tryParse((item['amount'] as TextEditingController).text) ?? 0.0).toStringAsFixed(2)}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: _buildInputLabel('Acc Type', 
-                        AppDropdownField(
-                          field: 'BANK-ACCOUNT-TYPE',
-                          label: 'Select Type',
-                          value: item['accountType'],
-                          onChanged: (val) => setState(() => item['accountType'] = val),
-                        )
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInputLabel('Bank Name', 
-                        AppDropdownField(
-                          field: 'BANK-NAME',
-                          label: 'Select Bank',
-                          value: item['bankName'],
-                          onChanged: (val) => setState(() => item['bankName'] = val),
-                        )
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildInputLabel('Branch Code', 
-                        TextFormField(
-                          controller: item['branchCode'],
-                          decoration: _inputDecoration('Code'),
-                        )
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildInputLabel('Account Number', 
-                  TextFormField(
-                    controller: item['accountNo'],
-                    decoration: _inputDecoration('Enter account number'),
-                  )
-                ),
-                const SizedBox(height: 12),
-                _buildInputLabel('Payment Reference', 
-                  TextFormField(
-                    controller: item['paymentReference'],
-                    decoration: _inputDecoration('Appears on their statement'),
-                  )
-                ),
-              ],
+                  ),
+                  IconButton(
+                    onPressed: () => _removeItem(index),
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: Colors.grey[400],
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  _buildEmployeeSearch(index, colorScheme),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildInputLabel('Amount', 
+                          TextFormField(
+                            controller: item['amount'],
+                            decoration: _inputDecoration('0.00').copyWith(prefixText: 'R '),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setState(() {}),
+                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                          )
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: _buildInputLabel('Acc Type', 
+                          AppDropdownField(
+                            field: 'BANK-ACCOUNT-TYPE',
+                            label: 'Select Type',
+                            value: item['accountType'],
+                            onChanged: (val) => setState(() => item['accountType'] = val),
+                          )
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildInputLabel('Bank Name', 
+                          AppDropdownField(
+                            field: 'BANK-NAME',
+                            label: 'Select Bank',
+                            value: item['bankName'],
+                            onChanged: (val) => setState(() => item['bankName'] = val),
+                          )
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildInputLabel('Branch Code', 
+                          TextFormField(
+                            controller: item['branchCode'],
+                            decoration: _inputDecoration('Code'),
+                          )
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInputLabel('Account Number', 
+                    TextFormField(
+                      controller: item['accountNo'],
+                      decoration: _inputDecoration('Enter account number'),
+                    )
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInputLabel('Payment Reference', 
+                    TextFormField(
+                      controller: item['paymentReference'],
+                      decoration: _inputDecoration('Appears on their statement'),
+                    )
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
