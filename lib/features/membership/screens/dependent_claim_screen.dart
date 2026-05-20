@@ -54,7 +54,10 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
     }
     
     final deceasedName = widget.deceasedPartner?.fullName ?? widget.member.fullName;
-    _notesController.text = 'Claim for $deceasedName (${widget.dependent?.relationship ?? "Main Member"})';
+    final relationshipLabel = widget.dependent != null 
+        ? DependentType.fromString(widget.dependent!.dependentType).label 
+        : "Main Member";
+    _notesController.text = 'Claim for $deceasedName ($relationshipLabel)';
   }
 
   Future<void> _loadOptions() async {
@@ -116,7 +119,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
         "claimantPartnerId": _selectedClaimant!.id,
         "claimAmountCents": amountCents,
         "notes": _notesController.text.trim(),
-        "submit": true,
+        "submit": false,
         "linkedClaimIds": []
       };
 
@@ -124,7 +127,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Claim submitted successfully'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Claim created successfully'), backgroundColor: Colors.green),
         );
         Navigator.pop(context, true);
       }
@@ -181,7 +184,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
                       ),
                       child: _isSubmitting 
                           ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('SUBMIT MEMBERSHIP CLAIM', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          : const Text('CREATE MEMBERSHIP CLAIM', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -262,7 +265,9 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
 
   Widget _buildSummaryCard(ColorScheme colorScheme) {
     final deceasedName = widget.deceasedPartner?.fullName ?? widget.member.fullName;
-    final relationship = widget.dependent?.relationship.replaceAll('-', ' ') ?? "Main Member";
+    final relationshipLabel = widget.dependent != null 
+        ? DependentType.fromString(widget.dependent!.dependentType).label 
+        : "Main Member";
 
     return Card(
       elevation: 0,
@@ -277,7 +282,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
           children: [
             _buildSummaryRow('Deceased Person', deceasedName),
             const Divider(height: 16),
-            _buildSummaryRow('Relationship', relationship),
+            _buildSummaryRow('Relationship', relationshipLabel),
             const Divider(height: 16),
             _buildSummaryRow('Membership No', widget.membership.membershipNo),
           ],

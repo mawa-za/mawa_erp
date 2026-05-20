@@ -236,12 +236,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.of(context).push(
+          await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const AddMemberScreen()),
           );
-          if (result == true) {
-            _fetchInitialData();
-          }
+          // Always refresh when returning from create/detail flow
+          _fetchInitialData();
         },
         label: const Text('Link Member'),
         icon: const Icon(Icons.add_link_rounded),
@@ -376,12 +375,13 @@ class _MemberListScreenState extends State<MemberListScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.of(context).push(
+          onTap: () async {
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => MembershipDetailScreen(membershipId: membership.id),
               ),
             );
+            _fetchInitialData();
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(

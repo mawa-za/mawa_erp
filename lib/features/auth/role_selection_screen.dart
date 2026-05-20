@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../settings/models/role.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
-  final List<String> roles;
+  final List<Role> roles;
   final VoidCallback onRoleSelected;
 
   const RoleSelectionScreen({
@@ -11,9 +12,10 @@ class RoleSelectionScreen extends StatelessWidget {
     required this.onRoleSelected,
   });
 
-  Future<void> _selectRole(BuildContext context, String role) async {
+  Future<void> _selectRole(BuildContext context, Role role) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selectedRole', role);
+    await prefs.setString('selectedRole', role.id);
+    await prefs.setString('selectedRoleDescription', role.description);
     onRoleSelected();
   }
 
@@ -61,9 +63,10 @@ class RoleSelectionScreen extends StatelessWidget {
                         ),
                         child: ListTile(
                           title: Text(
-                            role,
+                            role.description,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
+                          subtitle: Text(role.id),
                           trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                           onTap: () => _selectRole(context, role),
                         ),
