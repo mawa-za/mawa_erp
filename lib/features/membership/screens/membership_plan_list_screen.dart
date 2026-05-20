@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import 'membership_plan_create_screen.dart';
+import 'membership_plan_detail_screen.dart';
 
 class MembershipPlanListScreen extends StatefulWidget {
   const MembershipPlanListScreen({super.key});
@@ -135,48 +136,62 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(color: plan.active ? Colors.transparent : Colors.grey.shade200),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                plan.name,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-            if (!plan.active)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text('INACTIVE', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-              ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(plan.description, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-            const SizedBox(height: 12),
-            Row(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () async {
+            final result = await Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => MembershipPlanDetailScreen(planId: plan.id)),
+            );
+            if (result == true) {
+              _fetchPlans();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildInfoTag(Icons.payments_outlined, 'R ${plan.premium.toStringAsFixed(2)}', colorScheme.primary),
-                const SizedBox(width: 12),
-                _buildInfoTag(Icons.people_outline_rounded, 'Max ${plan.maxDependents}', Colors.orange),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        plan.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                    if (!plan.active)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('INACTIVE', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(plan.description, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _buildInfoTag(Icons.payments_outlined, 'R ${plan.premium.toStringAsFixed(2)}', colorScheme.primary),
+                    const SizedBox(width: 12),
+                    _buildInfoTag(Icons.people_outline_rounded, 'Max ${plan.maxDependents}', Colors.orange),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -186,7 +201,7 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

@@ -8,6 +8,7 @@ import '../services/membership_service.dart';
 import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
+import 'membership_claim_detail_screen.dart';
 
 class MembershipClaimCreateScreen extends StatefulWidget {
   final MembershipDetail membership;
@@ -66,7 +67,10 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     }
     
     final deceasedName = widget.deceasedPartner?.fullName ?? widget.member.fullName;
-    _notesController.text = 'Claim for $deceasedName (${widget.dependent?.relationship ?? "Main Member"})';
+    final relationshipLabel = widget.dependent != null 
+        ? DependentType.fromString(widget.dependent!.dependentType).label 
+        : "Main Member";
+    _notesController.text = 'Claim for $deceasedName ($relationshipLabel)';
   }
 
   Future<void> _loadOptions() async {
@@ -162,13 +166,21 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         "linkedClaimIds": []
       };
 
-      await MembershipService().createMembershipClaim(payload);
+      final Map<String, dynamic> responseData = await MembershipService().createMembershipClaim(payload);
+      final String? createdId = responseData['id'];
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Claim created successfully'), backgroundColor: Colors.green),
         );
-        Navigator.pop(context, true);
+        
+        if (createdId != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => MembershipClaimDetailScreen(claimId: createdId))
+          );
+        } else {
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -313,7 +325,9 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
 
   Widget _buildSummaryCard(ColorScheme colorScheme) {
     final deceasedName = widget.deceasedPartner?.fullName ?? widget.member.fullName;
-    final relationship = widget.dependent?.relationship.replaceAll('-', ' ') ?? "Main Member";
+    final relationshipLabel = widget.dependent != null 
+        ? DependentType.fromString(widget.dependent!.dependentType).label 
+        : "Main Member";
 
     return Card(
       elevation: 0,
@@ -328,7 +342,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
           children: [
             _buildSummaryRow('Deceased Person', deceasedName),
             const Divider(height: 16),
-            _buildSummaryRow('Relationship', relationship),
+            _buildSummaryRow('Relationship', relationshipLabel),
             const Divider(height: 16),
             _buildSummaryRow('Membership No', widget.membership.membershipNo),
           ],
