@@ -1,10 +1,40 @@
 import '../../../core/models/field_option.dart';
 
+enum DependentType {
+  ANY,
+  MAIN_MEMBER,
+  SPOUSE,
+  CHILD,
+  PARENT,
+  EXTENDED_FAMILY,
+  OTHER;
+
+  String get label {
+    switch (this) {
+      case DependentType.ANY: return 'Any';
+      case DependentType.MAIN_MEMBER: return 'Main Member';
+      case DependentType.SPOUSE: return 'Spouse';
+      case DependentType.CHILD: return 'Child';
+      case DependentType.PARENT: return 'Parent';
+      case DependentType.EXTENDED_FAMILY: return 'Extended Family';
+      case DependentType.OTHER: return 'Other';
+    }
+  }
+
+  static DependentType fromString(String? value) {
+    if (value == null) return DependentType.OTHER;
+    return DependentType.values.firstWhere(
+      (e) => e.name == value || e.name == value.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_'),
+      orElse: () => DependentType.OTHER,
+    );
+  }
+}
+
 class Dependent {
   final String id;
   final String membershipId;
   final String dependentPartnerId;
-  final String relationship;
+  final String dependentType;
   final bool active;
   
   // Enriched fields for UI
@@ -27,7 +57,7 @@ class Dependent {
     required this.id,
     required this.membershipId,
     required this.dependentPartnerId,
-    required this.relationship,
+    required this.dependentType,
     required this.active,
     this.firstName = '',
     this.lastName = '',
@@ -129,7 +159,7 @@ class Dependent {
       id: (json['id'] ?? '').toString(),
       membershipId: (json['membershipId'] ?? '').toString(),
       dependentPartnerId: depPartnerId,
-      relationship: (json['relationship'] ?? '').toString(),
+      dependentType: (json['dependentType'] ?? json['relationship'] ?? '').toString(),
       active: json['active'] ?? true,
       firstName: fName,
       lastName: lName,
@@ -153,7 +183,7 @@ class Dependent {
       'id': id,
       'membershipId': membershipId,
       'dependentPartnerId': dependentPartnerId,
-      'relationship': relationship,
+      'dependentType': dependentType,
       'active': active,
       'firstName': firstName,
       'lastName': lastName,

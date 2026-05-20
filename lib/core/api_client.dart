@@ -210,7 +210,7 @@ class ApiClient {
 
       if (refreshToken == null || refreshToken.isEmpty) {
         debugPrint('No refresh token available');
-        await _handleLogout();
+        await logout();
         return false;
       }
 
@@ -246,7 +246,7 @@ class ApiClient {
       } 
       
       debugPrint('Token refresh failed. Status: ${response.statusCode}, Body: ${response.body}');
-      await _handleLogout();
+      await logout();
       return false;
     } catch (e) {
       debugPrint('Exception during _refreshToken: $e');
@@ -254,7 +254,7 @@ class ApiClient {
     }
   }
 
-  Future<void> _handleLogout() async {
+  Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 
 class MembershipPlanCreateScreen extends StatefulWidget {
-  const MembershipPlanCreateScreen({super.key});
+  final MembershipPlan? plan;
+  const MembershipPlanCreateScreen({super.key, this.plan});
 
   @override
   State<MembershipPlanCreateScreen> createState() => _MembershipPlanCreateScreenState();
@@ -10,14 +12,28 @@ class MembershipPlanCreateScreen extends StatefulWidget {
 
 class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _planCodeController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _premiumController = TextEditingController();
-  final _maxDependentsController = TextEditingController();
-  final _currencyController = TextEditingController(text: 'ZAR');
-  bool _active = true;
+  late TextEditingController _planCodeController;
+  late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _premiumController;
+  late TextEditingController _maxDependentsController;
+  late TextEditingController _currencyController;
+  late bool _active;
   bool _isSubmitting = false;
+
+  bool get _isEditing => widget.plan != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _planCodeController = TextEditingController(text: widget.plan?.planCode ?? '');
+    _nameController = TextEditingController(text: widget.plan?.name ?? '');
+    _descriptionController = TextEditingController(text: widget.plan?.description ?? '');
+    _premiumController = TextEditingController(text: widget.plan != null ? (widget.plan!.premiumCents / 100.0).toString() : '');
+    _maxDependentsController = TextEditingController(text: widget.plan?.maxDependents.toString() ?? '');
+    _currencyController = TextEditingController(text: widget.plan?.currency ?? 'ZAR');
+    _active = widget.plan?.active ?? true;
+  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -36,11 +52,15 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
         'active': _active,
       };
 
-      await MembershipService().createMembershipPlan(payload);
+      if (_isEditing) {
+        await MembershipService().updateMembershipPlan(widget.plan!.id, payload);
+      } else {
+        await MembershipService().createMembershipPlan(payload);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Membership plan created successfully'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text('Membership plan ${_isEditing ? 'updated' : 'created'} successfully'), behavior: SnackBarBehavior.floating),
         );
         Navigator.pop(context, true);
       }
@@ -62,7 +82,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('New Membership Plan'),
+        title: Text(_isEditing ? 'Edit Membership Plan' : 'New Membership Plan'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
@@ -78,7 +98,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
               _buildSectionHeader(Icons.settings_outlined, 'PLAN CONFIGURATION'),
               const SizedBox(height: 16),
               _buildCard([
-                _buildTextField(_planCodeController, 'Plan Code', 'e.g. SILVER-PLAN', validator: (v) => v!.isEmpty ? 'Required' : null),
+                _buildTextField(_planCodeController, 'Plan Code', 'e.g. SILVER-PLAN', validator: (v) => v!.isEmpty ? 'Required' : null, enabled: !_isEditing),
                 const SizedBox(height: 16),
                 _buildTextField(_nameController, 'Plan Name', 'e.g. Silver Membership', validator: (v) => v!.isEmpty ? 'Required' : null),
                 const SizedBox(height: 16),
@@ -126,7 +146,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
                   ),
                   child: _isSubmitting
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('CREATE PLAN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      : Text(_isEditing ? 'UPDATE PLAN' : 'CREATE PLAN', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               ),
             ],
@@ -161,7 +181,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, String hint, {int maxLines = 1, String? prefixText, TextInputType? keyboardType, String? Function(String?)? validator}) {
+  Widget _buildTextField(TextEditingController controller, String label, String hint, {int maxLines = 1, String? prefixText, TextInputType? keyboardType, String? Function(String?)? validator, bool enabled = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -172,16 +192,18 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
           maxLines: maxLines,
           keyboardType: keyboardType,
           validator: validator,
+          enabled: enabled,
           decoration: InputDecoration(
             hintText: hint,
             prefixText: prefixText,
             hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade100)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             isDense: true,
             filled: true,
-            fillColor: Colors.white,
+            fillColor: enabled ? Colors.white : Colors.grey.shade50,
           ),
         ),
       ],
