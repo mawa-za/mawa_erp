@@ -9,6 +9,8 @@ class MembershipPlan {
   final bool active;
   final String? createdAt;
   final String? oldId;
+  final List<MembershipPlanClaimPayout>? claimPayouts;
+  final List<MembershipPlanPremiumRule>? premiumRules;
 
   MembershipPlan({
     required this.id,
@@ -21,6 +23,8 @@ class MembershipPlan {
     required this.active,
     this.createdAt,
     this.oldId,
+    this.claimPayouts,
+    this.premiumRules,
   });
 
   double get premium => premiumCents / 100.0;
@@ -58,6 +62,12 @@ class MembershipPlan {
       active: json['active'] == true,
       createdAt: parseDateArray(json['createdAt']),
       oldId: json['oldId']?.toString(),
+      claimPayouts: json['claimPayouts'] != null
+          ? (json['claimPayouts'] as List).map((i) => MembershipPlanClaimPayout.fromJson(i)).toList()
+          : null,
+      premiumRules: json['premiumRules'] != null
+          ? (json['premiumRules'] as List).map((i) => MembershipPlanPremiumRule.fromJson(i)).toList()
+          : null,
     );
   }
 
@@ -71,8 +81,102 @@ class MembershipPlan {
       'currency': currency,
       'maxDependents': maxDependents,
       'active': active,
-      'createdAt': createdAt,
-      'oldId': oldId,
+      if (createdAt != null) 'createdAt': createdAt,
+      if (oldId != null) 'oldId': oldId,
+      if (claimPayouts != null) 'claimPayouts': claimPayouts!.map((e) => e.toJson()).toList(),
+      if (premiumRules != null) 'premiumRules': premiumRules!.map((e) => e.toJson()).toList(),
+    };
+  }
+}
+
+enum DependentType { ANY, MAIN_MEMBER, SPOUSE, CHILD, PARENT, EXTENDED_FAMILY, OTHER }
+
+enum ClaimType { CASH, TOMBSTONE, FUNERAL, COMBINATION }
+
+class MembershipPlanClaimPayout {
+  final String? id;
+  final String? planId;
+  final ClaimType claimType;
+  final DependentType dependentType;
+  final int payoutAmountCents;
+  final bool active;
+
+  MembershipPlanClaimPayout({
+    this.id,
+    this.planId,
+    required this.claimType,
+    required this.dependentType,
+    required this.payoutAmountCents,
+    required this.active,
+  });
+
+  double get payoutAmount => payoutAmountCents / 100.0;
+
+  factory MembershipPlanClaimPayout.fromJson(Map<String, dynamic> json) {
+    return MembershipPlanClaimPayout(
+      id: json['id']?.toString(),
+      planId: json['planId']?.toString(),
+      claimType: ClaimType.values.firstWhere((e) => e.name == json['claimType'], orElse: () => ClaimType.CASH),
+      dependentType: DependentType.values.firstWhere((e) => e.name == json['dependentType'], orElse: () => DependentType.ANY),
+      payoutAmountCents: json['payoutAmountCents'] is int ? json['payoutAmountCents'] : (int.tryParse(json['payoutAmountCents']?.toString() ?? '0') ?? 0),
+      active: json['active'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      if (planId != null) 'planId': planId,
+      'claimType': claimType.name,
+      'dependentType': dependentType.name,
+      'payoutAmountCents': payoutAmountCents,
+      'active': active,
+    };
+  }
+}
+
+class MembershipPlanPremiumRule {
+  final String? id;
+  final String? planId;
+  final DependentType dependentType;
+  final int minAge;
+  final int maxAge;
+  final int additionalPremiumCents;
+  final bool active;
+
+  MembershipPlanPremiumRule({
+    this.id,
+    this.planId,
+    required this.dependentType,
+    required this.minAge,
+    required this.maxAge,
+    required this.additionalPremiumCents,
+    required this.active,
+  });
+
+  double get additionalPremium => additionalPremiumCents / 100.0;
+
+  factory MembershipPlanPremiumRule.fromJson(Map<String, dynamic> json) {
+    return MembershipPlanPremiumRule(
+      id: json['id']?.toString(),
+      planId: json['planId']?.toString(),
+      dependentType: DependentType.values.firstWhere((e) => e.name == json['dependentType'], orElse: () => DependentType.ANY),
+      minAge: json['minAge'] is int ? json['minAge'] : (int.tryParse(json['minAge']?.toString() ?? '0') ?? 0),
+      maxAge: json['maxAge'] is int ? json['maxAge'] : (int.tryParse(json['maxAge']?.toString() ?? '0') ?? 0),
+      additionalPremiumCents: json['additionalPremiumCents'] is int ? json['additionalPremiumCents'] : (int.tryParse(json['additionalPremiumCents']?.toString() ?? '0') ?? 0),
+      active: json['active'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      if (planId != null) 'planId': planId,
+      'dependentType': dependentType.name,
+      'minAge': minAge,
+      'maxAge': maxAge,
+      'additionalPremiumCents': additionalPremiumCents,
+      'active': active,
     };
   }
 }
