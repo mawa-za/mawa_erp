@@ -32,7 +32,7 @@ class MembershipDetail {
   });
 
   factory MembershipDetail.fromJson(Map<String, dynamic> json) {
-    String? parseDateArray(dynamic date) {
+    String? parseDateValue(dynamic date) {
       if (date == null) return null;
       if (date is List && date.length >= 3) {
         try {
@@ -50,7 +50,14 @@ class MembershipDetail {
           return date.toString();
         }
       }
-      return date?.toString();
+      
+      final str = date.toString();
+      // If the string is likely a status (only letters and hyphens, no digits), treat as null/no date
+      if (RegExp(r'^[a-zA-Z-]+$').hasMatch(str)) {
+        return null;
+      }
+      
+      return str.isEmpty || str == 'null' ? null : str;
     }
 
     String? parseOldId(dynamic value) {
@@ -65,14 +72,14 @@ class MembershipDetail {
       memberId: (json['memberId'] ?? '').toString(),
       membershipNo: (json['membershipNo'] ?? '').toString(),
       planId: (json['planId'] ?? '').toString(),
-      startDate: parseDateArray(json['startDate']),
-      endDate: parseDateArray(json['endDate']),
+      startDate: parseDateValue(json['startDate']),
+      endDate: parseDateValue(json['endDate']),
       status: (json['status'] ?? '').toString(),
       paidUpToPeriod: json['paidUpToPeriod']?.toString(),
-      joinDate: parseDateArray(json['joinDate']),
-      createdAt: parseDateArray(json['createdAt']),
+      joinDate: parseDateValue(json['joinDate']),
+      createdAt: parseDateValue(json['createdAt']),
       createdBy: (json['createdBy'] ?? '').toString(),
-      updatedAt: parseDateArray(json['updatedAt']),
+      updatedAt: parseDateValue(json['updatedAt']),
       updatedBy: (json['updatedBy'] ?? '').toString(),
       oldId: parseOldId(json['oldId'] ?? json['old_id']),
     );
