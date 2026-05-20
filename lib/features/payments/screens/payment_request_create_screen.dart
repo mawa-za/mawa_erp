@@ -34,9 +34,9 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
   // Bank Account Fields
   final _accountHolderController = TextEditingController();
-  final _bankNameController = TextEditingController();
   final _accountNumberController = TextEditingController();
   final _branchCodeController = TextEditingController();
+  String? _selectedBankCode;
   String? _selectedAccountType;
 
   // Options
@@ -44,6 +44,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   List<FieldOption> _methodOptions = [];
   List<FieldOption> _typeOptions = [];
   List<FieldOption> _accountTypeOptions = [];
+  List<FieldOption> _bankOptions = [];
   bool _isLoadingOptions = true;
 
   @override
@@ -59,6 +60,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         FieldService().getOptionsByField('PAYMENT-METHOD'),
         FieldService().getOptionsByField('PAYMENT-REQUEST-TYPE'),
         FieldService().getOptionsByField('BANK-ACCOUNT-TYPE'),
+        FieldService().getOptionsByField('BANK-NAME'),
       ]);
 
       setState(() {
@@ -66,11 +68,13 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         _methodOptions = results[1];
         _typeOptions = results[2];
         _accountTypeOptions = results[3];
+        _bankOptions = results[4];
         _isLoadingOptions = false;
 
         if (_reasonOptions.isNotEmpty) _selectedPaymentReason = _reasonOptions.first.code;
         if (_methodOptions.isNotEmpty) _selectedPaymentMethod = _methodOptions.first.code;
         if (_typeOptions.isNotEmpty) _selectedType = _typeOptions.first.code;
+        if (_bankOptions.isNotEmpty) _selectedBankCode = _bankOptions.first.code;
       });
     } catch (e) {
       setState(() => _isLoadingOptions = false);
@@ -106,6 +110,12 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
     try {
       final bool isEFT = _selectedPaymentMethod == 'EFT';
+      
+      String? bankName;
+      if (isEFT && _selectedBankCode != null) {
+        final selectedBank = _bankOptions.firstWhere((opt) => opt.code == _selectedBankCode);
+        bankName = selectedBank.description;
+      }
 
       final payload = {
         "requestType": _selectedType,
@@ -115,7 +125,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         "amount": double.tryParse(_amountController.text) ?? 0.0,
         "currency": "ZAR",
         "paymentMethod": _selectedPaymentMethod,
-        "bankName": isEFT ? _bankNameController.text : null,
+        "bankName": isEFT ? bankName : null,
         "accountHolder": isEFT ? _accountHolderController.text : null,
         "accountNumber": isEFT ? _accountNumberController.text : null,
         "branchCode": isEFT ? _branchCodeController.text : null,
@@ -339,7 +349,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildTextField(_bankNameController, 'Bank Name', Icons.account_balance, isRequired: isEFT)),
+                Expanded(child: _buildDropdown('Bank Name', _selectedBankCode, _bankOptions, (val) => setState(() => _selectedBankCode = val), isRequired: isEFT)),
                 const SizedBox(width: 16),
                 Expanded(child: _buildTextField(_branchCodeController, 'Branch Code', Icons.numbers, isRequired: isEFT)),
               ],
@@ -432,7 +442,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
     _amountController.dispose();
     _notesController.dispose();
     _accountHolderController.dispose();
-    _bankNameController.dispose();
     _accountNumberController.dispose();
     _branchCodeController.dispose();
     super.dispose();
