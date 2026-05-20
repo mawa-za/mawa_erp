@@ -54,15 +54,18 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text('Membership Plans'),
-        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
+        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
+        centerTitle: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _fetchPlans,
+            tooltip: 'Refresh',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _buildBody(colorScheme),
@@ -75,8 +78,9 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
             _fetchPlans();
           }
         },
-        label: const Text('New Plan'),
+        label: const Text('NEW PLAN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         icon: const Icon(Icons.add_rounded),
+        elevation: 2,
       ),
     );
   }
@@ -88,17 +92,24 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
 
     if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            const Text('Failed to load plans', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(color: Colors.grey[600]), textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: _fetchPlans, child: const Text('Retry')),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error.withOpacity(0.5)),
+              const SizedBox(height: 16),
+              const Text('Failed to load plans', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              Text(_error!, style: TextStyle(color: Colors.grey[600]), textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _fetchPlans,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('RETRY'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -108,9 +119,16 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text('No membership plans found', style: TextStyle(fontWeight: FontWeight.bold)),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.inventory_2_outlined, size: 64, color: colorScheme.primary.withOpacity(0.3)),
+            ),
+            const SizedBox(height: 24),
+            const Text('No membership plans found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 8),
             const Text('Create your first plan to start linking members', style: TextStyle(color: Colors.grey)),
           ],
@@ -118,27 +136,30 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _plans.length,
-      itemBuilder: (context, index) {
-        final plan = _plans[index];
-        return _buildPlanCard(plan, colorScheme);
-      },
+    return RefreshIndicator(
+      onRefresh: _fetchPlans,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+        itemCount: _plans.length,
+        itemBuilder: (context, index) {
+          final plan = _plans[index];
+          return _buildPlanCard(plan, colorScheme);
+        },
+      ),
     );
   }
 
   Widget _buildPlanCard(MembershipPlan plan, ColorScheme colorScheme) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
         border: Border.all(color: plan.active ? Colors.transparent : Colors.grey.shade200),
@@ -146,7 +167,7 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: () async {
             final result = await Navigator.of(context).push(
               MaterialPageRoute(builder: (context) => MembershipPlanDetailScreen(planId: plan.id)),
@@ -156,37 +177,66 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
             }
           },
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        plan.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: plan.active ? colorScheme.primary.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.card_membership_rounded,
+                        color: plan.active ? colorScheme.primary : Colors.grey,
+                        size: 24,
                       ),
                     ),
-                    if (!plan.active)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text('INACTIVE', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            plan.name,
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          ),
+                          Text(
+                            plan.planCode,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[500],
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    _buildStatusChip(plan.active, colorScheme),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(plan.description, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                const SizedBox(height: 12),
+                if (plan.description.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    plan.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.4),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildInfoTag(Icons.payments_outlined, 'R ${plan.premium.toStringAsFixed(2)}', colorScheme.primary),
-                    const SizedBox(width: 12),
-                    _buildInfoTag(Icons.people_outline_rounded, 'Max ${plan.maxDependents}', Colors.orange),
+                    _buildMetric(Icons.payments_outlined, 'Monthly', 'R ${plan.premium.toStringAsFixed(2)}', colorScheme.primary),
+                    _buildMetric(Icons.people_outline_rounded, 'Capacity', '${plan.maxDependents} Dependents', Colors.orange),
                   ],
                 ),
               ],
@@ -197,24 +247,38 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
     );
   }
 
-  Widget _buildInfoTag(IconData icon, String label, Color color) {
+  Widget _buildStatusChip(bool active, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: active ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
-          ),
-        ],
+      child: Text(
+        active ? 'ACTIVE' : 'INACTIVE',
+        style: TextStyle(
+          fontSize: 10,
+          color: active ? Colors.green[700] : Colors.grey[700],
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
       ),
+    );
+  }
+
+  Widget _buildMetric(IconData icon, String label, String value, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color.withOpacity(0.7)),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ],
     );
   }
 }

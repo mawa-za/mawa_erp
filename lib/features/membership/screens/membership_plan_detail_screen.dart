@@ -82,9 +82,10 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: Text(_plan!.name),
-        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
+        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 2,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
@@ -96,23 +97,28 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                 _fetchPlanDetails();
               }
             },
+            tooltip: 'Edit Plan',
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red),
             onPressed: () => _confirmDeletePlan(),
+            tooltip: 'Delete Plan',
           ),
+          const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'General'),
-            Tab(text: 'Premium Rules'),
-            Tab(text: 'Claim Payouts'),
+            Tab(text: 'OVERVIEW'),
+            Tab(text: 'PREMIUM RULES'),
+            Tab(text: 'BENEFITS'),
           ],
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
           indicatorColor: colorScheme.primary,
+          indicatorWeight: 3,
           labelColor: colorScheme.primary,
+          unselectedLabelColor: Colors.grey,
         ),
       ),
       body: TabBarView(
@@ -132,16 +138,18 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildSectionHeader(Icons.info_outline, 'GENERAL INFORMATION'),
+          const SizedBox(height: 12),
           _buildInfoCard([
-            _buildDetailRow('Plan Code', _plan!.planCode),
-            const Divider(),
-            _buildDetailRow('Description', _plan!.description),
-            const Divider(),
-            _buildDetailRow('Monthly Premium', 'R ${_plan!.premium.toStringAsFixed(2)}'),
-            const Divider(),
-            _buildDetailRow('Max Dependents', _plan!.maxDependents.toString()),
-            const Divider(),
-            _buildDetailRow('Status', _plan!.active ? 'ACTIVE' : 'INACTIVE', 
+            _buildDetailRow(Icons.qr_code, 'Plan Code', _plan!.planCode),
+            const Divider(height: 24),
+            _buildDetailRow(Icons.description_outlined, 'Description', _plan!.description, isMultiLine: true),
+            const Divider(height: 24),
+            _buildDetailRow(Icons.payments_outlined, 'Base Premium', 'R ${_plan!.premium.toStringAsFixed(2)}'),
+            const Divider(height: 24),
+            _buildDetailRow(Icons.people_outline, 'Max Dependents', _plan!.maxDependents.toString()),
+            const Divider(height: 24),
+            _buildDetailRow(Icons.toggle_on_outlined, 'Status', _plan!.active ? 'ACTIVE' : 'INACTIVE', 
                 valueColor: _plan!.active ? Colors.green : Colors.red),
           ]),
         ],
@@ -154,22 +162,22 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Rules for additional dependents', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              _buildSectionHeader(Icons.rule, 'PRICING RULES'),
               TextButton.icon(
-                onPressed: () => _showAddRuleDialog(),
+                onPressed: () => _showRuleDialog(),
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Rule'),
+                label: const Text('ADD RULE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
             ],
           ),
         ),
         Expanded(
           child: rules.isEmpty 
-            ? _buildEmptyState(Icons.rule, 'No premium rules defined')
+            ? _buildEmptyState(Icons.rule, 'No premium rules defined', 'Rules define additional costs based on age and type.')
             : RefreshIndicator(
                 onRefresh: _fetchPlanDetails,
                 child: ListView.builder(
@@ -177,13 +185,25 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                   itemCount: rules.length,
                   itemBuilder: (context, index) {
                     final rule = rules[index];
-                    return Card(
-                      elevation: 0,
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
                       child: ListTile(
-                        title: Text(rule.dependentType.name.replaceAll('_', ' ')),
-                        subtitle: Text('Age: ${rule.minAge} - ${rule.maxAge} years'),
+                        onTap: () => _showRuleDialog(rule: rule),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        leading: CircleAvatar(
+                          backgroundColor: colorScheme.secondaryContainer.withOpacity(0.5),
+                          child: Icon(Icons.person_add_alt_1_outlined, color: colorScheme.secondary, size: 20),
+                        ),
+                        title: Text(
+                          rule.dependentType.name.replaceAll('_', ' '),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        subtitle: Text('Age range: ${rule.minAge} - ${rule.maxAge} years'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -191,10 +211,12 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text('+R ${rule.additionalPremium.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                                if (!rule.active) const Text('Inactive', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                Text('+ R ${rule.additionalPremium.toStringAsFixed(2)}', 
+                                  style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.red, fontSize: 15)),
+                                if (!rule.active) const Text('INACTIVE', style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
                               ],
                             ),
+                            const SizedBox(width: 12),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
                               onPressed: () => _deleteRule(rule.id!),
@@ -216,22 +238,22 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Benefit payout configurations', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              _buildSectionHeader(Icons.monetization_on_outlined, 'PLAN BENEFITS'),
               TextButton.icon(
-                onPressed: () => _showAddPayoutDialog(),
+                onPressed: () => _showPayoutDialog(),
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Payout'),
+                label: const Text('ADD BENEFIT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
             ],
           ),
         ),
         Expanded(
           child: payouts.isEmpty 
-            ? _buildEmptyState(Icons.monetization_on_outlined, 'No claim payouts defined')
+            ? _buildEmptyState(Icons.volunteer_activism_outlined, 'No benefits defined', 'Define how much is paid out for different claim types.')
             : RefreshIndicator(
                 onRefresh: _fetchPlanDetails,
                 child: ListView.builder(
@@ -239,17 +261,31 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                   itemCount: payouts.length,
                   itemBuilder: (context, index) {
                     final payout = payouts[index];
-                    return Card(
-                      elevation: 0,
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
                       child: ListTile(
-                        title: Text(payout.claimType.name),
-                        subtitle: Text('For: ${payout.dependentType.name.replaceAll('_', ' ')}'),
+                        onTap: () => _showPayoutDialog(payout: payout),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.green.withOpacity(0.1),
+                          child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.green, size: 20),
+                        ),
+                        title: Text(
+                          payout.claimType.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        subtitle: Text('Recipient: ${payout.dependentType.name.replaceAll('_', ' ')}'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('R ${payout.payoutAmount.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
+                            Text('R ${payout.payoutAmount.toStringAsFixed(2)}', 
+                              style: TextStyle(fontWeight: FontWeight.w900, color: colorScheme.primary, fontSize: 15)),
+                            const SizedBox(width: 12),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
                               onPressed: () => _deletePayout(payout.id!),
@@ -266,40 +302,73 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
     );
   }
 
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2),
+        ),
+      ],
+    );
+  }
+
   Widget _buildInfoCard(List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(children: children),
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 120, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13))),
-          Expanded(child: Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: valueColor))),
-        ],
-      ),
+  Widget _buildDetailRow(IconData icon, String label, String value, {Color? valueColor, bool isMultiLine = false}) {
+    return Row(
+      crossAxisAlignment: isMultiLine ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18, color: Colors.grey[400]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text(value, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: valueColor)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildEmptyState(IconData icon, String message) {
+  Widget _buildEmptyState(IconData icon, String title, String subtitle) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(message, style: const TextStyle(color: Colors.grey)),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 64, color: Colors.grey[300]),
+            ),
+            const SizedBox(height: 24),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            Text(subtitle, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          ],
+        ),
       ),
     );
   }
@@ -310,9 +379,10 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
       builder: (context) => AlertDialog(
         title: const Text('Delete Plan?'),
         content: const Text('Are you sure you want to delete this membership plan? This action cannot be undone.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-          TextButton(
+          FilledButton(
             onPressed: () async {
               Navigator.pop(context);
               try {
@@ -322,7 +392,8 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
-            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('DELETE'),
           ),
         ],
       ),
@@ -347,43 +418,55 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
     }
   }
 
-  void _showAddRuleDialog() {
-    DependentType selectedType = DependentType.EXTENDED_FAMILY;
-    final minAgeController = TextEditingController(text: '0');
-    final maxAgeController = TextEditingController(text: '100');
-    final premiumController = TextEditingController();
+  void _showRuleDialog({MembershipPlanPremiumRule? rule}) {
+    DependentType selectedType = rule?.dependentType ?? DependentType.EXTENDED_FAMILY;
+    final minAgeController = TextEditingController(text: rule?.minAge.toString() ?? '0');
+    final maxAgeController = TextEditingController(text: rule?.maxAge.toString() ?? '100');
+    final premiumController = TextEditingController(text: rule != null ? rule.additionalPremium.toString() : '');
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Premium Rule'),
+          title: Text(rule == null ? 'Add Premium Rule' : 'Edit Premium Rule'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<DependentType>(
                   value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Dependent Type'),
+                  decoration: const InputDecoration(labelText: 'Dependent Type', border: OutlineInputBorder()),
                   items: DependentType.values.map((type) => DropdownMenuItem(
                     value: type,
                     child: Text(type.name.replaceAll('_', ' ')),
                   )).toList(),
                   onChanged: (v) => setDialogState(() => selectedType = v!),
                 ),
-                TextField(
-                  controller: minAgeController,
-                  decoration: const InputDecoration(labelText: 'Min Age'),
-                  keyboardType: TextInputType.number,
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: minAgeController,
+                        decoration: const InputDecoration(labelText: 'Min Age', border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextField(
+                        controller: maxAgeController,
+                        decoration: const InputDecoration(labelText: 'Max Age', border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
                 ),
-                TextField(
-                  controller: maxAgeController,
-                  decoration: const InputDecoration(labelText: 'Max Age'),
-                  keyboardType: TextInputType.number,
-                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: premiumController,
-                  decoration: const InputDecoration(labelText: 'Additional Premium', prefixText: 'R '),
+                  decoration: const InputDecoration(labelText: 'Additional Premium', prefixText: 'R ', border: OutlineInputBorder()),
                   keyboardType: TextInputType.number,
                 ),
               ],
@@ -391,7 +474,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 final payload = {
                   'dependentType': selectedType.name,
@@ -401,14 +484,18 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                   'active': true,
                 };
                 try {
-                  await MembershipService().addPremiumRule(widget.planId, payload);
+                  if (rule == null) {
+                    await MembershipService().addPremiumRule(widget.planId, payload);
+                  } else {
+                    await MembershipService().updatePremiumRule(widget.planId, rule.id!, payload);
+                  }
                   Navigator.pop(context);
                   _fetchPlanDetails();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
-              child: const Text('ADD'),
+              child: Text(rule == null ? 'ADD' : 'SAVE'),
             ),
           ],
         ),
@@ -416,41 +503,44 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
     );
   }
 
-  void _showAddPayoutDialog() {
-    ClaimType selectedClaimType = ClaimType.CASH;
-    DependentType selectedDependentType = DependentType.MAIN_MEMBER;
-    final amountController = TextEditingController();
+  void _showPayoutDialog({MembershipPlanClaimPayout? payout}) {
+    ClaimType selectedClaimType = payout?.claimType ?? ClaimType.CASH;
+    DependentType selectedDependentType = payout?.dependentType ?? DependentType.MAIN_MEMBER;
+    final amountController = TextEditingController(text: payout != null ? payout.payoutAmount.toString() : '');
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Claim Payout'),
+          title: Text(payout == null ? 'Add Claim Payout' : 'Edit Claim Payout'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<ClaimType>(
                   value: selectedClaimType,
-                  decoration: const InputDecoration(labelText: 'Claim Type'),
+                  decoration: const InputDecoration(labelText: 'Claim Type', border: OutlineInputBorder()),
                   items: ClaimType.values.map((type) => DropdownMenuItem(
                     value: type,
                     child: Text(type.name),
                   )).toList(),
                   onChanged: (v) => setDialogState(() => selectedClaimType = v!),
                 ),
+                const SizedBox(height: 16),
                 DropdownButtonFormField<DependentType>(
                   value: selectedDependentType,
-                  decoration: const InputDecoration(labelText: 'Recipient Type'),
+                  decoration: const InputDecoration(labelText: 'Recipient Type', border: OutlineInputBorder()),
                   items: DependentType.values.map((type) => DropdownMenuItem(
                     value: type,
                     child: Text(type.name.replaceAll('_', ' ')),
                   )).toList(),
                   onChanged: (v) => setDialogState(() => selectedDependentType = v!),
                 ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: amountController,
-                  decoration: const InputDecoration(labelText: 'Payout Amount', prefixText: 'R '),
+                  decoration: const InputDecoration(labelText: 'Payout Amount', prefixText: 'R ', border: OutlineInputBorder()),
                   keyboardType: TextInputType.number,
                 ),
               ],
@@ -458,7 +548,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            ElevatedButton(
+            FilledButton(
               onPressed: () async {
                 final payload = {
                   'claimType': selectedClaimType.name,
@@ -467,14 +557,18 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                   'active': true,
                 };
                 try {
-                  await MembershipService().addClaimPayout(widget.planId, payload);
+                  if (payout == null) {
+                    await MembershipService().addClaimPayout(widget.planId, payload);
+                  } else {
+                    await MembershipService().updateClaimPayout(widget.planId, payout.id!, payload);
+                  }
                   Navigator.pop(context);
                   _fetchPlanDetails();
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
-              child: const Text('ADD'),
+              child: Text(payout == null ? 'ADD' : 'SAVE'),
             ),
           ],
         ),
