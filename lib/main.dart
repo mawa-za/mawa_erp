@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
+import 'core/services/session_service.dart';
 import 'features/setup/setup_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/reset_password_screen.dart';
@@ -27,6 +28,13 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
+      builder: (context, child) {
+        return Listener(
+          onPointerDown: (_) => SessionService().userActivityDetected(),
+          onPointerMove: (_) => SessionService().userActivityDetected(),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       onGenerateRoute: (settings) {
         final uri = Uri.base;
         
@@ -89,6 +97,7 @@ class _InitializerState extends State<Initializer> {
     _checkStatus();
     _logoutSubscription = ApiClient().logoutStream.listen((_) {
       if (mounted) {
+        SessionService().stopMonitoring();
         setState(() {
           _isLoggedIn = false;
         });
@@ -112,6 +121,8 @@ class _InitializerState extends State<Initializer> {
     final apiHost = prefs.getString('api_host');
     final token = prefs.getString('accessToken');
 
+    final isLoggedIn = token != null && token.isNotEmpty;
+
     setState(() {
       if (kIsWeb) {
         _isConfigured = true;
@@ -119,9 +130,13 @@ class _InitializerState extends State<Initializer> {
         _isConfigured = tenant != null && apiHost != null;
       }
       
-      _isLoggedIn = token != null && token.isNotEmpty;
+      _isLoggedIn = isLoggedIn;
       _isLoading = false;
     });
+
+    if (isLoggedIn) {
+      SessionService().startMonitoring();
+    }
   }
 
   @override
@@ -145,6 +160,7 @@ class _InitializerState extends State<Initializer> {
 
     if (!_isLoggedIn) {
       return LoginScreen(onLoggedIn: () {
+        SessionService().startMonitoring();
         setState(() => _isLoggedIn = true);
       });
     }
