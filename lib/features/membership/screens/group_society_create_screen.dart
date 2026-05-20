@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
+import 'group_society_detail_screen.dart';
 
 class GroupSocietyCreateScreen extends StatefulWidget {
   const GroupSocietyCreateScreen({super.key});
@@ -28,8 +29,6 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
   Future<List<Partner>> _searchPartners(String query) async {
     if (query.length < 2) return [];
     try {
-      // Searching specifically for organisations or groups might be better, 
-      // but let's use the general search for now.
       final response = await ApiClient().get('/v2/partner?query=$query');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -62,13 +61,21 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
         "openingBalanceCents": (amount * 100).toInt()
       };
 
-      await _membershipService.createGroupSociety(payload);
+      final response = await _membershipService.createGroupSociety(payload);
+      final String? createdId = response['id'];
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Group Society created successfully'), backgroundColor: Colors.green),
         );
-        Navigator.pop(context, true);
+        
+        if (createdId != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => GroupSocietyDetailScreen(societyId: createdId))
+          );
+        } else {
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted) {

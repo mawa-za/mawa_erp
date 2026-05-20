@@ -169,9 +169,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()),
           );
-          if (result == true) {
-            _fetchInvoices();
-          }
+          // Always refresh when returning from create/detail flow
+          _fetchInvoices();
         },
         elevation: 2,
         child: const Icon(Icons.add),
@@ -360,12 +359,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.of(context).push(
+        onTap: () async {
+          await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => InvoiceDetailScreen(invoiceId: invoice.id),
             ),
           );
+          _fetchInvoices();
         },
         child: Padding(
           padding: const EdgeInsets.all(12.0),

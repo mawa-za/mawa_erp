@@ -118,9 +118,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const PartnerCreateScreen()),
           );
-          if (result == true) {
-            _fetchPartners();
-          }
+          _fetchPartners();
         },
         child: const Icon(Icons.add),
       ) : null,
@@ -274,12 +272,13 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.of(context).push(
+        onTap: () async {
+          await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => PartnerDetailScreen(partnerId: partner.id),
             ),
           );
+          _fetchPartners();
         },
         child: Padding(
           padding: const EdgeInsets.all(12.0),

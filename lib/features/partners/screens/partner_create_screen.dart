@@ -6,6 +6,7 @@ import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
+import 'partner_detail_screen.dart';
 
 class PartnerCreateScreen extends StatefulWidget {
   final Partner? existingPartner;
@@ -127,11 +128,22 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           : await ApiClient().post('/v2/partner/${widget.existingPartner!.id}', body: payload);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String? createdId = responseData['id'];
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Partner ${widget.existingPartner == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
           );
-          Navigator.of(context).pop(true);
+          
+          if (widget.existingPartner == null && createdId != null) {
+            // Navigate to details for new partner
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: createdId))
+            );
+          } else {
+            Navigator.of(context).pop(true);
+          }
         }
       } else {
         throw Exception('Failed to save partner: ${response.statusCode}');

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
+import 'invoice_detail_screen.dart';
 
 class InvoiceItemDraft {
   final TextEditingController productController;
@@ -414,11 +415,22 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         : await ApiClient().post('/v2/invoice/${widget.existingInvoice!.id}', body: payload);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String? createdId = responseData['id'];
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Invoice ${widget.existingInvoice == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
           );
-          Navigator.of(context).pop(true);
+          
+          if (widget.existingInvoice == null && createdId != null) {
+            // Navigate to details for new invoice
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => InvoiceDetailScreen(invoiceId: createdId))
+            );
+          } else {
+            Navigator.of(context).pop(true);
+          }
         }
       } else {
         throw Exception('Failed to save invoice: ${response.statusCode}');
