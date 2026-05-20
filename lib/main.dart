@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api_client.dart';
+import 'core/config.dart';
 import 'core/services/session_service.dart';
 import 'features/setup/setup_screen.dart';
 import 'features/auth/login_screen.dart';
@@ -24,6 +25,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Mawa ERP',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -124,12 +126,12 @@ class _InitializerState extends State<Initializer> {
     final isLoggedIn = token != null && token.isNotEmpty;
 
     setState(() {
-      if (kIsWeb) {
-        _isConfigured = true;
-      } else {
-        _isConfigured = tenant != null && apiHost != null;
-      }
+      final hasStoredConfig = (tenant != null && tenant.isNotEmpty) && 
+                             (apiHost != null && apiHost.isNotEmpty);
       
+      // On web, we are considered auto-configured by default.
+      // On other platforms, we require stored configuration.
+      _isConfigured = kIsWeb || hasStoredConfig;
       _isLoggedIn = isLoggedIn;
       _isLoading = false;
     });

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
-import '../models/membership_plan.dart';
+import '../models/membership_plan.dart' hide DependentType;
 import '../models/membership_claim.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
@@ -633,7 +633,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 ),
                 title: Text('${partner?.title ?? dependent.title?.description ?? ''} $displayName'.trim(), 
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: isDeceased ? TextDecoration.lineThrough : null)),
-                subtitle: Text('No: ${partner?.number ?? dependent.number} • ${dependent.relationship.replaceAll('-', ' ')}', style: const TextStyle(fontSize: 12)),
+                subtitle: Text('No: ${partner?.number ?? dependent.number} • ${DependentType.fromString(dependent.dependentType).label}', style: const TextStyle(fontSize: 12)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

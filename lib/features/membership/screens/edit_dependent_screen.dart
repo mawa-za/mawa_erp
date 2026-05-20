@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/dependent.dart';
 import '../services/membership_service.dart';
-import '../../../core/widgets/app_dropdown.dart';
 
 class EditDependentScreen extends StatefulWidget {
   final String membershipId;
@@ -21,13 +20,13 @@ class _EditDependentScreenState extends State<EditDependentScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  late String? _selectedType;
+  late DependentType _selectedType;
   late bool _active;
 
   @override
   void initState() {
     super.initState();
-    _selectedType = widget.dependent.relationship;
+    _selectedType = DependentType.fromString(widget.dependent.dependentType);
     _active = widget.dependent.active;
   }
 
@@ -41,7 +40,7 @@ class _EditDependentScreenState extends State<EditDependentScreen> {
         "id": widget.dependent.id,
         "membershipId": widget.membershipId,
         "dependentPartnerId": widget.dependent.dependentPartnerId,
-        "relationship": _selectedType,
+        "dependentType": _selectedType.name,
         "active": _active,
       };
 
@@ -93,13 +92,23 @@ class _EditDependentScreenState extends State<EditDependentScreen> {
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
               ),
               const SizedBox(height: 12),
-              AppDropdownField(
-                field: 'RELATIONSHIP-TYPE',
-                label: 'Relationship Type',
-                icon: Icons.people_outline,
+              DropdownButtonFormField<DependentType>(
                 value: _selectedType,
-                onChanged: (v) => setState(() => _selectedType = v),
-                validator: (v) => v == null ? 'Required' : null,
+                decoration: InputDecoration(
+                  labelText: 'Relationship Type',
+                  prefixIcon: const Icon(Icons.people_outline),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+                items: DependentType.values.where((e) => e != DependentType.ANY).map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.label),
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => _selectedType = v!),
               ),
               const SizedBox(height: 16),
               SwitchListTile(

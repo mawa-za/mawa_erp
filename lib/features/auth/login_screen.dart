@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/config.dart';
 import '../../core/services/field_service.dart';
+import '../settings/models/role.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
 
@@ -58,22 +59,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final userId = data['userId'];
+        
+        final userId = data['userId']?.toString() ?? '';
+        final accessToken = (data['accessToken'] ?? data['token'])?.toString() ?? '';
+        final refreshToken = data['refreshToken']?.toString() ?? '';
+        final username = (data['username'] ?? _usernameController.text.trim()).toString();
+        final displayName = (data['displayName'] ?? '').toString();
 
         await prefs.setString('userId', userId);
-        await prefs.setString('username', data['username']);
-        await prefs.setString('displayName', data['displayName']);
-        await prefs.setString('accessToken', data['accessToken']);
-        await prefs.setString('refreshToken', data['refreshToken']);
+        await prefs.setString('username', username);
+        await prefs.setString('displayName', displayName);
+        await prefs.setString('accessToken', accessToken);
+        await prefs.setString('refreshToken', refreshToken);
 
-        // Prefetch field options for future use
         _prefetchFieldOptions();
 
-        // Fetch roles
-        final rolesResponse = await ApiClient().get('/user/$userId/role');
+        final rolesResponse = await ApiClient().get('/v2/user/$userId/role');
         if (rolesResponse.statusCode == 200) {
-          final List<dynamic> roles = jsonDecode(rolesResponse.body);
-          final List<String> roleList = roles.cast<String>();
+          final List<dynamic> rolesData = jsonDecode(rolesResponse.body);
+          final List<Role> roleList = rolesData.map((e) {
+            if (e is String) {
+              return Role(id: e, description: e);
+            }
+            return Role.fromJson(e as Map<String, dynamic>);
+          }).toList();
 
           if (roleList.length > 1) {
             if (mounted) {
@@ -90,12 +99,15 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             }
           } else if (roleList.length == 1) {
-            await prefs.setString('selectedRole', roleList.first);
+            final role = roleList.first;
+            await prefs.setString('selectedRole', role.id);
+            await prefs.setString('selectedRoleDescription', role.description);
             widget.onLoggedIn();
           } else {
             widget.onLoggedIn();
           }
         } else {
+          debugPrint('Failed to fetch roles: ${rolesResponse.statusCode} ${rolesResponse.body}');
           widget.onLoggedIn();
         }
       } else {
@@ -104,6 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Login Error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -113,7 +126,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _prefetchFieldOptions() {
-    // Fire and forget, FieldService handles caching
     FieldService().getOptions().catchError((e) {
       debugPrint('Failed to prefetch field options: $e');
     });
@@ -136,11 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
-                            Icons.business_center,
-                            size: 100,
-                            color: Colors.deepPurple,
-                          ),
+                          const Icon(Icons.business_center, size: 100, color: Colors.deepPurple),
                           const SizedBox(height: 16),
                           Text(
                             'Mawa ERP',
@@ -162,9 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
                               labelText: 'Username',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                               prefixIcon: const Icon(Icons.person),
                             ),
                             validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
@@ -176,9 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onFieldSubmitted: (_) => _login(),
                             decoration: InputDecoration(
                               labelText: 'Password',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                               prefixIcon: const Icon(Icons.lock),
                             ),
                             obscureText: true,
@@ -204,9 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     minimumSize: const Size.fromHeight(56),
                                     backgroundColor: Colors.deepPurple,
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     elevation: 2,
                                   ),
                                   child: const Text(

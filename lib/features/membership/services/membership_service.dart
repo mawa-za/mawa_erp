@@ -229,6 +229,8 @@ class MembershipService {
     }
   }
 
+  // --- Membership Plan Methods ---
+
   Future<PaginatedResponse<MembershipPlan>> getMembershipPlans({int page = 0, int size = 100}) async {
     try {
       final response = await ApiClient().get('/v2/membership/plans?page=$page&size=$size');
@@ -290,6 +292,139 @@ class MembershipService {
     }
   }
 
+  Future<void> updateMembershipPlan(String id, Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().put('/v2/membership/plans/$id', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to update membership plan: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteMembershipPlan(String id) async {
+    try {
+      final response = await ApiClient().delete('/v2/membership/plans/$id');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to delete membership plan: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // --- Membership Plan Premium Rules ---
+
+  Future<List<MembershipPlanPremiumRule>> getPremiumRules(String planId) async {
+    try {
+      final response = await ApiClient().get('/v2/membership/plans/$planId/premium-rule');
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded = jsonDecode(response.body);
+        return decoded.map((item) => MembershipPlanPremiumRule.fromJson(item)).toList();
+      } else {
+        throw Exception('Failed to load premium rules: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> addPremiumRule(String planId, Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().post('/v2/membership/plans/$planId/premium-rule', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to add premium rule: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updatePremiumRule(String planId, String ruleId, Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().put('/v2/membership/plans/$planId/premium-rule/$ruleId', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to update premium rule: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deletePremiumRule(String planId, String ruleId) async {
+    try {
+      final response = await ApiClient().delete('/v2/membership/plans/$planId/premium-rule/$ruleId');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to delete premium rule: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // --- Membership Plan Claim Payouts ---
+
+  Future<List<MembershipPlanClaimPayout>> getClaimPayouts(String planId, {bool all = false}) async {
+    try {
+      final String path = all 
+          ? '/v2/membership/plans/$planId/claim-payout/all' 
+          : '/v2/membership/plans/$planId/claim-payout';
+      final response = await ApiClient().get(path);
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded = jsonDecode(response.body);
+        return decoded.map((item) => MembershipPlanClaimPayout.fromJson(item)).toList();
+      } else {
+        throw Exception('Failed to load claim payouts: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> addClaimPayout(String planId, Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().post('/v2/membership/plans/$planId/claim-payout', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to add claim payout: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateClaimPayout(String planId, String payoutId, Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().put('/v2/membership/plans/$planId/claim-payout/$payoutId', body: payload);
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to update claim payout: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteClaimPayout(String planId, String payoutId) async {
+    try {
+      final response = await ApiClient().delete('/v2/membership/plans/$planId/claim-payout/$payoutId');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to delete claim payout: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // --- Membership Claim Methods ---
+
   Future<Map<String, dynamic>> createMembershipClaim(Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post('/v2/membership-claim', body: payload);
@@ -306,7 +441,6 @@ class MembershipService {
 
   Future<List<MembershipClaim>> getMembershipClaims({String? membershipId}) async {
     try {
-      // Corrected to use /v2/membership-claim base endpoint which is the "getAll" operation in Swagger
       String path = '/v2/membership-claim';
 
       if (membershipId != null && membershipId.isNotEmpty) {
@@ -422,6 +556,8 @@ class MembershipService {
       rethrow;
     }
   }
+
+  // --- Group Society Methods ---
 
   Future<List<GroupSociety>> getGroupSocieties({String? status, String? societyType}) async {
     try {

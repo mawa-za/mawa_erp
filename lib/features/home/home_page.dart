@@ -23,6 +23,7 @@ import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
 import '../approvals/screens/approval_workflow_list_screen.dart';
 import '../approvals/screens/approval_list_screen.dart';
+import '../settings/models/role.dart';
 import 'models/workcenter.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -35,7 +36,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
   String? _displayName;
-  String? _selectedRole;
+  String? _selectedRoleDisplay;
   String _appVersion = '';
   List<Workcenter> _workcenters = [];
   List<Workcenter> _filteredWorkcenters = [];
@@ -71,22 +72,25 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    final role = prefs.getString('selectedRole');
+    final roleId = prefs.getString('selectedRole');
+    final roleDesc = prefs.getString('selectedRoleDescription');
+    
     setState(() {
       _displayName = prefs.getString('displayName');
-      _selectedRole = role;
+      _selectedRoleDisplay = roleDesc ?? roleId;
     });
-    if (role != null) {
-      _fetchWorkcenters(role);
+
+    if (roleId != null) {
+      _fetchWorkcenters(roleId);
     } else {
       setState(() => _isLoadingWorkcenters = false);
     }
   }
 
-  Future<void> _fetchWorkcenters(String role) async {
+  Future<void> _fetchWorkcenters(String roleId) async {
     setState(() => _isLoadingWorkcenters = true);
     try {
-      final response = await ApiClient().get('/role/$role/workcenter');
+      final response = await ApiClient().get('/role/$roleId/workcenter');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
@@ -158,10 +162,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final response = await ApiClient().get('/v2/user/$userId/role');
     
     if (response.statusCode == 200) {
-      final List<dynamic> roles = jsonDecode(response.body);
-      final List<String> roleList = roles.cast<String>();
+      final List<dynamic> rolesData = jsonDecode(response.body);
+      final List<Role> roleList = rolesData.map((e) {
+        if (e is String) {
+          return Role(id: e, description: e);
+        }
+        return Role.fromJson(e as Map<String, dynamic>);
+      }).toList();
 
-      if (roleList.length > 1) {
+      if (roleList.isNotEmpty) {
         if (mounted) {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -215,6 +224,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
     await prefs.remove('selectedRole');
+    await prefs.remove('selectedRoleDescription');
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const Initializer()),
@@ -263,7 +273,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _fetchRecentModules(); 
     _fetchFrequentModules();
 
-    // Check for new partner-based modules
+    // Navigation logic...
     if (['EMPLOYEE', 'SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
       Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => PartnerListScreen(
@@ -271,78 +281,36 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           title: '${id[0]}${id.substring(1).toLowerCase()}s',
           allowCreate: false,
         ),
-      )).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      ));
       return;
     }
 
     if (id == 'INVOICE-CREATE') {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()));
     } else if (id == 'MEMBERSHIP-CLAIM') {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
     } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
     } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
     } else if (id.contains('PAYROLL') || description.contains('payroll')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen()));
     } else if (id.contains('CLAIM') || description.contains('claim')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('GROUP') || id.contains('SOCIETY') || description.contains('group') || description.contains('society')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen()));
     } else if (id.contains('PAYMENT') || description.contains('payment')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('PARTNER') || description.contains('partner')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
     } else if (id.contains('USER') || id.contains('SETTING') || id.contains('COMPANY') || id.contains('WORKFLOW') || id.contains('CONFIG') || id.contains('ROLE')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen()));
     } else if (id.contains('CASHUP') || description.contains('cashup')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
     } else if (id.contains('APPROVAL')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen())).then((_) {
-        _fetchRecentModules();
-        _fetchFrequentModules();
-      });
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
@@ -537,7 +505,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(_displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                Text(_selectedRole ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(_selectedRoleDisplay ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 const Divider(),
               ],
             ),
