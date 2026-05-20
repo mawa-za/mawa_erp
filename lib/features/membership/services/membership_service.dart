@@ -290,10 +290,12 @@ class MembershipService {
     }
   }
 
-  Future<void> createMembershipClaim(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> createMembershipClaim(Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post('/v2/membership-claim', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to process claim: ${response.statusCode}');
       }
@@ -467,10 +469,12 @@ class MembershipService {
     }
   }
 
-  Future<void> createGroupSociety(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> createGroupSociety(Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post('/v2/group-society', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to create group society: ${response.statusCode}');
       }
