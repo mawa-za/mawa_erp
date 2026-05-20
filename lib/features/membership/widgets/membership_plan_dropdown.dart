@@ -55,25 +55,47 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isLoading) {
-      return TextFormField(
-        decoration: _inputDecoration('Loading Plans...').copyWith(
-          suffixIcon: const Padding(
-            padding: EdgeInsets.all(12.0),
-            child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
+      return Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
         ),
-        readOnly: true,
+        child: const Row(
+          children: [
+            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+            SizedBox(width: 12),
+            Text('Loading Plans...', style: TextStyle(color: Colors.grey, fontSize: 14)),
+          ],
+        ),
       );
     }
 
     if (_error != null) {
-      return TextFormField(
-        decoration: _inputDecoration('Error loading plans').copyWith(
-          suffixIcon: IconButton(icon: const Icon(Icons.refresh), onPressed: _loadPlans),
+      return InkWell(
+        onTap: _loadPlans,
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: colorScheme.errorContainer.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.error.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: colorScheme.error, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Error loading plans', style: TextStyle(color: colorScheme.error, fontSize: 14))),
+              Icon(Icons.refresh, color: colorScheme.error, size: 20),
+            ],
+          ),
         ),
-        readOnly: true,
-        initialValue: 'Could not load plans',
       );
     }
 
@@ -84,15 +106,25 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
 
     return DropdownButtonFormField<String>(
       key: ValueKey(widget.value),
-      initialValue: currentPlanId,
-      decoration: _inputDecoration('Select Membership Plan'),
+      value: currentPlanId,
+      decoration: InputDecoration(
+        labelText: 'Select Membership Plan',
+        prefixIcon: Icon(Icons.card_membership_rounded, size: 20, color: colorScheme.primary),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.primary, width: 2)),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded),
       selectedItemBuilder: (BuildContext context) {
         return plans.map((plan) {
           return Align(
             alignment: Alignment.centerLeft,
             child: Text(
               plan.name,
-              style: const TextStyle(fontSize: 14),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               overflow: TextOverflow.ellipsis,
             ),
           );
@@ -101,16 +133,28 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
       items: plans.map((plan) {
         return DropdownMenuItem(
           value: plan.id,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(plan.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              Text(
-                'Premium: R ${plan.premium.toStringAsFixed(2)} • Max Dependents: ${plan.maxDependents}',
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-              ),
-            ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(plan.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      Text(
+                        'R ${plan.premium.toStringAsFixed(2)} / month • Max ${plan.maxDependents} deps',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                if (plan.id == widget.value)
+                  Icon(Icons.check_circle, size: 16, color: colorScheme.primary),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -124,17 +168,9 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
       },
       validator: widget.validator,
       isExpanded: true,
-      itemHeight: 60,
-    );
-  }
-
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: const Icon(Icons.inventory_2_outlined, size: 18),
-      isDense: true,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      itemHeight: 64,
+      borderRadius: BorderRadius.circular(16),
+      dropdownColor: Colors.white,
     );
   }
 }
