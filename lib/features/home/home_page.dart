@@ -19,6 +19,7 @@ import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../settings/screens/settings_screen.dart';
 import '../settings/screens/user_list_screen.dart';
 import '../settings/screens/system_configuration_screen.dart';
+import '../settings/screens/api_log_list_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
 import '../approvals/screens/approval_workflow_list_screen.dart';
@@ -250,6 +251,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('invoic')) return Icons.description_rounded;
     if (lowerId.contains('partner')) return Icons.business_center_rounded;
     if (lowerId.contains('user')) return Icons.person_add_rounded;
+    if (lowerId.contains('api-log')) return Icons.api_rounded;
     if (lowerId.contains('setting')) return Icons.settings_suggest_rounded;
     if (lowerId.contains('report')) return Icons.bar_chart_rounded;
     if (lowerId.contains('company')) return Icons.domain_rounded;
@@ -282,6 +284,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           allowCreate: false,
         ),
       ));
+      return;
+    }
+
+    if (id == 'API-LOG') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApiLogListScreen()));
       return;
     }
 

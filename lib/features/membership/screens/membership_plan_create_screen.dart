@@ -60,14 +60,30 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Membership plan ${_isEditing ? 'updated' : 'created'} successfully'), behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Text('Plan ${_isEditing ? 'updated' : 'created'} successfully'),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            backgroundColor: Colors.green[700],
+          ),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     } finally {
@@ -95,39 +111,82 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionHeader(Icons.settings_outlined, 'PLAN CONFIGURATION'),
+              _buildSectionHeader(Icons.settings_suggest_outlined, 'PLAN IDENTITY'),
               const SizedBox(height: 16),
               _buildCard([
-                _buildTextField(_planCodeController, 'Plan Code', 'e.g. SILVER-PLAN', validator: (v) => v!.isEmpty ? 'Required' : null, enabled: !_isEditing),
-                const SizedBox(height: 16),
-                _buildTextField(_nameController, 'Plan Name', 'e.g. Silver Membership', validator: (v) => v!.isEmpty ? 'Required' : null),
-                const SizedBox(height: 16),
-                _buildTextField(_descriptionController, 'Description', 'Provide details about the plan', maxLines: 3),
+                _buildTextField(
+                  _planCodeController,
+                  'Unique Plan Code',
+                  'e.g. GOLD-2024',
+                  icon: Icons.qr_code_rounded,
+                  validator: (v) => v!.isEmpty ? 'Code is required' : null,
+                  enabled: !_isEditing,
+                  helperText: 'Internal reference code for this plan.',
+                ),
+                const SizedBox(height: 20),
+                _buildTextField(
+                  _nameController,
+                  'Display Name',
+                  'e.g. Gold Family Plan',
+                  icon: Icons.badge_outlined,
+                  validator: (v) => v!.isEmpty ? 'Name is required' : null,
+                ),
+                const SizedBox(height: 20),
+                _buildTextField(
+                  _descriptionController,
+                  'Description',
+                  'Tell users what this plan covers...',
+                  icon: Icons.description_outlined,
+                  maxLines: 3,
+                ),
               ]),
-              const SizedBox(height: 24),
-              _buildSectionHeader(Icons.payments_outlined, 'PRICING & LIMITS'),
+              const SizedBox(height: 32),
+              _buildSectionHeader(Icons.account_balance_wallet_outlined, 'PRICING & TERMS'),
               const SizedBox(height: 16),
               _buildCard([
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _buildTextField(_premiumController, 'Monthly Premium', '0.00', prefixText: 'R ', keyboardType: const TextInputType.numberWithOptions(decimal: true), validator: (v) => v!.isEmpty ? 'Required' : null),
+                      child: _buildTextField(
+                        _premiumController,
+                        'Monthly Premium',
+                        '0.00',
+                        prefixText: 'R ',
+                        icon: Icons.payments_outlined,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       flex: 1,
-                      child: _buildTextField(_currencyController, 'Currency', 'ZAR'),
+                      child: _buildTextField(
+                        _currencyController,
+                        'Currency',
+                        'ZAR',
+                        icon: Icons.language_rounded,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _buildTextField(_maxDependentsController, 'Max Dependents', 'e.g. 5', keyboardType: TextInputType.number),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+                _buildTextField(
+                  _maxDependentsController,
+                  'Max Dependents Included',
+                  '5',
+                  icon: Icons.group_outlined,
+                  keyboardType: TextInputType.number,
+                  helperText: 'Base number of dependents allowed.',
+                ),
+                const SizedBox(height: 12),
+                const Divider(),
                 SwitchListTile(
-                  title: const Text('Plan Active', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Inactive plans cannot be linked to members', style: TextStyle(fontSize: 12)),
+                  title: const Text('Is Plan Active?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Only active plans can be assigned to new members.', style: TextStyle(fontSize: 12)),
                   value: _active,
+                  activeColor: colorScheme.primary,
                   onChanged: (v) => setState(() => _active = v),
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -135,20 +194,21 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
+                height: 56,
+                child: FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   child: _isSubmitting
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : Text(_isEditing ? 'UPDATE PLAN' : 'CREATE PLAN', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                      : Text(
+                          _isEditing ? 'UPDATE PLAN' : 'CREATE PLAN',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
+                        ),
                 ),
               ),
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -159,11 +219,16 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
   Widget _buildSectionHeader(IconData icon, String title) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 10),
         Text(
           title,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: Colors.grey[700],
+            letterSpacing: 1.5,
+          ),
         ),
       ],
     );
@@ -171,37 +236,69 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
 
   Widget _buildCard(List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: Colors.white),
       ),
-      child: Column(children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, String hint, {int maxLines = 1, String? prefixText, TextInputType? keyboardType, String? Function(String?)? validator, bool enabled = true}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    String hint, {
+    int maxLines = 1,
+    String? prefixText,
+    IconData? icon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    bool enabled = true,
+    String? helperText,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
-        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+            ],
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+          ],
+        ),
+        const SizedBox(height: 10),
         TextFormField(
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboardType,
           validator: validator,
           enabled: enabled,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             hintText: hint,
             prefixText: prefixText,
-            hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade100)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            isDense: true,
+            helperText: helperText,
+            helperStyle: const TextStyle(fontSize: 10),
+            hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400], fontWeight: FontWeight.normal),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)),
+            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade100)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             filled: true,
             fillColor: enabled ? Colors.white : Colors.grey.shade50,
           ),
