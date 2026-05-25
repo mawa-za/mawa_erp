@@ -420,9 +420,9 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildInfoRow('Certificate No', claim.deathCertificateNo ?? 'N/A', icon: Icons.badge_outlined),
           const Divider(height: 32),
           _buildInfoRow('Cause of Death', claim.causeOfDeath ?? 'N/A', icon: Icons.description_outlined, isMultiLine: true),
-          if (claim.notes.isNotEmpty) ...[
+          if (claim.notes != null && claim.notes!.isNotEmpty) ...[
             const Divider(height: 32),
-            _buildInfoRow('Internal Notes', claim.notes, icon: Icons.notes_rounded, isMultiLine: true),
+            _buildInfoRow('Internal Notes', claim.notes!, icon: Icons.notes_rounded, isMultiLine: true),
           ],
         ],
       ),
@@ -478,14 +478,14 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     );
   }
 
-  Widget _buildErrorWidget() {
+  Widget _buildErrorWidget(ColorScheme colorScheme) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, size: 64, color: Colors.red),
+            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error),
             const SizedBox(height: 16),
             const Text('Oops! Something went wrong', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 8),
