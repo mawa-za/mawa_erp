@@ -22,7 +22,15 @@ class Config {
 
   static String get webTenant {
     if (kIsWeb) {
-      return Uri.base.toString().replaceFirst(RegExp(r'^https?://'), '');
+      final url = Uri.base.toString();
+      if (url.contains('localhost') || url.contains('127.0.0.1')) {
+        return 'localhost';
+      }
+      
+      // Returns the whole URL excluding the protocol and trailing slash
+      return url
+          .replaceFirst(RegExp(r'^https?://'), '')
+          .replaceFirst(RegExp(r'/$'), '');
     }
     return '';
   }
