@@ -19,6 +19,7 @@ class PartnerIdentity {
     DateTime? parseDate(dynamic value) {
       if (value == null) return null;
       if (value is String) {
+        if (value.isEmpty) return null;
         try {
           return DateTime.parse(value);
         } catch (_) {
@@ -28,6 +29,21 @@ class PartnerIdentity {
           } catch (_) {
             return null;
           }
+        }
+      }
+      // Handle array format [yyyy, mm, dd] or [yyyy, mm, dd, hh, mm, ss]
+      if (value is List && value.length >= 3) {
+        try {
+          return DateTime(
+            value[0] as int,
+            value[1] as int,
+            value[2] as int,
+            value.length >= 4 ? value[3] as int : 0,
+            value.length >= 5 ? value[4] as int : 0,
+            value.length >= 6 ? value[5] as int : 0,
+          );
+        } catch (_) {
+          return null;
         }
       }
       return null;

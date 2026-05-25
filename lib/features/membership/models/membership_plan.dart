@@ -96,6 +96,8 @@ enum ClaimType { CASH, TOMBSTONE, FUNERAL, COMBINATION }
 class MembershipPlanClaimPayout {
   final String? id;
   final String? planId;
+  final String? planCode;
+  final String? planName;
   final ClaimType claimType;
   final DependentType dependentType;
   final int payoutAmountCents;
@@ -104,6 +106,8 @@ class MembershipPlanClaimPayout {
   MembershipPlanClaimPayout({
     this.id,
     this.planId,
+    this.planCode,
+    this.planName,
     required this.claimType,
     required this.dependentType,
     required this.payoutAmountCents,
@@ -113,9 +117,16 @@ class MembershipPlanClaimPayout {
   double get payoutAmount => payoutAmountCents / 100.0;
 
   factory MembershipPlanClaimPayout.fromJson(Map<String, dynamic> json) {
+    String? pId = json['planId']?.toString();
+    if (pId == null && json['plan'] is Map) {
+      pId = json['plan']['id']?.toString();
+    }
+
     return MembershipPlanClaimPayout(
       id: json['id']?.toString(),
-      planId: json['planId']?.toString(),
+      planId: pId,
+      planCode: json['planCode']?.toString(),
+      planName: json['planName']?.toString(),
       claimType: ClaimType.values.firstWhere((e) => e.name == json['claimType'], orElse: () => ClaimType.CASH),
       dependentType: DependentType.values.firstWhere((e) => e.name == json['dependentType'], orElse: () => DependentType.ANY),
       payoutAmountCents: json['payoutAmountCents'] is int ? json['payoutAmountCents'] : (int.tryParse(json['payoutAmountCents']?.toString() ?? '0') ?? 0),
@@ -138,6 +149,7 @@ class MembershipPlanClaimPayout {
 class MembershipPlanPremiumRule {
   final String? id;
   final String? planId;
+  final String? planName;
   final DependentType dependentType;
   final int minAge;
   final int maxAge;
@@ -147,6 +159,7 @@ class MembershipPlanPremiumRule {
   MembershipPlanPremiumRule({
     this.id,
     this.planId,
+    this.planName,
     required this.dependentType,
     required this.minAge,
     required this.maxAge,
@@ -157,9 +170,15 @@ class MembershipPlanPremiumRule {
   double get additionalPremium => additionalPremiumCents / 100.0;
 
   factory MembershipPlanPremiumRule.fromJson(Map<String, dynamic> json) {
+    String? pId = json['planId']?.toString();
+    if (pId == null && json['plan'] is Map) {
+      pId = json['plan']['id']?.toString();
+    }
+
     return MembershipPlanPremiumRule(
       id: json['id']?.toString(),
-      planId: json['planId']?.toString(),
+      planId: pId,
+      planName: json['planName']?.toString(),
       dependentType: DependentType.values.firstWhere((e) => e.name == json['dependentType'], orElse: () => DependentType.ANY),
       minAge: json['minAge'] is int ? json['minAge'] : (int.tryParse(json['minAge']?.toString() ?? '0') ?? 0),
       maxAge: json['maxAge'] is int ? json['maxAge'] : (int.tryParse(json['maxAge']?.toString() ?? '0') ?? 0),
