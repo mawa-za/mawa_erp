@@ -34,9 +34,9 @@ class ApiClient {
     return Config.webTenant.isNotEmpty ? Config.webTenant : null;
   }
 
-  Future<Map<String, String>> _getHeaders({bool includeRole = true, String? customToken}) async {
+  Future<Map<String, String>> _getHeaders({bool includeRole = true}) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = customToken ?? prefs.getString('accessToken');
+    final token = prefs.getString('accessToken');
     final tenantId = await _getTenantId();
     final role = prefs.getString('selectedRole');
     final userId = prefs.getString('userId');
@@ -204,28 +204,31 @@ class ApiClient {
       final prefs = await SharedPreferences.getInstance();
       final refreshToken = prefs.getString('refreshToken');
       final host = await _getApiHost();
-      
+      final tenantId = await _getTenantId();
+
       if (refreshToken == null || refreshToken.isEmpty) {
-        debugPrint('No refresh token available');
+        debugPrint('ApiClient: No refresh token available');
         await logout();
         return false;
       }
 
-      debugPrint('Attempting to refresh token at https://$host/refresh-token');
-      
-      // Some backends expect the refresh token in the Authorization header,
-      // others expect it in the body. We'll provide both for maximum compatibility.
-      final headers = await _getHeaders(includeRole: true, customToken: refreshToken);
+      // Trying v2 endpoint as authenticate is versioned
+      final url = Uri.parse('https://$host/v2/refresh-token');
+      debugPrint('ApiClient: Attempting refresh at $url');
       
       final response = await http.post(
-        Uri.parse('https://$host/refresh-token'),
-        headers: headers,
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-TenantID': tenantId ?? '',
+          'X-Tenant-Id': tenantId ?? '',
+        },
         body: jsonEncode({
           'refreshToken': refreshToken,
         }),
-      ).timeout(const Duration(seconds: 10));
+      );
 
-      debugPrint('Refresh token response status: ${response.statusCode}');
+      debugPrint('ApiClient: Refresh response ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -233,34 +236,59 @@ class ApiClient {
         final newRefreshToken = data['refreshToken'];
 
         if (newAccessToken != null) {
-          await prefs.setString('accessToken', newAccessToken);
+          await prefs.setString('accessToken', newAccessToken.toString());
           if (newRefreshToken != null) {
-            await prefs.setString('refreshToken', newRefreshToken);
+            await prefs.setString('refreshToken', newRefreshToken.toString());
           }
-          debugPrint('Token refreshed successfully');
+          debugPrint('ApiClient: Token refreshed successfully');
           return true;
         }
       } 
       
-      debugPrint('Token refresh failed. Status: ${response.statusCode}, Body: ${response.body}');
-      
-      // If we get a 401 on refresh, the session is definitely dead
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        await logout();
+      // If v2 fails with 404, fallback to root endpoint
+      if (response.statusCode == 404) {
+        debugPrint('ApiClient: /v2/refresh-token not found, falling back to /refresh-token');
+        final fallbackUrl = Uri.parse('https://$host/refresh-token');
+        final fallbackResponse = await http.post(
+          fallbackUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-TenantID': tenantId ?? '',
+            'X-Tenant-Id': tenantId ?? '',
+          },
+          body: jsonEncode({
+            'refreshToken': refreshToken,
+          }),
+        );
+        
+        if (fallbackResponse.statusCode == 200) {
+          final data = jsonDecode(fallbackResponse.body);
+          final newAccessToken = data['accessToken'] ?? data['token'];
+          if (newAccessToken != null) {
+            await prefs.setString('accessToken', newAccessToken.toString());
+            debugPrint('ApiClient: Token refreshed via fallback successfully');
+            return true;
+          }
+        }
+        debugPrint('ApiClient: Fallback refresh also failed: ${fallbackResponse.statusCode}');
       }
       
+      debugPrint('ApiClient: Refresh failed. Status: ${response.statusCode}');
+      await logout();
       return false;
     } catch (e) {
-      debugPrint('Exception during _refreshToken: $e');
+      debugPrint('ApiClient: Exception during _refreshToken: $e');
       return false;
     }
   }
 
   Future<void> logout() async {
-    debugPrint('ApiClient: Logging out and clearing tokens');
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('accessToken');
-    await prefs.remove('refreshToken');
-    _logoutController.add(true);
+    if (prefs.containsKey('accessToken')) {
+      debugPrint('ApiClient: Performing logout, clearing tokens');
+      await prefs.remove('accessToken');
+      await prefs.remove('refreshToken');
+      _logoutController.add(true);
+    }
   }
 }
