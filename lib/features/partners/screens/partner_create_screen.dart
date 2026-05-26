@@ -70,6 +70,9 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       _selectedType = 'INDIVIDUAL';
       // Add a default address
       _addresses.add(PartnerAddress(type: 'RESIDENTIAL', line1: '', city: '', state: '', postalCode: ''));
+      if (widget.isMemberContext) {
+        _selectedRoles.add('CUSTOMER');
+      }
     }
   }
 
@@ -133,14 +136,15 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         final String? createdId = responseData['id'];
 
         if (mounted) {
+          final entityName = widget.isMemberContext ? 'Member' : 'Partner';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Partner ${widget.existingPartner == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text('$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
           );
           
           if (widget.existingPartner == null && createdId != null) {
             // Navigate to details for new partner
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: createdId))
+              MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: createdId, isMemberContext: widget.isMemberContext))
             );
           } else {
             Navigator.of(context).pop(true);
@@ -175,11 +179,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final entityName = widget.isMemberContext ? 'Member' : 'Partner';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.existingPartner == null ? 'Create Partner' : 'Edit Partner'),
+        title: Text(widget.existingPartner == null ? 'Create $entityName' : 'Edit $entityName'),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
@@ -197,7 +202,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionHeader(Icons.category_outlined, 'Partner Type'),
+              _buildSectionHeader(Icons.category_outlined, '$entityName Type'),
               const SizedBox(height: 12),
               _buildTypeSelector(colorScheme),
               const SizedBox(height: 24),
@@ -213,7 +218,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               const SizedBox(height: 12),
               _buildContactFields(),
               const SizedBox(height: 24),
-              _buildSectionHeader(Icons.work_outline, 'Partner Roles'),
+              _buildSectionHeader(Icons.work_outline, '$entityName Roles'),
               const SizedBox(height: 12),
               _buildRolesFields(),
               const SizedBox(height: 24),
@@ -237,7 +242,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   onPressed: _isSubmitting ? null : _savePartner,
                   child: _isSubmitting
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(widget.existingPartner == null ? 'CREATE PARTNER' : 'SAVE CHANGES', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      : Text(widget.existingPartner == null ? 'CREATE ${entityName.toUpperCase()}' : 'SAVE CHANGES', style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 32),
