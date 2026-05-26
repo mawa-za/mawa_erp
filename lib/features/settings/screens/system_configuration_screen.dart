@@ -4,6 +4,7 @@ import 'user_list_screen.dart';
 import 'company_info_screen.dart';
 import 'role_list_screen.dart';
 import 'field_option_list_screen.dart';
+import 'api_log_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 
@@ -65,6 +66,15 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.people_outline,
             color: Colors.green,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserListScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'API Activity Logs',
+            subtitle: 'Monitor backend requests and system performance',
+            icon: Icons.api_outlined,
+            color: Colors.brown,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ApiLogListScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(

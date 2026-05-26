@@ -18,7 +18,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  // Form Fields
   Partner? _selectedMember;
   MembershipPlan? _selectedPlan;
   DateTime _dateJoined = DateTime.now();
@@ -56,10 +55,14 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Membership created successfully'), behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: const Text('Membership created successfully'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green[700],
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
         
-        // Navigate to details screen, and replace the current add screen in the stack
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => MembershipDetailScreen(membershipId: membershipId),
@@ -69,7 +72,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red[700], behavior: SnackBarBehavior.floating),
         );
       }
     } finally {
@@ -85,52 +88,60 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
         title: const Text('Create Membership'),
-        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
+        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionTitle('Customer Selection', Icons.person_outline),
+              _buildSectionTitle('1. CUSTOMER SELECTION', Icons.person_search_outlined),
               const SizedBox(height: 16),
-              PartnerSearchDropdown(
-                role: 'CUSTOMER',
-                label: 'Select Customer',
-                onPartnerSelected: (p) => setState(() => _selectedMember = p),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
+                ),
+                child: PartnerSearchDropdown(
+                  role: 'CUSTOMER',
+                  label: 'Search for a customer...',
+                  onPartnerSelected: (p) => setState(() => _selectedMember = p),
+                ),
               ),
               const SizedBox(height: 32),
-              _buildSectionTitle('Plan & Dates', Icons.card_membership),
+              _buildSectionTitle('2. PLAN CONFIGURATION', Icons.card_membership_outlined),
               const SizedBox(height: 16),
-              MembershipPlanDropdown(
-                value: _selectedPlan?.id,
-                onChanged: (plan) => setState(() => _selectedPlan = plan),
-                validator: (v) => v == null ? 'Required' : null,
+              _buildCard([
+                MembershipPlanDropdown(
+                  value: _selectedPlan?.id,
+                  onChanged: (plan) => setState(() => _selectedPlan = plan),
+                  validator: (v) => v == null ? 'Please select a plan' : null,
+                ),
+                const SizedBox(height: 24),
+                _buildDatePickerField('Date Joined', _dateJoined, Icons.calendar_today, (date) => setState(() => _dateJoined = date)),
+                const SizedBox(height: 16),
+                _buildDatePickerField('Policy Start Date', _startDate, Icons.event_available, (date) => setState(() => _startDate = date)),
+              ]),
+              const SizedBox(height: 48),
+              SizedBox(
+                height: 56,
+                child: FilledButton(
+                  onPressed: _isLoading ? null : _saveMembership,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                      : const Text('CREATE MEMBERSHIP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1)),
+                ),
               ),
-              const SizedBox(height: 16),
-              _buildDatePickerField('Date Joined', _dateJoined, (date) => setState(() => _dateJoined = date)),
-              const SizedBox(height: 16),
-              _buildDatePickerField('Start Date', _startDate, (date) => setState(() => _startDate = date)),
-              const SizedBox(height: 40),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _saveMembership,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: colorScheme.onPrimary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text('CREATE MEMBERSHIP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5)),
-                    ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -139,31 +150,37 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   }
 
   Widget _buildSectionTitle(String title, IconData icon) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: Colors.grey[600]),
-            const SizedBox(width: 8),
-            Text(
-              title.toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: Colors.grey[700],
+            letterSpacing: 1.2,
+          ),
         ),
-        const SizedBox(height: 4),
-        const Divider(height: 1),
       ],
     );
   }
 
-  Widget _buildDatePickerField(String label, DateTime date, Function(DateTime) onPicked) {
+  Widget _buildCard(List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
+        border: Border.all(color: Colors.white),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDatePickerField(String label, DateTime date, IconData icon, Function(DateTime) onPicked) {
     return InkWell(
       onTap: () async {
         final picked = await showDatePicker(
@@ -175,27 +192,34 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
         if (picked != null) onPicked(picked);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
+          color: const Color(0xFFF5F7F9),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_month_outlined, size: 20, color: Colors.grey),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[600])),
-                const SizedBox(height: 2),
-                Text(
-                  DateFormat('EEEE, d MMMM yyyy').format(date),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+              child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
             ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 0.5)),
+                  const SizedBox(height: 2),
+                  Text(
+                    DateFormat('EEEE, d MMMM yyyy').format(date),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.calendar_month_outlined, size: 20, color: Colors.grey),
           ],
         ),
       ),

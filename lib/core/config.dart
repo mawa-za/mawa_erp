@@ -22,17 +22,15 @@ class Config {
 
   static String get webTenant {
     if (kIsWeb) {
-      final host = Uri.base.host;
-      if (host == 'localhost' || host == '127.0.0.1') {
+      final url = Uri.base.toString();
+      if (url.contains('localhost') || url.contains('127.0.0.1')) {
         return 'localhost';
       }
       
-      final parts = host.split('.');
-      if (parts.isNotEmpty) {
-        // Return the subdomain (e.g. 'demo' from 'demo.app.mawa.co.za')
-        return parts[0];
-      }
-      return host;
+      // Returns the whole URL excluding the protocol and trailing slash
+      return url
+          .replaceFirst(RegExp(r'^https?://'), '')
+          .replaceFirst(RegExp(r'/$'), '');
     }
     return '';
   }

@@ -87,6 +87,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       builder: (context) => AlertDialog(
         title: const Text('Submit Claim'),
         content: const Text('Are you sure you want to submit this claim for approval?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('SUBMIT')),
@@ -114,13 +115,25 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Claim submitted for approval successfully'), backgroundColor: Colors.green),
+            SnackBar(
+              content: const Text('Claim submitted for approval successfully'),
+              backgroundColor: Colors.green[700],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           );
           _fetchDetails();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to submit: $e'), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to submit: $e'),
+              backgroundColor: Colors.red[700],
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
         }
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
@@ -133,34 +146,45 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: Text(_claim != null ? 'Claim #${_claim!.claimNo}' : 'Claim Details'),
-        backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0,
+        title: Text(_claim != null ? 'Claim Detail' : 'Claim Details'),
+        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 2,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchDetails),
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetchDetails),
           if (_claim != null && _claim!.status.toUpperCase() == 'DRAFT')
             IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => _showEditDialog()),
+          const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'Details'), Tab(text: 'Attachments')],
-          labelColor: colorScheme.primary, unselectedLabelColor: Colors.grey,
+          tabs: const [Tab(text: 'OVERVIEW'), Tab(text: 'ATTACHMENTS')],
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+          indicatorColor: colorScheme.primary,
+          indicatorWeight: 3,
+          labelColor: colorScheme.primary,
+          unselectedLabelColor: Colors.grey,
         ),
       ),
-      body: (_isLoading || _isSubmitting) ? const Center(child: CircularProgressIndicator()) : _error != null ? _buildErrorWidget() : TabBarView(
-        controller: _tabController,
-        children: [
-          _buildDetailsTab(colorScheme),
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16), 
-            child: AttachmentSection(
-              objectId: widget.claimId,
-              documentTypeField: 'DOCUMENT-TYPE-CLAIM',
-            ),
-          ),
-        ],
-      ),
+      body: (_isLoading || _isSubmitting) 
+          ? const Center(child: CircularProgressIndicator()) 
+          : _error != null 
+              ? _buildErrorWidget(colorScheme) 
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildDetailsTab(colorScheme),
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(24), 
+                      child: _buildAttachmentContainer(),
+                    ),
+                  ],
+                ),
       bottomNavigationBar: _buildBottomActions(colorScheme),
     );
   }
@@ -168,13 +192,36 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   Widget? _buildBottomActions(ColorScheme colorScheme) {
     if (_claim == null || _claim!.status.toUpperCase() != 'DRAFT') return null;
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))]),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, -5))],
+      ),
       child: Row(
         children: [
-          Expanded(child: OutlinedButton(onPressed: () => _cancelClaim(), style: OutlinedButton.styleFrom(foregroundColor: Colors.red), child: const Text('CANCEL'))),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => _cancelClaim(), 
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: const BorderSide(color: Colors.red),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ), 
+              child: const Text('CANCEL DRAFT', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: FilledButton(onPressed: _submitClaim, child: const Text('SUBMIT CLAIM'))),
+          Expanded(
+            child: FilledButton(
+              onPressed: _submitClaim, 
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text('SUBMIT FOR APPROVAL', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
         ],
       ),
     );
@@ -183,144 +230,288 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   Widget _buildDetailsTab(ColorScheme colorScheme) {
     final claim = _claim!;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildStatusBanner(claim),
-          const SizedBox(height: 20),
+          _buildStatusBanner(claim, colorScheme),
+          const SizedBox(height: 24),
           _buildAmountCard(claim, colorScheme),
           
           if (_membershipDetail != null) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSectionHeader(Icons.card_membership_outlined, 'Membership details'),
-                TextButton(
+                _buildSectionHeader(Icons.card_membership_outlined, 'LINKED MEMBERSHIP'),
+                TextButton.icon(
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => MembershipDetailScreen(membershipId: _membershipDetail!.id))),
-                  child: const Text('View Membership', style: TextStyle(fontSize: 12)),
-                )
+                  icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                  label: const Text('VIEW', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
               ]
             ),
             const SizedBox(height: 12),
             _buildMembershipCard(_membershipDetail!, colorScheme),
           ],
           
-          const SizedBox(height: 24),
-          _buildSectionHeader(Icons.person_outline, 'People Involved'),
+          const SizedBox(height: 32),
+          _buildSectionHeader(Icons.people_outline, 'PEOPLE INVOLVED'),
           const SizedBox(height: 12),
-          if (_deceasedPartner != null) _buildPartnerCard('Deceased', _deceasedPartner!, colorScheme),
+          if (_deceasedPartner != null) _buildPartnerCard('Deceased Person', _deceasedPartner!, colorScheme, isDeceased: true),
+          if (_claimantPartner != null) ...[
+            const SizedBox(height: 12),
+            _buildPartnerCard('Claimant (Beneficiary)', _claimantPartner!, colorScheme),
+          ],
+          
+          const SizedBox(height: 32),
+          _buildSectionHeader(Icons.info_outline, 'CLAIM SPECIFICATIONS'),
           const SizedBox(height: 12),
-          if (_claimantPartner != null) _buildPartnerCard('Claimant', _claimantPartner!, colorScheme),
-          const SizedBox(height: 24),
-          _buildSectionHeader(Icons.info_outline, 'Technical Context'),
-          const SizedBox(height: 12),
-          _buildInfoCard(claim),
+          _buildInfoCard(claim, colorScheme),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBanner(MembershipClaim claim) {
-    Color color; switch (claim.status.toUpperCase()) {
+  Widget _buildStatusBanner(MembershipClaim claim, ColorScheme colorScheme) {
+    Color color; 
+    switch (claim.status.toUpperCase()) {
       case 'APPROVED': color = Colors.green; break;
       case 'REJECTED': color = Colors.red; break;
       case 'SUBMITTED': 
       case 'AWAITING-APPROVAL': color = Colors.orange; break;
-      default: color = Colors.blue;
+      case 'PAID': color = Colors.teal; break;
+      default: color = colorScheme.primary;
     }
+
     return Container(
-      width: double.infinity, padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))),
-      child: Center(child: Text(claim.status.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold, letterSpacing: 1))),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(Icons.info_rounded, color: color, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'STATUS',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1),
+                ),
+                Text(
+                  claim.status.toUpperCase(),
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 0.5),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '#${claim.claimNo}',
+            style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildAmountCard(MembershipClaim claim, ColorScheme colorScheme) {
     return Container(
-      width: double.infinity, padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(gradient: LinearGradient(colors: [colorScheme.primary, colorScheme.primary.withBlue(200)]), borderRadius: BorderRadius.circular(16)),
-      child: Column(children: [
-        const Text('Claim Amount', style: TextStyle(color: Colors.white70, fontSize: 13)),
-        Text('R ${claim.claimAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-      ]),
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colorScheme.primary, colorScheme.primary.withBlue(150)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: colorScheme.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.payments_outlined, color: Colors.white54, size: 24),
+          const SizedBox(height: 12),
+          const Text('APPROVED PAYOUT AMOUNT', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+          const SizedBox(height: 8),
+          Text(
+            'R ${claim.claimAmount.toStringAsFixed(2)}',
+            style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildMembershipCard(MembershipDetail detail, ColorScheme colorScheme) {
-    return Card(
-      elevation: 0, margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow('Plan Type', detail.planId, icon: Icons.shield_outlined),
+          const Divider(height: 32),
+          _buildInfoRow('Membership No', detail.membershipNo, icon: Icons.numbers_rounded),
+          const Divider(height: 32),
+          _buildInfoRow('Policy Status', detail.status.toUpperCase(), icon: Icons.toggle_on_outlined, valueColor: detail.status.toUpperCase() == 'ACTIVE' ? Colors.green : Colors.orange),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPartnerCard(String role, Partner partner, ColorScheme colorScheme, {bool isDeceased = false}) {
+    final themeColor = isDeceased ? Colors.purple : colorScheme.primary;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: partner.id, isMemberContext: true)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: themeColor.withOpacity(0.1),
+          child: Icon(Icons.person_outline, color: themeColor, size: 20),
+        ),
+        title: Text(
+          partner.fullName,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        subtitle: Text(role, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(MembershipClaim claim, ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow('Claim Type', claim.claimType, icon: Icons.category_outlined),
+          const Divider(height: 32),
+          _buildInfoRow('Date of Death', claim.dateOfDeath, icon: Icons.calendar_today_rounded),
+          const Divider(height: 32),
+          _buildInfoRow('Certificate No', claim.deathCertificateNo ?? 'N/A', icon: Icons.badge_outlined),
+          const Divider(height: 32),
+          _buildInfoRow('Cause of Death', claim.causeOfDeath ?? 'N/A', icon: Icons.description_outlined, isMultiLine: true),
+          if (claim.notes != null && claim.notes!.isNotEmpty) ...[
+            const Divider(height: 32),
+            _buildInfoRow('Internal Notes', claim.notes!, icon: Icons.notes_rounded, isMultiLine: true),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {IconData? icon, Color? valueColor, bool isMultiLine = false}) {
+    return Row(
+      crossAxisAlignment: isMultiLine ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 18, color: Colors.grey[400]),
+          const SizedBox(width: 12),
+        ],
+        Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 13, fontWeight: FontWeight.w500)),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value, 
+            textAlign: TextAlign.right,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: valueColor ?? Colors.black87),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttachmentContainer() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: AttachmentSection(
+        objectId: widget.claimId,
+        documentTypeField: 'DOCUMENT-TYPE-CLAIM',
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget(ColorScheme colorScheme) {
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(Icons.shield_outlined, size: 20, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(detail.planId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                  child: Text(detail.status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            _buildInfoRow('Membership No', detail.membershipNo),
-            _buildInfoRow('Start Date', detail.startDate ?? 'N/A'),
-            _buildInfoRow('Join Date', detail.joinDate ?? 'N/A'),
-            _buildInfoRow('Paid Up To', detail.paidUpToPeriod ?? 'N/A'),
+            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error),
+            const SizedBox(height: 16),
+            const Text('Oops! Something went wrong', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 8),
+            Text(_error ?? 'Unknown Error', textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+            ElevatedButton(onPressed: _fetchDetails, child: const Text('RETRY')),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildPartnerCard(String role, Partner partner, ColorScheme colorScheme) {
-    return Card(
-      elevation: 0, margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: ListTile(
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: partner.id))),
-        leading: CircleAvatar(backgroundColor: colorScheme.secondaryContainer, child: const Icon(Icons.person, size: 20)),
-        title: Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text('$role • No: ${partner.number}'),
-        trailing: const Icon(Icons.chevron_right, size: 16),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(MembershipClaim claim) {
-    return Card(
-      elevation: 0, margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-        _buildInfoRow('Type', claim.claimType),
-        _buildInfoRow('Death Date', claim.dateOfDeath),
-        _buildInfoRow('Cert No', claim.deathCertificateNo ?? 'N/A'),
-        _buildInfoRow('Cause', claim.causeOfDeath ?? 'N/A'),
-      ])),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)), Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))]));
-  Widget _buildSectionHeader(IconData icon, String title) => Row(children: [Icon(icon, size: 18, color: Colors.grey), const SizedBox(width: 8), Text(title.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5))]);
-  Widget _buildErrorWidget() => Center(child: Text(_error ?? 'Unknown Error'));
   
   Future<void> _cancelClaim() async { 
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Cancel Claim'),
-        content: const Text('Are you sure you want to cancel this draft claim?'),
+        content: const Text('Are you sure you want to cancel this draft claim? This action is permanent.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('BACK')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('CANCEL CLAIM', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('GO BACK')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true), 
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('CANCEL CLAIM'),
+          ),
         ],
       ),
     );
@@ -329,7 +520,13 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
        try {
          await _membershipService.cancelMembershipClaim(widget.claimId);
          if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Claim cancelled successfully')));
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(
+               content: const Text('Claim cancelled successfully'),
+               backgroundColor: Colors.green[700],
+               behavior: SnackBarBehavior.floating,
+             )
+           );
            _fetchDetails();
          }
        } catch (e) {
@@ -340,7 +537,13 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     }
   }
   
-  Future<void> _showEditDialog() async { /* Implementation */ }
+  Future<void> _showEditDialog() async {
+    // Navigate to create screen with existing data or implement a dialog
+    // For now, let's just show a notification
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Edit functionality coming soon...'), behavior: SnackBarBehavior.floating),
+    );
+  }
 
   @override void dispose() { _tabController.dispose(); super.dispose(); }
 }

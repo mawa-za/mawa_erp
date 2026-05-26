@@ -105,13 +105,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
     try {
       final query = _searchController.text.trim();
 
-      // Only find partners if there's a search query
       if (query.isNotEmpty) {
         try {
           final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
           _currentMemberIds = partners.map((p) => p.id).toList();
 
-          // Cache partners to avoid re-fetching them for the list tiles
           if (mounted) {
             setState(() {
               for (var p in partners) {
@@ -146,7 +144,6 @@ class _MemberListScreenState extends State<MemberListScreen> {
           _hasMore = !membershipsResponse.last;
         });
 
-        // Fetch partners for initial batch (those not already in cache)
         await _fetchPartners(_memberships.map((m) => m.memberId).toList());
 
         setState(() => _isLoading = false);
@@ -182,7 +179,6 @@ class _MemberListScreenState extends State<MemberListScreen> {
           _hasMore = !response.last;
         });
 
-        // Fetch partners for new batch
         await _fetchPartners(newMemberships.map((m) => m.memberId).toList());
 
         setState(() => _isLoadingMore = false);
@@ -206,11 +202,12 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('Memberships', style: TextStyle(fontWeight: FontWeight.bold)),
-        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
+        title: const Text('Memberships'),
+        titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
+        centerTitle: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -239,11 +236,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
           await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const AddMemberScreen()),
           );
-          // Always refresh when returning from create/detail flow
           _fetchInitialData();
         },
-        label: const Text('Link Member'),
+        label: const Text('LINK MEMBER', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         icon: const Icon(Icons.add_link_rounded),
+        elevation: 2,
       ),
     );
   }
@@ -255,11 +252,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
-        onSubmitted: (value) {
-          _fetchInitialData();
-        },
         decoration: InputDecoration(
-          hintText: 'Search by policy #, name, identity #...',
+          hintText: 'Search by policy, name or ID...',
           hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
@@ -274,14 +268,18 @@ class _MemberListScreenState extends State<MemberListScreen> {
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(color: Colors.grey.shade200),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.grey.shade100),
           ),
-          fillColor: const Color(0xFFF1F3F4),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
+          ),
+          fillColor: const Color(0xFFF5F7F9),
           filled: true,
         ),
       ),
@@ -291,17 +289,17 @@ class _MemberListScreenState extends State<MemberListScreen> {
   Widget _buildErrorWidget(ColorScheme colorScheme) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error.withValues(alpha: 0.5)),
+            Icon(Icons.error_outline_rounded, size: 64, color: colorScheme.error.withOpacity(0.5)),
             const SizedBox(height: 16),
             const Text('Failed to load memberships', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: _fetchInitialData,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('RETRY'),
@@ -317,15 +315,19 @@ class _MemberListScreenState extends State<MemberListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.contact_emergency_outlined, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(_searchController.text.isEmpty ? 'No memberships found' : 'No results matching "${_searchController.text}"',
-            style: TextStyle(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.bold)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(color: Colors.grey.withOpacity(0.05), shape: BoxShape.circle),
+            child: Icon(Icons.contact_emergency_outlined, size: 64, color: Colors.grey[300]),
+          ),
+          const SizedBox(height: 24),
+          Text(_searchController.text.isEmpty ? 'No memberships found' : 'No matches found',
+            style: TextStyle(color: Colors.grey[800], fontSize: 18, fontWeight: FontWeight.bold)
           ),
           const SizedBox(height: 8),
           Text(_searchController.text.isEmpty
-            ? 'Create a new membership to see it here'
-            : 'Try a different search term',
+            ? 'Start by linking a customer to a plan.'
+            : 'Try refining your search terms.',
             style: const TextStyle(color: Colors.grey)
           ),
         ],
@@ -338,7 +340,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
       onRefresh: _fetchInitialData,
       child: ListView.builder(
         controller: _scrollController,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
         itemCount: _memberships.length + (_hasMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == _memberships.length) {
@@ -360,16 +362,12 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
   Widget _buildMembershipCard(Membership membership, MembershipPlan? plan, Partner? partner, ColorScheme colorScheme) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 5)),
         ],
       ),
       child: Material(
@@ -377,79 +375,74 @@ class _MemberListScreenState extends State<MemberListScreen> {
         child: InkWell(
           onTap: () async {
             await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => MembershipDetailScreen(membershipId: membership.id),
-              ),
+              MaterialPageRoute(builder: (context) => MembershipDetailScreen(membershipId: membership.id)),
             );
             _fetchInitialData();
           },
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: colorScheme.primary.withOpacity(0.1),
                       child: Text(
-                        'Policy: ${membership.membershipNo}',
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                        partner != null && partner.fullName.isNotEmpty ? partner.fullName[0].toUpperCase() : '?',
+                        style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 18),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            partner?.fullName ?? 'Loading...',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          ),
+                          Text(
+                            'Policy #${membership.membershipNo}',
+                            style: TextStyle(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          ),
+                        ],
                       ),
                     ),
                     _buildStatusChip(membership.status),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  partner?.fullName ?? 'Loading member...',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: -0.5),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, size: 14, color: Colors.grey[400]),
+                    const SizedBox(width: 8),
+                    Text(plan?.name ?? 'Plan: ${membership.planId}', 
+                      style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500)),
+                  ],
                 ),
-                if (partner != null)
-                  Text(
-                    'Identity No: ${partner.identityNumber}',
-                    style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
+                if (partner?.identityNumber != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.badge_outlined, size: 14, color: Colors.grey[400]),
+                      const SizedBox(width: 8),
+                      Text(partner!.identityNumber, 
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    ],
                   ),
-                Text(
-                  plan?.name ?? 'Plan: ${membership.planId}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                ),
-                const SizedBox(height: 16),
+                ],
+                const SizedBox(height: 20),
                 const Divider(height: 1),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('START DATE', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                        const SizedBox(height: 2),
-                        Text(membership.startDate ?? '-', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+                    _buildMetric('START DATE', membership.startDate ?? '-', Icons.calendar_today_outlined),
                     if (plan != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('MONTHLY PREMIUM', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                          const SizedBox(height: 2),
-                          Text(
-                            'R ${plan.premium.toStringAsFixed(2)}',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: colorScheme.primary)
-                          ),
-                        ],
-                      ),
+                      _buildMetric('MONTHLY PREMIUM', 'R ${plan.premium.toStringAsFixed(2)}', Icons.payments_outlined, valueColor: colorScheme.primary),
                   ],
                 ),
               ],
@@ -460,37 +453,41 @@ class _MemberListScreenState extends State<MemberListScreen> {
     );
   }
 
+  Widget _buildMetric(String label, String value, IconData icon, {Color? valueColor}) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: Colors.grey[400]),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 9, color: Colors.grey[500], fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+            Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: valueColor)),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildStatusChip(String status) {
     Color color;
     switch (status.toUpperCase()) {
-      case 'ACTIVE':
-        color = Colors.green;
-        break;
+      case 'ACTIVE': color = Colors.green; break;
       case 'WAITING-PERIOD':
-      case 'UPGRADE-WAITING-PERIOD':
-        color = Colors.orange;
-        break;
-      case 'INACTIVE':
-        color = Colors.red;
-        break;
-      case 'NEW':
-      case 'AWAITING-APPROVAL':
-        color = Colors.blue;
-        break;
-      default:
-        color = Colors.grey;
+      case 'UPGRADE-WAITING-PERIOD': color = Colors.orange; break;
+      case 'INACTIVE': color = Colors.red; break;
+      default: color = Colors.blue;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Text(
-        status.replaceAll('-', ' '),
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        status.replaceAll('-', ' ').toUpperCase(),
+        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
       ),
     );
   }

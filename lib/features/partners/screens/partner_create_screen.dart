@@ -10,7 +10,8 @@ import 'partner_detail_screen.dart';
 
 class PartnerCreateScreen extends StatefulWidget {
   final Partner? existingPartner;
-  const PartnerCreateScreen({super.key, this.existingPartner});
+  final bool isMemberContext;
+  const PartnerCreateScreen({super.key, this.existingPartner, this.isMemberContext = false});
 
   @override
   State<PartnerCreateScreen> createState() => _PartnerCreateScreenState();
