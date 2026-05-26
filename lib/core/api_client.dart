@@ -34,9 +34,9 @@ class ApiClient {
     return Config.webTenant.isNotEmpty ? Config.webTenant : null;
   }
 
-  Future<Map<String, String>> _getHeaders({bool includeRole = true}) async {
+  Future<Map<String, String>> _getHeaders({bool includeRole = true, String? customToken}) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('accessToken');
+    final token = customToken ?? prefs.getString('accessToken');
     final tenantId = await _getTenantId();
     final role = prefs.getString('selectedRole');
     final userId = prefs.getString('userId');
@@ -49,8 +49,6 @@ class ApiClient {
     
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
-    } else {
-      debugPrint('ApiClient: Warning - No accessToken found');
     }
 
     if (includeRole && role != null && role.isNotEmpty) {
@@ -206,29 +204,28 @@ class ApiClient {
       final prefs = await SharedPreferences.getInstance();
       final refreshToken = prefs.getString('refreshToken');
       final host = await _getApiHost();
-      final tenantId = await _getTenantId();
-
+      
       if (refreshToken == null || refreshToken.isEmpty) {
         debugPrint('No refresh token available');
         await logout();
         return false;
       }
 
-      debugPrint('Attempting to refresh token...');
-      final url = Uri.parse('https://$host/v2/refresh-token');
+      debugPrint('Attempting to refresh token at https://$host/refresh-token');
+      
+      // Some backends expect the refresh token in the Authorization header,
+      // others expect it in the body. We'll provide both for maximum compatibility.
+      final headers = await _getHeaders(includeRole: true, customToken: refreshToken);
+      
       final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-TenantID': tenantId ?? '',
-          'X-Tenant-Id': tenantId ?? '',
-        },
+        Uri.parse('https://$host/refresh-token'),
+        headers: headers,
         body: jsonEncode({
           'refreshToken': refreshToken,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      debugPrint('Refresh token response: ${response.statusCode}');
+      debugPrint('Refresh token response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -246,7 +243,12 @@ class ApiClient {
       } 
       
       debugPrint('Token refresh failed. Status: ${response.statusCode}, Body: ${response.body}');
-      await logout();
+      
+      // If we get a 401 on refresh, the session is definitely dead
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await logout();
+      }
+      
       return false;
     } catch (e) {
       debugPrint('Exception during _refreshToken: $e');
@@ -255,6 +257,7 @@ class ApiClient {
   }
 
   Future<void> logout() async {
+    debugPrint('ApiClient: Logging out and clearing tokens');
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
