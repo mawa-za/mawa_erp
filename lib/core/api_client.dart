@@ -215,7 +215,7 @@ class ApiClient {
       }
 
       debugPrint('Attempting to refresh token...');
-      final url = Uri.parse('https://$host/v2/refresh-token');
+      final url = Uri.parse('https://$host/refresh-token');
       final response = await http.post(
         url,
         headers: {
