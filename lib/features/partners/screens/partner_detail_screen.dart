@@ -168,12 +168,12 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeaderCard(partner, colorScheme),
+          _buildHeaderCard(partner, colorScheme, entityName),
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSectionHeader(Icons.admin_panel_settings_outlined, '$entityName ROLES'),
+              _buildSectionHeader(Icons.admin_panel_settings_outlined, '${entityName.toUpperCase()} ROLES'),
               if (!widget.isMemberContext)
                 TextButton.icon(
                   onPressed: _showManageRolesDialog,
@@ -237,7 +237,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     );
   }
 
-  Widget _buildHeaderCard(Partner partner, ColorScheme colorScheme) {
+  Widget _buildHeaderCard(Partner partner, ColorScheme colorScheme, String entityName) {
     IconData icon;
     switch (partner.type) {
       case 'ORGANISATION': icon = Icons.business; break;
@@ -273,7 +273,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             child: Text(partner.type, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colorScheme.primary)),
           ),
           const SizedBox(height: 12),
-          Text('Partner No: ${partner.number}', style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w600)),
+          Text('$entityName No: ${partner.number}', style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w600)),
         ],
       ),
     );

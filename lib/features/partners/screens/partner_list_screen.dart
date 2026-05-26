@@ -83,6 +83,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final entityName = widget.role == 'MEMBER' ? 'Member' : 'Partner';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -108,15 +109,19 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
       ),
       body: Column(
         children: [
-          _buildSearchBar(),
+          _buildSearchBar(entityName),
           _buildTypeFilter(),
-          Expanded(child: _buildBody(colorScheme)),
+          Expanded(child: _buildBody(colorScheme, entityName)),
         ],
       ),
       floatingActionButton: widget.allowCreate ? FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const PartnerCreateScreen()),
+            MaterialPageRoute(
+              builder: (context) => PartnerCreateScreen(
+                isMemberContext: widget.role == 'MEMBER',
+              ),
+            ),
           );
           _fetchPartners();
         },
@@ -125,7 +130,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(String entityName) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -133,7 +138,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         controller: _searchController,
         focusNode: _searchFocusNode,
         decoration: InputDecoration(
-          hintText: 'Search partners...',
+          hintText: 'Search ${entityName.toLowerCase()}s...',
           prefixIcon: const Icon(Icons.search, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
@@ -204,7 +209,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
     );
   }
 
-  Widget _buildBody(ColorScheme colorScheme) {
+  Widget _buildBody(ColorScheme colorScheme, String entityName) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -234,7 +239,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           children: [
             Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            Text('No partners found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+            Text('No ${entityName.toLowerCase()}s found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
           ],
         ),
       );
@@ -275,7 +280,10 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         onTap: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => PartnerDetailScreen(partnerId: partner.id),
+              builder: (context) => PartnerDetailScreen(
+                partnerId: partner.id,
+                isMemberContext: widget.role == 'MEMBER',
+              ),
             ),
           );
           _fetchPartners();
