@@ -15,6 +15,7 @@ import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
 import 'membership_claim_create_screen.dart';
 import 'membership_claim_detail_screen.dart';
+import 'capture_premium_payment_dialog.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -77,7 +78,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         }
       }));
 
-      premiums.sort((a, b) => b.membershipPeriod.compareTo(a.membershipPeriod));
+      premiums.sort((a, b) => b.periodYYYYMM.compareTo(a.periodYYYYMM));
 
       if (mounted) {
         setState(() {
@@ -232,6 +233,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildStatusBanner(detail, colorScheme),
+          const SizedBox(height: 16),
+          _buildCapturePaymentButton(colorScheme),
           const SizedBox(height: 24),
           if (_member != null) _buildMemberCard(_member!, colorScheme),
           const SizedBox(height: 32),
@@ -327,6 +330,32 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCapturePaymentButton(ColorScheme colorScheme) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () async {
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => CapturePremiumPaymentDialog(
+              membership: _detail!,
+              member: _member!,
+            ),
+          );
+          if (result == true) {
+            _fetchData();
+          }
+        },
+        icon: const Icon(Icons.add_card_outlined),
+        label: const Text('CAPTURE PREMIUM PAYMENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
       ),
     );
   }
@@ -464,7 +493,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
     final Map<String, List<Premium>> groupedPremiums = {};
     for (var premium in _premiums) {
-      final year = premium.membershipPeriod.length >= 4 ? premium.membershipPeriod.substring(0, 4) : 'Other';
+      final year = premium.periodYYYYMM.length >= 4 ? premium.periodYYYYMM.substring(0, 4) : 'Other';
       groupedPremiums.putIfAbsent(year, () => []).add(premium);
     }
 
@@ -486,27 +515,41 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 child: Text(year.length >= 4 ? year.substring(2) : '?', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
               ),
               title: Text('$year Premiums', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Text('${yearPremiums.length} payments collected', style: const TextStyle(fontSize: 12)),
+              subtitle: Text('${yearPremiums.length} periods recorded', style: const TextStyle(fontSize: 12)),
               children: [
                 const Divider(height: 1),
-                ...yearPremiums.map((premium) => ListTile(
-                  dense: true,
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_formatPeriod(premium.membershipPeriod), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                      Text('R ${premium.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 14)),
-                    ],
-                  ),
-                  subtitle: Text('Receipt: ${premium.receiptNumber} • ${premium.tenderType.description}\n${premium.creationDate}', style: const TextStyle(fontSize: 11)),
-                  trailing: const Icon(Icons.check_circle, size: 14, color: Colors.green),
-                )),
+                ...yearPremiums.map((premium) {
+                  final statusColor = _getPremiumStatusColor(premium.status);
+                  return ListTile(
+                    dense: true,
+                    title: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_formatPeriod(premium.periodYYYYMM), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        Text('R ${premium.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 14)),
+                      ],
+                    ),
+                    subtitle: Text('Status: ${premium.status} • Paid: R ${premium.paidAmount.toStringAsFixed(2)}\nDue Date: ${premium.dueDate ?? 'N/A'}', style: const TextStyle(fontSize: 11)),
+                    trailing: Icon(premium.status == 'PAID' ? Icons.check_circle : Icons.info_outline, size: 14, color: statusColor),
+                  );
+                }),
               ],
             ),
           ),
         );
       }).toList(),
     );
+  }
+
+  Color _getPremiumStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PAID': return Colors.green;
+      case 'PARTIALLY_PAID': return Colors.orange;
+      case 'UNPAID': return Colors.red;
+      case 'CANCELLED': return Colors.grey;
+      case 'REVERSED': return Colors.purple;
+      default: return Colors.blue;
+    }
   }
 
   Widget _buildDependentsSection(ColorScheme colorScheme) {
