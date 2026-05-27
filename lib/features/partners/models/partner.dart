@@ -11,6 +11,8 @@ class Partner {
   final String? name4;
   final String identityNumber;
   final String? idType;
+  final DateTime? validFrom;
+  final DateTime? validTo;
   final String status;
   final String? title;
   final String? birthDate;
@@ -33,6 +35,8 @@ class Partner {
     this.name4,
     required this.identityNumber,
     this.idType,
+    this.validFrom,
+    this.validTo,
     required this.status,
     this.title,
     this.birthDate,
@@ -69,6 +73,15 @@ class Partner {
       return obj.toString();
     }
 
+    DateTime? parseToDateTime(dynamic value) {
+      return PartnerIdentity.parseDate(value);
+    }
+
+    String? parseToIsoString(dynamic rawDate) {
+      final dt = parseToDateTime(rawDate);
+      return dt?.toIso8601String();
+    }
+
     // Support both PartnerDto (id/number) and PartnerViewEntity/PartnerOutboundDto (partnerId/partnerNo)
     final id = (json['id'] ?? json['partnerId'] ?? '').toString();
     final number = (json['number'] ?? json['partnerNo'] ?? '').toString();
@@ -89,28 +102,6 @@ class Partner {
       roles = [json['partnerRole'].toString()];
     }
 
-    String? parseDate(dynamic rawDate) {
-      if (rawDate == null) return null;
-      if (rawDate is String) {
-        if (rawDate.isEmpty) return null;
-        if (!rawDate.contains(',')) return rawDate;
-        try {
-          return DateFormat("MMM d, yyyy").parse(rawDate.trim()).toIso8601String();
-        } catch (_) {
-          try {
-            return DateFormat("MMM d, yyyy, hh:mm:ss a").parse(rawDate.trim()).toIso8601String();
-          } catch (_) {
-            return rawDate;
-          }
-        }
-      }
-      // Handle array format [yyyy, mm, dd]
-      if (rawDate is List && rawDate.length >= 3) {
-        return DateTime(rawDate[0], rawDate[1], rawDate[2]).toIso8601String();
-      }
-      return rawDate.toString();
-    }
-
     return Partner(
       id: id,
       number: number,
@@ -119,15 +110,15 @@ class Partner {
       name2: (json['name2'] ?? json['firstName'] ?? '').toString().trim(),
       name3: (json['name3'] ?? json['middleName'] ?? '').toString().trim(),
       name4: json['name4']?.toString(),
-      identityNumber: (identityObj?['number'] ??
-                        json['identityNumber'] ??
-                        '').toString(),
+      identityNumber: (identityObj?['number'] ?? json['identityNumber'] ?? '').toString(),
       idType: getStringFromObj(identityObj?['type'], key: 'description') != ''
                 ? getStringFromObj(identityObj?['type'], key: 'description')
                 : (json['identityType'] ?? 'ID').toString(),
+      validFrom: parseToDateTime(identityObj?['validFrom'] ?? identityObj?['valid_from'] ?? json['validFrom'] ?? json['valid_from'] ?? json['startDate'] ?? json['effectiveDate']),
+      validTo: parseToDateTime(identityObj?['validTo'] ?? identityObj?['valid_to'] ?? json['validTo'] ?? json['valid_to'] ?? json['expiryDate'] ?? json['expiry_date'] ?? json['endDate'] ?? json['validUntil'] ?? json['valid_until'] ?? json['expiredAt']),
       status: status.isEmpty ? 'ACTIVE' : status,
       title: title,
-      birthDate: parseDate(json['birthDate']),
+      birthDate: parseToIsoString(json['birthDate']),
       gender: gender,
       maritalStatus: maritalStatus,
       language: language,

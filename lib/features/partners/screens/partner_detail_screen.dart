@@ -192,7 +192,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSectionHeader(Icons.badge_outlined, 'IDENTITIES'),
+              _buildSectionHeader(Icons.badge_outlined, 'ADDITIONAL IDENTITIES'),
               TextButton.icon(
                 onPressed: _showAddIdentityDialog,
                 icon: const Icon(Icons.add, size: 16),
@@ -280,6 +280,14 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
   }
 
   Widget _buildGeneralInfoCard(Partner partner, ColorScheme colorScheme) {
+    final dateFormat = DateFormat('yyyy-MM-dd');
+    String identityValidity = '';
+    if (partner.validFrom != null || partner.validTo != null) {
+      final from = partner.validFrom != null ? dateFormat.format(partner.validFrom!) : '...';
+      final to = partner.validTo != null ? dateFormat.format(partner.validTo!) : 'No expiry';
+      identityValidity = '\nValidity: $from to $to';
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -289,11 +297,25 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
       ),
       child: Column(
         children: [
-          _buildInfoRow(Icons.badge_outlined, 'Primary Identity', partner.identityNumber.isEmpty ? 'N/A' : partner.identityNumber),
+          _buildInfoRow(
+            Icons.badge_outlined, 
+            'Primary Identity (${partner.idType ?? 'ID'})', 
+            '${partner.identityNumber}$identityValidity'.isEmpty ? 'N/A' : '${partner.identityNumber}$identityValidity',
+          ),
           const Divider(height: 24),
           _buildInfoRow(Icons.email_outlined, 'Email Address', partner.email.isEmpty ? 'N/A' : partner.email),
           const Divider(height: 24),
           _buildInfoRow(Icons.phone_outlined, 'Phone Number', partner.phone.isEmpty ? 'N/A' : partner.phone),
+          if (widget.isMemberContext) ...[
+            const Divider(height: 24),
+            _buildInfoRow(Icons.cake_outlined, 'Birth Date', partner.birthDate ?? 'N/A'),
+            const Divider(height: 24),
+            _buildInfoRow(Icons.wc_outlined, 'Gender', partner.gender ?? 'N/A'),
+            const Divider(height: 24),
+            _buildInfoRow(Icons.favorite_outline, 'Marital Status', partner.maritalStatus ?? 'N/A'),
+            const Divider(height: 24),
+            _buildInfoRow(Icons.language_outlined, 'Language', partner.language ?? 'N/A'),
+          ],
         ],
       ),
     );
@@ -301,16 +323,19 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 18, color: Colors.grey[400]),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 2),
-            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+            ],
+          ),
         ),
       ],
     );
@@ -339,7 +364,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     String validity = 'No expiry';
     if (identity.validFrom != null || identity.validTo != null) {
       final from = identity.validFrom != null ? dateFormat.format(identity.validFrom!) : '...';
-      final to = identity.validTo != null ? dateFormat.format(identity.validTo!) : '...';
+      final to = identity.validTo != null ? dateFormat.format(identity.validTo!) : 'No expiry';
       validity = '$from to $to';
     }
 
