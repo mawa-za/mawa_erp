@@ -275,6 +275,9 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   }
 
   Widget _buildTypeSelector(ColorScheme colorScheme) {
+    final bool isEditing = widget.existingPartner != null;
+    final bool isLocked = isEditing; // Member type is permanent after creation
+    
     return Row(
       children: _types.map((type) {
         final isSelected = _selectedType == type;
@@ -282,11 +285,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: InkWell(
-              onTap: () => setState(() => _selectedType = type),
+              onTap: isLocked ? null : () => setState(() => _selectedType = type),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: isSelected ? colorScheme.primary : Colors.white,
+                  color: isSelected 
+                      ? (isLocked ? colorScheme.primary.withOpacity(0.6) : colorScheme.primary) 
+                      : (isLocked ? Colors.grey[50] : Colors.white),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: isSelected ? colorScheme.primary : Colors.grey.shade300),
                 ),
@@ -296,7 +301,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : Colors.grey[700],
+                    color: isSelected ? Colors.white : (isLocked ? Colors.grey[400] : Colors.grey[700]),
                   ),
                 ),
               ),
