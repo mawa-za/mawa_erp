@@ -70,6 +70,9 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       _selectedType = 'INDIVIDUAL';
       // Add a default address
       _addresses.add(PartnerAddress(type: 'RESIDENTIAL', line1: '', city: '', state: '', postalCode: ''));
+      if (widget.isMemberContext) {
+        _selectedRoles.add('CUSTOMER');
+      }
     }
   }
 
@@ -133,14 +136,15 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         final String? createdId = responseData['id'];
 
         if (mounted) {
+          final entityName = widget.isMemberContext ? 'Member' : 'Partner';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Partner ${widget.existingPartner == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text('$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
           );
           
           if (widget.existingPartner == null && createdId != null) {
             // Navigate to details for new partner
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: createdId))
+              MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: createdId, isMemberContext: widget.isMemberContext))
             );
           } else {
             Navigator.of(context).pop(true);
@@ -175,11 +179,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final entityName = widget.isMemberContext ? 'Member' : 'Partner';
+    final isEditingMember = widget.existingPartner != null && widget.isMemberContext;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.existingPartner == null ? 'Create Partner' : 'Edit Partner'),
+        title: Text(widget.existingPartner == null ? 'Create $entityName' : 'Edit $entityName'),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
@@ -197,13 +203,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionHeader(Icons.category_outlined, 'Partner Type'),
+              _buildSectionHeader(Icons.category_outlined, '$entityName Type'),
               const SizedBox(height: 12),
               _buildTypeSelector(colorScheme),
               const SizedBox(height: 24),
               _buildSectionHeader(Icons.person_outline, 'Basic Details'),
               const SizedBox(height: 12),
-              _buildBasicDetailsFields(),
+              _buildBasicDetailsFields(isEditingMember),
               const SizedBox(height: 24),
               _buildSectionHeader(Icons.info_outline, 'Demographics & Language'),
               const SizedBox(height: 12),
@@ -213,10 +219,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               const SizedBox(height: 12),
               _buildContactFields(),
               const SizedBox(height: 24),
-              _buildSectionHeader(Icons.work_outline, 'Partner Roles'),
-              const SizedBox(height: 12),
-              _buildRolesFields(),
-              const SizedBox(height: 24),
+              if (!widget.isMemberContext) ...[
+                _buildSectionHeader(Icons.work_outline, '$entityName Roles'),
+                const SizedBox(height: 12),
+                _buildRolesFields(),
+                const SizedBox(height: 24),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -237,7 +245,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   onPressed: _isSubmitting ? null : _savePartner,
                   child: _isSubmitting
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(widget.existingPartner == null ? 'CREATE PARTNER' : 'SAVE CHANGES', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      : Text(widget.existingPartner == null ? 'CREATE ${entityName.toUpperCase()}' : 'SAVE CHANGES', style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 32),
@@ -267,6 +275,9 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   }
 
   Widget _buildTypeSelector(ColorScheme colorScheme) {
+    final bool isEditing = widget.existingPartner != null;
+    final bool isLocked = isEditing; // Member type is permanent after creation
+    
     return Row(
       children: _types.map((type) {
         final isSelected = _selectedType == type;
@@ -274,11 +285,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: InkWell(
-              onTap: () => setState(() => _selectedType = type),
+              onTap: isLocked ? null : () => setState(() => _selectedType = type),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: isSelected ? colorScheme.primary : Colors.white,
+                  color: isSelected 
+                      ? (isLocked ? colorScheme.primary.withOpacity(0.6) : colorScheme.primary) 
+                      : (isLocked ? Colors.grey[50] : Colors.white),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: isSelected ? colorScheme.primary : Colors.grey.shade300),
                 ),
@@ -288,7 +301,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : Colors.grey[700],
+                    color: isSelected ? Colors.white : (isLocked ? Colors.grey[400] : Colors.grey[700]),
                   ),
                 ),
               ),
@@ -299,7 +312,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     );
   }
 
-  Widget _buildBasicDetailsFields() {
+  Widget _buildBasicDetailsFields(bool isEditingMember) {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -328,7 +341,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
             const SizedBox(height: 16),
             _buildTextField(_name4Controller, 'Alternative/Trading Name (Optional)', Icons.badge_outlined),
             const SizedBox(height: 16),
-            _buildTextField(_identityController, _selectedType == 'INDIVIDUAL' ? 'Identity Number' : 'Registration Number', Icons.badge_outlined),
+            _buildTextField(
+              _identityController, 
+              _selectedType == 'INDIVIDUAL' ? 'Identity Number' : 'Registration Number', 
+              Icons.badge_outlined,
+              enabled: !isEditingMember,
+            ),
           ],
         ),
       ),
@@ -346,7 +364,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(_birthDate == null ? 'Birth Date' : 'Birth Date: ${DateFormat('yyyy-MM-dd').format(_birthDate!)}'),
+              title: Text(_birthDate == null ? 'Birth Date' : "Birth Date: ${DateFormat('yyyy-MM-dd').format(_birthDate!)}"),
               trailing: const Icon(Icons.calendar_today, size: 20),
               onTap: _selectBirthDate,
             ),
@@ -507,12 +525,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool enabled = true}) {
     return TextFormField(
       controller: controller,
       decoration: _inputDecoration(label, icon),
       keyboardType: keyboardType,
-      style: const TextStyle(fontSize: 14),
+      enabled: enabled,
+      style: TextStyle(fontSize: 14, color: enabled ? Colors.black87 : Colors.grey[600]),
       validator: (val) {
         if (label == 'Middle Name (Optional)' || label == 'Alternative/Trading Name (Optional)') return null;
         if (val == null || val.isEmpty) return 'Required';

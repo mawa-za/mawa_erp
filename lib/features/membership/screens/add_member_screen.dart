@@ -28,7 +28,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     
     if (_selectedMember == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a customer'), behavior: SnackBarBehavior.floating),
+        const SnackBar(content: Text('Please select a member'), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -100,7 +100,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSectionTitle('1. CUSTOMER SELECTION', Icons.person_search_outlined),
+              _buildSectionTitle('1. MEMBER SELECTION', Icons.person_search_outlined),
               const SizedBox(height: 16),
               Container(
                 decoration: BoxDecoration(
@@ -110,7 +110,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                 ),
                 child: PartnerSearchDropdown(
                   role: 'CUSTOMER',
-                  label: 'Search for a customer...',
+                  label: 'Search for a member...',
                   onPartnerSelected: (p) => setState(() => _selectedMember = p),
                 ),
               ),
