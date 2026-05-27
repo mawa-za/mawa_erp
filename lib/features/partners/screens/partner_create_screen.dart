@@ -219,10 +219,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               const SizedBox(height: 12),
               _buildContactFields(),
               const SizedBox(height: 24),
-              _buildSectionHeader(Icons.work_outline, '$entityName Roles'),
-              const SizedBox(height: 12),
-              _buildRolesFields(),
-              const SizedBox(height: 24),
+              if (!widget.isMemberContext) ...[
+                _buildSectionHeader(Icons.work_outline, '$entityName Roles'),
+                const SizedBox(height: 12),
+                _buildRolesFields(),
+                const SizedBox(height: 24),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -357,7 +359,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(_birthDate == null ? 'Birth Date' : 'Birth Date: ${DateFormat('yyyy-MM-dd').format(_birthDate!)}'),
+              title: Text(_birthDate == null ? 'Birth Date' : "Birth Date: ${DateFormat('yyyy-MM-dd').format(_birthDate!)}"),
               trailing: const Icon(Icons.calendar_today, size: 20),
               onTap: _selectBirthDate,
             ),
