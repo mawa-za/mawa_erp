@@ -180,6 +180,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final entityName = widget.isMemberContext ? 'Member' : 'Partner';
+    final isEditingMember = widget.existingPartner != null && widget.isMemberContext;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -208,7 +209,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               const SizedBox(height: 24),
               _buildSectionHeader(Icons.person_outline, 'Basic Details'),
               const SizedBox(height: 12),
-              _buildBasicDetailsFields(),
+              _buildBasicDetailsFields(isEditingMember),
               const SizedBox(height: 24),
               _buildSectionHeader(Icons.info_outline, 'Demographics & Language'),
               const SizedBox(height: 12),
@@ -304,7 +305,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     );
   }
 
-  Widget _buildBasicDetailsFields() {
+  Widget _buildBasicDetailsFields(bool isEditingMember) {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -333,7 +334,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
             const SizedBox(height: 16),
             _buildTextField(_name4Controller, 'Alternative/Trading Name (Optional)', Icons.badge_outlined),
             const SizedBox(height: 16),
-            _buildTextField(_identityController, _selectedType == 'INDIVIDUAL' ? 'Identity Number' : 'Registration Number', Icons.badge_outlined),
+            _buildTextField(
+              _identityController, 
+              _selectedType == 'INDIVIDUAL' ? 'Identity Number' : 'Registration Number', 
+              Icons.badge_outlined,
+              enabled: !isEditingMember,
+            ),
           ],
         ),
       ),
@@ -512,12 +518,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool enabled = true}) {
     return TextFormField(
       controller: controller,
       decoration: _inputDecoration(label, icon),
       keyboardType: keyboardType,
-      style: const TextStyle(fontSize: 14),
+      enabled: enabled,
+      style: TextStyle(fontSize: 14, color: enabled ? Colors.black87 : Colors.grey[600]),
       validator: (val) {
         if (label == 'Middle Name (Optional)' || label == 'Alternative/Trading Name (Optional)') return null;
         if (val == null || val.isEmpty) return 'Required';
