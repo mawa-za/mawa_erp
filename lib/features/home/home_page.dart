@@ -24,6 +24,7 @@ import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
 import '../approvals/screens/approval_workflow_list_screen.dart';
 import '../approvals/screens/approval_list_screen.dart';
+import '../cases/screens/case_list_screen.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
 
@@ -250,6 +251,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('group') || lowerId.contains('society')) return Icons.groups_rounded;
     if (lowerId.contains('invoic')) return Icons.description_rounded;
     if (lowerId.contains('partner')) return Icons.business_center_rounded;
+    if (lowerId.contains('case')) return Icons.gavel_rounded;
     if (lowerId.contains('user')) return Icons.person_add_rounded;
     if (lowerId.contains('api-log')) return Icons.api_rounded;
     if (lowerId.contains('setting')) return Icons.settings_suggest_rounded;
@@ -296,6 +298,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()));
     } else if (id == 'MEMBERSHIP-CLAIM') {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
+    } else if (id == 'LEGAL-CASE' || id.contains('CASE') || description.contains('case')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CaseListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
     } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
