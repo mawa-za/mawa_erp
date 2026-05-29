@@ -32,10 +32,25 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
     });
 
     try {
-      final plan = await MembershipService().getMembershipPlanById(widget.planId);
+      final service = MembershipService();
+      
+      // Fetch plan, rules, and payouts in parallel using the specific endpoints
+      final results = await Future.wait([
+        service.getMembershipPlanById(widget.planId),
+        service.getPremiumRules(widget.planId),
+        service.getClaimPayouts(widget.planId),
+      ]);
+
+      final plan = results[0] as MembershipPlan;
+      final rules = results[1] as List<MembershipPlanPremiumRule>;
+      final payouts = results[2] as List<MembershipPlanClaimPayout>;
+
       if (mounted) {
         setState(() {
-          _plan = plan;
+          _plan = plan.copyWith(
+            premiumRules: rules,
+            claimPayouts: payouts,
+          );
           _isLoading = false;
         });
       }
