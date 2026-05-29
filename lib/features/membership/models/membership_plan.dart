@@ -87,6 +87,36 @@ class MembershipPlan {
       if (premiumRules != null) 'premiumRules': premiumRules!.map((e) => e.toJson()).toList(),
     };
   }
+
+  MembershipPlan copyWith({
+    String? id,
+    String? planCode,
+    String? name,
+    String? description,
+    int? premiumCents,
+    String? currency,
+    int? maxDependents,
+    bool? active,
+    String? createdAt,
+    String? oldId,
+    List<MembershipPlanClaimPayout>? claimPayouts,
+    List<MembershipPlanPremiumRule>? premiumRules,
+  }) {
+    return MembershipPlan(
+      id: id ?? this.id,
+      planCode: planCode ?? this.planCode,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      premiumCents: premiumCents ?? this.premiumCents,
+      currency: currency ?? this.currency,
+      maxDependents: maxDependents ?? this.maxDependents,
+      active: active ?? this.active,
+      createdAt: createdAt ?? this.createdAt,
+      oldId: oldId ?? this.oldId,
+      claimPayouts: claimPayouts ?? this.claimPayouts,
+      premiumRules: premiumRules ?? this.premiumRules,
+    );
+  }
 }
 
 enum DependentType { ANY, MAIN_MEMBER, SPOUSE, CHILD, PARENT, EXTENDED_FAMILY, OTHER }
