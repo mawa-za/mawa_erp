@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import '../models/membership_detail.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
 import '../models/payment_batch_response.dart';
 import '../models/receipt_response.dart';
+import '../../../core/services/bluetooth_print_service.dart';
 
 class CapturePremiumPaymentDialog extends StatefulWidget {
   final MembershipDetail membership;
@@ -32,6 +34,9 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   PaymentBatchResponse? _successResponse;
   String? _error;
 
+  BluetoothDevice? _selectedDevice;
+  final BluetoothPrintService _printService = BluetoothPrintService();
+
   final List<Map<String, dynamic>> _paymentMethods = [
     {'value': 'CASH', 'icon': Icons.payments_outlined},
     {'value': 'CARD', 'icon': Icons.credit_card_outlined},
@@ -43,6 +48,20 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   void initState() {
     super.initState();
     _fetchUnpaidPremiums();
+    _initBluetooth();
+  }
+
+  Future<void> _initBluetooth() async {
+    try {
+      final devices = await _printService.getDevices();
+      if (devices.isNotEmpty) {
+        setState(() {
+          _selectedDevice = devices.first;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing bluetooth: $e');
+    }
   }
 
   @override
@@ -105,12 +124,56 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
     }
   }
 
-  Future<void> _printReceipt(String receiptId) async {
+  Future<void> _printReceipt(ReceiptResponse receipt) async {
     try {
-      await MembershipService().printReceipt(receiptId);
+      if (_selectedDevice == null) {
+        final devices = await _printService.getDevices();
+        if (devices.isEmpty) {
+          throw Exception('No bluetooth printers found. Please pair a printer in settings.');
+        }
+        
+        if (mounted) {
+          final device = await showDialog<BluetoothDevice>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Select Printer'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: devices.length,
+                  itemBuilder: (context, index) => ListTile(
+                    title: Text(devices[index].name ?? 'Unknown'),
+                    subtitle: Text(devices[index].address ?? ''),
+                    onTap: () => Navigator.pop(context, devices[index]),
+                  ),
+                ),
+              ),
+            ),
+          );
+          if (device != null) {
+            setState(() => _selectedDevice = device);
+          } else {
+            return;
+          }
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Print command sent to server'), behavior: SnackBarBehavior.floating),
+          const SnackBar(content: Text('Printing...'), duration: Duration(seconds: 1)),
+        );
+      }
+
+      await _printService.printMembershipReceipt(
+        receipt, 
+        widget.member.fullName, 
+        device: _selectedDevice
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt printed successfully'), behavior: SnackBarBehavior.floating),
         );
       }
     } catch (e) {
@@ -459,7 +522,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
           ),
           IconButton.filledTonal(
             icon: const Icon(Icons.print_outlined, size: 20),
-            onPressed: () => _printReceipt(receipt.id),
+            onPressed: () => _printReceipt(receipt),
             tooltip: 'Print Receipt',
             style: IconButton.styleFrom(
               backgroundColor: colorScheme.secondaryContainer.withOpacity(0.5),
