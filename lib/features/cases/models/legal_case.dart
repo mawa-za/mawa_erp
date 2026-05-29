@@ -74,13 +74,12 @@ class LegalCase {
       if (date.length >= 3) {
         try {
           return DateTime(
-            (date[0] as num).toInt(), // year
-            (date[1] as num).toInt(), // month
-            (date[2] as num).toInt(), // day
-            date.length >= 4 ? (date[3] as num).toInt() : 0, // hour
-            date.length >= 5 ? (date[4] as num).toInt() : 0, // minute
-            date.length >= 6 ? (date[5] as num).toInt() : 0, // second
-            date.length >= 7 ? ((date[6] as num).toInt() ~/ 1000000) : 0, // millisecond
+            (date[0] as num).toInt(),
+            (date[1] as num).toInt(),
+            (date[2] as num).toInt(),
+            date.length >= 4 ? (date[3] as num).toInt() : 0,
+            date.length >= 5 ? (date[4] as num).toInt() : 0,
+            date.length >= 6 ? (date[5] as num).toInt() : 0,
           );
         } catch (e) {
           return null;
@@ -109,53 +108,21 @@ class LegalCase {
       forumType: json['forumType']?.toString(),
       nextAppearanceDate: _parseDate(json['nextAppearanceDate']),
       billingType: (json['billingType'] ?? 'HOURLY').toString(),
-      hourlyRateCents: (json['hourlyRateCents'] ?? 0) as int,
-      fixedFeeCents: (json['fixedFeeCents'] ?? 0) as int,
+      hourlyRateCents: (json['hourlyRateCents'] as num?)?.toInt() ?? 0,
+      fixedFeeCents: (json['fixedFeeCents'] as num?)?.toInt() ?? 0,
       currency: (json['currency'] ?? 'ZAR').toString(),
       billable: json['billable'] ?? true,
-      totalTimeMinutes: (json['totalTimeMinutes'] ?? 0) as int,
-      totalFeesCents: (json['totalFeesCents'] ?? 0) as int,
-      totalDisbursementsCents: (json['totalDisbursementsCents'] ?? 0) as int,
-      totalBillableCents: (json['totalBillableCents'] ?? 0) as int,
-      totalBilledCents: (json['totalBilledCents'] ?? 0) as int,
-      balanceCents: (json['balanceCents'] ?? 0) as int,
+      totalTimeMinutes: (json['totalTimeMinutes'] as num?)?.toInt() ?? 0,
+      totalFeesCents: (json['totalFeesCents'] as num?)?.toInt() ?? 0,
+      totalDisbursementsCents: (json['totalDisbursementsCents'] as num?)?.toInt() ?? 0,
+      totalBillableCents: (json['totalBillableCents'] as num?)?.toInt() ?? 0,
+      totalBilledCents: (json['totalBilledCents'] as num?)?.toInt() ?? 0,
+      balanceCents: (json['balanceCents'] as num?)?.toInt() ?? 0,
       createdAt: _parseDate(json['createdAt']),
       createdBy: json['createdBy']?.toString(),
       updatedAt: _parseDate(json['updatedAt']),
       updatedBy: json['updatedBy']?.toString(),
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'caseNo': caseNo,
-      'title': title,
-      'clientPartnerId': clientPartnerId,
-      'caseType': caseType,
-      'caseCategory': caseCategory,
-      'description': description,
-      'status': status,
-      'priority': priority,
-      'assignedTo': assignedTo,
-      'openedDate': openedDate?.toIso8601String(),
-      'closedDate': closedDate?.toIso8601String(),
-      'courtName': courtName,
-      'courtCaseNo': courtCaseNo,
-      'forumType': forumType,
-      'nextAppearanceDate': nextAppearanceDate?.toIso8601String(),
-      'billingType': billingType,
-      'hourlyRateCents': hourlyRateCents,
-      'fixedFeeCents': fixedFeeCents,
-      'currency': currency,
-      'billable': billable,
-      'totalTimeMinutes': totalTimeMinutes,
-      'totalFeesCents': totalFeesCents,
-      'totalDisbursementsCents': totalDisbursementsCents,
-      'totalBillableCents': totalBillableCents,
-      'totalBilledCents': totalBilledCents,
-      'balanceCents': balanceCents,
-    };
   }
 
   String get formattedBalance {

@@ -54,12 +54,16 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
   Future<void> _fetchUsers() async {
     try {
       final users = await _userService.getUsers();
-      setState(() {
-        _users = users;
-        _isLoadingUsers = false;
-      });
+      if (mounted) {
+        setState(() {
+          _users = users;
+          _isLoadingUsers = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoadingUsers = false);
+      if (mounted) {
+        setState(() => _isLoadingUsers = false);
+      }
     }
   }
 
@@ -67,7 +71,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
     if (!_formKey.currentState!.validate() || _clientPartnerId == null) {
       if (_clientPartnerId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a client')),
+          const SnackBar(content: Text('Please select a client'), behavior: SnackBarBehavior.floating),
         );
       }
       return;
@@ -94,18 +98,18 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
         billable: _billable,
       );
 
-      final newCase = await _caseService.createCase(request);
+      await _caseService.createCase(request);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Case created successfully')),
+          const SnackBar(content: Text('Case created successfully'), behavior: SnackBarBehavior.floating),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {
@@ -115,168 +119,261 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Create New Case')),
+      backgroundColor: const Color(0xFFF8F9FD),
+      appBar: AppBar(
+        title: const Text('New Case', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
       body: _isLoadingUsers 
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(24.0),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(labelText: 'Case Title*', border: OutlineInputBorder()),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    PartnerSearchDropdown(
-                      role: 'CLIENT',
-                      label: 'Client*',
-                      onPartnerSelected: (partner) => setState(() => _clientPartnerId = partner?.id),
-                      validator: (partner) => partner == null ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+                    _buildSectionCard(
+                      title: 'Basic Information',
+                      icon: Icons.info_outline_rounded,
                       children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _caseType,
-                            decoration: const InputDecoration(labelText: 'Case Type', border: OutlineInputBorder()),
-                            items: _caseTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                            onChanged: (val) => setState(() => _caseType = val!),
-                          ),
+                        TextFormField(
+                          controller: _titleController,
+                          decoration: _inputDecoration('Case Title*', Icons.title_rounded),
+                          validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _caseCategoryController,
-                            decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                          ),
+                        const SizedBox(height: 16),
+                        PartnerSearchDropdown(
+                          role: 'CLIENT',
+                          label: 'Client*',
+                          onPartnerSelected: (partner) => setState(() => _clientPartnerId = partner?.id),
+                          validator: (partner) => partner == null ? 'Required' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: _caseType,
+                                decoration: _inputDecoration('Case Type', Icons.category_rounded),
+                                items: _caseTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                                onChanged: (val) => setState(() => _caseType = val!),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _caseCategoryController,
+                                decoration: _inputDecoration('Category', Icons.label_outline_rounded),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _descriptionController,
+                          decoration: _inputDecoration('Description', Icons.description_rounded),
+                          maxLines: 3,
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _priority,
-                            decoration: const InputDecoration(labelText: 'Priority', border: OutlineInputBorder()),
-                            items: _priorities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                            onChanged: (val) => setState(() => _priority = val!),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String?>(
-                            value: _assignedTo,
-                            decoration: const InputDecoration(labelText: 'Assigned To', border: OutlineInputBorder()),
-                            items: [
-                              const DropdownMenuItem(value: null, child: Text('Unassigned')),
-                              ..._users.map((u) => DropdownMenuItem(value: u.id, child: Text(u.displayName ?? u.username))),
-                            ],
-                            onChanged: (val) => setState(() => _assignedTo = val),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _openedDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2101),
-                        );
-                        if (picked != null) setState(() => _openedDate = picked);
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'Opened Date*', border: OutlineInputBorder()),
-                        child: Text(DateFormat('yyyy-MM-dd').format(_openedDate)),
-                      ),
                     ),
                     const SizedBox(height: 24),
-                    const Text('Court Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Row(
+                    _buildSectionCard(
+                      title: 'Management & Schedule',
+                      icon: Icons.calendar_today_rounded,
                       children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _courtNameController,
-                            decoration: const InputDecoration(labelText: 'Court Name', border: OutlineInputBorder()),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: _priority,
+                                decoration: _inputDecoration('Priority', Icons.priority_high_rounded),
+                                items: _priorities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                                onChanged: (val) => setState(() => _priority = val!),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: DropdownButtonFormField<String?>(
+                                value: _assignedTo,
+                                decoration: _inputDecoration('Assigned To', Icons.person_outline_rounded),
+                                items: [
+                                  const DropdownMenuItem(value: null, child: Text('Unassigned')),
+                                  ..._users.map((u) => DropdownMenuItem(value: u.id, child: Text(u.displayName ?? u.username))),
+                                ],
+                                onChanged: (val) => setState(() => _assignedTo = val),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _courtCaseNoController,
-                            decoration: const InputDecoration(labelText: 'Court Case No', border: OutlineInputBorder()),
+                        const SizedBox(height: 16),
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: _openedDate,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2101),
+                            );
+                            if (picked != null) setState(() => _openedDate = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: _inputDecoration('Opened Date*', Icons.event_available_rounded),
+                            child: Text(DateFormat('yyyy-MM-dd').format(_openedDate)),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _forumTypeController,
-                      decoration: const InputDecoration(labelText: 'Forum Type (e.g. High Court)', border: OutlineInputBorder()),
+                    const SizedBox(height: 24),
+                    _buildSectionCard(
+                      title: 'Court Details',
+                      icon: Icons.gavel_rounded,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _courtNameController,
+                                decoration: _inputDecoration('Court Name', Icons.account_balance_rounded),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _courtCaseNoController,
+                                decoration: _inputDecoration('Court Case No', Icons.tag_rounded),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _forumTypeController,
+                          decoration: _inputDecoration('Forum Type (e.g. High Court)', Icons.meeting_room_rounded),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
-                    const Text('Billing Information', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _billingType,
-                      decoration: const InputDecoration(labelText: 'Billing Type', border: OutlineInputBorder()),
-                      items: _billingTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                      onChanged: (val) => setState(() => _billingType = val!),
+                    _buildSectionCard(
+                      title: 'Billing Information',
+                      icon: Icons.payments_rounded,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          value: _billingType,
+                          decoration: _inputDecoration('Billing Type', Icons.receipt_long_rounded),
+                          items: _billingTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                          onChanged: (val) => setState(() => _billingType = val!),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_billingType == 'HOURLY')
+                          TextFormField(
+                            controller: _hourlyRateController,
+                            decoration: _inputDecoration('Hourly Rate', Icons.timer_rounded).copyWith(prefixText: 'R '),
+                            keyboardType: TextInputType.number,
+                            validator: (value) => _billingType == 'HOURLY' && (value == null || value.isEmpty) ? 'Required' : null,
+                          ),
+                        if (_billingType == 'FIXED_FEE')
+                          TextFormField(
+                            controller: _fixedFeeController,
+                            decoration: _inputDecoration('Fixed Fee', Icons.attach_money_rounded).copyWith(prefixText: 'R '),
+                            keyboardType: TextInputType.number,
+                            validator: (value) => _billingType == 'FIXED_FEE' && (value == null || value.isEmpty) ? 'Required' : null,
+                          ),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          title: const Text('Billable Case', style: TextStyle(fontWeight: FontWeight.w500)),
+                          subtitle: const Text('Enable billing for time and disbursements'),
+                          value: _billable,
+                          onChanged: (val) => setState(() => _billable = val),
+                          activeColor: colorScheme.primary,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    if (_billingType == 'HOURLY')
-                      TextFormField(
-                        controller: _hourlyRateController,
-                        decoration: const InputDecoration(labelText: 'Hourly Rate (Rand)', border: OutlineInputBorder(), prefixText: 'R '),
-                        keyboardType: TextInputType.number,
-                        validator: (value) => _billingType == 'HOURLY' && (value == null || value.isEmpty) ? 'Required' : null,
-                      ),
-                    if (_billingType == 'FIXED_FEE')
-                      TextFormField(
-                        controller: _fixedFeeController,
-                        decoration: const InputDecoration(labelText: 'Fixed Fee (Rand)', border: OutlineInputBorder(), prefixText: 'R '),
-                        keyboardType: TextInputType.number,
-                        validator: (value) => _billingType == 'FIXED_FEE' && (value == null || value.isEmpty) ? 'Required' : null,
-                      ),
-                    const SizedBox(height: 8),
-                    CheckboxListTile(
-                      title: const Text('Billable'),
-                      value: _billable,
-                      onChanged: (val) => setState(() => _billable = val ?? true),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 40),
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
+                      height: 56,
                       child: FilledButton(
                         onPressed: _isSubmitting ? null : _save,
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
+                        ),
                         child: _isSubmitting 
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('CREATE CASE', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text('CREATE CASE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.1)),
                       ),
                     ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildSectionCard({required String title, required IconData icon, required List<Widget> children}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+        border: Border.all(color: Colors.grey[100]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 32),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(children: children),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, size: 20, color: Colors.grey[400]),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[200]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      labelStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
     );
   }
 

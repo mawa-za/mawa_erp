@@ -38,15 +38,18 @@ class CaseTimeEntry {
     if (date is String) return DateTime.tryParse(date);
     if (date is List) {
       if (date.length >= 3) {
-        return DateTime(
-          date[0], // year
-          date[1], // month
-          date[2], // day
-          date.length >= 4 ? date[3] : 0, // hour
-          date.length >= 5 ? date[4] : 0, // minute
-          date.length >= 6 ? date[5] : 0, // second
-          date.length >= 7 ? (date[6] ~/ 1000000) : 0, // millisecond
-        );
+        try {
+          return DateTime(
+            (date[0] as num).toInt(),
+            (date[1] as num).toInt(),
+            (date[2] as num).toInt(),
+            date.length >= 4 ? (date[3] as num).toInt() : 0,
+            date.length >= 5 ? (date[4] as num).toInt() : 0,
+            date.length >= 6 ? (date[5] as num).toInt() : 0,
+          );
+        } catch (e) {
+          return null;
+        }
       }
     }
     return null;
@@ -54,38 +57,21 @@ class CaseTimeEntry {
 
   factory CaseTimeEntry.fromJson(Map<String, dynamic> json) {
     return CaseTimeEntry(
-      id: json['id'] ?? '',
-      caseId: json['caseId'] ?? '',
-      taskId: json['taskId'],
+      id: (json['id'] ?? '').toString(),
+      caseId: (json['caseId'] ?? '').toString(),
+      taskId: json['taskId']?.toString(),
       entryDate: _parseDate(json['entryDate']) ?? DateTime.now(),
-      userId: json['userId'] ?? '',
-      description: json['description'] ?? '',
-      minutes: json['minutes'] ?? 0,
-      hourlyRateCents: json['hourlyRateCents'] ?? 0,
-      amountCents: json['amountCents'] ?? 0,
+      userId: (json['userId'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      minutes: (json['minutes'] as num?)?.toInt() ?? 0,
+      hourlyRateCents: (json['hourlyRateCents'] as num?)?.toInt() ?? 0,
+      amountCents: (json['amountCents'] as num?)?.toInt() ?? 0,
       billable: json['billable'] ?? true,
       billed: json['billed'] ?? false,
-      invoiceId: json['invoiceId'],
+      invoiceId: json['invoiceId']?.toString(),
       createdAt: _parseDate(json['createdAt']),
-      createdBy: json['createdBy'],
+      createdBy: json['createdBy']?.toString(),
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'caseId': caseId,
-      'taskId': taskId,
-      'entryDate': DateFormat('yyyy-MM-dd').format(entryDate),
-      'userId': userId,
-      'description': description,
-      'minutes': minutes,
-      'hourlyRateCents': hourlyRateCents,
-      'amountCents': amountCents,
-      'billable': billable,
-      'billed': billed,
-      'invoiceId': invoiceId,
-    };
   }
 
   String get formattedAmount {

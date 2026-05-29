@@ -4,7 +4,6 @@ import '../models/legal_case.dart';
 import '../models/case_task.dart';
 import '../models/case_time_entry.dart';
 import '../models/case_disbursement.dart';
-import '../models/case_billing_summary.dart';
 
 class CaseManagementService {
   static final CaseManagementService _instance = CaseManagementService._internal();
@@ -50,32 +49,6 @@ class CaseManagementService {
         return LegalCase.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
         throw Exception('Failed to create case: ${response.body}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<LegalCase> updateCase(String caseId, Map<String, dynamic> request) async {
-    try {
-      final response = await ApiClient().post('/v2/cases/$caseId', body: request);
-      if (response.statusCode == 200) {
-        return LegalCase.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
-      } else {
-        throw Exception('Failed to update case: ${response.body}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<LegalCase> closeCase(String caseId) async {
-    try {
-      final response = await ApiClient().post('/v2/cases/$caseId/close');
-      if (response.statusCode == 200) {
-        return LegalCase.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
-      } else {
-        throw Exception('Failed to close case: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -176,11 +149,11 @@ class CaseManagementService {
     }
   }
 
-  Future<CaseBillingSummary> getBillingSummary(String caseId) async {
+  Future<Map<String, dynamic>> getBillingSummary(String caseId) async {
     try {
       final response = await ApiClient().get('/v2/cases/$caseId/billing-summary');
       if (response.statusCode == 200) {
-        return CaseBillingSummary.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+        return Map<String, dynamic>.from(jsonDecode(response.body));
       } else {
         throw Exception('Failed to load billing summary: ${response.statusCode}');
       }

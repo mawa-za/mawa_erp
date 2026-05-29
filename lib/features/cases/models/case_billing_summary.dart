@@ -31,24 +31,23 @@ class CaseBillingSummary {
 
   factory CaseBillingSummary.fromJson(Map<String, dynamic> json) {
     return CaseBillingSummary(
-      caseId: json['caseId'] ?? '',
-      caseNo: json['caseNo'] ?? '',
-      title: json['title'] ?? '',
-      totalTimeMinutes: json['totalTimeMinutes'] ?? 0,
-      unbilledTimeMinutes: json['unbilledTimeMinutes'] ?? 0,
-      totalFeesCents: json['totalFeesCents'] ?? 0,
-      unbilledFeesCents: json['unbilledFeesCents'] ?? 0,
-      totalDisbursementsCents: json['totalDisbursementsCents'] ?? 0,
-      unbilledDisbursementsCents: json['unbilledDisbursementsCents'] ?? 0,
-      totalBillableCents: json['totalBillableCents'] ?? 0,
-      totalBilledCents: json['totalBilledCents'] ?? 0,
-      balanceCents: json['balanceCents'] ?? 0,
+      caseId: (json['caseId'] ?? '').toString(),
+      caseNo: (json['caseNo'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      totalTimeMinutes: (json['totalTimeMinutes'] as num?)?.toInt() ?? 0,
+      unbilledTimeMinutes: (json['unbilledTimeMinutes'] as num?)?.toInt() ?? 0,
+      totalFeesCents: (json['totalFeesCents'] as num?)?.toInt() ?? 0,
+      unbilledFeesCents: (json['unbilledFeesCents'] as num?)?.toInt() ?? 0,
+      totalDisbursementsCents: (json['totalDisbursementsCents'] as num?)?.toInt() ?? 0,
+      unbilledDisbursementsCents: (json['unbilledDisbursementsCents'] as num?)?.toInt() ?? 0,
+      totalBillableCents: (json['totalBillableCents'] as num?)?.toInt() ?? 0,
+      totalBilledCents: (json['totalBilledCilledCents'] as num?)?.toInt() ?? 0,
+      balanceCents: (json['balanceCents'] as num?)?.toInt() ?? 0,
     );
   }
 
   String _formatCents(int cents) {
-    final formatter = NumberFormat.currency(symbol: 'R ', locale: 'en_ZA');
-    return formatter.format(cents / 100);
+    return 'R ${(cents / 100).toStringAsFixed(2)}';
   }
 
   String get formattedTotalFees => _formatCents(totalFeesCents);

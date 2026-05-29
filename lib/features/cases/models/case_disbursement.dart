@@ -32,15 +32,18 @@ class CaseDisbursement {
     if (date is String) return DateTime.tryParse(date);
     if (date is List) {
       if (date.length >= 3) {
-        return DateTime(
-          date[0], // year
-          date[1], // month
-          date[2], // day
-          date.length >= 4 ? date[3] : 0, // hour
-          date.length >= 5 ? date[4] : 0, // minute
-          date.length >= 6 ? date[5] : 0, // second
-          date.length >= 7 ? (date[6] ~/ 1000000) : 0, // millisecond
-        );
+        try {
+          return DateTime(
+            (date[0] as num).toInt(),
+            (date[1] as num).toInt(),
+            (date[2] as num).toInt(),
+            date.length >= 4 ? (date[3] as num).toInt() : 0,
+            date.length >= 5 ? (date[4] as num).toInt() : 0,
+            date.length >= 6 ? (date[5] as num).toInt() : 0,
+          );
+        } catch (e) {
+          return null;
+        }
       }
     }
     return null;
@@ -48,17 +51,17 @@ class CaseDisbursement {
 
   factory CaseDisbursement.fromJson(Map<String, dynamic> json) {
     return CaseDisbursement(
-      id: json['id'] ?? '',
-      caseId: json['caseId'] ?? '',
+      id: (json['id'] ?? '').toString(),
+      caseId: (json['caseId'] ?? '').toString(),
       disbursementDate: _parseDate(json['disbursementDate']) ?? DateTime.now(),
-      disbursementType: json['disbursementType'] ?? 'OTHER',
-      description: json['description'] ?? '',
-      amountCents: json['amountCents'] ?? 0,
+      disbursementType: (json['disbursementType'] ?? 'OTHER').toString(),
+      description: (json['description'] ?? '').toString(),
+      amountCents: (json['amountCents'] as num?)?.toInt() ?? 0,
       billable: json['billable'] ?? true,
       billed: json['billed'] ?? false,
-      invoiceId: json['invoiceId'],
+      invoiceId: json['invoiceId']?.toString(),
       createdAt: _parseDate(json['createdAt']),
-      createdBy: json['createdBy'],
+      createdBy: json['createdBy']?.toString(),
     );
   }
 
@@ -77,8 +80,7 @@ class CaseDisbursement {
   }
 
   String get formattedAmount {
-    final formatter = NumberFormat.currency(symbol: 'R ', locale: 'en_ZA');
-    return formatter.format(amountCents / 100);
+    return 'R ${(amountCents / 100).toStringAsFixed(2)}';
   }
 }
 

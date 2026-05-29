@@ -42,15 +42,18 @@ class CaseTask {
     if (date is String) return DateTime.tryParse(date);
     if (date is List) {
       if (date.length >= 3) {
-        return DateTime(
-          date[0], // year
-          date[1], // month
-          date[2], // day
-          date.length >= 4 ? date[3] : 0, // hour
-          date.length >= 5 ? date[4] : 0, // minute
-          date.length >= 6 ? date[5] : 0, // second
-          date.length >= 7 ? (date[6] ~/ 1000000) : 0, // millisecond
-        );
+        try {
+          return DateTime(
+            (date[0] as num).toInt(),
+            (date[1] as num).toInt(),
+            (date[2] as num).toInt(),
+            date.length >= 4 ? (date[3] as num).toInt() : 0,
+            date.length >= 5 ? (date[4] as num).toInt() : 0,
+            date.length >= 6 ? (date[5] as num).toInt() : 0,
+          );
+        } catch (e) {
+          return null;
+        }
       }
     }
     return null;
@@ -58,22 +61,22 @@ class CaseTask {
 
   factory CaseTask.fromJson(Map<String, dynamic> json) {
     return CaseTask(
-      id: json['id'] ?? '',
-      caseId: json['caseId'] ?? '',
-      title: json['title'] ?? '',
-      description: json['description'],
-      assignedTo: json['assignedTo'],
-      priority: json['priority'] ?? 'NORMAL',
-      status: json['status'] ?? 'TODO',
+      id: (json['id'] ?? '').toString(),
+      caseId: (json['caseId'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      description: json['description']?.toString(),
+      assignedTo: json['assignedTo']?.toString(),
+      priority: (json['priority'] ?? 'NORMAL').toString(),
+      status: (json['status'] ?? 'TODO').toString(),
       dueDate: _parseDate(json['dueDate']),
       completedAt: _parseDate(json['completedAt']),
-      completedBy: json['completedBy'],
+      completedBy: json['completedBy']?.toString(),
       billable: json['billable'] ?? true,
-      estimatedMinutes: json['estimatedMinutes'] ?? 0,
+      estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 0,
       createdAt: _parseDate(json['createdAt']),
-      createdBy: json['createdBy'],
+      createdBy: json['createdBy']?.toString(),
       updatedAt: _parseDate(json['updatedAt']),
-      updatedBy: json['updatedBy'],
+      updatedBy: json['updatedBy']?.toString(),
     );
   }
 
