@@ -440,7 +440,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             const SizedBox(height: 24),
             _buildQuickStats(s),
             const SizedBox(height: 32),
-            _buildSectionHeader(Icons.business_rounded, 'Linked Partner Account'),
+            _buildSectionHeader(Icons.business_rounded, 'Linked Member Account'),
             const SizedBox(height: 12),
             if (_partner != null) _buildPartnerProfileCard(_partner!, colorScheme),
             const SizedBox(height: 32),
@@ -559,7 +559,16 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
         side: BorderSide(color: Colors.grey.shade100),
       ),
       child: InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => PartnerDetailScreen(partnerId: p.id))),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (c) => PartnerDetailScreen(
+              partnerId: p.id,
+              title: 'Member Details',
+              isMemberContext: true,
+            ),
+          ),
+        ),
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -577,7 +586,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   children: [
                     Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 2),
-                    Text('Partner ID: ${p.number}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    Text('Member ID: ${p.number}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
                   ],
                 ),
               ),
