@@ -11,6 +11,7 @@ import '../models/membership_claim.dart';
 import '../models/group_society.dart';
 import '../models/group_society_contact.dart';
 import '../models/group_society_payment.dart';
+import '../models/payment_batch_response.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
@@ -187,12 +188,11 @@ class MembershipService {
   Future<List<Premium>> getMembershipPremiums(String membershipId, {String? oldId}) async {
     try {
       final List<Future<dynamic>> requests = [
-        ApiClient().get('/v2/premium?membershipId=$membershipId'),
+        ApiClient().get('/v2/memberships/$membershipId/premiums'),
       ];
 
       if (oldId != null && oldId.isNotEmpty && oldId != membershipId && oldId != 'null') {
-        final oldIdResponse = await ApiClient().get('/v2/premium?membershipId=$oldId');
-        requests.add(Future.value(oldIdResponse));
+        requests.add(ApiClient().get('/v2/memberships/$oldId/premiums'));
       }
 
       final responses = await Future.wait(requests);
@@ -224,6 +224,23 @@ class MembershipService {
         }
       }
       return allPremiums;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getUnpaidPremiums(String membershipId) async {
+    try {
+      final response = await ApiClient().get('/v2/memberships/$membershipId/premiums/unpaid');
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          return decoded.cast<Map<String, dynamic>>();
+        }
+        return [];
+      } else {
+        throw Exception('Failed to load unpaid premiums: ${response.statusCode}');
+      }
     } catch (e) {
       rethrow;
     }
@@ -634,7 +651,9 @@ class MembershipService {
   Future<void> postGroupSocietyUpdate(String id, Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post('/v2/group-society/$id', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return;
+      } else {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to update group society: ${response.statusCode}');
       }
@@ -835,6 +854,53 @@ class MembershipService {
         return GroupSociety.fromJson(Map<String, dynamic>.from(data));
       } else {
         throw Exception('Failed to find group society for group no: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // --- Membership Premium Payment Methods ---
+
+  Future<PaymentBatchResponse> createMembershipPremiumPayment({
+    required String membershipId,
+    required String paymentMethod,
+    required int amountCents,
+    required String createdBy,
+    String? deviceId,
+    String? notes,
+  }) async {
+    try {
+      final payload = {
+        'membershipId': membershipId,
+        'paymentMethod': paymentMethod,
+        'amountCents': amountCents,
+        'createdBy': createdBy,
+        'deviceId': deviceId,
+        'notes': notes,
+      };
+
+      final response = await ApiClient().post('/v2/payment-batches/membership-premiums', body: payload);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return PaymentBatchResponse.fromJson(jsonDecode(response.body));
+      } else {
+        String errorMessage = 'Failed to create membership premium payment (${response.statusCode})';
+        try {
+          final errorData = jsonDecode(response.body);
+          errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
+        } catch (_) {}
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> printReceipt(String receiptId) async {
+    try {
+      final response = await ApiClient().get('/v2/receipts/$receiptId/print');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Failed to print receipt: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

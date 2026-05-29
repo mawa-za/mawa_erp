@@ -139,6 +139,33 @@ class ApiClient {
     return response;
   }
 
+  Future<http.Response> patch(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+    final host = await _getApiHost();
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path, queryParameters);
+    final headers = await _getHeaders(includeRole: includeRole);
+
+    var response = await _client.patch(
+      url,
+      headers: headers,
+      body: body != null ? jsonEncode(body) : null,
+    );
+
+    if (response.statusCode == 401) {
+      debugPrint('401 Unauthorized for PATCH $url');
+      final success = await _handleUnauthorized();
+      if (success) {
+        response = await _client.patch(
+          url,
+          headers: await _getHeaders(includeRole: includeRole),
+          body: body != null ? jsonEncode(body) : null,
+        );
+      }
+    }
+
+    return response;
+  }
+
   Future<http.Response> get(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
