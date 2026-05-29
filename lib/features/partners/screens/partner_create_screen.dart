@@ -407,9 +407,9 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildTextField(_emailController, 'Email Address', Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+            _buildTextField(_emailController, 'Email Address (Optional)', Icons.email_outlined, keyboardType: TextInputType.emailAddress),
             const SizedBox(height: 16),
-            _buildTextField(_phoneController, 'Phone Number', Icons.phone_outlined, keyboardType: TextInputType.phone),
+            _buildTextField(_phoneController, 'Phone Number (Optional)', Icons.phone_outlined, keyboardType: TextInputType.phone),
           ],
         ),
       ),
@@ -490,21 +490,21 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               },
             ),
             const SizedBox(height: 16),
-            _buildAddressTextField('Address Line 1', addr.line1, (val) => _addresses[index] = _updateAddress(addr, line1: val)),
+            _buildAddressTextField('Address Line 1 (Optional)', addr.line1, (val) => _addresses[index] = _updateAddress(addr, line1: val)),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildAddressTextField('City', addr.city, (val) => _addresses[index] = _updateAddress(addr, city: val))),
+                Expanded(child: _buildAddressTextField('City (Optional)', addr.city, (val) => _addresses[index] = _updateAddress(addr, city: val))),
                 const SizedBox(width: 12),
-                Expanded(child: _buildAddressTextField('State/Province', addr.state, (val) => _addresses[index] = _updateAddress(addr, state: val))),
+                Expanded(child: _buildAddressTextField('State/Province (Optional)', addr.state, (val) => _addresses[index] = _updateAddress(addr, state: val))),
               ],
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildAddressTextField('Postal Code', addr.postalCode, (val) => _addresses[index] = _updateAddress(addr, postalCode: val))),
+                Expanded(child: _buildAddressTextField('Postal Code (Optional)', addr.postalCode, (val) => _addresses[index] = _updateAddress(addr, postalCode: val))),
                 const SizedBox(width: 12),
-                Expanded(child: _buildAddressTextField('Country', addr.country, (val) => _addresses[index] = _updateAddress(addr, country: val))),
+                Expanded(child: _buildAddressTextField('Country (Optional)', addr.country, (val) => _addresses[index] = _updateAddress(addr, country: val))),
               ],
             ),
           ],
@@ -533,7 +533,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       enabled: enabled,
       style: TextStyle(fontSize: 14, color: enabled ? Colors.black87 : Colors.grey[600]),
       validator: (val) {
-        if (label == 'Middle Name (Optional)' || label == 'Alternative/Trading Name (Optional)') return null;
+        if (label.contains('(Optional)')) return null;
         if (val == null || val.isEmpty) return 'Required';
         return null;
       },
@@ -546,7 +546,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       decoration: _inputDecoration(label, null),
       style: const TextStyle(fontSize: 13),
       onChanged: onChanged,
-      validator: (val) => (val == null || val.isEmpty) && label != 'Address Line 2' ? 'Required' : null,
+      validator: (val) {
+        if (label.contains('(Optional)')) return null;
+        if (val == null || val.isEmpty) return 'Required';
+        return null;
+      },
     );
   }
 
