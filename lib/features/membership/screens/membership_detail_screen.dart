@@ -318,17 +318,16 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ],
             ),
           ),
-          if (_plan != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('PREMIUM', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
-                Text(
-                  'R ${_plan!.premium.toStringAsFixed(2)}',
-                  style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20),
-                ),
-              ],
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('PREMIUM', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
+              Text(
+                'R ${detail.premium.toStringAsFixed(2)}',
+                style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -474,7 +473,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           if (_plan != null) ...[
             const Divider(height: 24),
             _buildInfoRow(Icons.inventory_2_outlined, 'Insurance Plan', _plan!.name),
+            const Divider(height: 24),
+            _buildInfoRow(Icons.payments_outlined, 'Plan Base Premium', 'R ${_plan!.premium.toStringAsFixed(2)}'),
           ],
+          const Divider(height: 24),
+          _buildInfoRow(Icons.account_balance_wallet_outlined, 'Membership Premium', 'R ${detail.premium.toStringAsFixed(2)}'),
           const Divider(height: 24),
           _buildInfoRow(Icons.event_available, 'Start Date', detail.startDate ?? 'N/A'),
           const Divider(height: 24),
