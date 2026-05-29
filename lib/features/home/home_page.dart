@@ -24,6 +24,7 @@ import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
 import '../approvals/screens/approval_workflow_list_screen.dart';
 import '../approvals/screens/approval_list_screen.dart';
+import '../cases/screens/case_dashboard_screen.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
 
@@ -259,6 +260,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('workflow')) return Icons.account_tree_rounded;
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
     if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
+    if (lowerId.contains('case')) return Icons.gavel_rounded;
     return Icons.apps_rounded;
   }
 
@@ -318,6 +320,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
     } else if (id.contains('APPROVAL')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
+    } else if (id.contains('CASE')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CaseDashboardScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
