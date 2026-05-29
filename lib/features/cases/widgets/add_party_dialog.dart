@@ -97,6 +97,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               PartnerSearchDropdown(
+                role: 'ALL', // Or a more specific role if applicable
                 label: 'Link to Partner (Optional)',
                 onPartnerSelected: (p) => setState(() => _partnerId = p?.id),
                 initialPartnerId: _partnerId,

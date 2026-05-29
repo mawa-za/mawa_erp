@@ -69,21 +69,19 @@ class _CaseDashboardScreenState extends State<CaseDashboardScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleTickerProviderStateMixin(
-              child: RefreshIndicator(
-                onRefresh: _fetchSummary,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildWelcomeSection(),
-                      const SizedBox(height: 32),
-                      _buildQuickActions(colorScheme),
-                      const SizedBox(height: 32),
-                      _buildSummaryGrid(isDesktop, colorScheme),
-                    ],
-                  ),
+          : RefreshIndicator(
+              onRefresh: _fetchSummary,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcomeSection(),
+                    const SizedBox(height: 32),
+                    _buildQuickActions(colorScheme),
+                    const SizedBox(height: 32),
+                    _buildSummaryGrid(isDesktop, colorScheme),
+                  ],
                 ),
               ),
             ),

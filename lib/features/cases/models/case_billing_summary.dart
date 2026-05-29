@@ -50,11 +50,11 @@ class CaseBillingSummary {
     return 'R ${(cents / 100).toStringAsFixed(2)}';
   }
 
-  String get formattedTotalFees \u003d\u003e _formatCents(totalFeesCents);
-  String get formattedTotalDisbursements \u003d\u003e _formatCents(totalDisbursementsCents);
-  String get formattedTotalBillable \u003d\u003e _formatCents(totalBillableCents);
-  String get formattedTotalBilled \u003d\u003e _formatCents(totalBilledCents);
-  String get formattedBalance \u003d\u003e _formatCents(balanceCents);
-  String get formattedUnbilledFees \u003d\u003e _formatCents(unbilledFeesCents);
-  String get formattedUnbilledDisbursements \u003d\u003e _formatCents(unbilledDisbursementsCents);
+  String get formattedTotalFees => _formatCents(totalFeesCents);
+  String get formattedTotalDisbursements => _formatCents(totalDisbursementsCents);
+  String get formattedTotalBillable => _formatCents(totalBillableCents);
+  String get formattedTotalBilled => _formatCents(totalBilledCents);
+  String get formattedBalance => _formatCents(balanceCents);
+  String get formattedUnbilledFees => _formatCents(unbilledFeesCents);
+  String get formattedUnbilledDisbursements => _formatCents(unbilledDisbursementsCents);
 }
