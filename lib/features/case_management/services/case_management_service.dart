@@ -18,11 +18,12 @@ class CaseManagementService {
 
   // --- Case Endpoints ---
 
-  Future<List<LegalCase>> getCases({String? clientPartnerId, String? assignedTo, String? status}) async {
+  Future<List<LegalCase>> getCases({String? clientPartnerId, String? assignedTo, String? status, String? search}) async {
     final queryParams = <String, dynamic>{};
     if (clientPartnerId != null) queryParams['clientPartnerId'] = clientPartnerId;
     if (assignedTo != null) queryParams['assignedTo'] = assignedTo;
     if (status != null) queryParams['status'] = status;
+    if (search != null) queryParams['search'] = search;
 
     final response = await ApiClient().get('/v2/cases', queryParameters: queryParams);
     if (response.statusCode == 200) {
@@ -83,8 +84,8 @@ class CaseManagementService {
     throw Exception('Failed to create task: ${response.body}');
   }
 
-  Future<CaseTask> updateTaskStatus(String taskId, UpdateCaseTaskStatusRequest request) async {
-    final response = await ApiClient().patch('/v2/cases/tasks/$taskId/status', body: request.toJson());
+  Future<CaseTask> updateTaskStatus(String taskId, String status) async {
+    final response = await ApiClient().patch('/v2/cases/tasks/$taskId/status', body: {'status': status});
     if (response.statusCode == 200) {
       return CaseTask.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }

@@ -24,9 +24,7 @@ import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
 import '../approvals/screens/approval_workflow_list_screen.dart';
 import '../approvals/screens/approval_list_screen.dart';
-import '../cases/screens/case_dashboard_screen.dart';
-import '../settings/models/role.dart';
-import 'models/workcenter.dart';
+import '../case_management/screens/case_list_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -321,7 +319,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     } else if (id.contains('APPROVAL')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
     } else if (id.contains('CASE')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CaseDashboardScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CaseListScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),

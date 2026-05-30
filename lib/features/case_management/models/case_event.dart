@@ -33,6 +33,28 @@ class CaseEvent {
     this.updatedBy,
   });
 
+  static DateTime? _parseDate(dynamic date) {
+    if (date == null) return null;
+    if (date is String) return DateTime.tryParse(date);
+    if (date is List) {
+      if (date.length >= 3) {
+        try {
+          return DateTime(
+            (date[0] as num).toInt(),
+            (date[1] as num).toInt(),
+            (date[2] as num).toInt(),
+            date.length >= 4 ? (date[3] as num).toInt() : 0,
+            date.length >= 5 ? (date[4] as num).toInt() : 0,
+            date.length >= 6 ? (date[5] as num).toInt() : 0,
+          );
+        } catch (e) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
   factory CaseEvent.fromJson(Map<String, dynamic> json) {
     return CaseEvent(
       id: (json['id'] ?? '').toString(),
@@ -40,14 +62,14 @@ class CaseEvent {
       eventType: (json['eventType'] ?? 'OTHER').toString(),
       title: (json['title'] ?? '').toString(),
       description: json['description']?.toString(),
-      startAt: DateTime.parse(json['startAt']),
-      endAt: json['endAt'] != null ? DateTime.parse(json['endAt']) : null,
+      startAt: _parseDate(json['startAt']) ?? DateTime.now(),
+      endAt: _parseDate(json['endAt']),
       location: json['location']?.toString(),
-      reminderAt: json['reminderAt'] != null ? DateTime.parse(json['reminderAt']) : null,
+      reminderAt: _parseDate(json['reminderAt']),
       status: (json['status'] ?? 'SCHEDULED').toString(),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      createdAt: _parseDate(json['createdAt']),
       createdBy: json['createdBy']?.toString(),
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
+      updatedAt: _parseDate(json['updatedAt']),
       updatedBy: json['updatedBy']?.toString(),
     );
   }

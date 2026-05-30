@@ -13,6 +13,10 @@ import 'features/home/home_page.dart';
 import 'features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import 'features/membership/screens/membership_detail_screen.dart';
 
+import 'features/case_management/screens/case_list_screen.dart';
+import 'features/case_management/screens/create_case_screen.dart';
+import 'features/case_management/screens/case_detail_screen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
@@ -38,8 +42,22 @@ class MyApp extends StatelessWidget {
         );
       },
       onGenerateRoute: (settings) {
-        final uri = Uri.base;
+        final uri = Uri.parse(settings.name ?? '/');
         
+        // Named routes as requested
+        if (settings.name == '/cases') {
+          return MaterialPageRoute(builder: (context) => const CaseListScreen());
+        }
+        if (settings.name == '/cases/create') {
+          return MaterialPageRoute(builder: (context) => const CreateCaseScreen());
+        }
+        if (settings.name != null && settings.name!.startsWith('/cases/')) {
+          final caseId = settings.name!.split('/').last;
+          if (caseId.isNotEmpty && caseId != 'create') {
+            return MaterialPageRoute(builder: (context) => CaseDetailScreen(caseId: caseId));
+          }
+        }
+
         // Handle /reset-password?token=...
         if (uri.path.contains('reset-password')) {
           final token = uri.queryParameters['token'];
