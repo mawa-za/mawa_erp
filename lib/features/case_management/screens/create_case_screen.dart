@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/legal_case.dart';
@@ -5,6 +6,7 @@ import '../services/case_management_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/models/user.dart';
+import '../../../core/routing/app_routes.dart';
 
 class CreateCaseScreen extends StatefulWidget {
   const CreateCaseScreen({super.key});
@@ -97,8 +99,10 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Case created successfully')));
-        Navigator.pop(context, true);
-        Navigator.push(context, MaterialPageRoute(builder: (context) => CaseDetailScreen(caseId: newCase.id)));
+        if (context.canPop()) {
+          context.pop(true);
+        }
+        context.push('/cases/${newCase.id}');
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));

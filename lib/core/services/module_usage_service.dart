@@ -103,16 +103,11 @@ class ModuleUsageService {
 
       final response = await _apiClient.delete(
         '/v2/module-usage/reset',
-        // In the swagger it's query params for DELETE
-        // ApiClient.delete doesn't currently support queryParameters, 
-        // I might need to append it to the path or update ApiClient.
+        queryParameters: {'userId': userId},
       );
 
-      // Checking if I need to append userId manually since ApiClient.delete signature is delete(String path, {bool includeRole = true})
-      final manualResponse = await _apiClient.delete('/v2/module-usage/reset?userId=$userId');
-
-      if (manualResponse.statusCode != 200 && manualResponse.statusCode != 204) {
-        throw Exception('Failed to reset module usage: ${manualResponse.body}');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Failed to reset module usage: ${response.body}');
       }
     } catch (e) {
       rethrow;
