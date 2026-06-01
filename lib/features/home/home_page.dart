@@ -251,27 +251,27 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _fetchRecentModules();
     _fetchFrequentModules();
 
-    // 1. Use workcenter.routePath if it is not null and starts with /
+    // 1. If wc.routePath is not null and starts with /, use context.go(wc.routePath!)
     if (wc.routePath != null && wc.routePath!.startsWith('/')) {
-      context.push(wc.routePath!);
+      context.go(wc.routePath!);
       return;
     }
 
-    // 2. Use registry lookup by workcenter.routeKey
-    final routeByByRegistry = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
-    if (routeByByRegistry != null) {
-      context.push(routeByByRegistry);
+    // 2. Lookup by routeKey
+    final routeByRegistry = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
+    if (routeByRegistry != null) {
+      context.push(routeByRegistry);
       return;
     }
 
-    // 3. Use registry lookup by workcenter.id
+    // 3. Lookup by id
     final routeById = WorkcenterRouteRegistry.getRoutePath(wc.id);
     if (routeById != null) {
       context.push(routeById);
       return;
     }
 
-    // 4. Use the existing fallback string-matching logic
+    // Fallback logic
     final id = wc.id.toUpperCase();
     final description = wc.description.toLowerCase();
 

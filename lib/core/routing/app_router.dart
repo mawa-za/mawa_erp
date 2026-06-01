@@ -11,9 +11,10 @@ import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
-import '../../features/case_management/screens/case_list_screen.dart';
-import '../../features/case_management/screens/create_case_screen.dart';
-import '../../features/case_management/screens/case_detail_screen.dart';
+import '../../features/cases/screens/case_list_screen.dart';
+import '../../features/cases/screens/create_case_screen.dart';
+import '../../features/cases/screens/case_detail_screen.dart';
+import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
 
@@ -52,7 +53,8 @@ class AppRouter {
       final bool isPublicRoute = state.matchedLocation == AppRoutes.login || 
                                  state.matchedLocation == AppRoutes.setup ||
                                  state.matchedLocation == AppRoutes.resetPassword ||
-                                 state.matchedLocation.endsWith('/preview'); // Public invoice preview
+                                 state.matchedLocation.endsWith('/preview') ||
+                                 state.matchedLocation == AppRoutes.legacyInvoicePreview; 
 
       if (!isConfigured && state.matchedLocation != AppRoutes.setup && !state.matchedLocation.endsWith('/preview')) {
         return AppRoutes.setup;
@@ -151,15 +153,15 @@ class AppRouter {
             path: ':caseId',
             builder: (context, state) {
               final caseId = state.pathParameters['caseId']!;
-              return CaseDetailScreen(caseId: caseId);
+              return CaseDetailShellScreen(caseId: caseId, initialTab: 'overview');
             },
             routes: [
-              GoRoute(path: 'tasks', builder: (context, state) => CaseDetailScreen(caseId: state.pathParameters['caseId']!)),
-              GoRoute(path: 'events', builder: (context, state) => CaseDetailScreen(caseId: state.pathParameters['caseId']!)),
-              GoRoute(path: 'parties', builder: (context, state) => CaseDetailScreen(caseId: state.pathParameters['caseId']!)),
-              GoRoute(path: 'notes', builder: (context, state) => CaseDetailScreen(caseId: state.pathParameters['caseId']!)),
-              GoRoute(path: 'billing', builder: (context, state) => CaseDetailScreen(caseId: state.pathParameters['caseId']!)),
-              GoRoute(path: 'invoice-preview', builder: (context, state) => CaseDetailScreen(caseId: state.pathParameters['caseId']!)),
+              GoRoute(path: 'tasks', builder: (context, state) => CaseDetailShellScreen(caseId: state.pathParameters['caseId']!, initialTab: 'tasks')),
+              GoRoute(path: 'events', builder: (context, state) => CaseDetailShellScreen(caseId: state.pathParameters['caseId']!, initialTab: 'events')),
+              GoRoute(path: 'parties', builder: (context, state) => CaseDetailShellScreen(caseId: state.pathParameters['caseId']!, initialTab: 'parties')),
+              GoRoute(path: 'notes', builder: (context, state) => CaseDetailShellScreen(caseId: state.pathParameters['caseId']!, initialTab: 'notes')),
+              GoRoute(path: 'billing', builder: (context, state) => CaseDetailShellScreen(caseId: state.pathParameters['caseId']!, initialTab: 'billing')),
+              GoRoute(path: 'invoice-preview', builder: (context, state) => CaseDetailShellScreen(caseId: state.pathParameters['caseId']!, initialTab: 'invoice-preview')),
             ],
           ),
         ],
