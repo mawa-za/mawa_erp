@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:go_router/go_router.dart';
 import '../models/case_event.dart';
 import '../services/case_management_service.dart';
+import 'case_detail_screen.dart';
 
 class UpcomingEventsScreen extends StatefulWidget {
   const UpcomingEventsScreen({super.key});
@@ -85,7 +85,10 @@ class _UpcomingEventsScreenState extends State<UpcomingEventsScreen> {
         border: Border.all(color: isCritical ? Colors.orange.withOpacity(0.3) : Colors.grey.withOpacity(0.1)),
       ),
       child: ListTile(
-        onTap: () => context.push('/cases/${event.caseId}'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => CaseDetailScreen(caseId: event.caseId)),
+        ),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(

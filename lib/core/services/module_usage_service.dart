@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api_client.dart';
 import '../models/module_usage.dart';
@@ -38,7 +39,7 @@ class ModuleUsageService {
       }
     } catch (e) {
       // We often don't want to crash the app if tracking fails
-      print('Error tracking module usage: $e');
+      debugPrint('Error tracking module usage: $e');
     }
   }
 
@@ -95,27 +96,17 @@ class ModuleUsageService {
   }
 
   Future<void> resetUsage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId');
-      
-      if (userId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+    if (userId == null || userId.isEmpty) return;
 
-      final response = await _apiClient.delete(
-        '/v2/module-usage/reset',
-        // In the swagger it's query params for DELETE
-        // ApiClient.delete doesn't currently support queryParameters, 
-        // I might need to append it to the path or update ApiClient.
-      );
+    final response = await _apiClient.delete(
+      '/v2/module-usage/reset',
+      queryParameters: {'userId': userId},
+    );
 
-      // Checking if I need to append userId manually since ApiClient.delete signature is delete(String path, {bool includeRole = true})
-      final manualResponse = await _apiClient.delete('/v2/module-usage/reset?userId=$userId');
-
-      if (manualResponse.statusCode != 200 && manualResponse.statusCode != 204) {
-        throw Exception('Failed to reset module usage: ${manualResponse.body}');
-      }
-    } catch (e) {
-      rethrow;
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to reset module usage: ${response.body}');
     }
   }
 }

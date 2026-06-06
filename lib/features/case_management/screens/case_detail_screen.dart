@@ -7,8 +7,6 @@ import '../models/case_disbursement.dart';
 import '../models/case_billing_summary.dart';
 import '../models/case_note.dart';
 import '../models/case_event.dart';
-import '../models/case_party.dart';
-import '../models/case_invoice_preview.dart';
 import '../services/case_management_service.dart';
 import '../widgets/case_status_chip.dart';
 import '../widgets/case_priority_chip.dart';
@@ -16,8 +14,7 @@ import '../widgets/case_trust_account_tab.dart';
 
 class CaseDetailScreen extends StatefulWidget {
   final String caseId;
-  final String? initialTab;
-  const CaseDetailScreen({super.key, required this.caseId, this.initialTab});
+  const CaseDetailScreen({super.key, required this.caseId});
 
   @override
   State<CaseDetailScreen> createState() => _CaseDetailScreenState();
@@ -32,35 +29,14 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   List<CaseTask> _tasks = [];
   List<CaseTimeEntry> _timeEntries = [];
   List<CaseDisbursement> _disbursements = [];
-  List<CaseParty> _parties = [];
-  CaseInvoicePreview? _invoicePreview;
   
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 10, vsync: this);
-    if (widget.initialTab != null) {
-      _tabController.index = _getTabIndex(widget.initialTab!);
-    }
+    _tabController = TabController(length: 8, vsync: this);
     _loadData();
-  }
-
-  int _getTabIndex(String tab) {
-    switch (tab.toLowerCase()) {
-      case 'overview': return 0;
-      case 'tasks': return 1;
-      case 'time': return 2;
-      case 'disbursements': return 3;
-      case 'billing': return 4;
-      case 'trust': return 5;
-      case 'notes': return 6;
-      case 'events': return 7;
-      case 'parties': return 8;
-      case 'invoice-preview': return 9;
-      default: return 0;
-    }
   }
 
   Future<void> _loadData() async {
@@ -71,13 +47,6 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
       final tasks = await _caseService.getTasks(widget.caseId);
       final time = await _caseService.getTimeEntries(widget.caseId);
       final disbursements = await _caseService.getDisbursements(widget.caseId);
-      
-      // Optional/Newer data
-      List<CaseParty> parties = [];
-      try { parties = await _caseService.getParties(widget.caseId); } catch (_) {}
-      
-      CaseInvoicePreview? preview;
-      try { preview = await _caseService.getInvoicePreview(widget.caseId); } catch (_) {}
 
       if (mounted) {
         setState(() {
@@ -86,8 +55,6 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
           _tasks = tasks;
           _timeEntries = time;
           _disbursements = disbursements;
-          _parties = parties;
-          _invoicePreview = preview;
           _isLoading = false;
         });
       }
@@ -124,8 +91,6 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
             Tab(text: 'Trust Account'),
             Tab(text: 'Notes'),
             Tab(text: 'Events'),
-            Tab(text: 'Parties'),
-            Tab(text: 'Invoice Preview'),
           ],
         ),
       ),
@@ -140,8 +105,6 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
           CaseTrustAccountTab(caseId: widget.caseId),
           const Center(child: Text('Notes - Coming Soon')),
           const Center(child: Text('Events - Coming Soon')),
-          _buildPartiesTab(),
-          _buildInvoicePreviewTab(),
         ],
       ),
     );
@@ -236,55 +199,6 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
               _loadData();
             },
             child: const Text('Recalculate Billing'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPartiesTab() {
-    if (_parties.isEmpty) return const Center(child: Text('No parties added yet'));
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _parties.length,
-      itemBuilder: (context, i) => Card(
-        child: ListTile(
-          title: Text(_parties[i].partyName),
-          subtitle: Text(_parties[i].partyType),
-          trailing: const Icon(Icons.person_outline),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInvoicePreviewTab() {
-    if (_invoicePreview == null) return const Center(child: Text('No invoice preview available'));
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Invoice Preview for ${_case?.caseNo}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const Divider(),
-          _buildInfoRow('Total Fees', _formatCents(_invoicePreview!.totalFeesCents)),
-          _buildInfoRow('Total Disbursements', _formatCents(_invoicePreview!.totalDisbursementsCents)),
-          const Divider(),
-          _buildInfoRow('Grand Total', _formatCents(_invoicePreview!.totalInvoiceCents), isBold: true),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () async {
-                try {
-                  await _caseService.generateInvoice(widget.caseId);
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invoice generated successfully')));
-                  _loadData();
-                } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              },
-              child: const Text('GENERATE INVOICE'),
-            ),
           ),
         ],
       ),

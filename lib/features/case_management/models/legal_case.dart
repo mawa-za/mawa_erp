@@ -67,6 +67,28 @@ class LegalCase {
     this.updatedBy,
   });
 
+  static DateTime? _parseDate(dynamic date) {
+    if (date == null) return null;
+    if (date is String) return DateTime.tryParse(date);
+    if (date is List) {
+      if (date.length >= 3) {
+        try {
+          return DateTime(
+            (date[0] as num).toInt(),
+            (date[1] as num).toInt(),
+            (date[2] as num).toInt(),
+            date.length >= 4 ? (date[3] as num).toInt() : 0,
+            date.length >= 5 ? (date[4] as num).toInt() : 0,
+            date.length >= 6 ? (date[5] as num).toInt() : 0,
+          );
+        } catch (e) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
   factory LegalCase.fromJson(Map<String, dynamic> json) {
     return LegalCase(
       id: (json['id'] ?? '').toString(),
@@ -79,12 +101,12 @@ class LegalCase {
       status: (json['status'] ?? 'OPEN').toString(),
       priority: (json['priority'] ?? 'NORMAL').toString(),
       assignedTo: json['assignedTo']?.toString(),
-      openedDate: json['openedDate'] != null ? DateTime.tryParse(json['openedDate']) : null,
-      closedDate: json['closedDate'] != null ? DateTime.tryParse(json['closedDate']) : null,
+      openedDate: _parseDate(json['openedDate']),
+      closedDate: _parseDate(json['closedDate']),
       courtName: json['courtName']?.toString(),
       courtCaseNo: json['courtCaseNo']?.toString(),
       forumType: json['forumType']?.toString(),
-      nextAppearanceDate: json['nextAppearanceDate'] != null ? DateTime.tryParse(json['nextAppearanceDate']) : null,
+      nextAppearanceDate: _parseDate(json['nextAppearanceDate']),
       billingType: (json['billingType'] ?? 'HOURLY').toString(),
       hourlyRateCents: (json['hourlyRateCents'] as num?)?.toInt() ?? 0,
       fixedFeeCents: (json['fixedFeeCents'] as num?)?.toInt() ?? 0,
@@ -96,9 +118,9 @@ class LegalCase {
       totalBillableCents: (json['totalBillableCents'] as num?)?.toInt() ?? 0,
       totalBilledCents: (json['totalBilledCents'] as num?)?.toInt() ?? 0,
       balanceCents: (json['balanceCents'] as num?)?.toInt() ?? 0,
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
+      createdAt: _parseDate(json['createdAt']),
       createdBy: json['createdBy']?.toString(),
-      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt']) : null,
+      updatedAt: _parseDate(json['updatedAt']),
       updatedBy: json['updatedBy']?.toString(),
     );
   }

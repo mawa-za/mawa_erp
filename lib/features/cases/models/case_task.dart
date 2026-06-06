@@ -135,12 +135,14 @@ class CreateCaseTaskRequest {
 
 class UpdateCaseTaskStatusRequest {
   final String status;
+  final String? completedBy;
 
-  UpdateCaseTaskStatusRequest({required this.status});
+  UpdateCaseTaskStatusRequest({required this.status, this.completedBy});
 
   Map<String, dynamic> toJson() {
     return {
       'status': status,
+      'completedBy': completedBy,
     };
   }
 }
