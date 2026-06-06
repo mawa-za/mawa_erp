@@ -1,10 +1,12 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/legal_case.dart';
 import '../services/case_management_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/models/user.dart';
+import '../../../core/routing/app_routes.dart';
 
 class CreateCaseScreen extends StatefulWidget {
   const CreateCaseScreen({super.key});
@@ -88,8 +90,8 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
         courtCaseNo: _courtCaseNoController.text.isNotEmpty ? _courtCaseNoController.text : null,
         forumType: _forumTypeController.text.isNotEmpty ? _forumTypeController.text : null,
         billingType: _billingType,
-        hourlyRateCents: ((double.tryParse(_hourlyRateController.text) ?? 0) * 100).round(),
-        fixedFeeCents: ((double.tryParse(_fixedFeeController.text) ?? 0) * 100).round(),
+        hourlyRateCents: (double.tryParse(_hourlyRateController.text) ?? 0 * 100).round(),
+        fixedFeeCents: (double.tryParse(_fixedFeeController.text) ?? 0 * 100).round(),
         billable: _billable,
       );
 

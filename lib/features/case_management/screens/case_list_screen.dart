@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../models/legal_case.dart';
 import '../services/case_management_service.dart';
+import 'case_detail_screen.dart';
+import 'create_case_screen.dart';
 
 class CaseListScreen extends StatefulWidget {
   const CaseListScreen({super.key});
@@ -106,7 +107,10 @@ class _CaseListScreenState extends State<CaseListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await context.push('/cases/new');
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateCaseScreen()),
+          );
           if (result == true) {
             _fetchCases();
           }
@@ -253,6 +257,9 @@ class _CaseListScreenState extends State<CaseListScreen> {
   }
 
   void _navigateToDetail(String caseId) {
-    context.push('/cases/$caseId').then((_) => _fetchCases());
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => CaseDetailScreen(caseId: caseId)),
+    ).then((_) => _fetchCases());
   }
 }

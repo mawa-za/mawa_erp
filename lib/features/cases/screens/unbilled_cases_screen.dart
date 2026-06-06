@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../models/legal_case.dart';
 import '../services/case_management_service.dart';
-import 'case_detail_screen.dart';
 
 class UnbilledCasesScreen extends StatefulWidget {
   const UnbilledCasesScreen({super.key});
@@ -83,10 +83,7 @@ class _UnbilledCasesScreenState extends State<UnbilledCasesScreen> {
       child: Column(
         children: [
           ListTile(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => CaseDetailScreen(caseId: c.id)),
-            ),
+            onTap: () => context.push('/cases/${c.id}'),
             title: Text(c.title, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(c.caseNo, style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
             trailing: Column(

@@ -311,11 +311,11 @@ class ApiClient {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.containsKey('accessToken')) {
-      debugPrint('ApiClient: Performing logout, clearing tokens');
-      await prefs.remove('accessToken');
-      await prefs.remove('refreshToken');
-      _logoutController.add(true);
-    }
+    debugPrint('ApiClient: Performing logout, clearing tokens');
+    await prefs.remove('accessToken');
+    await prefs.remove('refreshToken');
+    await prefs.remove('selectedRole');
+    await prefs.remove('selectedRoleDescription');
+    _logoutController.add(true);
   }
 }
