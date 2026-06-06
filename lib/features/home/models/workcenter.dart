@@ -4,6 +4,9 @@ class Workcenter {
   final String defaultFunction;
   final String path;
   final int position;
+  final String routeKey;
+  final String? routePath;
+  final String? iconKey;
 
   Workcenter({
     required this.id,
@@ -11,6 +14,9 @@ class Workcenter {
     required this.defaultFunction,
     required this.path,
     required this.position,
+    required this.routeKey,
+    this.routePath,
+    this.iconKey,
   });
 
   factory Workcenter.fromJson(Map<String, dynamic> json) {
@@ -19,12 +25,18 @@ class Workcenter {
         ? json['workcenter'] 
         : json;
     
+    final String id = wc['id']?.toString() ?? '';
+    final String defaultFunction = wc['defaultFunction']?.toString() ?? '';
+    
     return Workcenter(
-      id: wc['id']?.toString() ?? '',
+      id: id,
       description: wc['description']?.toString() ?? wc['name']?.toString() ?? 'Unnamed Workcenter',
-      defaultFunction: wc['defaultFunction']?.toString() ?? '',
+      defaultFunction: defaultFunction,
       path: wc['path']?.toString() ?? '',
       position: (json['position'] ?? 0) as int,
+      routeKey: wc['routeKey']?.toString() ?? (defaultFunction.isNotEmpty ? defaultFunction : id),
+      routePath: wc['routePath']?.toString() ?? (wc['path']?.toString() != null && wc['path'].toString().isNotEmpty ? wc['path'].toString() : null),
+      iconKey: wc['iconKey']?.toString(),
     );
   }
 }

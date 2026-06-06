@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:go_router/go_router.dart';
 import '../models/case_task.dart';
 import '../services/case_management_service.dart';
+import 'case_detail_screen.dart';
 
 class OverdueTasksScreen extends StatefulWidget {
   const OverdueTasksScreen({super.key});
@@ -77,7 +77,10 @@ class _OverdueTasksScreenState extends State<OverdueTasksScreen> {
         border: Border.all(color: Colors.red.withOpacity(0.1)),
       ),
       child: ListTile(
-        onTap: () => context.push('/cases/${task.caseId}'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => CaseDetailScreen(caseId: task.caseId)),
+        ),
         title: Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
