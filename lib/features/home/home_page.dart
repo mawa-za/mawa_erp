@@ -5,26 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
-import '../../main.dart';
-import '../auth/change_password_screen.dart';
-import '../auth/role_selection_screen.dart';
-import '../invoicing/screens/invoice_create_screen.dart';
-import '../invoicing/screens/invoice_list_screen.dart';
-import '../membership/screens/member_list_screen.dart';
-import '../membership/screens/membership_plan_list_screen.dart';
-import '../membership/screens/membership_claim_list_screen.dart';
-import '../membership/screens/group_society_list_screen.dart';
-import '../payments/screens/payment_request_list_screen.dart';
-import '../payroll/screens/payroll_batch_list_screen.dart';
-import '../settings/screens/settings_screen.dart';
-import '../settings/screens/user_list_screen.dart';
-import '../settings/screens/system_configuration_screen.dart';
-import '../settings/screens/api_log_list_screen.dart';
-import '../partners/screens/partner_list_screen.dart';
-import '../cashup/screens/cashup_list_screen.dart';
-import '../approvals/screens/approval_workflow_list_screen.dart';
-import '../approvals/screens/approval_list_screen.dart';
-import '../cases/screens/case_dashboard_screen.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/routing/workcenter_route_registry.dart';
+import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
 
@@ -222,16 +205,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('accessToken');
-    await prefs.remove('refreshToken');
-    await prefs.remove('selectedRole');
-    await prefs.remove('selectedRoleDescription');
+    await ApiClient().logout();
     if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const Initializer()),
-        (route) => false,
-      );
+      context.go(AppRoutes.login);
     }
   }
 
@@ -265,30 +241,46 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
-    final id = wc.id.toUpperCase();
-    final description = wc.description.toLowerCase();
-
     // Track module usage
     _moduleUsageService.trackUsage(
       moduleCode: wc.id,
       moduleName: wc.description,
+      modulePath: wc.routePath,
       workcenterId: wc.id,
     );
-    _fetchRecentModules(); 
+    _fetchRecentModules();
     _fetchFrequentModules();
 
-    // Navigation logic...
-    if (['EMPLOYEE', 'SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => PartnerListScreen(
-          role: id,
-          title: '${id[0]}${id.substring(1).toLowerCase()}s',
-          allowCreate: false,
-        ),
-      ));
+    // 1. If wc.routePath is not null and starts with /, use context.go(wc.routePath!)
+    if (wc.routePath != null && wc.routePath!.startsWith('/')) {
+      context.go(wc.routePath!);
       return;
     }
 
+    // 2. Lookup by routeKey
+    final routeByRegistry = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
+    if (routeByRegistry != null) {
+      context.push(routeByRegistry);
+      return;
+    }
+
+    // 3. Lookup by id
+    final routeById = WorkcenterRouteRegistry.getRoutePath(wc.id);
+    if (routeById != null) {
+      context.push(routeById);
+      return;
+    }
+
+    // Fallback logic
+    final id = wc.id.toUpperCase();
+    final description = wc.description.toLowerCase();
+
+    if (['EMPLOYEE', 'SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
+      context.push('/partners/$id'); // Assuming we'll have this route, or use fallback navigation
+      return;
+    }
+
+    // Fallback to legacy navigation for cases not yet in registry
     if (id == 'API-LOG') {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApiLogListScreen()));
       return;
@@ -299,11 +291,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     } else if (id == 'MEMBERSHIP-CLAIM') {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
+      context.push(AppRoutes.invoices);
     } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
     } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MemberListScreen()));
+      context.push(AppRoutes.memberships);
     } else if (id.contains('PAYROLL') || description.contains('payroll')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PayrollBatchListScreen()));
     } else if (id.contains('CLAIM') || description.contains('claim')) {
@@ -315,13 +307,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     } else if (id.contains('PARTNER') || description.contains('partner')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PartnerListScreen()));
     } else if (id.contains('USER') || id.contains('SETTING') || id.contains('COMPANY') || id.contains('WORKFLOW') || id.contains('CONFIG') || id.contains('ROLE')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SystemConfigurationScreen()));
+      context.push(AppRoutes.settings);
     } else if (id.contains('CASHUP') || description.contains('cashup')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CashupListScreen()));
     } else if (id.contains('APPROVAL')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ApprovalListScreen()));
+      context.push(AppRoutes.approvals);
     } else if (id.contains('CASE')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CaseDashboardScreen()));
+      context.push(AppRoutes.cases);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),

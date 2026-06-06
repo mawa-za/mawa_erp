@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../models/legal_case.dart';
 import '../services/case_management_service.dart';
-import 'case_detail_screen.dart';
-import 'create_case_screen.dart';
 
 class CaseListScreen extends StatefulWidget {
   const CaseListScreen({super.key});
@@ -52,7 +50,6 @@ class _CaseListScreenState extends State<CaseListScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading cases: $e'),
-          behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -77,115 +74,69 @@ class _CaseListScreenState extends State<CaseListScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(colorScheme),
-          SliverToBoxAdapter(
-            child: _buildFilterSection(colorScheme),
+      appBar: AppBar(
+        title: const Text('Case Management', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _fetchCases,
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: _isLoading
-                ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildFilterSection(colorScheme),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
                 : _filteredCases.isEmpty
-                    ? SliverFillRemaining(child: _buildEmptyState())
+                    ? _buildEmptyState()
                     : isTablet 
-                        ? SliverToBoxAdapter(child: _buildDataTable())
-                        : SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) => _buildCaseCard(_filteredCases[index]),
-                              childCount: _filteredCases.length,
-                            ),
+                        ? SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(16), child: _buildDataTable()))
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _filteredCases.length,
+                            itemBuilder: (context, index) => _buildCaseCard(_filteredCases[index]),
                           ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CreateCaseScreen()),
-          );
+          final result = await context.push('/cases/new');
           if (result == true) {
             _fetchCases();
           }
         },
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('New Case', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: colorScheme.primary,
-        elevation: 4,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New Case', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
-    );
-  }
-
-  Widget _buildSliverAppBar(ColorScheme colorScheme) {
-    return SliverAppBar(
-      expandedHeight: 120.0,
-      floating: false,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: colorScheme.primary,
-      flexibleSpace: FlexibleSpaceBar(
-        title: const Text('Case Management', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        centerTitle: false,
-        titlePadding: const EdgeInsetsDirectional.only(start: 56, bottom: 16),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [colorScheme.primary, colorScheme.primary.withBlue(200)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -20,
-                top: -20,
-                child: Icon(Icons.gavel_rounded, size: 140, color: Colors.white.withOpacity(0.1)),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-          onPressed: _fetchCases,
-        ),
-        const SizedBox(width: 8),
-      ],
     );
   }
 
   Widget _buildFilterSection(ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(16),
+      color: Colors.white,
       child: Column(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: TextField(
-              onChanged: (value) {
-                _searchQuery = value;
-                _applyFilters();
-              },
-              decoration: InputDecoration(
-                hintText: 'Search by case number or title...',
-                prefixIcon: Icon(Icons.search_rounded, color: colorScheme.primary),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              ),
+          TextField(
+            onChanged: (value) {
+              _searchQuery = value;
+              _applyFilters();
+            },
+            decoration: InputDecoration(
+              hintText: 'Search by case number or title...',
+              prefixIcon: const Icon(Icons.search_rounded),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
+              filled: true,
+              fillColor: Colors.grey[50],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -202,11 +153,9 @@ class _CaseListScreenState extends State<CaseListScreen> {
 
   Widget _buildStatusFilterChip(String? status, String label) {
     final isSelected = _selectedStatus == status;
-    final colorScheme = Theme.of(context).colorScheme;
-    
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
-      child: FilterChip(
+      child: ChoiceChip(
         label: Text(label),
         selected: isSelected,
         onSelected: (val) {
@@ -215,78 +164,41 @@ class _CaseListScreenState extends State<CaseListScreen> {
             _applyFilters();
           });
         },
-        selectedColor: colorScheme.primaryContainer,
-        labelStyle: TextStyle(
-          color: isSelected ? colorScheme.primary : Colors.grey[700],
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontSize: 12,
-        ),
-        backgroundColor: Colors.white,
-        checkmarkColor: colorScheme.primary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: isSelected ? colorScheme.primary : Colors.grey[300]!),
-        ),
       ),
     );
   }
 
   Widget _buildCaseCard(LegalCase c) {
-    return Container(
+    return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8)),
-        ],
-        border: Border.all(color: Colors.grey[100]!),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0,
+      borderOnForeground: true,
       child: InkWell(
         onTap: () => _navigateToDetail(c.id),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-                    child: Text(c.caseNo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                  ),
-                  _buildPrettyStatusChip(c.status),
+                  Text(c.caseNo, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                  _buildStatusChip(c.status),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(c.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1A1C1E))),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.category_outlined, size: 14, color: Colors.grey[400]),
-                  const SizedBox(width: 4),
-                  Text(c.caseType, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  const SizedBox(width: 16),
-                  Icon(Icons.flag_outlined, size: 14, color: Colors.grey[400]),
-                  const SizedBox(width: 4),
-                  _buildPrettyPriorityText(c.priority),
-                ],
-              ),
-              const Divider(height: 32),
+              Text(c.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(c.caseType, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              const Divider(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(radius: 12, backgroundColor: Colors.blue[50], child: Icon(Icons.person, size: 14, color: Colors.blue[700])),
-                      const SizedBox(width: 8),
-                      Text(c.assignedTo ?? 'Unassigned', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                  Text(c.formattedBalance, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.black)),
+                  Text(c.assignedTo ?? 'Unassigned', style: const TextStyle(fontSize: 13)),
+                  Text(c.formattedBalance, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
@@ -297,100 +209,50 @@ class _CaseListScreenState extends State<CaseListScreen> {
   }
 
   Widget _buildDataTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8)),
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0,
+      child: DataTable(
+        showCheckboxColumn: false,
+        columns: const [
+          DataColumn(label: Text('Case No')),
+          DataColumn(label: Text('Title')),
+          DataColumn(label: Text('Type')),
+          DataColumn(label: Text('Status')),
+          DataColumn(label: Text('Assigned')),
+          DataColumn(label: Text('Balance')),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: DataTable(
-          showCheckboxColumn: false,
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F4F9)),
-          dataRowMaxHeight: 70,
-          columns: const [
-            DataColumn(label: Text('Case Info', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Priority', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Assigned', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Balance', style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: _filteredCases.map((c) {
-            return DataRow(
-              onSelectChanged: (_) => _navigateToDetail(c.id),
-              cells: [
-                DataCell(Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(c.caseNo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                    Text(c.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                )),
-                DataCell(Text(c.caseType)),
-                DataCell(_buildPrettyStatusChip(c.status)),
-                DataCell(_buildPrettyPriorityText(c.priority)),
-                DataCell(Text(c.assignedTo ?? '-')),
-                DataCell(Text(c.formattedBalance, style: const TextStyle(fontWeight: FontWeight.bold))),
-              ],
-            );
-          }).toList(),
-        ),
+        rows: _filteredCases.map((c) {
+          return DataRow(
+            onSelectChanged: (_) => _navigateToDetail(c.id),
+            cells: [
+              DataCell(Text(c.caseNo)),
+              DataCell(Text(c.title)),
+              DataCell(Text(c.caseType)),
+              DataCell(_buildStatusChip(c.status)),
+              DataCell(Text(c.assignedTo ?? '-')),
+              DataCell(Text(c.formattedBalance)),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildPrettyStatusChip(String status) {
-    Color color = Colors.blue;
-    switch (status) {
-      case 'OPEN': color = Colors.blue; break;
-      case 'IN_PROGRESS': color = Colors.orange; break;
-      case 'CLOSED': color = Colors.green; break;
-      case 'CANCELLED': color = Colors.red; break;
-      case 'SETTLED': color = Colors.purple; break;
-      case 'ON_HOLD': color = Colors.amber; break;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.2))),
-      child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+  Widget _buildStatusChip(String status) {
+    return Chip(
+      label: Text(status, style: const TextStyle(fontSize: 10)),
+      backgroundColor: Colors.blue[50],
+      side: BorderSide.none,
+      visualDensity: VisualDensity.compact,
     );
-  }
-
-  Widget _buildPrettyPriorityText(String priority) {
-    Color color = Colors.blue;
-    switch (priority) {
-      case 'URGENT': color = Colors.red; break;
-      case 'HIGH': color = Colors.orange; break;
-      case 'LOW': color = Colors.green; break;
-      default: color = Colors.blue;
-    }
-    return Text(priority, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold));
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[200]),
-          const SizedBox(height: 16),
-          const Text('No cases found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 8),
-          Text('Try searching for something else or add a new case', style: TextStyle(color: Colors.grey[400])),
-        ],
-      ),
-    );
+    return const Center(child: Text('No cases found'));
   }
 
   void _navigateToDetail(String caseId) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => CaseDetailScreen(caseId: caseId)),
-    ).then((_) => _fetchCases());
+    context.push('/cases/$caseId').then((_) => _fetchCases());
   }
 }

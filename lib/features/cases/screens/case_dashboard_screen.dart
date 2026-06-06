@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../models/case_dashboard_summary.dart';
 import '../services/case_management_service.dart';
-import 'case_list_screen.dart';
-import 'create_case_screen.dart';
-import 'overdue_tasks_screen.dart';
-import 'upcoming_events_screen.dart';
-import 'unbilled_cases_screen.dart';
 
 class CaseDashboardScreen extends StatefulWidget {
   const CaseDashboardScreen({super.key});
@@ -114,31 +110,31 @@ class _CaseDashboardScreenState extends State<CaseDashboardScreen> {
           'New Case',
           Icons.add_box_rounded,
           colorScheme.primary,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateCaseScreen())).then((_) => _fetchSummary()),
+          () => context.push('/cases/new').then((_) => _fetchSummary()),
         ),
         _buildActionButton(
           'View Cases',
           Icons.list_alt_rounded,
           Colors.blueGrey,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CaseListScreen())),
+          () => context.push('/cases'),
         ),
         _buildActionButton(
           'Overdue Tasks',
           Icons.assignment_late_rounded,
           Colors.redAccent,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const OverdueTasksScreen())),
+          () => Navigator.pushNamed(context, '/cases/tasks/overdue'), // Navigator fallback or add route
         ),
         _buildActionButton(
           'Upcoming Events',
           Icons.event_note_rounded,
           Colors.orange,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UpcomingEventsScreen())),
+          () => Navigator.pushNamed(context, '/cases/events/upcoming'),
         ),
         _buildActionButton(
           'Unbilled Matters',
           Icons.receipt_long_rounded,
           Colors.green,
-          () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UnbilledCasesScreen())),
+          () => Navigator.pushNamed(context, '/cases/billing/unbilled'),
         ),
       ],
     );

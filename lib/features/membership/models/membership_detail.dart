@@ -3,6 +3,7 @@ class MembershipDetail {
   final String memberId;
   final String membershipNo;
   final String planId;
+  final int premiumCents;
   final String? startDate;
   final String? endDate;
   final String status;
@@ -19,6 +20,7 @@ class MembershipDetail {
     required this.memberId,
     required this.membershipNo,
     required this.planId,
+    required this.premiumCents,
     this.startDate,
     this.endDate,
     required this.status,
@@ -30,6 +32,8 @@ class MembershipDetail {
     this.updatedBy,
     this.oldId,
   });
+
+  double get premium => premiumCents / 100.0;
 
   factory MembershipDetail.fromJson(Map<String, dynamic> json) {
     String? parseDateValue(dynamic date) {
@@ -72,6 +76,7 @@ class MembershipDetail {
       memberId: (json['memberId'] ?? '').toString(),
       membershipNo: (json['membershipNo'] ?? '').toString(),
       planId: (json['planId'] ?? '').toString(),
+      premiumCents: json['premiumCents'] is int ? json['premiumCents'] : (int.tryParse(json['premiumCents']?.toString() ?? '0') ?? 0),
       startDate: parseDateValue(json['startDate']),
       endDate: parseDateValue(json['endDate']),
       status: (json['status'] ?? '').toString(),
@@ -91,6 +96,7 @@ class MembershipDetail {
       'memberId': memberId,
       'membershipNo': membershipNo,
       'planId': planId,
+      'premiumCents': premiumCents,
       'startDate': startDate,
       'endDate': endDate,
       'status': status,

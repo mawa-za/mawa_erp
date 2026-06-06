@@ -56,8 +56,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
         );
         await _caseService.createTask(widget.caseId, request);
       } else {
-        // Update task logic if needed, user didn't specify PUT /v2/cases/tasks/{taskId} but specified status update.
-        // Assuming update would follow similar pattern if needed.
+        // Update task logic if needed
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
