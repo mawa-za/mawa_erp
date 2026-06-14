@@ -17,6 +17,7 @@ import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
+import '../../features/internal_communications/screens/internal_communications_dashboard.dart';
 
 import '../services/session_service.dart';
 
@@ -184,6 +185,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => const SystemConfigurationScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.internalCommunications,
+        builder: (context, state) => const InternalCommunicationsDashboard(),
       ),
     ],
   );

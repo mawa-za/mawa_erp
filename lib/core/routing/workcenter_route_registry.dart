@@ -16,6 +16,8 @@ class WorkcenterRouteRegistry {
     'APPROVAL': AppRoutes.approvals,
     'SETTINGS': AppRoutes.settings,
     'SYSTEM_SETTINGS': AppRoutes.settings,
+    'INTERNAL_COMMUNICATIONS': AppRoutes.internalCommunications,
+    'EMPLOYEE_ENGAGEMENT': AppRoutes.internalCommunications,
   };
 
   static String? getRoutePath(String key) {
