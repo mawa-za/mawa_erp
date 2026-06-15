@@ -11,6 +11,19 @@ import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
 
+// Import missing screens
+import '../auth/role_selection_screen.dart';
+import '../auth/change_password_screen.dart';
+import '../settings/screens/api_log_list_screen.dart';
+import '../invoicing/screens/invoice_create_screen.dart';
+import '../membership/screens/membership_claim_list_screen.dart';
+import '../membership/screens/membership_plan_list_screen.dart';
+import '../payroll/screens/payroll_batch_list_screen.dart';
+import '../membership/screens/group_society_list_screen.dart';
+import '../payments/screens/payment_request_list_screen.dart';
+import '../partners/screens/partner_list_screen.dart';
+import '../cashup/screens/cashup_list_screen.dart';
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
   final String title;
@@ -553,6 +566,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       defaultFunction: '',
                       path: '',
                       position: 0,
+                      routeKey: usage.moduleCode,
                     ),
                   );
                   _navigateToWorkcenter(wc);
@@ -627,6 +641,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       defaultFunction: '',
                       path: '',
                       position: 0,
+                      routeKey: usage.moduleCode,
                     ),
                   );
                   _navigateToWorkcenter(wc);
