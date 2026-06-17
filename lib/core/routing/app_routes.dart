@@ -20,6 +20,16 @@ class AppRoutes {
   static const String approvals = '/approvals';
   static const String settings = '/settings';
   
+  // Funeral Management
+  static const String funeralDashboard = '/funeral';
+  static const String funeralPickups = '/funeral/pickups';
+  static const String funeralNewPickup = '/funeral/pickups/new';
+  static const String funeralMortuary = '/funeral/mortuary';
+  static const String funeralNewServiceRequest = '/funeral/service-request/new';
+  static const String funeralClaims = '/funeral/service-request/:id/claims';
+  static const String funeralInvoicePreview = '/funeral/service-request/:id/invoice-preview';
+  static const String funeralInvoicePayment = '/funeral/invoice/:invoiceId/payment';
+
   // Legacy routes for redirection
   static const String legacyMembershipDetail = '/membership-detail';
   static const String legacyInvoicePreview = '/invoice-preview';
