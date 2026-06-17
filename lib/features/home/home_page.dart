@@ -250,6 +250,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
     if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     if (lowerId.contains('case')) return Icons.gavel_rounded;
+    if (lowerId.contains('engagement') || lowerId.contains('communication')) return Icons.campaign_rounded;
     return Icons.apps_rounded;
   }
 
@@ -327,6 +328,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       context.push(AppRoutes.approvals);
     } else if (id.contains('CASE')) {
       context.push(AppRoutes.cases);
+    } else if (id.contains('ENGAGEMENT') || id.contains('COMMUNICATION') || description.contains('engagement') || description.contains('communication')) {
+      context.push(AppRoutes.internalCommunications);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
