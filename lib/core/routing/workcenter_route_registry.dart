@@ -22,14 +22,22 @@ class WorkcenterRouteRegistry {
     'EMPLOYEE_ENGAGEMENT': AppRoutes.internalCommunications,
     'EMPLOYEE-ENGAGEMENT': AppRoutes.internalCommunications,
     'ENGAGEMENT': AppRoutes.internalCommunications,
+    
+    // Funeral Management
     'FUNERAL': AppRoutes.funeralDashboard,
     'FUNERAL_MANAGEMENT': AppRoutes.funeralDashboard,
     'MORTUARY': AppRoutes.funeralMortuary,
+    'MORTUARY_INVENTORY': AppRoutes.funeralMortuary,
     'PICKUP_REQUESTS': AppRoutes.funeralPickups,
+    'PICKUP_REQUEST': AppRoutes.funeralPickups,
+    'FUNERAL_SERVICE_REQUEST': AppRoutes.funeralNewServiceRequest,
+    'FUNERAL_SERVICE_REQUESTS': AppRoutes.funeralNewServiceRequest,
+    'CORPSE_CHECK_IN': AppRoutes.funeralPickups, // Usually happens via Pickups
+    'CORPSE_CHECK_OUT': AppRoutes.funeralMortuary, // Usually happens via Mortuary
   };
 
   static String? getRoutePath(String key) {
-    final upperKey = key.toUpperCase().replaceAll('-', '_');
+    final upperKey = key.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
     final route = _mappings[upperKey];
     if (route != null) return route;
     
