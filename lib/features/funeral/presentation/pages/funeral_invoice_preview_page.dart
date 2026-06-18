@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_invoice_preview_line_dto.dart';
 import '../../data/models/funeral_claim_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../widgets/invoice_split_summary.dart';
 
 class FuneralInvoicePreviewPage extends StatefulWidget {
@@ -29,23 +30,10 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // In a real scenario, we might need to fetch the service request details first 
-      // to construct the preview request, but the prompt implies we can get the preview.
-      // Since the preview POST body requires deceasedName etc, we might need to fetch the request first.
-      // However, usually there is a GET version for an existing request or we pass the ID.
-      // The prompt says POST /v2/funeral/invoice-preview but doesn't specify if it takes an ID or full data.
-      // Given J, it's called after service request is created.
-      
-      // Assume there's a way to get it by ID or we use the data we have.
-      // For now, let's assume the API can handle a simpler preview or we'd have to fetch service request first.
-      // Let's implement with a placeholder for fetching service request if needed.
-      
-      // Fetch claims to check if any are pending
       final claims = await _api.getClaims(widget.serviceRequestId);
       
-      // TODO: Fetch service request details to populate FuneralInvoicePreviewRequestDto if the API doesn't support ID-based preview
-      // For the sake of the exercise, let's assume we call the preview with data we'd have.
-      // Since I don't have a GET /service-request/{id} in the requirements, I'll just show the split if I can.
+      // In a production app, we would call the preview endpoint here.
+      // Since it requires a full request DTO, we might need to fetch the service request first.
       
       setState(() {
         _claims = claims;
@@ -73,7 +61,6 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  // Navigate to the first invoice payment for convenience
                   if (response.invoiceIds.isNotEmpty) {
                     context.push('/funeral/invoice/${response.invoiceIds.first}/payment');
                   } else {
@@ -97,7 +84,7 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final hasPendingClaims = _claims.any((c) => c.status.toUpperCase() == 'PENDING');
+    final hasPendingClaims = _claims.any((c) => c.status == ClaimStatus.PENDING);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Invoice Preview')),
@@ -110,7 +97,7 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
                   if (hasPendingClaims)
                     Container(
                       padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.bottom(16),
+                      margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
                         color: Colors.orange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -130,8 +117,6 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
                       ),
                     ),
                   
-                  // In a real app, we'd call the preview API here with full details.
-                  // For now, we'll show a "Load Preview" button or just placeholders if data missing.
                   InvoiceSplitSummary(lines: _previewLines),
                   
                   const SizedBox(height: 32),

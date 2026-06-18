@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
-import '../../data/models/pickup_request_dto.dart';
+import '../../data/models/create_pickup_request_dto.dart';
 
 class CreatePickupRequestPage extends StatefulWidget {
   const CreatePickupRequestPage({super.key});
@@ -24,7 +24,7 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
 
     setState(() => _isLoading = true);
     try {
-      final request = PickupRequestDto(
+      final request = CreatePickupRequestDto(
         deceasedName: _deceasedNameController.text,
         pickupLocation: _locationController.text,
         contactPerson: _contactPersonController.text,

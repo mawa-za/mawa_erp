@@ -62,7 +62,7 @@ class FuneralWizardStepper extends StatelessWidget {
                   Container(
                     width: 30,
                     height: 2,
-                    margin: const EdgeInsets.symmetric(horizontal: 8, marginBottom: 16),
+                    margin: const EdgeInsets.only(left: 8, right: 8, bottom: 16),
                     color: isCompleted ? Colors.green : Colors.grey.shade300,
                   ),
               ],

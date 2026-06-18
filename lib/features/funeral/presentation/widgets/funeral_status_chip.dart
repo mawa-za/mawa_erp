@@ -8,36 +8,59 @@ class FuneralStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String label;
-    Color color;
+    String label = 'UNKNOWN';
+    Color color = Colors.grey;
 
     if (status is PickupStatus) {
       label = status.name;
-      switch (status) {
-        case PickupStatus.PENDING: color = Colors.orange;
-        case PickupStatus.ASSIGNED: color = Colors.blue;
-        case PickupStatus.COMPLETED: color = Colors.green;
-        case PickupStatus.CANCELLED: color = Colors.red;
+      switch (status as PickupStatus) {
+        case PickupStatus.PENDING:
+          color = Colors.orange;
+          break;
+        case PickupStatus.ASSIGNED:
+          color = Colors.blue;
+          break;
+        case PickupStatus.COMPLETED:
+          color = Colors.green;
+          break;
+        case PickupStatus.CANCELLED:
+          color = Colors.red;
+          break;
       }
     } else if (status is MortuaryStatus) {
       label = status.name;
-      switch (status) {
-        case MortuaryStatus.IN_STORAGE: color = Colors.purple;
-        case MortuaryStatus.RELEASED: color = Colors.green;
-        case MortuaryStatus.CANCELLED: color = Colors.red;
+      switch (status as MortuaryStatus) {
+        case MortuaryStatus.IN_STORAGE:
+          color = Colors.purple;
+          break;
+        case MortuaryStatus.RELEASED:
+          color = Colors.green;
+          break;
+        case MortuaryStatus.CANCELLED:
+          color = Colors.red;
+          break;
       }
     } else if (status is ClaimStatus) {
       label = status.name;
-      switch (status) {
-        case ClaimStatus.PENDING: color = Colors.orange;
-        case ClaimStatus.APPROVED: color = Colors.green;
-        case ClaimStatus.PARTIALLY_APPROVED: color = Colors.blue;
-        case ClaimStatus.REJECTED: color = Colors.red;
-        case ClaimStatus.CANCELLED: color = Colors.grey;
+      switch (status as ClaimStatus) {
+        case ClaimStatus.PENDING:
+          color = Colors.orange;
+          break;
+        case ClaimStatus.APPROVED:
+          color = Colors.green;
+          break;
+        case ClaimStatus.PARTIALLY_APPROVED:
+          color = Colors.blue;
+          break;
+        case ClaimStatus.REJECTED:
+          color = Colors.red;
+          break;
+        case ClaimStatus.CANCELLED:
+          color = Colors.grey;
+          break;
       }
-    } else {
+    } else if (status is String) {
       label = status.toString();
-      color = Colors.grey;
     }
 
     return Chip(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/invoice_payment_request_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../../../../core/utils/formatters.dart';
 
 class FuneralInvoicePaymentPage extends StatefulWidget {
@@ -93,7 +94,11 @@ class _FuneralInvoicePaymentPageState extends State<FuneralInvoicePaymentPage> {
                         value: m,
                         child: Text(m.name),
                       )).toList(),
-                      onChanged: (v) => setState(() => _selectedMethod = v!),
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _selectedMethod = v);
+                        }
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

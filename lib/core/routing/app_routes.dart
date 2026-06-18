@@ -19,6 +19,7 @@ class AppRoutes {
   static const String caseInvoicePreview = '/cases/:caseId/invoice-preview';
   static const String approvals = '/approvals';
   static const String settings = '/settings';
+  static const String internalCommunications = '/internal-communications';
   
   // Funeral Management
   static const String funeralDashboard = '/funeral';

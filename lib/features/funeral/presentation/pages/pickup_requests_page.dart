@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/pickup_request_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../widgets/funeral_status_chip.dart';
-import '../../../../core/utils/formatters.dart';
 
 class PickupRequestsPage extends StatefulWidget {
   const PickupRequestsPage({super.key});
@@ -156,7 +156,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                                   request.deceasedName,
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                                 ),
-                                FuneralStatusChip(status: request.status ?? 'PENDING'),
+                                FuneralStatusChip(status: request.status),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -167,12 +167,12 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                if (request.status?.toUpperCase() == 'PENDING')
+                                if (request.status == PickupStatus.PENDING)
                                   TextButton(
                                     onPressed: () => _assignPickup(request),
                                     child: const Text('Assign Staff'),
                                   ),
-                                if (request.status?.toUpperCase() == 'ASSIGNED')
+                                if (request.status == PickupStatus.ASSIGNED)
                                   ElevatedButton(
                                     onPressed: () => _completePickup(request),
                                     child: const Text('Complete Pickup'),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_claim_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../widgets/funeral_claim_card.dart';
 import '../../../../core/utils/formatters.dart';
 
@@ -70,7 +71,7 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
           TextButton(
             onPressed: () => Navigator.pop(context, ApproveFuneralClaimRequestDto(
               approvedAmountCents: 0,
-              status: 'REJECTED',
+              status: ClaimStatus.REJECTED,
               note: noteController.text,
             )),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -81,7 +82,7 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
               final cents = (double.tryParse(amountController.text) ?? 0 * 100).toInt();
               Navigator.pop(context, ApproveFuneralClaimRequestDto(
                 approvedAmountCents: cents,
-                status: cents >= claim.claimedAmountCents ? 'APPROVED' : 'PARTIALLY_APPROVED',
+                status: cents >= claim.claimedAmountCents ? ClaimStatus.APPROVED : ClaimStatus.PARTIALLY_APPROVED,
                 note: noteController.text,
               ));
             },
@@ -125,7 +126,7 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
                     return FuneralClaimCard(
                       claim: _claims[index],
                       onApprove: () => _handleApproval(_claims[index]),
-                      onReject: () => _handleApproval(_claims[index]), // Rejection handled in dialog
+                      onReject: () => _handleApproval(_claims[index]),
                     );
                   },
                 ),
