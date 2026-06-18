@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/funeral_claim_dto.dart';
-import '../../data/models/funeral_membership_cover_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../../../../core/utils/formatters.dart';
 import 'funeral_status_chip.dart';
 
@@ -18,7 +18,7 @@ class FuneralClaimCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = claim.status.toUpperCase() == 'PENDING';
+    final isPending = claim.status == ClaimStatus.PENDING;
     final isLocal = claim.coverSource == CoverSource.LOCAL_TENANT;
 
     return Card(

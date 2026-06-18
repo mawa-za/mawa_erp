@@ -12,6 +12,7 @@ import '../../../../core/widgets/partner_search_dropdown.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
+import '../../data/models/funeral_enums.dart';
 
 class FuneralServiceRequestWizardPage extends StatefulWidget {
   const FuneralServiceRequestWizardPage({super.key});
@@ -365,7 +366,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                               FuneralMoneyText(cents: claim.claimedAmountCents, style: const TextStyle(fontWeight: FontWeight.bold)),
                             ],
                           ),
-                          if (claim.approvedAmountCents > 0 || claim.status == 'REJECTED' || claim.status == 'PARTIALLY_APPROVED')
+                          if (claim.approvedAmountCents > 0 || claim.status == ClaimStatus.REJECTED || claim.status == ClaimStatus.PARTIALLY_APPROVED)
                             Row(
                               children: [
                                 const Text('Approved: '),
@@ -376,7 +377,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       ),
                       trailing: FuneralStatusChip(status: claim.status),
                     ),
-                    if (claim.status.toUpperCase() == 'PENDING')
+                    if (claim.status == ClaimStatus.PENDING)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [

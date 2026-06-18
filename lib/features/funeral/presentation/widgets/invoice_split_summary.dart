@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/models/funeral_invoice_preview_line_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../../../../core/utils/formatters.dart';
 
 class InvoiceSplitSummary extends StatelessWidget {
