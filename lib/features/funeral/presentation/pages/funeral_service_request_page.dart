@@ -5,7 +5,7 @@ import '../../data/models/mortuary_inventory_dto.dart';
 import '../../data/models/funeral_package_dto.dart';
 import '../../data/models/funeral_membership_cover_dto.dart';
 import '../../data/models/funeral_service_request_dto.dart';
-import '../../data/models/initiate_claims_request_dto.dart';
+import '../../data/models/initiate_funeral_claims_request_dto.dart';
 import '../widgets/funeral_package_selector.dart';
 import '../widgets/membership_cover_card.dart';
 import '../../../../core/widgets/partner_search_dropdown.dart';
@@ -101,7 +101,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
       if (_selectedMembershipIds.isNotEmpty) {
         await _api.initiateClaims(
           created.id!,
-          InitiateClaimsRequestDto(membershipIds: _selectedMembershipIds),
+          InitiateFuneralClaimsRequestDto(membershipIds: _selectedMembershipIds),
         );
       }
 
