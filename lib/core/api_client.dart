@@ -78,38 +78,62 @@ class ApiClient {
     final String cleanPath = tempUri.path;
     final String finalPath = cleanPath.startsWith('/') ? cleanPath : '/$cleanPath';
 
-    return Uri.https(
-      host,
-      finalPath,
-      combinedParams.isEmpty ? null : combinedParams,
-    );
+    // Check if we should use HTTP or HTTPS. 
+    // For dev.api.app.mawa.co.za based on docs it might be HTTP
+    final bool useHttps = !host.contains('dev.api.app.mawa.co.za') && !host.contains('localhost');
+
+    if (useHttps) {
+      return Uri.https(
+        host,
+        finalPath,
+        combinedParams.isEmpty ? null : combinedParams,
+      );
+    } else {
+      return Uri.http(
+        host,
+        finalPath,
+        combinedParams.isEmpty ? null : combinedParams,
+      );
+    }
   }
 
   Future<http.Response> post(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
-    final host = await _getApiHost();
-    if (host == null || host.isEmpty) throw Exception('API Host not configured');
-    final url = _buildUrl(host, path, queryParameters);
-    final headers = await _getHeaders(includeRole: includeRole);
+    try {
+      final host = await _getApiHost();
+      if (host == null || host.isEmpty) throw Exception('API Host not configured');
+      final url = _buildUrl(host, path, queryParameters);
+      final headers = await _getHeaders(includeRole: includeRole);
 
-    var response = await _client.post(
-      url,
-      headers: headers,
-      body: body != null ? jsonEncode(body) : null,
-    );
+      debugPrint('ApiClient POST: $url');
+      debugPrint('Headers: ${jsonEncode(headers)}');
+      if (body != null) debugPrint('Payload: ${jsonEncode(body)}');
 
-    if (response.statusCode == 401) {
-      debugPrint('401 Unauthorized for POST $url');
-      final success = await _handleUnauthorized();
-      if (success) {
-        response = await _client.post(
-          url,
-          headers: await _getHeaders(includeRole: includeRole),
-          body: body != null ? jsonEncode(body) : null,
-        );
+      var response = await _client.post(
+        url,
+        headers: headers,
+        body: body != null ? jsonEncode(body) : null,
+      );
+
+      debugPrint('Response ${response.statusCode}: ${response.body}');
+
+      if (response.statusCode == 401) {
+        debugPrint('401 Unauthorized for POST $url');
+        final success = await _handleUnauthorized();
+        if (success) {
+          final retryHeaders = await _getHeaders(includeRole: includeRole);
+          response = await _client.post(
+            url,
+            headers: retryHeaders,
+            body: body != null ? jsonEncode(body) : null,
+          );
+        }
       }
-    }
 
-    return response;
+      return response;
+    } catch (e) {
+      debugPrint('ApiClient POST Exception: $e');
+      rethrow;
+    }
   }
 
   Future<http.Response> put(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
@@ -117,6 +141,8 @@ class ApiClient {
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
     final headers = await _getHeaders(includeRole: includeRole);
+
+    debugPrint('ApiClient PUT: $url');
 
     var response = await _client.put(
       url,
@@ -144,6 +170,8 @@ class ApiClient {
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
     final headers = await _getHeaders(includeRole: includeRole);
+
+    debugPrint('ApiClient PATCH: $url');
 
     var response = await _client.patch(
       url,
@@ -193,6 +221,8 @@ class ApiClient {
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
     final headers = await _getHeaders(includeRole: includeRole);
+
+    debugPrint('ApiClient DELETE: $url');
 
     var response = await _client.delete(url, headers: headers);
 

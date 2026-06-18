@@ -20,7 +20,11 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
   final _contactNumberController = TextEditingController();
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    debugPrint('CreatePickupRequest: _submit called');
+    if (!_formKey.currentState!.validate()) {
+      debugPrint('CreatePickupRequest: Validation failed');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -31,7 +35,9 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
         contactNumber: _contactNumberController.text,
       );
 
-      await _api.createPickupRequest(request);
+      debugPrint('CreatePickupRequest: Sending request to API...');
+      final result = await _api.createPickupRequest(request);
+      debugPrint('CreatePickupRequest: Success! ID: ${result.id}');
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -40,6 +46,7 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
+      debugPrint('CreatePickupRequest: Error occurred: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
