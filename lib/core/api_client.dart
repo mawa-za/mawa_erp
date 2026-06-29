@@ -78,11 +78,14 @@ class ApiClient {
     final String cleanPath = tempUri.path;
     final String finalPath = cleanPath.startsWith('/') ? cleanPath : '/$cleanPath';
 
-    // Check if we should use HTTP or HTTPS. 
-    // For dev.api.app.mawa.co.za based on docs it might be HTTP
-    final bool useHttps = !host.contains('dev.api.app.mawa.co.za') && !host.contains('localhost');
+    // Browser builds must not downgrade API calls to HTTP.
+    // Keep localhost on HTTP for local development, and use HTTPS everywhere else.
+    final String lowerHost = host.toLowerCase();
+    final bool useHttp = lowerHost.startsWith('localhost') ||
+        lowerHost.startsWith('127.0.0.1') ||
+        lowerHost.startsWith('10.0.2.2');
 
-    if (useHttps) {
+    if (!useHttp) {
       return Uri.https(
         host,
         finalPath,
