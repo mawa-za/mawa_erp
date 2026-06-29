@@ -28,6 +28,7 @@ import '../../features/funeral/presentation/pages/funeral_claims_page.dart';
 import '../../features/funeral/presentation/pages/funeral_invoice_preview_page.dart';
 import '../../features/funeral/presentation/pages/funeral_invoice_payment_page.dart';
 import '../../features/funeral/presentation/pages/funeral_service_request_page.dart';
+import '../../features/funeral/presentation/pages/funeral_package_setup_page.dart';
 
 import '../services/session_service.dart';
 
@@ -245,6 +246,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.funeralPayments,
         builder: (context, state) => const Scaffold(body: Center(child: Text('Funeral Payments List'))),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralPackageSetup,
+        builder: (context, state) => const FuneralPackageSetupPage(),
       ),
       GoRoute(
         path: AppRoutes.funeralAllClaims,

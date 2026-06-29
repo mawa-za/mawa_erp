@@ -34,6 +34,9 @@ class WorkcenterRouteRegistry {
     'FUNERAL_SERVICE_REQUESTS': AppRoutes.funeralNewServiceRequest,
     'CORPSE_CHECK_IN': AppRoutes.funeralPickups, // Usually happens via Pickups
     'CORPSE_CHECK_OUT': AppRoutes.funeralMortuary, // Usually happens via Mortuary
+    'FUNERAL_PACKAGE': AppRoutes.funeralPackageSetup,
+    'FUNERAL_PACKAGES': AppRoutes.funeralPackageSetup,
+    'FUNERAL_PACKAGE_SETUP': AppRoutes.funeralPackageSetup,
   };
 
   static String? getRoutePath(String key) {

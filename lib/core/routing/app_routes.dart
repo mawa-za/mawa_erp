@@ -33,6 +33,7 @@ class AppRoutes {
   static const String funeralInvoicePreview = '/funeral/service-request/:id/invoice-preview';
   static const String funeralInvoicePayment = '/funeral/invoice/:invoiceId/payment';
   static const String funeralPayments = '/funeral/payments';
+  static const String funeralPackageSetup = '/funeral/packages/setup';
 
   // Legacy routes for redirection
   static const String legacyMembershipDetail = '/membership-detail';

@@ -83,14 +83,40 @@ class FuneralApi {
   }
 
   // Packages and Membership
-  Future<List<FuneralPackageDto>> getFuneralPackages() async {
-    final response = await _apiClient.get('/v2/funeral/packages');
+  Future<List<FuneralPackageDto>> getFuneralPackages({bool activeOnly = true}) async {
+    final response = await _apiClient.get(
+      '/v2/funeral/packages',
+      queryParameters: {'activeOnly': activeOnly},
+    );
     if (response.statusCode == 200) {
       return _decodeList(response.body)
           .map((e) => FuneralPackageDto.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     }
     throw Exception('Failed to load funeral packages: ${response.body}');
+  }
+
+  Future<FuneralPackageDto> createFuneralPackage(FuneralPackageDto package) async {
+    final response = await _apiClient.post('/v2/funeral/packages', body: package.toJson());
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return FuneralPackageDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw Exception('Failed to create funeral package: ${response.body}');
+  }
+
+  Future<FuneralPackageDto> updateFuneralPackage(FuneralPackageDto package) async {
+    final response = await _apiClient.put('/v2/funeral/packages/${package.id}', body: package.toJson());
+    if (response.statusCode == 200) {
+      return FuneralPackageDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw Exception('Failed to update funeral package: ${response.body}');
+  }
+
+  Future<void> deleteFuneralPackage(String id) async {
+    final response = await _apiClient.delete('/v2/funeral/packages/$id');
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to delete funeral package: ${response.body}');
+    }
   }
 
   Future<List<FuneralMembershipCoverDto>> checkMembership(String identityNumber) async {

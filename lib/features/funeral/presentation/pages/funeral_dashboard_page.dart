@@ -54,6 +54,13 @@ class FuneralDashboardPage extends StatelessWidget {
             Colors.teal,
             () => context.push('/funeral/payments'),
           ),
+          _buildMenuCard(
+            context,
+            'Package Setup',
+            Icons.inventory_outlined,
+            Colors.indigo,
+            () => context.push('/funeral/packages/setup'),
+          ),
         ],
       ),
     );
