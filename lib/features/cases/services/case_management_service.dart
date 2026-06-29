@@ -298,6 +298,16 @@ class CaseManagementService {
     throw Exception('Failed to load unbilled disbursements');
   }
 
+  Future<CaseInvoicePreview> getInvoicePreview(String caseId) async {
+    final response = await ApiClient().get('/v2/cases/$caseId/invoice-preview');
+    if (response.statusCode == 200) {
+      return CaseInvoicePreview.fromJson(
+        Map<String, dynamic>.from(jsonDecode(response.body)),
+      );
+    }
+    throw Exception('Failed to load invoice preview: ${response.statusCode}');
+  }
+
   Future<dynamic> generateInvoice(String caseId, {Map<String, dynamic>? options}) async {
     final response = await ApiClient().post('/v2/cases/$caseId/generate-invoice', body: options);
     if (response.statusCode == 200 || response.statusCode == 201) {

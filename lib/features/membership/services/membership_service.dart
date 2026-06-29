@@ -672,6 +672,14 @@ class MembershipService {
     }
   }
 
+  /// Backwards-compatible helper used by the group society detail screen.
+  ///
+  /// The backend update endpoint is PUT /v2/group-society/{id}; older UI code
+  /// calls this method name, so keep the alias here instead of changing screens.
+  Future<void> postGroupSocietyUpdate(String id, Map<String, dynamic> payload) async {
+    await updateGroupSociety(id, payload);
+  }
+
   Future<void> deleteGroupSociety(String id) async {
     try {
       final response = await ApiClient().delete('/v2/group-society/$id');
