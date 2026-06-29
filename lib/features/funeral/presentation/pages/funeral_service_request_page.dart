@@ -88,6 +88,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
     try {
       final request = FuneralServiceRequestDto(
         mortuaryInventoryId: _selectedDeceased!.id,
+        deceasedName: _selectedDeceased!.deceasedName,
         deceasedIdentityNumber: _idNumberController.text,
         funeralDate: _funeralDate,
         funeralLocation: _locationController.text,

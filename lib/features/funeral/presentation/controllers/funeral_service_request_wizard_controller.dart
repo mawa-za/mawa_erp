@@ -108,6 +108,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     try {
       final request = FuneralServiceRequestDto(
         mortuaryInventoryId: selectedDeceased!.id,
+        deceasedName: selectedDeceased!.deceasedName,
         deceasedIdentityNumber: deceasedIdentityNumber,
         funeralDate: funeralDate,
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
