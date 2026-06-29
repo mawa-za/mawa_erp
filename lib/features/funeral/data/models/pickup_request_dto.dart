@@ -32,6 +32,7 @@ class PickupRequestDto {
       'contactNumber': contactNumber,
       'status': status.name,
       if (staffId != null) 'staffId': staffId,
+      if (staffId != null) 'assignedStaffId': staffId,
       if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
       if (completionTime != null) 'completionTime': completionTime!.toIso8601String(),
     };
@@ -45,7 +46,7 @@ class PickupRequestDto {
       contactPerson: json['contactPerson'] ?? '',
       contactNumber: json['contactNumber'] ?? '',
       status: PickupStatus.parse(json['status']),
-      staffId: json['staffId']?.toString(),
+      staffId: (json['assignedStaffId'] ?? json['staffId'])?.toString(),
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
       completionTime: json['completionTime'] != null ? DateTime.tryParse(json['completionTime'].toString()) : null,
     );

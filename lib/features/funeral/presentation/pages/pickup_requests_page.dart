@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/pickup_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
+import '../../../partners/models/partner.dart';
 import '../widgets/funeral_status_chip.dart';
 
 class PickupRequestsPage extends StatefulWidget {
@@ -15,58 +16,133 @@ class PickupRequestsPage extends StatefulWidget {
 class _PickupRequestsPageState extends State<PickupRequestsPage> {
   final _api = FuneralApi();
   List<PickupRequestDto> _requests = [];
+  List<Partner> _employees = [];
   bool _isLoading = true;
+  bool _isLoadingEmployees = false;
 
   @override
   void initState() {
     super.initState();
     _loadRequests();
+    _loadEmployees();
+  }
+
+  Future<void> _loadEmployees() async {
+    if (!mounted) return;
+    setState(() => _isLoadingEmployees = true);
+    try {
+      final employees = await _api.getEmployees();
+      if (!mounted) return;
+      setState(() {
+        _employees = employees;
+        _isLoadingEmployees = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingEmployees = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading employees: $e')),
+      );
+    }
   }
 
   Future<void> _loadRequests() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final requests = await _api.getPickupRequests();
+      if (!mounted) return;
       setState(() {
         _requests = requests;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading pickup requests: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading pickup requests: $e')),
+      );
     }
   }
 
+  String _employeeLabel(Partner employee) {
+    final number = employee.number.isNotEmpty ? ' (${employee.number})' : '';
+    return '${employee.fullName}$number';
+  }
+
+  String _assignedStaffLabel(String staffId) {
+    final matches = _employees.where((employee) => employee.id == staffId);
+    if (matches.isEmpty) return staffId;
+    return _employeeLabel(matches.first);
+  }
+
   Future<void> _assignPickup(PickupRequestDto request) async {
-    final staffIdController = TextEditingController();
+    if (_employees.isEmpty) {
+      await _loadEmployees();
+    }
+    if (!mounted) return;
+
+    String? selectedEmployeeId = request.staffId;
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Assign Staff'),
-        content: TextField(
-          controller: staffIdController,
-          decoration: const InputDecoration(
-            labelText: 'Staff ID',
-            hintText: 'Enter staff/driver ID',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Assign Staff'),
+          content: SizedBox(
+            width: 420,
+            child: _isLoadingEmployees
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : _employees.isEmpty
+                    ? const Text('No employees found. Please maintain employee records first.')
+                    : DropdownButtonFormField<String>(
+                        value: selectedEmployeeId != null &&
+                                _employees.any((employee) => employee.id == selectedEmployeeId)
+                            ? selectedEmployeeId
+                            : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Employee',
+                          hintText: 'Select employee/driver',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        isExpanded: true,
+                        items: _employees
+                            .map(
+                              (employee) => DropdownMenuItem<String>(
+                                value: employee.id,
+                                child: Text(
+                                  _employeeLabel(employee),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => setDialogState(() => selectedEmployeeId = value),
+                      ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: selectedEmployeeId == null || selectedEmployeeId!.isEmpty
+                  ? null
+                  : () => Navigator.pop(context, selectedEmployeeId),
+              child: const Text('Assign'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, staffIdController.text),
-            child: const Text('Assign'),
-          ),
-        ],
       ),
     );
 
     if (result != null && result.isNotEmpty) {
       try {
         await _api.assignPickup(request.id!, result);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Pickup assigned to ${_assignedStaffLabel(result)}')),
+        );
         _loadRequests();
       } catch (e) {
         if (mounted) {
@@ -132,7 +208,9 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                       const Text('No pickup requests found'),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () => context.push('/funeral/pickups/new').then((_) => _loadRequests()),
+                        onPressed: () => context.push('/funeral/pickups/new').then((_) {
+                          if (mounted) _loadRequests();
+                        }),
                         child: const Text('Create New Request'),
                       ),
                     ],
@@ -151,18 +229,24 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  request.deceasedName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                Expanded(
+                                  child: Text(
+                                    request.deceasedName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                const SizedBox(width: 12),
                                 FuneralStatusChip(status: request.status),
                               ],
                             ),
                             const SizedBox(height: 8),
                             Text('Location: ${request.pickupLocation}'),
                             Text('Contact: ${request.contactPerson} (${request.contactNumber})'),
-                            if (request.staffId != null) Text('Assigned to: ${request.staffId}'),
+                            if (request.staffId != null && request.staffId!.isNotEmpty)
+                              Text('Assigned to: ${_assignedStaffLabel(request.staffId!)}'),
                             const Divider(),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -186,7 +270,9 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/funeral/pickups/new').then((_) => _loadRequests()),
+        onPressed: () => context.push('/funeral/pickups/new').then((_) {
+          if (mounted) _loadRequests();
+        }),
         child: const Icon(Icons.add),
       ),
     );

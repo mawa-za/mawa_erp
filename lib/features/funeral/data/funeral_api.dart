@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../../../core/api_client.dart';
+import '../../partners/models/partner.dart';
 import 'models/pickup_request_dto.dart';
 import 'models/create_pickup_request_dto.dart';
 import 'models/assign_pickup_request_dto.dart';
@@ -21,6 +22,17 @@ class FuneralApi {
   final ApiClient _apiClient = ApiClient();
 
   // Pickup Requests
+
+  Future<List<Partner>> getEmployees() async {
+    final response = await _apiClient.get('/employees');
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map((e) => Partner.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    throw Exception('Failed to load employees: ${response.body}');
+  }
+
   Future<PickupRequestDto> createPickupRequest(CreatePickupRequestDto request) async {
     final response = await _apiClient.post('/v2/funeral/pickup-request', body: request.toJson());
     if (response.statusCode == 200 || response.statusCode == 201) {
