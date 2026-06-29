@@ -11,6 +11,19 @@ import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
 
+// Import missing screens for legacy navigation fallback
+import '../auth/role_selection_screen.dart';
+import '../auth/change_password_screen.dart';
+import '../settings/screens/api_log_list_screen.dart';
+import '../invoicing/screens/invoice_create_screen.dart';
+import '../membership/screens/membership_claim_list_screen.dart';
+import '../membership/screens/membership_plan_list_screen.dart';
+import '../payroll/screens/payroll_batch_list_screen.dart';
+import '../membership/screens/group_society_list_screen.dart';
+import '../payments/screens/payment_request_list_screen.dart';
+import '../partners/screens/partner_list_screen.dart';
+import '../cashup/screens/cashup_list_screen.dart';
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
   final String title;
@@ -237,6 +250,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
     if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     if (lowerId.contains('case')) return Icons.gavel_rounded;
+    if (lowerId.contains('engagement') || lowerId.contains('communication')) return Icons.campaign_rounded;
     return Icons.apps_rounded;
   }
 
@@ -314,6 +328,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       context.push(AppRoutes.approvals);
     } else if (id.contains('CASE')) {
       context.push(AppRoutes.cases);
+    } else if (id.contains('ENGAGEMENT') || id.contains('COMMUNICATION') || description.contains('engagement') || description.contains('communication')) {
+      context.push(AppRoutes.internalCommunications);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
@@ -553,6 +569,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       defaultFunction: '',
                       path: '',
                       position: 0,
+                      routeKey: usage.moduleCode,
                     ),
                   );
                   _navigateToWorkcenter(wc);
@@ -627,6 +644,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                       defaultFunction: '',
                       path: '',
                       position: 0,
+                      routeKey: usage.moduleCode,
                     ),
                   );
                   _navigateToWorkcenter(wc);

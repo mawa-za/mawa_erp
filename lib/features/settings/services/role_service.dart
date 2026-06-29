@@ -7,7 +7,7 @@ class RoleService {
   final ApiClient _apiClient = ApiClient();
 
   Future<List<Role>> getRoles() async {
-    final response = await _apiClient.get('/role');
+    final response = await _apiClient.get('/v2/role');
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
@@ -19,7 +19,7 @@ class RoleService {
 
   Future<Role> createRole(Role role) async {
     final response = await _apiClient.post(
-      '/role',
+      '/v2/role',
       body: role.toJson(),
     );
 
@@ -32,7 +32,7 @@ class RoleService {
   }
 
   Future<void> deleteRole(String roleId) async {
-    final response = await _apiClient.delete('/role/$roleId');
+    final response = await _apiClient.delete('/v2/role/$roleId');
 
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to delete role: ${response.statusCode}');
@@ -51,7 +51,7 @@ class RoleService {
   }
 
   Future<List<Workcenter>> getRoleWorkcenters(String roleId) async {
-    final response = await _apiClient.get('/role/$roleId/workcenter');
+    final response = await _apiClient.get('/v2/role/$roleId/workcenter');
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
@@ -63,12 +63,23 @@ class RoleService {
 
   Future<void> assignWorkcentersToRole(String roleId, List<Map<String, dynamic>> assignments) async {
     final response = await _apiClient.post(
-      '/role/$roleId/workcenter',
+      '/v2/role/$roleId/workcenter',
       body: assignments,
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception('Failed to assign workcenters to role: ${response.statusCode}');
+    }
+  }
+
+  Future<void> removeWorkcenterFromRole(String roleId, String workcenterCode) async {
+    final response = await _apiClient.delete(
+      '/v2/role/$roleId/workcenter',
+      queryParameters: {'workcenter': workcenterCode},
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to remove workcenter from role');
     }
   }
 }
