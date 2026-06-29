@@ -906,4 +906,91 @@ class MembershipService {
       rethrow;
     }
   }
+
+  Future<List<MembershipClaim>> getClaimsByType(String claimType) async {
+    return _getMembershipClaimList('/v2/membership-claim/type/${Uri.encodeComponent(claimType)}');
+  }
+
+  Future<List<MembershipClaim>> getClaimsByStatus(String status) async {
+    return _getMembershipClaimList('/v2/membership-claim/status/${Uri.encodeComponent(status)}');
+  }
+
+  Future<List<MembershipClaim>> getClaimsByDeceasedPartner(String deceasedPartnerId) async {
+    return _getMembershipClaimList('/v2/membership-claim/deceased-partner/${Uri.encodeComponent(deceasedPartnerId)}');
+  }
+
+  Future<MembershipClaim> getMembershipClaimByClaimNo(String claimNo) async {
+    try {
+      final response = await ApiClient().get('/v2/membership-claim/claim-no/${Uri.encodeComponent(claimNo)}');
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is List && decoded.isNotEmpty) {
+          return MembershipClaim.fromJson(Map<String, dynamic>.from(decoded.first as Map));
+        }
+        return MembershipClaim.fromJson(Map<String, dynamic>.from(decoded as Map));
+      }
+      throw Exception(_extractErrorMessage(response.body, 'Failed to load membership claim: ${response.statusCode}'));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<MembershipClaim>> _getMembershipClaimList(String path) async {
+    try {
+      final response = await ApiClient().get(path);
+      if (response.statusCode == 200) {
+        return _decodeList(response.body)
+            .map((json) => MembershipClaim.fromJson(Map<String, dynamic>.from(json as Map)))
+            .toList();
+      }
+      throw Exception(_extractErrorMessage(response.body, 'Failed to load membership claims: ${response.statusCode}'));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<PaymentBatchResponse> syncOfflineMembershipPremiumPayment(Map<String, dynamic> payload) async {
+    try {
+      final response = await ApiClient().post('/v2/sync/payment-batches/membership-premiums', body: payload);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return PaymentBatchResponse.fromJson(jsonDecode(response.body));
+      }
+      throw Exception(_extractErrorMessage(response.body, 'Failed to sync membership premium payment: ${response.statusCode}'));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<dynamic> migrateMemberships() async {
+    try {
+      final response = await ApiClient().get('/v2/membership/migrate');
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) return null;
+        return jsonDecode(response.body);
+      }
+      throw Exception(_extractErrorMessage(response.body, 'Failed to migrate memberships: ${response.statusCode}'));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  List<dynamic> _decodeList(String body) {
+    final dynamic decoded = body.isEmpty ? [] : jsonDecode(body);
+    if (decoded is List) return decoded;
+    if (decoded is Map && decoded['content'] is List) return decoded['content'] as List;
+    if (decoded is Map && decoded['data'] is List) return decoded['data'] as List;
+    return [];
+  }
+
+  String _extractErrorMessage(String body, String fallback) {
+    try {
+      if (body.isEmpty) return fallback;
+      final dynamic error = jsonDecode(body);
+      if (error is Map) {
+        return (error['message'] ?? error['error'] ?? fallback).toString();
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
 }

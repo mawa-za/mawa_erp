@@ -67,6 +67,16 @@ class InvoiceService {
     }
   }
 
+  Future<void> sendInvoiceEmail(String invoiceId, {String? email}) async {
+    final response = await _apiClient.post(
+      '/v2/invoice/$invoiceId/send-email',
+      body: email != null ? {'email': email} : null,
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to send invoice email');
+    }
+  }
+
   Future<Map<String, dynamic>> getInvoicePayments(String id) async {
     final response = await _apiClient.get('/v2/invoice/$id/payments');
     if (response.statusCode == 200) {

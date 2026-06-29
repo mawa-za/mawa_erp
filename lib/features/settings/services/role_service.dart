@@ -39,6 +39,17 @@ class RoleService {
     }
   }
 
+  Future<List<Workcenter>> getAllWorkcenters() async {
+    final response = await _apiClient.get('/workcenter');
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => Workcenter.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load all workcenters: ${response.statusCode}');
+    }
+  }
+
   Future<List<Workcenter>> getRoleWorkcenters(String roleId) async {
     final response = await _apiClient.get('/v2/role/$roleId/workcenter');
 

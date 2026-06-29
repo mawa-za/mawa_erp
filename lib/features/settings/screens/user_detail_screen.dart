@@ -35,7 +35,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       _error = null;
     });
     try {
-      // Fetch user, assigned roles, and all available roles in parallel
       final results = await Future.wait([
         _userService.getUser(widget.userId),
         _userService.getUserRoles(widget.userId),
@@ -62,9 +61,15 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   Future<void> _handleAction(String action) async {
     try {
-      if (action == 'lock') await _userService.lockUser(widget.userId);
-      if (action == 'unlock') await _userService.unlockUser(widget.userId);
-      if (action == 'reset') await _userService.resetUser(widget.userId);
+      if (action == 'lock') {
+        final reason = await _showReasonDialog('Lock User', 'Enter reason for locking this user:');
+        if (reason == null || reason.isEmpty) return;
+        await _userService.lockUser(widget.userId, reason: reason);
+      } else if (action == 'unlock') {
+        await _userService.unlockUser(widget.userId);
+      } else if (action == 'reset') {
+        await _userService.resetUser(widget.userId);
+      }
       
       _fetchUserDetails();
       if (mounted) {
@@ -79,6 +84,32 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         );
       }
     }
+  }
+
+  Future<String?> _showReasonDialog(String title, String message) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(hintText: 'Reason', border: OutlineInputBorder()),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('CONFIRM')),
+        ],
+      ),
+    );
   }
 
   Future<void> _manageRoles() async {
