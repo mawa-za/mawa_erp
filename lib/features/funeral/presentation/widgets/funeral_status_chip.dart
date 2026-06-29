@@ -74,7 +74,9 @@ class FuneralStatusChip extends StatelessWidget {
     if (value is MortuaryStatus) {
       switch (value) {
         case MortuaryStatus.IN_STORAGE:
+        case MortuaryStatus.IN_MORTUARY:
           return Colors.purple;
+        case MortuaryStatus.CHECKED_OUT:
         case MortuaryStatus.RELEASED:
           return Colors.green;
         case MortuaryStatus.CANCELLED:
@@ -107,8 +109,10 @@ class FuneralStatusChip extends StatelessWidget {
       case 'COMPLETED':
       case 'APPROVED':
       case 'RELEASED':
+      case 'CHECKED_OUT':
         return Colors.green;
       case 'IN_STORAGE':
+      case 'IN_MORTUARY':
         return Colors.purple;
       case 'CANCELLED':
       case 'REJECTED':

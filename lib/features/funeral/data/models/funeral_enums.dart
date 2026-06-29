@@ -15,14 +15,19 @@ enum PickupStatus {
 
 enum MortuaryStatus {
   IN_STORAGE,
+  IN_MORTUARY,
+  CHECKED_OUT,
   RELEASED,
   CANCELLED;
 
   static MortuaryStatus parse(String? value) {
-    if (value == null) return MortuaryStatus.IN_STORAGE;
+    if (value == null) return MortuaryStatus.IN_MORTUARY;
+    final normalized = value.trim().toUpperCase();
+    if (normalized == 'IN_STORAGE') return MortuaryStatus.IN_MORTUARY;
+    if (normalized == 'RELEASED') return MortuaryStatus.CHECKED_OUT;
     return MortuaryStatus.values.firstWhere(
-      (e) => e.name.toUpperCase() == value.toUpperCase(),
-      orElse: () => MortuaryStatus.IN_STORAGE,
+      (e) => e.name.toUpperCase() == normalized,
+      orElse: () => MortuaryStatus.IN_MORTUARY,
     );
   }
 }

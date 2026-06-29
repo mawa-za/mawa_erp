@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/mortuary_inventory_dto.dart';
 import '../../data/models/mortuary_checkout_request_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../widgets/funeral_status_chip.dart';
 import '../../../../core/utils/formatters.dart';
 
@@ -24,20 +25,21 @@ class _MortuaryInventoryPageState extends State<MortuaryInventoryPage> {
   }
 
   Future<void> _loadInventory() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final inventory = await _api.getMortuaryInventory();
+      if (!mounted) return;
       setState(() {
         _inventory = inventory;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading inventory: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading inventory: $e')),
+      );
     }
   }
 
@@ -122,7 +124,7 @@ class _MortuaryInventoryPageState extends State<MortuaryInventoryPage> {
             checkoutDate: selectedDate,
           ),
         );
-        _loadInventory();
+        await _loadInventory();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Successfully checked out')));
         }
@@ -152,13 +154,20 @@ class _MortuaryInventoryPageState extends State<MortuaryInventoryPage> {
                   itemBuilder: (context, index) {
                     final item = _inventory[index];
                     return ListTile(
-                      title: Text(item.deceasedName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Tag: ${item.tagNumber ?? 'N/A'} • In: ${Formatters.formatFriendlyDate(item.checkInDate)}'),
+                      title: Text(
+                        item.deceasedName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        'Tag: ${item.tagNumber ?? 'N/A'} • In: ${Formatters.formatFriendlyDate(item.checkInDate)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           FuneralStatusChip(status: item.status),
-                          if (item.status == 'IN_STORAGE')
+                          if (item.status == MortuaryStatus.IN_MORTUARY || item.status == MortuaryStatus.IN_STORAGE)
                             IconButton(
                               icon: const Icon(Icons.output, color: Colors.red),
                               onPressed: () => _checkout(item),
