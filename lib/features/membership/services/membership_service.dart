@@ -185,6 +185,18 @@ class MembershipService {
     }
   }
 
+  Future<void> deleteDependent(String membershipId, String dependentId) async {
+    try {
+      final response = await ApiClient().delete('/v2/membership/$membershipId/dependents/$dependentId');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to delete dependent: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<List<Premium>> getMembershipPremiums(String membershipId, {String? oldId}) async {
     try {
       final List<Future<dynamic>> requests = [
@@ -574,6 +586,18 @@ class MembershipService {
     }
   }
 
+  Future<void> detachClaim(String parentClaimId, String linkedClaimId) async {
+    try {
+      final response = await ApiClient().delete('/v2/membership-claim/$parentClaimId/linked-claims/$linkedClaimId');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to detach claim: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // --- Group Society Methods ---
 
   Future<List<GroupSociety>> getGroupSocieties({String? status, String? societyType}) async {
@@ -640,20 +664,6 @@ class MembershipService {
     try {
       final response = await ApiClient().put('/v2/group-society/$id', body: payload);
       if (response.statusCode != 200 && response.statusCode != 204) {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update group society: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> postGroupSocietyUpdate(String id, Map<String, dynamic> payload) async {
-    try {
-      final response = await ApiClient().post('/v2/group-society/$id', body: payload);
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return;
-      } else {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to update group society: ${response.statusCode}');
       }
@@ -744,6 +754,18 @@ class MembershipService {
     }
   }
 
+  Future<void> deleteGroupSocietyContact(String contactId) async {
+    try {
+      final response = await ApiClient().delete('/v2/group-society/contacts/$contactId');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to delete contact: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<GroupSocietyPayment> addGroupSocietyPayment(String id, Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post('/v2/group-society/$id/payments', body: payload);
@@ -752,28 +774,6 @@ class MembershipService {
       } else {
         final error = jsonDecode(response.body);
         throw Exception(error['message'] ?? 'Failed to add payment: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<List<GroupSocietyPayment>> getGroupSocietyPayments(String id) async {
-    try {
-      final response = await ApiClient().get('/v2/group-society/$id/payments');
-      if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
-        List<dynamic> data;
-        if (decoded is List) {
-          data = decoded;
-        } else if (decoded is Map && decoded.containsKey('content')) {
-          data = decoded['content'] ?? [];
-        } else {
-          data = [];
-        }
-        return data.whereType<Map<String, dynamic>>().map((json) => GroupSocietyPayment.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load payments: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

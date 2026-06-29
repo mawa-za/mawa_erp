@@ -76,6 +76,15 @@ class CaseManagementService {
     throw Exception('Failed to load tasks: ${response.statusCode}');
   }
 
+  Future<List<CaseTask>> getMyTasks(String userId) async {
+    final response = await ApiClient().get('/v2/cases/tasks/my', queryParameters: {'userId': userId});
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => CaseTask.fromJson(Map<String, dynamic>.from(json))).toList();
+    }
+    throw Exception('Failed to load my tasks');
+  }
+
   Future<CaseTask> createTask(String caseId, CreateCaseTaskRequest request) async {
     final response = await ApiClient().post('/v2/cases/$caseId/tasks', body: request.toJson());
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -84,12 +93,18 @@ class CaseManagementService {
     throw Exception('Failed to create task: ${response.body}');
   }
 
-  Future<CaseTask> updateTaskStatus(String taskId, String status) async {
-    final response = await ApiClient().patch('/v2/cases/tasks/$taskId/status', body: {'status': status});
+  Future<CaseTask> updateTaskStatus(String taskId, String status, {String? completedBy}) async {
+    final response = await ApiClient().patch(
+      '/v2/cases/tasks/$taskId/status', 
+      body: {
+        'status': status,
+        if (completedBy != null) 'completedBy': completedBy,
+      },
+    );
     if (response.statusCode == 200) {
       return CaseTask.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception('Failed to update task status: ${response.body}');
+    throw Exception('Failed to update task status');
   }
 
   // --- Time Entry Endpoints ---
@@ -166,14 +181,6 @@ class CaseManagementService {
     throw Exception('Failed to create party: ${response.body}');
   }
 
-  Future<CaseParty> updateParty(String partyId, Map<String, dynamic> request) async {
-    final response = await ApiClient().put('/v2/cases/parties/$partyId', body: request);
-    if (response.statusCode == 200) {
-      return CaseParty.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
-    }
-    throw Exception('Failed to update party: ${response.body}');
-  }
-
   Future<void> deleteParty(String partyId) async {
     final response = await ApiClient().delete('/v2/cases/parties/$partyId');
     if (response.statusCode != 200 && response.statusCode != 204) {
@@ -200,13 +207,6 @@ class CaseManagementService {
     throw Exception('Failed to create note: ${response.body}');
   }
 
-  Future<void> deleteNote(String noteId) async {
-    final response = await ApiClient().delete('/v2/cases/notes/$noteId');
-    if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to delete note: ${response.body}');
-    }
-  }
-
   // --- Event Endpoints ---
 
   Future<List<CaseEvent>> getEvents(String caseId) async {
@@ -226,45 +226,18 @@ class CaseManagementService {
     throw Exception('Failed to create event: ${response.body}');
   }
 
-  Future<CaseEvent> updateEvent(String eventId, Map<String, dynamic> request) async {
-    final response = await ApiClient().put('/v2/cases/events/$eventId', body: request);
+  Future<CaseEvent> updateEventStatus(String eventId, String status, {String? updatedBy}) async {
+    final response = await ApiClient().patch(
+      '/v2/cases/events/$eventId/status', 
+      body: {
+        'status': status,
+        if (updatedBy != null) 'updatedBy': updatedBy,
+      },
+    );
     if (response.statusCode == 200) {
       return CaseEvent.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception('Failed to update event: ${response.body}');
-  }
-
-  Future<CaseEvent> updateEventStatus(String eventId, UpdateCaseEventStatusRequest request) async {
-    final response = await ApiClient().patch('/v2/cases/events/$eventId/status', body: request.toJson());
-    if (response.statusCode == 200) {
-      return CaseEvent.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
-    }
-    throw Exception('Failed to update event status: ${response.body}');
-  }
-
-  Future<void> deleteEvent(String eventId) async {
-    final response = await ApiClient().delete('/v2/cases/events/$eventId');
-    if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to delete event: ${response.body}');
-    }
-  }
-
-  // --- Invoice / Billing Workflow Endpoints ---
-
-  Future<CaseInvoicePreview> getInvoicePreview(String caseId) async {
-    final response = await ApiClient().get('/v2/cases/$caseId/invoice-preview');
-    if (response.statusCode == 200) {
-      return CaseInvoicePreview.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
-    }
-    throw Exception('Failed to load invoice preview: ${response.statusCode}');
-  }
-
-  Future<dynamic> generateInvoice(String caseId) async {
-    final response = await ApiClient().post('/v2/cases/$caseId/generate-invoice');
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return jsonDecode(response.body);
-    }
-    throw Exception('Failed to generate invoice: ${response.body}');
+    throw Exception('Failed to update event status');
   }
 
   // --- Dashboard and Reporting Endpoints ---
@@ -286,21 +259,50 @@ class CaseManagementService {
     throw Exception('Failed to load overdue tasks: ${response.statusCode}');
   }
 
-  Future<List<CaseEvent>> getUpcomingEvents() async {
-    final response = await ApiClient().get('/v2/cases/events/upcoming');
+  Future<List<CaseEvent>> getUpcomingEvents({String? from, String? to}) async {
+    final response = await ApiClient().get(
+      '/v2/cases/events/upcoming',
+      queryParameters: {
+        if (from != null) 'from': from,
+        if (to != null) 'to': to,
+      },
+    );
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => CaseEvent.fromJson(Map<String, dynamic>.from(json))).toList();
     }
-    throw Exception('Failed to load upcoming events: ${response.statusCode}');
+    throw Exception('Failed to load upcoming events');
   }
 
-  Future<List<LegalCase>> getUnbilledCases() async {
-    final response = await ApiClient().get('/v2/cases/billing/unbilled');
+  Future<List<CaseTimeEntry>> getUnbilledTimeEntries({String? caseId}) async {
+    final response = await ApiClient().get(
+      '/v2/cases/billing/unbilled/time-entries',
+      queryParameters: {if (caseId != null) 'caseId': caseId},
+    );
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => LegalCase.fromJson(Map<String, dynamic>.from(json))).toList();
+      return data.map((json) => CaseTimeEntry.fromJson(json)).toList();
     }
-    throw Exception('Failed to load unbilled cases: ${response.statusCode}');
+    throw Exception('Failed to load unbilled time entries');
+  }
+
+  Future<List<CaseDisbursement>> getUnbilledDisbursements({String? caseId}) async {
+    final response = await ApiClient().get(
+      '/v2/cases/billing/unbilled/disbursements',
+      queryParameters: {if (caseId != null) 'caseId': caseId},
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => CaseDisbursement.fromJson(json)).toList();
+    }
+    throw Exception('Failed to load unbilled disbursements');
+  }
+
+  Future<dynamic> generateInvoice(String caseId, {Map<String, dynamic>? options}) async {
+    final response = await ApiClient().post('/v2/cases/$caseId/generate-invoice', body: options);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    }
+    throw Exception('Failed to generate invoice');
   }
 }

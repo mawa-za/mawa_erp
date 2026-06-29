@@ -29,8 +29,6 @@ class PaymentRequestService {
         } else if (decoded is Map && decoded.containsKey('content')) {
           data = decoded['content'] ?? [];
         } else if (decoded is Map) {
-          // If it's a map but not a standard paginated response, it might be a single item or something else
-          // But based on common patterns in this app, we check for a list.
           data = [];
           debugPrint('PaymentRequestService: Unexpected Map response format: $decoded');
         } else {
@@ -138,5 +136,13 @@ class PaymentRequestService {
       return data.map((json) => PaymentRequestResponse.fromJson(json)).toList();
     }
     throw Exception('Failed to load payment requests for payee');
+  }
+
+  Future<Map<String, dynamic>> getBankReport(String id) async {
+    final response = await _apiClient.get('/v2/payment-request/$id/bank-report');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load bank report');
   }
 }
