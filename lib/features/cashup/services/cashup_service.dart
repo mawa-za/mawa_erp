@@ -149,6 +149,43 @@ class CashupService {
     return getCashups(userId: userId, fromDate: fromDate, toDate: toDate);
   }
 
+
+  Future<CashupDeposit> createDeposit(String cashupId, Map<String, dynamic> request) async {
+    final response = await ApiClient().post('/v2/cashup/$cashupId/deposits', body: request);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final dynamic decoded = response.body.isEmpty ? request : jsonDecode(response.body);
+      return CashupDeposit.fromJson(Map<String, dynamic>.from(decoded as Map));
+    }
+    throw Exception(_extractErrorMessage(response.body, 'Failed to create deposit: ${response.statusCode}'));
+  }
+
+  Future<List<CashupDeposit>> getDeposits(String cashupId) async {
+    final response = await ApiClient().get('/v2/cashup/$cashupId/deposits', includeRole: false);
+    if (response.statusCode == 200) {
+      final dynamic decoded = response.body.isEmpty ? [] : jsonDecode(response.body);
+      final List<dynamic> data = decoded is List ? decoded : [];
+      return data
+          .whereType<Map>()
+          .map((json) => CashupDeposit.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    }
+    throw Exception(_extractErrorMessage(response.body, 'Failed to load deposits: ${response.statusCode}'));
+  }
+
+  Future<void> deleteDeposit(String cashupId, String depositId) async {
+    final response = await ApiClient().delete('/v2/cashup/$cashupId/deposits/$depositId');
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_extractErrorMessage(response.body, 'Failed to delete deposit: ${response.statusCode}'));
+    }
+  }
+
+  Future<void> submitForApproval(String cashupId, Map<String, dynamic> request) async {
+    final response = await ApiClient().post('/v2/cashup/$cashupId/submit', body: request);
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_extractErrorMessage(response.body, 'Failed to submit cashup for approval: ${response.statusCode}'));
+    }
+  }
+
   List<Cashup> _decodeCashupList(String body) {
     final dynamic decoded = body.isEmpty ? [] : jsonDecode(body);
     final List<dynamic> data;
