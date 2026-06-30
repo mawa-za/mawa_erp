@@ -108,9 +108,16 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
     }
   }
 
+
+  String _displayStatus(String status) {
+    final normalised = status.toUpperCase();
+    if (normalised == 'AWAITING_DEPOSITS') return 'AWAITING DEPOSITS';
+    return normalised.replaceAll('_', ' ');
+  }
+
   bool _canEditCashup(Cashup cashup) {
     final status = cashup.status.toUpperCase();
-    return status == 'OPEN' || status == 'NEW' || status == 'DRAFT';
+    return status == 'AWAITING_DEPOSITS' || status == 'COMPLETED' || status == 'OPEN' || status == 'NEW' || status == 'DRAFT';
   }
 
   Future<void> _showDepositDialog() async {
@@ -345,7 +352,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              cashup.status.toUpperCase(),
+              _displayStatus(cashup.status),
               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ),
