@@ -153,6 +153,30 @@ class _CashupListScreenState extends State<CashupListScreen> {
     );
   }
 
+
+  String _displayStatus(String status) {
+    final normalised = status.toUpperCase();
+    if (normalised == 'AWAITING_DEPOSITS') return 'AWAITING DEPOSITS';
+    return normalised.replaceAll('_', ' ');
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'AWAITING_DEPOSITS':
+        return Colors.orange.shade700;
+      case 'COMPLETED':
+        return Colors.green.shade700;
+      case 'SUBMITTED':
+        return Colors.blue.shade700;
+      case 'APPROVED':
+        return Colors.green.shade800;
+      case 'REJECTED':
+        return Colors.red.shade700;
+      default:
+        return Colors.blue.shade700;
+    }
+  }
+
   Widget _buildCashupCard(Cashup cashup) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -190,13 +214,13 @@ class _CashupListScreenState extends State<CashupListScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: (cashup.status.toLowerCase() == 'completed' ? Colors.green : Colors.blue).withOpacity(0.1),
+                      color: _statusColor(cashup.status).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      cashup.status.toUpperCase(),
+                      _displayStatus(cashup.status),
                       style: TextStyle(
-                        color: cashup.status.toLowerCase() == 'completed' ? Colors.green.shade700 : Colors.blue.shade700,
+                        color: _statusColor(cashup.status),
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
