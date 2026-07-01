@@ -74,40 +74,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
         _prefetchFieldOptions();
 
-        final rolesResponse = await ApiClient().get('/v2/user/$userId/role');
-        if (rolesResponse.statusCode == 200) {
-          final List<dynamic> rolesData = jsonDecode(rolesResponse.body);
-          final List<Role> roleList = rolesData.map((e) {
-            if (e is String) {
-              return Role(id: e, description: e);
-            }
-            return Role.fromJson(e as Map<String, dynamic>);
-          }).toList();
+        try {
+          final rolesResponse = await ApiClient().get('/v2/user/$userId/role');
+          if (rolesResponse.statusCode == 200) {
+            final List<dynamic> rolesData = jsonDecode(rolesResponse.body);
+            final List<Role> roleList = rolesData.map((e) {
+              if (e is String) {
+                return Role(id: e, description: e);
+              }
+              return Role.fromJson(e as Map<String, dynamic>);
+            }).toList();
 
-          if (roleList.length > 1) {
-            if (mounted) {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => RoleSelectionScreen(
-                    roles: roleList,
-                    onRoleSelected: () {
-                      Navigator.of(context).pop();
-                      widget.onLoggedIn();
-                    },
+            if (roleList.length > 1) {
+              if (mounted) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => RoleSelectionScreen(
+                      roles: roleList,
+                      onRoleSelected: () {
+                        Navigator.of(context).pop();
+                        widget.onLoggedIn();
+                      },
+                    ),
                   ),
-                ),
-              );
+                );
+              }
+            } else if (roleList.length == 1) {
+              final role = roleList.first;
+              await prefs.setString('selectedRole', role.id);
+              await prefs.setString('selectedRoleDescription', role.description);
+              widget.onLoggedIn();
+            } else {
+              widget.onLoggedIn();
             }
-          } else if (roleList.length == 1) {
-            final role = roleList.first;
-            await prefs.setString('selectedRole', role.id);
-            await prefs.setString('selectedRoleDescription', role.description);
-            widget.onLoggedIn();
           } else {
+            debugPrint('Failed to fetch roles: ${rolesResponse.statusCode} ${rolesResponse.body}');
             widget.onLoggedIn();
           }
-        } else {
-          debugPrint('Failed to fetch roles: ${rolesResponse.statusCode} ${rolesResponse.body}');
+        } catch (e) {
+          debugPrint('Failed to fetch roles after login: $e');
           widget.onLoggedIn();
         }
       } else {
@@ -126,9 +131,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _prefetchFieldOptions() {
-    FieldService().getOptions().catchError((e) {
-      debugPrint('Failed to prefetch field options: $e');
-    });
+    () async {
+      try {
+        await FieldService().getOptions();
+      } catch (e) {
+        debugPrint('Failed to prefetch field options: $e');
+      }
+    }();
   }
 
   @override

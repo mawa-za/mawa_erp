@@ -1,12 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/api_client.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/widgets/attachment_section.dart';
-import '../../approvals/models/approval.dart';
-import '../../approvals/services/approval_service.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 
@@ -21,7 +17,6 @@ class CashupDetailScreen extends StatefulWidget {
 class _CashupDetailScreenState extends State<CashupDetailScreen> {
   final CashupService _cashupService = CashupService();
   final UserService _userService = UserService();
-  final ApprovalService _approvalService = ApprovalService();
   
   Cashup? _cashup;
   String? _userName;
@@ -36,6 +31,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
   }
 
   Future<void> _fetchDetails() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -53,12 +49,14 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         debugPrint('Error fetching user ${cashup.userId}: $e');
       }
 
+      if (!mounted) return;
       setState(() {
         _cashup = cashup;
         _userName = userName;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -88,17 +86,10 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId') ?? '';
 
-      final submission = ApprovalSubmission(
-        approvalType: 'CASHUP',
-        referenceId: _cashup!.id,
-        referenceNo: _cashup!.cashupNo.toString(),
-        title: 'Cashup Verification: #${_cashup!.cashupNo}',
-        description: 'Verification requested for R ${_cashup!.totalAmount.toStringAsFixed(2)} collected on ${_cashup!.cashupDate} by ${_userName ?? _cashup!.userId}',
-        requesterId: userId,
-        payloadJson: jsonEncode(_cashup!.toJson()),
-      );
-
-      await _approvalService.submitApproval(submission);
+      await _cashupService.submitForApproval(_cashup!.id, {
+        'requesterId': userId,
+        'comments': 'Submitted from Mawa ERP cashup detail screen',
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,6 +108,140 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
     }
   }
 
+
+  String _displayStatus(String status) {
+    final normalised = status.toUpperCase();
+    if (normalised == 'AWAITING_DEPOSITS') return 'AWAITING DEPOSITS';
+    return normalised.replaceAll('_', ' ');
+  }
+
+  bool _canEditCashup(Cashup cashup) {
+    final status = cashup.status.toUpperCase();
+    return status == 'AWAITING_DEPOSITS' || status == 'COMPLETED' || status == 'OPEN' || status == 'NEW' || status == 'DRAFT';
+  }
+
+  Future<void> _showDepositDialog() async {
+    if (_cashup == null) return;
+
+    final amountController = TextEditingController();
+    final referenceController = TextEditingController();
+    final bankController = TextEditingController();
+    final notesController = TextEditingController();
+    String paymentMethod = 'CASH';
+    DateTime depositDate = DateTime.now();
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create Deposit'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Amount',
+                      prefixText: 'R ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: paymentMethod,
+                    decoration: const InputDecoration(labelText: 'Payment Method', border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+                      DropdownMenuItem(value: 'CARD', child: Text('Card')),
+                      DropdownMenuItem(value: 'EFT', child: Text('EFT')),
+                      DropdownMenuItem(value: 'BANK_DEPOSIT', child: Text('Bank Deposit')),
+                    ],
+                    onChanged: (value) => setDialogState(() => paymentMethod = value ?? 'CASH'),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_outlined),
+                    title: const Text('Deposit Date'),
+                    subtitle: Text(DateFormat('yyyy-MM-dd').format(depositDate)),
+                    trailing: TextButton(
+                      child: const Text('CHANGE'),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: depositDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                          lastDate: DateTime.now().add(const Duration(days: 30)),
+                        );
+                        if (picked != null) setDialogState(() => depositDate = picked);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: referenceController,
+                    decoration: const InputDecoration(labelText: 'Reference Number', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: bankController,
+                    decoration: const InputDecoration(labelText: 'Bank Name', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: () {
+                final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+                if (amount == null || amount <= 0) return;
+                Navigator.pop(context, {
+                  'amountCents': (amount * 100).round(),
+                  'paymentMethod': paymentMethod,
+                  'depositDate': DateFormat('yyyy-MM-dd').format(depositDate),
+                  'referenceNo': referenceController.text.trim(),
+                  'bankName': bankController.text.trim(),
+                  'notes': notesController.text.trim(),
+                });
+              },
+              child: const Text('SAVE'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      result['createdBy'] = prefs.getString('userId') ?? '';
+      await _cashupService.createDeposit(_cashup!.id, result);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Deposit created successfully'), backgroundColor: Colors.green),
+      );
+      _fetchDetails();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create deposit: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -126,7 +251,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       appBar: AppBar(
         title: Text(_cashup != null ? 'Cashup #${_cashup!.cashupNo}' : 'Cashup Details'),
         actions: [
-          if (_cashup != null && (_cashup!.status == 'NEW' || _cashup!.status == 'DRAFT'))
+          if (_cashup != null && _canEditCashup(_cashup!))
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: TextButton.icon(
@@ -187,6 +312,8 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
           const SizedBox(height: 16),
           _buildPaymentsSection(cashup, colorScheme),
           const SizedBox(height: 16),
+          _buildDepositsSection(cashup, colorScheme),
+          const SizedBox(height: 16),
           AttachmentSection(
             objectId: widget.cashupId,
             documentTypeField: 'DOCUMENT-TYPE-CASHUP',
@@ -225,7 +352,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              cashup.status.toUpperCase(),
+              _displayStatus(cashup.status),
               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ),
@@ -276,6 +403,106 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
       ],
     );
+  }
+
+  Widget _buildDepositsSection(Cashup cashup, ColorScheme colorScheme) {
+    final canEdit = _canEditCashup(cashup);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('DEPOSITS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+                ),
+                if (canEdit)
+                  TextButton.icon(
+                    onPressed: _showDepositDialog,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('ADD DEPOSIT'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _depositMetric('Collected', cashup.totalAmount)),
+                Expanded(child: _depositMetric('Deposited', cashup.depositTotalAmount)),
+                Expanded(child: _depositMetric('Balance', cashup.depositBalanceAmount)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (cashup.deposits.isEmpty)
+              Text('No deposits captured yet.', style: TextStyle(color: Colors.grey[600]))
+            else
+              ...cashup.deposits.map((deposit) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: colorScheme.primary.withOpacity(0.1),
+                      child: Icon(Icons.account_balance_outlined, color: colorScheme.primary, size: 20),
+                    ),
+                    title: Text('R ${deposit.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text([
+                      deposit.depositDate,
+                      deposit.paymentMethod,
+                      if (deposit.referenceNo.isNotEmpty) deposit.referenceNo,
+                    ].where((value) => value.isNotEmpty).join(' • ')),
+                    trailing: canEdit
+                        ? IconButton(
+                            tooltip: 'Delete deposit',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _deleteDeposit(deposit),
+                          )
+                        : null,
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _depositMetric(String label, double amount) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+        const SizedBox(height: 4),
+        Text('R ${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Future<void> _deleteDeposit(CashupDeposit deposit) async {
+    if (_cashup == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Deposit'),
+        content: Text('Delete deposit of R ${deposit.amount.toStringAsFixed(2)}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('DELETE')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _cashupService.deleteDeposit(_cashup!.id, deposit.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deposit deleted')));
+      _fetchDetails();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete deposit: $e'), backgroundColor: Colors.red));
+    }
   }
 
   Widget _buildPaymentsSection(Cashup cashup, ColorScheme colorScheme) {

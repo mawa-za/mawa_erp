@@ -18,6 +18,18 @@ import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
 
+// Funeral Management
+import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
+import '../../features/funeral/presentation/pages/pickup_requests_page.dart';
+import '../../features/funeral/presentation/pages/create_pickup_request_page.dart';
+import '../../features/funeral/presentation/pages/mortuary_inventory_page.dart';
+import '../../features/funeral/presentation/pages/funeral_service_request_wizard_page.dart';
+import '../../features/funeral/presentation/pages/funeral_claims_page.dart';
+import '../../features/funeral/presentation/pages/funeral_invoice_preview_page.dart';
+import '../../features/funeral/presentation/pages/funeral_invoice_payment_page.dart';
+import '../../features/funeral/presentation/pages/funeral_service_request_page.dart';
+import '../../features/funeral/presentation/pages/funeral_package_setup_page.dart';
+
 import '../services/session_service.dart';
 
 import 'dart:async';
@@ -184,6 +196,64 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => const SystemConfigurationScreen(),
+      ),
+
+      // Funeral Routes
+      GoRoute(
+        path: AppRoutes.funeralDashboard,
+        builder: (context, state) => const FuneralDashboardPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralPickups,
+        builder: (context, state) => const PickupRequestsPage(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const CreatePickupRequestPage(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.funeralMortuary,
+        builder: (context, state) => const MortuaryInventoryPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralServiceRequests,
+        builder: (context, state) => const FuneralServiceRequestPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralNewServiceRequest,
+        builder: (context, state) => const FuneralServiceRequestWizardPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralClaims,
+        builder: (context, state) => FuneralClaimsPage(
+          serviceRequestId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralInvoicePreview,
+        builder: (context, state) => FuneralInvoicePreviewPage(
+          serviceRequestId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralInvoicePayment,
+        builder: (context, state) => FuneralInvoicePaymentPage(
+          invoiceId: state.pathParameters['invoiceId']!,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralPayments,
+        builder: (context, state) => const Scaffold(body: Center(child: Text('Funeral Payments List'))),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralPackageSetup,
+        builder: (context, state) => const FuneralPackageSetupPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralAllClaims,
+        builder: (context, state) => const Scaffold(body: Center(child: Text('All Funeral Claims List'))),
       ),
     ],
   );

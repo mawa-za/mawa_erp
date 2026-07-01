@@ -20,17 +20,23 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (widget.token.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reset link is invalid or missing a token.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // Calling /v2/change-password (assuming v2 based on previous patterns)
-      // Passing token and new password in the body
       final response = await ApiClient().post(
-        '/v2/change-password',
+        '/v2/reset-password',
         body: {
           'token': widget.token,
           'password': _passwordController.text,
         },
+        includeRole: false,
       );
 
       if (response.statusCode == 200) {
@@ -42,10 +48,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         }
       } else {
-        final error = jsonDecode(response.body);
+        dynamic error;
+        try {
+          error = jsonDecode(response.body);
+        } catch (_) {
+          error = response.body;
+        }
+        final message = error is Map
+            ? (error['message'] ?? error['error'] ?? response.statusCode).toString()
+            : (error?.toString().isNotEmpty == true ? error.toString() : response.statusCode.toString());
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${error['message'] ?? response.statusCode}')),
+            SnackBar(content: Text('Failed: $message')),
           );
         }
       }
