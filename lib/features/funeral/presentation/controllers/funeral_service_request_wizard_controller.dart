@@ -121,20 +121,21 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       serviceRequestId = result.id;
       
       if (selectedCovers.isNotEmpty) {
-        final membershipIds = selectedCovers
-            .where((c) => c.membershipId != null)
-            .map((c) => c.membershipId!)
+        final membershipSelections = selectedCovers
+            .map((c) => c.membershipId ?? c.sourceReference)
+            .whereType<String>()
+            .where((id) => id.trim().isNotEmpty)
+            .toSet()
             .toList();
-        final sourceRefs = selectedCovers
-            .where((c) => c.sourceReference != null)
-            .map((c) => c.sourceReference!)
-            .toList();
-        
+
+        if (membershipSelections.isEmpty) {
+          throw Exception('At least one valid membership selection is required before claims can be initiated.');
+        }
+
         await _api.initiateClaims(
           serviceRequestId!,
           InitiateFuneralClaimsRequestDto(
-            membershipIds: membershipIds,
-            sourceReferences: sourceRefs.isEmpty ? null : sourceRefs,
+            membershipIds: membershipSelections,
           ),
         );
       }
