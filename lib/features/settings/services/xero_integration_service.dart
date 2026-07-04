@@ -91,7 +91,7 @@ class XeroIntegrationService {
   }
 
   Future<List<XeroConnection>> connections() async {
-    final response = await ApiClient().get('/v2/integrations/xero/connections');
+    final response = await ApiClient().get('/v2/integrations/xero/connections', logoutOnUnauthorized: false);
 
     if (response.statusCode != 200) {
       throw Exception('Failed to retrieve Xero organisations: ${response.body}');
@@ -112,6 +112,7 @@ class XeroIntegrationService {
     final response = await ApiClient().post(
       '/v2/integrations/xero/select-tenant',
       body: {'tenantId': tenantId},
+      logoutOnUnauthorized: false,
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
