@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'core/api_client.dart';
 import 'core/services/session_service.dart';
+import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
 
@@ -62,10 +63,7 @@ class _MyAppState extends State<MyApp> {
       title: 'Mawa ERP',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       routerConfig: AppRouter.router,
       builder: (context, child) {
         return KeyboardListener(
