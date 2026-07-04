@@ -39,9 +39,11 @@ class SessionService {
         ),
       );
       
-      final value = int.tryParse(timeoutSetting.value);
-      if (value != null && value > 0) {
-        _timeoutMinutes = value;
+      final rawValue = int.tryParse(timeoutSetting.value);
+      if (rawValue != null && rawValue > 0) {
+        // Legacy MAWA settings have been maintained both as minutes and seconds.
+        // Values greater than 60 are treated as seconds, e.g. 360 = 6 minutes.
+        _timeoutMinutes = rawValue > 60 ? (rawValue / 60).ceil() : rawValue;
       }
     } catch (e) {
       debugPrint('SessionService: Using default timeout of $_timeoutMinutes minutes ($e)');
@@ -61,6 +63,6 @@ class SessionService {
   void _handleTimeout() {
     if (!_isMonitoring) return;
     debugPrint('SessionService: Inactivity timeout reached ($_timeoutMinutes minutes)');
-    ApiClient().logout();
+    ApiClient().logout(reason: 'inactivity_timeout');
   }
 }

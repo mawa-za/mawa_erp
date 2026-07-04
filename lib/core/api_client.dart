@@ -100,6 +100,52 @@ class ApiClient {
     }
   }
 
+
+
+  String? _readString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _decodeJsonObject(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    return <String, dynamic>{};
+  }
+
+  Future<void> _storeTokensFromResponse(String body) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = _decodeJsonObject(body);
+    final tokenContainer = data['data'] is Map
+        ? Map<String, dynamic>.from(data['data'] as Map)
+        : data;
+
+    final newAccessToken = _readString(tokenContainer, const [
+      'accessToken',
+      'access_token',
+      'token',
+      'jwt',
+    ]);
+    final newRefreshToken = _readString(tokenContainer, const [
+      'refreshToken',
+      'refresh_token',
+      'refresh',
+    ]);
+
+    if (newAccessToken != null) {
+      await prefs.setString('accessToken', newAccessToken);
+    }
+    if (newRefreshToken != null) {
+      await prefs.setString('refreshToken', newRefreshToken);
+    }
+  }
+
   Future<http.Response> post(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     try {
       final host = await _getApiHost();
@@ -268,7 +314,7 @@ class ApiClient {
 
       if (refreshToken == null || refreshToken.isEmpty) {
         debugPrint('ApiClient: No refresh token available');
-        if (logoutOnUnauthorized) await logout();
+        if (logoutOnUnauthorized) await logout(reason: 'missing_refresh_token');
         return false;
       }
 
@@ -291,15 +337,9 @@ class ApiClient {
       debugPrint('ApiClient: Refresh response ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final newAccessToken = data['accessToken'] ?? data['token'];
-        final newRefreshToken = data['refreshToken'];
-
-        if (newAccessToken != null) {
-          await prefs.setString('accessToken', newAccessToken.toString());
-          if (newRefreshToken != null) {
-            await prefs.setString('refreshToken', newRefreshToken.toString());
-          }
+        await _storeTokensFromResponse(response.body);
+        final newAccessToken = prefs.getString('accessToken');
+        if (newAccessToken != null && newAccessToken.isNotEmpty) {
           debugPrint('ApiClient: Token refreshed successfully');
           return true;
         }
@@ -322,10 +362,9 @@ class ApiClient {
         );
         
         if (fallbackResponse.statusCode == 200) {
-          final data = jsonDecode(fallbackResponse.body);
-          final newAccessToken = data['accessToken'] ?? data['token'];
-          if (newAccessToken != null) {
-            await prefs.setString('accessToken', newAccessToken.toString());
+          await _storeTokensFromResponse(fallbackResponse.body);
+          final newAccessToken = prefs.getString('accessToken');
+          if (newAccessToken != null && newAccessToken.isNotEmpty) {
             debugPrint('ApiClient: Token refreshed via fallback successfully');
             return true;
           }
@@ -334,7 +373,7 @@ class ApiClient {
       }
       
       debugPrint('ApiClient: Refresh failed. Status: ${response.statusCode}');
-      if (logoutOnUnauthorized) await logout();
+      if (logoutOnUnauthorized) await logout(reason: 'refresh_failed_${response.statusCode}');
       return false;
     } catch (e) {
       debugPrint('ApiClient: Exception during _refreshToken: $e');
@@ -342,9 +381,9 @@ class ApiClient {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout({String reason = 'manual_or_unauthorized'}) async {
     final prefs = await SharedPreferences.getInstance();
-    debugPrint('ApiClient: Performing logout, clearing tokens');
+    debugPrint('ApiClient: Performing logout, clearing tokens. Reason: $reason');
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
     await prefs.remove('selectedRole');
