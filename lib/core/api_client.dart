@@ -100,7 +100,7 @@ class ApiClient {
     }
   }
 
-  Future<http.Response> post(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> post(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     try {
       final host = await _getApiHost();
       if (host == null || host.isEmpty) throw Exception('API Host not configured');
@@ -121,7 +121,7 @@ class ApiClient {
 
       if (response.statusCode == 401) {
         debugPrint('401 Unauthorized for POST $url');
-        final success = await _handleUnauthorized();
+        final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
         if (success) {
           final retryHeaders = await _getHeaders(includeRole: includeRole);
           response = await _client.post(
@@ -139,7 +139,7 @@ class ApiClient {
     }
   }
 
-  Future<http.Response> put(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> put(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -155,7 +155,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for PUT $url');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         response = await _client.put(
           url,
@@ -168,7 +168,7 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> patch(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> patch(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -184,7 +184,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for PATCH $url');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         response = await _client.patch(
           url,
@@ -197,7 +197,7 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> get(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> get(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -209,7 +209,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for GET $url. Body: ${response.body}');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         final retryHeaders = await _getHeaders(includeRole: includeRole);
         response = await _client.get(url, headers: retryHeaders);
@@ -219,7 +219,7 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> delete(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> delete(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -231,7 +231,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for DELETE $url');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         response = await _client.delete(url, headers: await _getHeaders(includeRole: includeRole));
       }
@@ -240,14 +240,14 @@ class ApiClient {
     return response;
   }
 
-  Future<bool> _handleUnauthorized() async {
+  Future<bool> _handleUnauthorized({bool logoutOnUnauthorized = true}) async {
     if (_refreshCompleter != null) {
       return _refreshCompleter!.future;
     }
 
     _refreshCompleter = Completer<bool>();
     try {
-      final success = await _refreshToken();
+      final success = await _refreshToken(logoutOnUnauthorized: logoutOnUnauthorized);
       _refreshCompleter!.complete(success);
       return success;
     } catch (e) {
@@ -259,7 +259,7 @@ class ApiClient {
     }
   }
 
-  Future<bool> _refreshToken() async {
+  Future<bool> _refreshToken({bool logoutOnUnauthorized = true}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final refreshToken = prefs.getString('refreshToken');
@@ -268,7 +268,7 @@ class ApiClient {
 
       if (refreshToken == null || refreshToken.isEmpty) {
         debugPrint('ApiClient: No refresh token available');
-        await logout();
+        if (logoutOnUnauthorized) await logout();
         return false;
       }
 
@@ -334,7 +334,7 @@ class ApiClient {
       }
       
       debugPrint('ApiClient: Refresh failed. Status: ${response.statusCode}');
-      await logout();
+      if (logoutOnUnauthorized) await logout();
       return false;
     } catch (e) {
       debugPrint('ApiClient: Exception during _refreshToken: $e');
