@@ -26,8 +26,15 @@ class FuneralInvoicePreviewLineDto {
     return FuneralInvoicePreviewLineDto(
       entityName: json['entityName']?.toString() ?? '',
       entityType: InvoiceEntityType.parse(json['entityType']?.toString()),
-      amountCents: json['amountCents'] as int? ?? 0,
+      amountCents: _toInt(json['amountCents'] ?? json['amount_cents']),
       description: json['description']?.toString() ?? '',
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString()) ?? 0;
   }
 }

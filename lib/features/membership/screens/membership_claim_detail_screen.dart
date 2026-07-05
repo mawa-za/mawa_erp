@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_claim.dart';
 import '../models/membership_detail.dart';
 import '../services/membership_service.dart';
+import '../services/membership_claim_pdf_service.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -25,6 +27,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   final MembershipService _membershipService = MembershipService();
   final PartnerService _partnerService = PartnerService();
   final ApprovalService _approvalService = ApprovalService();
+  final MembershipClaimPdfService _claimPdfService = MembershipClaimPdfService();
   
   late TabController _tabController;
   MembershipClaim? _claim;
@@ -156,6 +159,12 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         scrolledUnderElevation: 2,
         actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetchDetails),
+          if (_claim != null)
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: 'Print / Reprint Claim Form',
+              onPressed: _showClaimFormPreview,
+            ),
           if (_claim != null && _claim!.status.toUpperCase() == 'DRAFT')
             IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => _showEditDialog()),
           const SizedBox(width: 8),
@@ -237,6 +246,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildStatusBanner(claim, colorScheme),
           const SizedBox(height: 24),
           _buildAmountCard(claim, colorScheme),
+          const SizedBox(height: 16),
+          _buildClaimFormCard(colorScheme),
           
           if (_membershipDetail != null) ...[
             const SizedBox(height: 32),
@@ -351,6 +362,73 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1),
           ),
         ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildClaimFormCard(ColorScheme colorScheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.description_outlined, color: colorScheme.primary),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Claim Form', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 4),
+                Text('Download or print the claim form. It is not attached to the claim.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: _showClaimFormPreview,
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: const Text('Print / Reprint'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showClaimFormPreview() async {
+    if (_claim == null) return;
+    final claim = _claim!;
+    final filename = 'claim_form_${claim.claimNo}.pdf';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('Claim Form ${claim.claimNo}'),
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          body: PdfPreview(
+            pdfFileName: filename,
+            canChangeOrientation: false,
+            canChangePageFormat: false,
+            build: (format) => _claimPdfService.buildClaimForm(
+              claim: claim,
+              deceasedPartner: _deceasedPartner,
+              claimantPartner: _claimantPartner,
+              membership: _membershipDetail,
+            ),
+          ),
+        ),
       ),
     );
   }

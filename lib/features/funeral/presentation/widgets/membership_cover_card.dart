@@ -7,25 +7,28 @@ class MembershipCoverCard extends StatelessWidget {
   final FuneralMembershipCoverDto cover;
   final bool isSelected;
   final VoidCallback onTap;
+  final String claimType;
 
   const MembershipCoverCard({
     super.key,
     required this.cover,
     required this.isSelected,
     required this.onTap,
+    this.claimType = 'FUNERAL',
   });
 
   @override
   Widget build(BuildContext context) {
     final isLocal = cover.coverSource == CoverSource.LOCAL_TENANT;
+    final effectiveClaimType = claimType.toUpperCase() == 'COMBINATION' ? 'COMBINATION' : 'FUNERAL';
 
     return Card(
       elevation: isSelected ? 4 : 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: isSelected 
-          ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
-          : BorderSide.none,
+        side: isSelected
+            ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
+            : BorderSide.none,
       ),
       child: InkWell(
         onTap: onTap,
@@ -74,20 +77,29 @@ class MembershipCoverCard extends StatelessWidget {
               if (!isLocal && cover.sourceTenantName != null)
                 Text('Source: ${cover.sourceTenantName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
               const Divider(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Cover Amount:'),
-                  Text(
-                    Formatters.formatCentsAsRand(cover.coverAmountCents),
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                  ),
-                ],
-              ),
+              _amountRow('FUNERAL', cover.funeralAmountCents, isSelected && effectiveClaimType == 'FUNERAL'),
+              const SizedBox(height: 6),
+              _amountRow('COMBINATION', cover.combinationAmountCents, isSelected && effectiveClaimType == 'COMBINATION'),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _amountRow(String label, int amountCents, bool highlighted) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('$label Amount:'),
+        Text(
+          Formatters.formatCentsAsRand(amountCents),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: highlighted ? Colors.blue : Colors.green,
+          ),
+        ),
+      ],
     );
   }
 }

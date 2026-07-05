@@ -9,7 +9,7 @@ class SettingService {
 
   Future<List<Setting>> getSettings() async {
     try {
-      final response = await ApiClient().get('/setting');
+      final response = await ApiClient().get('/setting', logoutOnUnauthorized: false);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Setting.fromJson(json)).toList();

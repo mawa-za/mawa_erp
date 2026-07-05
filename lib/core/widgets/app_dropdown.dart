@@ -78,9 +78,16 @@ class _AppDropdownFieldState extends State<AppDropdownField> {
       );
     }
 
-    final options = _options ?? [];
+    var options = List<FieldOption>.from(_options ?? []);
 
-    // Ensure the current value exists in the options, otherwise null it
+    // Keep user/default values selectable even when the field option is not configured yet.
+    if ((widget.value ?? '').trim().isNotEmpty && options.every((o) => o.code != widget.value)) {
+      options = [
+        FieldOption(field: widget.field, code: widget.value!, type: 'TENANT', description: widget.value!, validFrom: '', validTo: ''),
+        ...options,
+      ];
+    }
+
     final currentValue = options.any((o) => o.code == widget.value) ? widget.value : null;
 
     return DropdownButtonFormField<String>(

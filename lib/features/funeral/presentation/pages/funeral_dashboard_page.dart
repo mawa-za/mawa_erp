@@ -32,6 +32,13 @@ class FuneralDashboardPage extends StatelessWidget {
           ),
           _buildMenuCard(
             context,
+            'Service Requests',
+            Icons.volunteer_activism_outlined,
+            Colors.green,
+            () => context.push('/funeral/service-requests'),
+          ),
+          _buildMenuCard(
+            context,
             'New Arrangement',
             Icons.add_task_outlined,
             Colors.green,

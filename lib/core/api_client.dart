@@ -100,7 +100,53 @@ class ApiClient {
     }
   }
 
-  Future<http.Response> post(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+
+
+  String? _readString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _decodeJsonObject(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    return <String, dynamic>{};
+  }
+
+  Future<void> _storeTokensFromResponse(String body) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = _decodeJsonObject(body);
+    final tokenContainer = data['data'] is Map
+        ? Map<String, dynamic>.from(data['data'] as Map)
+        : data;
+
+    final newAccessToken = _readString(tokenContainer, const [
+      'accessToken',
+      'access_token',
+      'token',
+      'jwt',
+    ]);
+    final newRefreshToken = _readString(tokenContainer, const [
+      'refreshToken',
+      'refresh_token',
+      'refresh',
+    ]);
+
+    if (newAccessToken != null) {
+      await prefs.setString('accessToken', newAccessToken);
+    }
+    if (newRefreshToken != null) {
+      await prefs.setString('refreshToken', newRefreshToken);
+    }
+  }
+
+  Future<http.Response> post(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     try {
       final host = await _getApiHost();
       if (host == null || host.isEmpty) throw Exception('API Host not configured');
@@ -121,7 +167,7 @@ class ApiClient {
 
       if (response.statusCode == 401) {
         debugPrint('401 Unauthorized for POST $url');
-        final success = await _handleUnauthorized();
+        final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
         if (success) {
           final retryHeaders = await _getHeaders(includeRole: includeRole);
           response = await _client.post(
@@ -139,7 +185,7 @@ class ApiClient {
     }
   }
 
-  Future<http.Response> put(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> put(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -155,7 +201,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for PUT $url');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         response = await _client.put(
           url,
@@ -168,7 +214,7 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> patch(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> patch(String path, {dynamic body, Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -184,7 +230,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for PATCH $url');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         response = await _client.patch(
           url,
@@ -197,7 +243,7 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> get(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> get(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -209,7 +255,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for GET $url. Body: ${response.body}');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         final retryHeaders = await _getHeaders(includeRole: includeRole);
         response = await _client.get(url, headers: retryHeaders);
@@ -219,7 +265,7 @@ class ApiClient {
     return response;
   }
 
-  Future<http.Response> delete(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true}) async {
+  Future<http.Response> delete(String path, {Map<String, dynamic>? queryParameters, bool includeRole = true, bool logoutOnUnauthorized = true}) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) throw Exception('API Host not configured');
     final url = _buildUrl(host, path, queryParameters);
@@ -231,7 +277,7 @@ class ApiClient {
 
     if (response.statusCode == 401) {
       debugPrint('401 Unauthorized for DELETE $url');
-      final success = await _handleUnauthorized();
+      final success = await _handleUnauthorized(logoutOnUnauthorized: logoutOnUnauthorized);
       if (success) {
         response = await _client.delete(url, headers: await _getHeaders(includeRole: includeRole));
       }
@@ -240,14 +286,14 @@ class ApiClient {
     return response;
   }
 
-  Future<bool> _handleUnauthorized() async {
+  Future<bool> _handleUnauthorized({bool logoutOnUnauthorized = true}) async {
     if (_refreshCompleter != null) {
       return _refreshCompleter!.future;
     }
 
     _refreshCompleter = Completer<bool>();
     try {
-      final success = await _refreshToken();
+      final success = await _refreshToken(logoutOnUnauthorized: logoutOnUnauthorized);
       _refreshCompleter!.complete(success);
       return success;
     } catch (e) {
@@ -259,7 +305,7 @@ class ApiClient {
     }
   }
 
-  Future<bool> _refreshToken() async {
+  Future<bool> _refreshToken({bool logoutOnUnauthorized = true}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final refreshToken = prefs.getString('refreshToken');
@@ -268,12 +314,12 @@ class ApiClient {
 
       if (refreshToken == null || refreshToken.isEmpty) {
         debugPrint('ApiClient: No refresh token available');
-        await logout();
+        if (logoutOnUnauthorized) await logout(reason: 'missing_refresh_token');
         return false;
       }
 
       // Trying v2 endpoint as authenticate is versioned
-      final url = Uri.parse('https://$host/v2/refresh-token');
+      final url = _buildUrl(host ?? '', '/v2/refresh-token');
       debugPrint('ApiClient: Attempting refresh at $url');
       
       final response = await http.post(
@@ -282,50 +328,47 @@ class ApiClient {
           'Content-Type': 'application/json',
           'X-TenantID': tenantId ?? '',
           'X-Tenant-Id': tenantId ?? '',
+          'Refresh-Token': refreshToken,
         },
         body: jsonEncode({
           'refreshToken': refreshToken,
+          'refresh_token': refreshToken,
         }),
       );
 
       debugPrint('ApiClient: Refresh response ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final newAccessToken = data['accessToken'] ?? data['token'];
-        final newRefreshToken = data['refreshToken'];
-
-        if (newAccessToken != null) {
-          await prefs.setString('accessToken', newAccessToken.toString());
-          if (newRefreshToken != null) {
-            await prefs.setString('refreshToken', newRefreshToken.toString());
-          }
+        await _storeTokensFromResponse(response.body);
+        final newAccessToken = prefs.getString('accessToken');
+        if (newAccessToken != null && newAccessToken.isNotEmpty) {
           debugPrint('ApiClient: Token refreshed successfully');
           return true;
         }
       } 
       
-      // If v2 fails with 404, fallback to root endpoint
-      if (response.statusCode == 404) {
-        debugPrint('ApiClient: /v2/refresh-token not found, falling back to /refresh-token');
-        final fallbackUrl = Uri.parse('https://$host/refresh-token');
+      // If v2 refresh fails, fallback to root endpoint for older deployments.
+      if (response.statusCode != 200) {
+        debugPrint('ApiClient: /v2/refresh-token failed (${response.statusCode}), falling back to /refresh-token');
+        final fallbackUrl = _buildUrl(host ?? '', '/refresh-token');
         final fallbackResponse = await http.post(
           fallbackUrl,
           headers: {
             'Content-Type': 'application/json',
             'X-TenantID': tenantId ?? '',
             'X-Tenant-Id': tenantId ?? '',
+            'Refresh-Token': refreshToken,
           },
           body: jsonEncode({
             'refreshToken': refreshToken,
+            'refresh_token': refreshToken,
           }),
         );
         
         if (fallbackResponse.statusCode == 200) {
-          final data = jsonDecode(fallbackResponse.body);
-          final newAccessToken = data['accessToken'] ?? data['token'];
-          if (newAccessToken != null) {
-            await prefs.setString('accessToken', newAccessToken.toString());
+          await _storeTokensFromResponse(fallbackResponse.body);
+          final newAccessToken = prefs.getString('accessToken');
+          if (newAccessToken != null && newAccessToken.isNotEmpty) {
             debugPrint('ApiClient: Token refreshed via fallback successfully');
             return true;
           }
@@ -334,7 +377,7 @@ class ApiClient {
       }
       
       debugPrint('ApiClient: Refresh failed. Status: ${response.statusCode}');
-      await logout();
+      if (logoutOnUnauthorized) await logout(reason: 'refresh_failed_${response.statusCode}');
       return false;
     } catch (e) {
       debugPrint('ApiClient: Exception during _refreshToken: $e');
@@ -342,9 +385,9 @@ class ApiClient {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout({String reason = 'manual_or_unauthorized'}) async {
     final prefs = await SharedPreferences.getInstance();
-    debugPrint('ApiClient: Performing logout, clearing tokens');
+    debugPrint('ApiClient: Performing logout, clearing tokens. Reason: $reason');
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
     await prefs.remove('selectedRole');

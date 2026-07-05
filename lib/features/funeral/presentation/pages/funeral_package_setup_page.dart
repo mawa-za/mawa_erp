@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_package_dto.dart';
 import '../widgets/funeral_money_text.dart';
+import '../../../../core/models/product_lookup.dart';
+import '../../../../core/services/product_lookup_service.dart';
 
 class FuneralPackageSetupPage extends StatefulWidget {
   const FuneralPackageSetupPage({super.key});
@@ -217,7 +219,10 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
   final _api = FuneralApi();
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
-  late final TextEditingController _inclusionsController;
+  final ProductLookupService _productService = ProductLookupService();
+  List<ProductLookup> _availableProducts = [];
+  List<FuneralPackageProductDto> _selectedProducts = [];
+  bool _loadingProducts = true;
   bool _active = true;
   bool _saving = false;
 
@@ -229,35 +234,109 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     _priceController = TextEditingController(
       text: package == null ? '' : (package.basePriceCents / 100).toStringAsFixed(2),
     );
-    _inclusionsController = TextEditingController(text: package?.inclusions.join('\n') ?? '');
+    _selectedProducts = List<FuneralPackageProductDto>.from(package?.products ?? const []);
     _active = package?.active ?? true;
+    _loadProducts();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
-    _inclusionsController.dispose();
     super.dispose();
+  }
+
+
+  Future<void> _loadProducts() async {
+    try {
+      final products = await _productService.getProducts(type: 'FUNERAL-PACKAGE');
+      if (!mounted) return;
+      setState(() {
+        _availableProducts = products;
+        _loadingProducts = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingProducts = false);
+    }
+  }
+
+  void _toggleProduct(ProductLookup product, bool selected) {
+    setState(() {
+      if (selected) {
+        if (!_selectedProducts.any((p) => p.productId == product.id || (p.code.isNotEmpty && p.code == product.code))) {
+          _selectedProducts.add(FuneralPackageProductDto(
+            productId: product.id,
+            code: product.code,
+            description: product.description,
+            amountCents: product.priceCents,
+          ));
+        }
+      } else {
+        _selectedProducts.removeWhere((p) => p.productId == product.id || (p.code.isNotEmpty && p.code == product.code));
+      }
+      final total = _selectedProducts.fold<int>(0, (sum, item) => sum + item.amountCents);
+      if (total > 0) _priceController.text = (total / 100).toStringAsFixed(2);
+    });
+  }
+
+  Widget _buildProductSelector() {
+    if (_loadingProducts) {
+      return const LinearProgressIndicator();
+    }
+
+    if (_availableProducts.isEmpty) {
+      return const Text('No products found. Configure products first, or enter a base price without product inclusions.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Package Products', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        const Text('Select the products that make up this funeral package.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 8),
+        Container(
+          constraints: const BoxConstraints(maxHeight: 260),
+          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _availableProducts.length,
+            itemBuilder: (context, index) {
+              final product = _availableProducts[index];
+              final selected = _selectedProducts.any((p) => p.productId == product.id || (p.code.isNotEmpty && p.code == product.code));
+              return CheckboxListTile(
+                value: selected,
+                onChanged: (value) => _toggleProduct(product, value == true),
+                title: Text(product.description),
+                subtitle: Text('${product.code} • R ${(product.priceCents / 100).toStringAsFixed(2)}'),
+                dense: true,
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);
-    final price = double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0;
-    final inclusions = _inclusionsController.text
-        .split(RegExp(r'[\n;]'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final price = _selectedProducts.isNotEmpty
+        ? _selectedProducts.fold<int>(0, (sum, item) => sum + item.amountCents) / 100
+        : double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0;
+    final inclusions = _selectedProducts.map((e) => e.description).toList();
 
     final package = FuneralPackageDto(
       id: widget.package?.id ?? '',
       name: _nameController.text.trim(),
       basePriceCents: (price * 100).round(),
       inclusions: inclusions,
-      inclusionsJson: jsonEncode(inclusions),
+      products: _selectedProducts,
+      inclusionsJson: _selectedProducts.isNotEmpty
+          ? jsonEncode({'products': _selectedProducts.map((e) => e.toJson()).toList()})
+          : jsonEncode(inclusions),
       active: _active,
     );
 
@@ -296,27 +375,22 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _priceController,
+                  readOnly: _selectedProducts.isNotEmpty,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Base price',
                     prefixText: 'R ',
+                    helperText: _selectedProducts.isEmpty ? 'Used only when no products are selected' : 'Calculated from selected products',
                   ),
                   validator: (value) {
+                    if (_selectedProducts.isNotEmpty) return null;
                     final amount = double.tryParse((value ?? '').replaceAll(',', '.'));
                     if (amount == null || amount < 0) return 'Enter a valid amount';
                     return null;
                   },
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _inclusionsController,
-                  maxLines: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Inclusions',
-                    helperText: 'Enter one inclusion per line',
-                    alignLabelWithHint: true,
-                  ),
-                ),
+                _buildProductSelector(),
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
