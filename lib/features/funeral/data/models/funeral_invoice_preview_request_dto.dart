@@ -1,6 +1,7 @@
 import 'funeral_service_request_dto.dart';
 
 class FuneralInvoicePreviewRequestDto {
+  final String? funeralServiceId;
   final String deceasedName;
   final String packageId;
   final String familyRepId;
@@ -9,6 +10,7 @@ class FuneralInvoicePreviewRequestDto {
   final String claimType;
 
   FuneralInvoicePreviewRequestDto({
+    this.funeralServiceId,
     required this.deceasedName,
     required this.packageId,
     required this.familyRepId,
@@ -21,6 +23,7 @@ class FuneralInvoicePreviewRequestDto {
 
   Map<String, dynamic> toJson() {
     return {
+      if (funeralServiceId != null && funeralServiceId!.isNotEmpty) 'funeralServiceId': funeralServiceId,
       'deceasedName': deceasedName,
       'packageId': packageId,
       'familyRepId': familyRepId,
@@ -33,6 +36,7 @@ class FuneralInvoicePreviewRequestDto {
   factory FuneralInvoicePreviewRequestDto.fromJson(Map<String, dynamic> json) {
     final memberships = (json['memberships'] as List?)?.map((e) => e.toString()).toList() ?? [];
     return FuneralInvoicePreviewRequestDto(
+      funeralServiceId: json['funeralServiceId']?.toString(),
       deceasedName: json['deceasedName']?.toString() ?? '',
       packageId: json['packageId']?.toString() ?? '',
       familyRepId: json['familyRepId']?.toString() ?? '',

@@ -33,6 +33,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   String contactNumber = '';
   DateTime funeralDate = DateTime.now().add(const Duration(days: 3));
   String funeralLocation = '';
+  String deathCertificateNo = '';
+  String causeOfDeath = '';
   List<FieldOption> salesAreaOptions = [];
 
   // Step 3: Package & Extras
@@ -161,6 +163,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         funeralDate: funeralDate,
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
         familyRepPartnerId: familyRepPartnerId!,
+        deathCertificateNo: deathCertificateNo.trim(),
+        causeOfDeath: causeOfDeath.trim(),
         packageId: selectedPackage!.id,
         extras: extras,
       );
@@ -180,6 +184,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           InitiateFuneralClaimsRequestDto(
             membershipIds: membershipSelections,
             claimType: selectedClaimType,
+            deathCertificateNo: deathCertificateNo.trim(),
+            causeOfDeath: causeOfDeath.trim(),
           ),
         );
       }
@@ -210,11 +216,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   Future<void> submitClaimForApproval(String claimId) async {
+    final normalizedClaimId = claimId.trim();
+    if (normalizedClaimId.isEmpty) {
+      errorMessage = 'Cannot submit claim for approval because the membership claim id is missing. Please refresh claims and try again.';
+      notifyListeners();
+      return;
+    }
+
     isLoading = true;
     errorMessage = null;
     notifyListeners();
     try {
-      await _api.submitClaimForApproval(claimId);
+      await _api.submitClaimForApproval(normalizedClaimId);
       await loadClaims();
     } catch (e) {
       errorMessage = 'Failed to submit claim for approval: $e';

@@ -6,11 +6,15 @@ class InitiateFuneralClaimsRequestDto {
   final List<String> memberships;
   final List<String>? sourceReferences;
   final String claimType;
+  final String? deathCertificateNo;
+  final String? causeOfDeath;
 
   InitiateFuneralClaimsRequestDto({
     required List<String> membershipIds,
     String? claimType,
     this.sourceReferences,
+    this.deathCertificateNo,
+    this.causeOfDeath,
   })  : memberships = membershipIds,
         claimType = (claimType == null || claimType.trim().isEmpty)
             ? (membershipIds.length > 1 ? 'COMBINATION' : 'FUNERAL')
@@ -21,6 +25,8 @@ class InitiateFuneralClaimsRequestDto {
       'memberships': memberships,
       'membershipIds': memberships,
       'claimType': claimType,
+      if (deathCertificateNo != null && deathCertificateNo!.trim().isNotEmpty) 'deathCertificateNo': deathCertificateNo!.trim(),
+      if (causeOfDeath != null && causeOfDeath!.trim().isNotEmpty) 'causeOfDeath': causeOfDeath!.trim(),
       if (sourceReferences != null && sourceReferences!.isNotEmpty) 'sourceReferences': sourceReferences,
     };
   }
@@ -31,6 +37,8 @@ class InitiateFuneralClaimsRequestDto {
     return InitiateFuneralClaimsRequestDto(
       membershipIds: memberships,
       claimType: json['claimType']?.toString(),
+      deathCertificateNo: (json['deathCertificateNo'] ?? json['certificateNumber'])?.toString(),
+      causeOfDeath: json['causeOfDeath']?.toString(),
       sourceReferences: (json['sourceReferences'] as List?)?.map((e) => e.toString()).toList(),
     );
   }
