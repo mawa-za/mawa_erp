@@ -20,6 +20,8 @@ class AppRoutes {
   static const String approvals = '/approvals';
   static const String settings = '/settings';
   static const String products = '/products';
+  static const String fnbIntegrationAdmin = '/admin/fnb-integration';
+  static const String messageQueueAdmin = '/admin/message-queue';
   static const String internalCommunications = '/internal-communications';
   
   // Funeral Management
