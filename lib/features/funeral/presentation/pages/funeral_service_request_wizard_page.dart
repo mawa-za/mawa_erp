@@ -9,6 +9,7 @@ import '../widgets/invoice_preview_summary_card.dart';
 import '../widgets/funeral_money_text.dart';
 import '../widgets/funeral_status_chip.dart';
 import '../../../../core/widgets/partner_search_dropdown.dart';
+import '../../../../core/widgets/attachment_section.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
@@ -400,16 +401,35 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       ),
                       trailing: FuneralStatusChip(status: claim.status),
                     ),
-                    if (claim.status == ClaimStatus.PENDING)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
+                    const Divider(),
+                    AttachmentSection(
+                      objectId: claim.id,
+                      objectType: 'claims',
+                      documentTypeField: 'CLAIM-DOCUMENT-TYPE',
+                      readOnly: claim.status != ClaimStatus.DRAFT,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (claim.status == ClaimStatus.DRAFT)
+                          ElevatedButton.icon(
+                            onPressed: () => _controller.submitClaimForApproval(claim.id),
+                            icon: const Icon(Icons.send_outlined),
+                            label: const Text('Submit for Approval'),
+                          ),
+                        if (claim.status == ClaimStatus.PENDING || claim.status == ClaimStatus.SUBMITTED || claim.status == ClaimStatus.IN_PROGRESS)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text('Submitted to approval workflow', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                        if (claim.status == ClaimStatus.PENDING)
                           TextButton(
                             onPressed: () => _handleClaimApproval(claim),
                             child: const Text('Review & Approve'),
                           ),
-                        ],
-                      ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -627,6 +647,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       final success = await _controller.createServiceRequest();
       if (success) _controller.nextStep();
     } else if (_controller.currentStep == 4) {
+      if (_controller.hasDraftClaims) {
+        _controller.setError('Please attach claim documentation and submit all draft claims for approval before continuing.');
+        return;
+      }
       await _controller.loadInvoicePreview();
       _controller.nextStep();
     } else if (_controller.currentStep == 5) {

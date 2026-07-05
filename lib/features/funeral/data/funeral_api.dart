@@ -193,8 +193,16 @@ class FuneralApi {
     throw Exception('Failed to load claims: ${response.body}');
   }
 
-  Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {
-    final response = await _apiClient.put(
+
+  Future<FuneralClaimDto> submitClaimForApproval(String claimId) async {
+    final response = await _apiClient.post('/v2/funeral/claims/$claimId/submit-for-approval');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return FuneralClaimDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw Exception('Failed to submit claim for approval: ${response.body}');
+  }
+
+  Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {    final response = await _apiClient.put(
       '/v2/funeral/claims/$claimId/approve',
       body: request.toJson(),
     );
