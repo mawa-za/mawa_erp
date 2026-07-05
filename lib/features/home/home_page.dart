@@ -18,6 +18,7 @@ import '../settings/screens/api_log_list_screen.dart';
 import '../invoicing/screens/invoice_create_screen.dart';
 import '../membership/screens/membership_claim_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
+import '../products/screens/product_maintenance_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
@@ -306,7 +307,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
       context.push(AppRoutes.invoices);
-    } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
+    } else if (id.contains('PRODUCT') || description.contains('product')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ProductMaintenanceScreen()));
+    } else if (id.contains('PLAN') || description.contains('plan')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
     } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
       context.push(AppRoutes.memberships);

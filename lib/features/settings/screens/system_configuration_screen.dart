@@ -7,6 +7,7 @@ import 'field_option_list_screen.dart';
 import 'api_log_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
+import '../../products/screens/product_maintenance_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -79,8 +80,17 @@ class SystemConfigurationScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _buildConfigTile(
             context,
+            title: 'Product Maintenance',
+            subtitle: 'Configure products, funeral extras, packages and pricing',
+            icon: Icons.inventory_2_outlined,
+            color: Colors.cyan,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProductMaintenanceScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
             title: 'Membership Plans',
-            subtitle: 'Configure products, plans and pricing',
+            subtitle: 'Configure membership plans, premiums and claim payouts',
             icon: Icons.card_membership_outlined,
             color: Colors.teal,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())),

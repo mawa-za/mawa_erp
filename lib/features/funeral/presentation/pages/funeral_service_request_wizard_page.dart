@@ -325,6 +325,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
               cover: cover,
               isSelected: _controller.isCoverSelected(cover),
+              claimType: _controller.selectedClaimType,
               onTap: () => _controller.toggleCoverSelection(cover),
             )),
         if (_controller.availableCovers.isNotEmpty) ...[
@@ -333,7 +334,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
             child: Text(
               _controller.selectedCovers.isEmpty
                   ? 'Select one or more memberships to use for claim initiation.'
-                  : '${_controller.selectedCovers.length} cover(s) selected for claim initiation.',
+                  : '${_controller.selectedCovers.length} cover(s) selected. Claim type: ${_controller.selectedClaimType}. Estimated cover: R ${(_controller.selectedCoverTotalCents / 100).toStringAsFixed(2)}',
               style: TextStyle(
                 fontSize: 12,
                 color: _controller.selectedCovers.isEmpty ? Colors.grey : Colors.green.shade700,

@@ -17,6 +17,7 @@ import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
+import '../../features/products/screens/product_maintenance_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -196,6 +197,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => const SystemConfigurationScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.products,
+        builder: (context, state) => const ProductMaintenanceScreen(),
       ),
 
       // Funeral Routes
