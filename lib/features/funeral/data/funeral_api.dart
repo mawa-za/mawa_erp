@@ -143,9 +143,15 @@ class FuneralApi {
       '/v2/funeral/service-request/$serviceRequestId/initiate-claims',
       body: request.toJson(),
     );
-    if (response.statusCode != 200) {
-      throw Exception('Failed to initiate claims: ${response.body}');
+
+    // Backend returns 201 Created with the created claim list when claims are
+    // initiated successfully. Older code only accepted 200 and therefore treated
+    // a successful response as an error, blocking the wizard on the cover step.
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+      return;
     }
+
+    throw Exception('Failed to initiate claims: ${response.body}');
   }
 
   Future<List<FuneralClaimDto>> getClaims(String serviceRequestId) async {
