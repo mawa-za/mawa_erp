@@ -37,21 +37,31 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     setState(() {
       _isLoading = true;
       _error = null;
+      _bankReport = null;
     });
 
     try {
       final results = await Future.wait([
         _service.getPaymentRequestById(widget.paymentId),
         _service.getPaymentRequestHistory(widget.paymentId),
-        ApiClient().get('/v2/payment-request/${widget.paymentId}/bank-report'),
       ]);
 
-      _detail = results[0] as PaymentRequestResponse;
+      final detail = results[0] as PaymentRequestResponse;
+      _detail = detail;
       _history = results[1] as List<PaymentRequestStatusHistoryEntity>;
-      
-      final bankResponse = results[2] as dynamic;
-      if (bankResponse.statusCode == 200) {
-        _bankReport = BankReport.fromJson(jsonDecode(bankResponse.body));
+
+      if (_shouldFetchBankReport(detail)) {
+        try {
+          final bankResponse = await ApiClient().get(
+            '/v2/payment-request/${widget.paymentId}/bank-report',
+            logoutOnUnauthorized: false,
+          );
+          if (bankResponse.statusCode == 200 && bankResponse.body.trim().isNotEmpty) {
+            _bankReport = BankReport.fromJson(jsonDecode(bankResponse.body));
+          }
+        } catch (e) {
+          debugPrint('PaymentRequestDetailScreen: Bank report not available yet: $e');
+        }
       }
 
       setState(() {
@@ -63,6 +73,12 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         _isLoading = false;
       });
     }
+  }
+
+  bool _shouldFetchBankReport(PaymentRequestResponse detail) {
+    return detail.paymentMethod.toUpperCase() == 'EFT' &&
+        detail.paidReference != null &&
+        detail.paidReference!.trim().isNotEmpty;
   }
 
   Future<void> _submitForApproval() async {
