@@ -118,59 +118,104 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
 
   Future<void> _addOrEditOption({FieldOption? option, String? initialField}) async {
     final fieldController = TextEditingController(text: option?.field ?? initialField ?? '');
-    final codeController = TextEditingController(text: option?.code ?? '');
     final descriptionController = TextEditingController(text: option?.description ?? '');
-    final typeController = TextEditingController(text: option?.type ?? '');
-    
     final bool isEditing = option != null;
+
+    String deriveCode(String description) => description
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isEditing ? 'Edit Option' : 'Add Option'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: fieldController,
-                decoration: const InputDecoration(labelText: 'Field Name (e.g. GENDER)'),
-                enabled: !isEditing && initialField == null,
+      builder: (context) {
+        String previewCode = isEditing ? option.code : deriveCode(descriptionController.text);
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+            title: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                  child: Icon(isEditing ? Icons.edit_outlined : Icons.add_circle_outline, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Text(isEditing ? 'Edit Option' : 'Add Option'),
+              ],
+            ),
+            content: SizedBox(
+              width: 460,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: fieldController,
+                    decoration: const InputDecoration(labelText: 'Field', border: OutlineInputBorder()),
+                    enabled: !isEditing && initialField == null,
+                    textCapitalization: TextCapitalization.characters,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      helperText: 'Code is generated automatically from the description.',
+                      border: OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                    onChanged: (value) => setDialogState(() => previewCode = isEditing ? option.code : deriveCode(value)),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Generated code', style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(previewCode.isEmpty ? 'TYPE-DESCRIPTION-FIRST' : previewCode, style: const TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        const Text('Type: TENANT', style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              TextField(
-                controller: codeController,
-                decoration: const InputDecoration(labelText: 'Code (e.g. M)'),
-                enabled: !isEditing,
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description (e.g. Male)'),
-              ),
-              TextField(
-                controller: typeController,
-                decoration: const InputDecoration(labelText: 'Type'),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(context, true),
+                icon: Icon(isEditing ? Icons.save_outlined : Icons.add),
+                label: Text(isEditing ? 'UPDATE' : 'CREATE'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(isEditing ? 'UPDATE' : 'CREATE'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (result == true) {
       try {
         final field = fieldController.text.trim().toUpperCase();
+        final description = descriptionController.text.trim();
+        if (field.isEmpty || description.isEmpty) return;
         final data = {
           'field': field,
-          'code': codeController.text.trim().toUpperCase(),
-          'description': descriptionController.text.trim(),
-          'type': typeController.text.trim(),
+          'code': isEditing ? option.code : deriveCode(description),
+          'description': description,
+          'type': 'TENANT',
           'validFrom': option?.validFrom ?? DateTime.now().toIso8601String().split('T')[0],
           'validTo': option?.validTo ?? '2099-12-31',
         };

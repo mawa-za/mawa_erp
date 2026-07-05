@@ -76,18 +76,29 @@ DateTime _parseDateTime(dynamic value) {
 class FuneralExtraDto {
   final String description;
   final int amountCents;
+  final String? productId;
+  final String? productCode;
 
-  FuneralExtraDto({required this.description, required this.amountCents});
+  FuneralExtraDto({
+    required this.description,
+    required this.amountCents,
+    this.productId,
+    this.productCode,
+  });
 
   Map<String, dynamic> toJson() => {
-    'description': description,
-    'amountCents': amountCents,
-  };
+        'description': description,
+        'amountCents': amountCents,
+        if (productId != null && productId!.isNotEmpty) 'productId': productId,
+        if (productCode != null && productCode!.isNotEmpty) 'productCode': productCode,
+      };
 
   factory FuneralExtraDto.fromJson(Map<String, dynamic> json) {
     return FuneralExtraDto(
       description: json['description']?.toString() ?? '',
       amountCents: (json['amountCents'] as num?)?.toInt() ?? 0,
+      productId: json['productId']?.toString(),
+      productCode: json['productCode']?.toString(),
     );
   }
 }

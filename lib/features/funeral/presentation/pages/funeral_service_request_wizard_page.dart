@@ -13,6 +13,8 @@ import '../../../../core/utils/formatters.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
+import '../../../../core/models/product_lookup.dart';
+import '../../../../core/services/product_lookup_service.dart';
 
 class FuneralServiceRequestWizardPage extends StatefulWidget {
   const FuneralServiceRequestWizardPage({super.key});
@@ -227,10 +229,21 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           },
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: _locationController,
-          decoration: const InputDecoration(labelText: 'Funeral Location / Area', border: OutlineInputBorder()),
-          onChanged: (v) => _controller.funeralLocation = v,
+        DropdownButtonFormField<String>(
+          value: _controller.salesAreaOptions.any((o) => o.code == _controller.funeralLocation)
+              ? _controller.funeralLocation
+              : null,
+          decoration: const InputDecoration(
+            labelText: 'Funeral Location / Area',
+            helperText: 'Field option: SALES-AREA',
+            border: OutlineInputBorder(),
+          ),
+          isExpanded: true,
+          items: _controller.salesAreaOptions
+              .map((opt) => DropdownMenuItem(value: opt.code, child: Text(opt.description)))
+              .toList(),
+          onChanged: (v) => setState(() => _controller.funeralLocation = v ?? ''),
+          validator: (v) => v == null || v.isEmpty ? 'Funeral location is required' : null,
         ),
       ],
     );
@@ -584,6 +597,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         _controller.setError('Please search and select a family representative.');
         return;
       }
+      if (_controller.funeralLocation.trim().isEmpty) {
+        _controller.setError('Please select a funeral location / sales area.');
+        return;
+      }
       _controller.setError(null);
       _controller.nextStep();
     } else if (_controller.currentStep == 2) {
@@ -633,40 +650,14 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   void _showAddExtraDialog() {
-    final descController = TextEditingController();
-    final amountController = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Funeral Extra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description', hintText: 'e.g. Flowers, Transport')),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController, 
-              decoration: const InputDecoration(labelText: 'Amount (Rand)', prefixText: 'R '), 
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final val = double.tryParse(amountController.text);
-              if (val != null && descController.text.isNotEmpty) {
-                final cents = (val * 100).toInt();
-                setState(() => _controller.extras.add(FuneralExtraDto(description: descController.text, amountCents: cents)));
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
+      builder: (context) => const _FuneralExtraProductDialog(),
+    ).then((extra) {
+      if (extra is FuneralExtraDto) {
+        setState(() => _controller.extras.add(extra));
+      }
+    });
   }
 
   Future<void> _handleClaimApproval(claim) async {
@@ -678,5 +669,113 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     if (result != null) {
       await _controller.approveClaim(claim.id, result);
     }
+  }
+}
+
+
+class _FuneralExtraProductDialog extends StatefulWidget {
+  const _FuneralExtraProductDialog();
+
+  @override
+  State<_FuneralExtraProductDialog> createState() => _FuneralExtraProductDialogState();
+}
+
+class _FuneralExtraProductDialogState extends State<_FuneralExtraProductDialog> {
+  final _service = ProductLookupService();
+  final _amountController = TextEditingController();
+  List<ProductLookup> _products = [];
+  ProductLookup? _selected;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final products = await _service.getProducts(type: 'FUNERAL-EXTRA');
+      if (!mounted) return;
+      setState(() {
+        _products = products;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Funeral Extra'),
+      content: SizedBox(
+        width: 520,
+        child: _loading
+            ? const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+            : _error != null
+                ? Text(_error!, style: const TextStyle(color: Colors.red))
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<ProductLookup>(
+                        value: _selected,
+                        decoration: const InputDecoration(labelText: 'Product', border: OutlineInputBorder()),
+                        isExpanded: true,
+                        items: _products
+                            .map((p) => DropdownMenuItem(
+                                  value: p,
+                                  child: Text('${p.description} (${p.code})'),
+                                ))
+                            .toList(),
+                        onChanged: (p) {
+                          setState(() {
+                            _selected = p;
+                            _amountController.text = ((p?.priceCents ?? 0) / 100).toStringAsFixed(2);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _amountController,
+                        decoration: const InputDecoration(labelText: 'Amount (Rand)', prefixText: 'R ', border: OutlineInputBorder()),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ],
+                  ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: _selected == null
+              ? null
+              : () {
+                  final cents = ((double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0) * 100).round();
+                  Navigator.pop(
+                    context,
+                    FuneralExtraDto(
+                      description: _selected!.description,
+                      amountCents: cents,
+                      productId: _selected!.id,
+                      productCode: _selected!.code,
+                    ),
+                  );
+                },
+          child: const Text('Add'),
+        ),
+      ],
+    );
   }
 }

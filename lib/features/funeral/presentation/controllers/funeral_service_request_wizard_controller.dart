@@ -10,6 +10,8 @@ import '../../data/models/funeral_invoice_preview_line_dto.dart';
 import '../../data/models/funeral_invoice_preview_request_dto.dart';
 import '../../data/models/generate_funeral_invoices_response_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
+import '../../../../core/models/field_option.dart';
+import '../../../../core/services/field_service.dart';
 
 class FuneralServiceRequestWizardController extends ChangeNotifier {
   final FuneralApi _api = FuneralApi();
@@ -30,6 +32,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   String contactNumber = '';
   DateTime funeralDate = DateTime.now().add(const Duration(days: 3));
   String funeralLocation = '';
+  List<FieldOption> salesAreaOptions = [];
 
   // Step 3: Package & Extras
   List<FuneralPackageDto> packages = [];
@@ -58,9 +61,14 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       final results = await Future.wait([
         _api.getMortuaryInventory(),
         _api.getFuneralPackages(),
+        FieldService().getOptionsByField('SALES-AREA').catchError((_) => <FieldOption>[]),
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
+      salesAreaOptions = results[2] as List<FieldOption>;
+      if (funeralLocation.isEmpty && salesAreaOptions.isNotEmpty) {
+        funeralLocation = salesAreaOptions.first.code;
+      }
     } catch (e) {
       errorMessage = 'Failed to load initial data: $e';
     } finally {
