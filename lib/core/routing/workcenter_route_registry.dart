@@ -34,8 +34,11 @@ class WorkcenterRouteRegistry {
     'MORTUARY_INVENTORY': AppRoutes.funeralMortuary,
     'PICKUP_REQUESTS': AppRoutes.funeralPickups,
     'PICKUP_REQUEST': AppRoutes.funeralPickups,
-    'FUNERAL_SERVICE_REQUEST': AppRoutes.funeralNewServiceRequest,
-    'FUNERAL_SERVICE_REQUESTS': AppRoutes.funeralNewServiceRequest,
+    'FUNERAL_SERVICE_REQUEST': AppRoutes.funeralServiceRequests,
+    'FUNERAL_SERVICE_REQUESTS': AppRoutes.funeralServiceRequests,
+    'FUNERAL_SERVICE_REQUEST_SEARCH': AppRoutes.funeralServiceRequests,
+    'FUNERAL_ARRANGEMENT': AppRoutes.funeralNewServiceRequest,
+    'FUNERAL_ARRANGEMENT_CREATE': AppRoutes.funeralNewServiceRequest,
     'CORPSE_CHECK_IN': AppRoutes.funeralPickups, // Usually happens via Pickups
     'CORPSE_CHECK_OUT': AppRoutes.funeralMortuary, // Usually happens via Mortuary
     'FUNERAL_PACKAGE': AppRoutes.funeralPackageSetup,

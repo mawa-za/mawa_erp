@@ -8,6 +8,11 @@ class FuneralServiceRequestDto {
   final String familyRepPartnerId;
   final String packageId;
   final List<FuneralExtraDto> extras;
+  final String? deceasedPartnerId;
+  final int? totalAmountCents;
+  final String? status;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   FuneralServiceRequestDto({
     this.id,
@@ -19,6 +24,11 @@ class FuneralServiceRequestDto {
     required this.familyRepPartnerId,
     required this.packageId,
     required this.extras,
+    this.deceasedPartnerId,
+    this.totalAmountCents,
+    this.status,
+    this.createdAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toJson() {
@@ -35,6 +45,9 @@ class FuneralServiceRequestDto {
       'familyRepId': familyRepPartnerId,
       'familyRepPartnerId': familyRepPartnerId,
       'packageId': packageId,
+      if (deceasedPartnerId != null && deceasedPartnerId!.isNotEmpty) 'deceasedPartnerId': deceasedPartnerId,
+      if (totalAmountCents != null) 'totalAmountCents': totalAmountCents,
+      if (status != null && status!.isNotEmpty) 'status': status,
       'extras': extras.map((e) => e.toJson()).toList(),
     };
   }
@@ -49,11 +62,27 @@ class FuneralServiceRequestDto {
       funeralLocation: (json['funeralLocation'] ?? json['funeralArea'] ?? '').toString(),
       familyRepPartnerId: (json['familyRepPartnerId'] ?? json['familyRepId'] ?? '').toString(),
       packageId: json['packageId']?.toString() ?? '',
+      deceasedPartnerId: json['deceasedPartnerId']?.toString(),
+      totalAmountCents: _parseInt(json['totalAmountCents']),
+      status: json['status']?.toString(),
+      createdAt: _parseNullableDateTime(json['createdAt']),
+      updatedAt: _parseNullableDateTime(json['updatedAt']),
       extras: (json['extras'] as List? ?? [])
           .map((e) => FuneralExtraDto.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
     );
   }
+}
+
+DateTime? _parseNullableDateTime(dynamic value) {
+  if (value == null) return null;
+  return _parseDateTime(value);
+}
+
+int? _parseInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
 }
 
 DateTime _parseDateTime(dynamic value) {

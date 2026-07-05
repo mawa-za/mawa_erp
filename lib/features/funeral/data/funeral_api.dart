@@ -130,6 +130,35 @@ class FuneralApi {
   }
 
   // Funeral Service and Claims
+  Future<List<FuneralServiceRequestDto>> getServiceRequests({
+    String? query,
+    String? status,
+    int page = 0,
+    int size = 50,
+  }) async {
+    final params = <String, dynamic>{
+      'page': page,
+      'size': size,
+      if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
+      if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+    };
+    final response = await _apiClient.get('/v2/funeral/service-requests', queryParameters: params);
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map((e) => FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    throw Exception('Failed to load funeral service requests: ${response.body}');
+  }
+
+  Future<FuneralServiceRequestDto> getServiceRequest(String id) async {
+    final response = await _apiClient.get('/v2/funeral/service-request/$id');
+    if (response.statusCode == 200) {
+      return FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw Exception('Failed to load funeral service request: ${response.body}');
+  }
+
   Future<FuneralServiceRequestDto> createServiceRequest(FuneralServiceRequestDto request) async {
     final response = await _apiClient.post('/v2/funeral/service-request', body: request.toJson());
     if (response.statusCode == 200 || response.statusCode == 201) {
