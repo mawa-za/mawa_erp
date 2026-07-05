@@ -8,6 +8,8 @@ import 'api_log_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 import '../../products/screens/product_maintenance_screen.dart';
+import '../../integrations/fnb/fnb_integration_admin_screen.dart';
+import '../../admin/message_queue/message_queue_admin_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -67,6 +69,24 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.people_outline,
             color: Colors.green,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserListScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'FNB Integration',
+            subtitle: 'Maintain FNB API credentials, debtor account and enablement',
+            icon: Icons.account_balance_outlined,
+            color: Colors.deepPurple,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FnbIntegrationAdminScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Message Queue Processing',
+            subtitle: 'Monitor pending messages, retry failures and trigger processing',
+            icon: Icons.queue_outlined,
+            color: Colors.blueGrey,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MessageQueueAdminScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
