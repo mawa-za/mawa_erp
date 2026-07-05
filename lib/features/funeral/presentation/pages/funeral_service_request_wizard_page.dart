@@ -31,7 +31,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   final _contactNumberController = TextEditingController();
   final _locationController = TextEditingController();
   final _deathCertificateController = TextEditingController();
-  final _causeOfDeathController = TextEditingController();
 
   final List<String> _stepTitles = [
     'Deceased',
@@ -66,7 +65,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _contactNumberController.dispose();
     _locationController.dispose();
     _deathCertificateController.dispose();
-    _causeOfDeathController.dispose();
     super.dispose();
   }
 
@@ -262,15 +260,21 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           onChanged: (v) => _controller.deathCertificateNo = v.trim().toUpperCase(),
         ),
         const SizedBox(height: 16),
-        TextFormField(
-          controller: _causeOfDeathController,
+        DropdownButtonFormField<String>(
+          value: _controller.causeOfDeathOptions.any((o) => o.code == _controller.causeOfDeathCode)
+              ? _controller.causeOfDeathCode
+              : null,
           decoration: const InputDecoration(
             labelText: 'Cause of Death',
+            helperText: 'Field option: CAUSE-OF-DEATH',
             border: OutlineInputBorder(),
           ),
-          maxLines: 2,
-          textCapitalization: TextCapitalization.sentences,
-          onChanged: (v) => _controller.causeOfDeath = v.trim(),
+          isExpanded: true,
+          items: _controller.causeOfDeathOptions
+              .map((opt) => DropdownMenuItem(value: opt.code, child: Text(opt.description)))
+              .toList(),
+          onChanged: (v) => setState(() => _controller.causeOfDeathCode = v),
+          validator: (v) => v == null || v.isEmpty ? 'Cause of death is required' : null,
         ),
       ],
     );
