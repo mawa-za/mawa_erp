@@ -121,7 +121,6 @@ class _AttachmentSectionState extends State<AttachmentSection> {
       List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
       if (docTypes.isEmpty && widget.documentTypeField == 'CLAIM-DOCUMENT-TYPE') {
         docTypes = [
-          FieldOption(field: widget.documentTypeField, code: 'CLAIM-FORM', type: 'SYSTEM', description: 'Claim Form', validFrom: '', validTo: ''),
           FieldOption(field: widget.documentTypeField, code: 'DEATH-CERTIFICATE', type: 'SYSTEM', description: 'Death Certificate', validFrom: '', validTo: ''),
           FieldOption(field: widget.documentTypeField, code: 'ID-COPY', type: 'SYSTEM', description: 'ID Copy', validFrom: '', validTo: ''),
           FieldOption(field: widget.documentTypeField, code: 'SUPPORTING-DOCUMENT', type: 'SYSTEM', description: 'Supporting Document', validFrom: '', validTo: ''),

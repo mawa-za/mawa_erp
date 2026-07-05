@@ -50,7 +50,7 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
   Future<void> _generateInvoices() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _api.generateInvoices({'serviceRequestId': widget.serviceRequestId});
+      final response = await _api.generateInvoices({'funeralServiceId': widget.serviceRequestId});
       if (mounted) {
         showDialog(
           context: context,

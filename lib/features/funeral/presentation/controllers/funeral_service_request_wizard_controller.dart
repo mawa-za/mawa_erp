@@ -34,8 +34,9 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   DateTime funeralDate = DateTime.now().add(const Duration(days: 3));
   String funeralLocation = '';
   String deathCertificateNo = '';
-  String causeOfDeath = '';
+  String? causeOfDeathCode;
   List<FieldOption> salesAreaOptions = [];
+  List<FieldOption> causeOfDeathOptions = [];
 
   // Step 3: Package & Extras
   List<FuneralPackageDto> packages = [];
@@ -65,12 +66,17 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         _api.getMortuaryInventory(),
         _api.getFuneralPackages(),
         FieldService().getOptionsByField('SALES-AREA').catchError((_) => <FieldOption>[]),
+        FieldService().getOptionsByField('CAUSE-OF-DEATH').catchError((_) => <FieldOption>[]),
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
       salesAreaOptions = results[2] as List<FieldOption>;
+      causeOfDeathOptions = results[3] as List<FieldOption>;
       if (funeralLocation.isEmpty && salesAreaOptions.isNotEmpty) {
         funeralLocation = salesAreaOptions.first.code;
+      }
+      if (causeOfDeathCode == null && causeOfDeathOptions.isNotEmpty) {
+        causeOfDeathCode = causeOfDeathOptions.first.code;
       }
     } catch (e) {
       errorMessage = 'Failed to load initial data: $e';
@@ -164,7 +170,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
         familyRepPartnerId: familyRepPartnerId!,
         deathCertificateNo: deathCertificateNo.trim(),
-        causeOfDeath: causeOfDeath.trim(),
+        causeOfDeath: causeOfDeathCode,
         packageId: selectedPackage!.id,
         extras: extras,
       );
@@ -185,7 +191,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
             membershipIds: membershipSelections,
             claimType: selectedClaimType,
             deathCertificateNo: deathCertificateNo.trim(),
-            causeOfDeath: causeOfDeath.trim(),
+            causeOfDeath: causeOfDeathCode,
           ),
         );
       }
@@ -256,6 +262,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     notifyListeners();
     try {
       final request = FuneralInvoicePreviewRequestDto(
+        funeralServiceId: serviceRequestId,
         deceasedName: selectedDeceased?.deceasedName ?? '',
         packageId: selectedPackage?.id ?? '',
         familyRepId: familyRepPartnerId ?? '',
@@ -277,7 +284,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      generationResponse = await _api.generateInvoices({'serviceRequestId': serviceRequestId});
+      generationResponse = await _api.generateInvoices({'funeralServiceId': serviceRequestId});
       return true;
     } catch (e) {
       errorMessage = 'Failed to generate invoices: $e';
