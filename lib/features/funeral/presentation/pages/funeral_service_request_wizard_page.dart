@@ -311,23 +311,32 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           ),
         ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
               cover: cover,
-              isSelected: _controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == (cover.membershipId ?? cover.sourceReference)),
-              onTap: () {
-                setState(() {
-                  final id = cover.membershipId ?? cover.sourceReference;
-                  if (_controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == id)) {
-                    _controller.selectedCovers.removeWhere((c) => (c.membershipId ?? c.sourceReference) == id);
-                  } else {
-                    _controller.selectedCovers.add(cover);
-                  }
-                });
-              },
+              isSelected: _controller.isCoverSelected(cover),
+              onTap: () => _controller.toggleCoverSelection(cover),
             )),
-        if (_controller.availableCovers.isNotEmpty)
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text('Select one or more memberships to use for claim initiation.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        if (_controller.availableCovers.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              _controller.selectedCovers.isEmpty
+                  ? 'Select one or more memberships to use for claim initiation.'
+                  : '${_controller.selectedCovers.length} cover(s) selected for claim initiation.',
+              style: TextStyle(
+                fontSize: 12,
+                color: _controller.selectedCovers.isEmpty ? Colors.grey : Colors.green.shade700,
+                fontWeight: _controller.selectedCovers.isEmpty ? FontWeight.normal : FontWeight.w600,
+              ),
+            ),
           ),
+          if (_controller.hasInvalidSelectedCovers)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                'One selected cover is missing a valid claim selection id. Please run Check Cover again.',
+                style: TextStyle(fontSize: 12, color: Colors.orange.shade800, fontWeight: FontWeight.w600),
+              ),
+            ),
+        ],
       ],
     );
   }
@@ -561,30 +570,42 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   Future<void> _onNextPressed() async {
     if (_controller.currentStep == 0) {
       if (_controller.selectedDeceased == null) {
-        _controller.errorMessage = 'Please select a deceased person from the list.';
+        _controller.setError('Please select a deceased person from the list.');
         return;
       }
       if (_controller.deceasedIdentityNumber.isEmpty) {
-        _controller.errorMessage = 'Identity number is required for the membership check step.';
+        _controller.setError('Identity number is required for the membership check step.');
         return;
       }
-      _controller.errorMessage = null;
+      _controller.setError(null);
       _controller.nextStep();
     } else if (_controller.currentStep == 1) {
       if (_controller.familyRepPartnerId == null) {
-        _controller.errorMessage = 'Please search and select a family representative.';
+        _controller.setError('Please search and select a family representative.');
         return;
       }
-      _controller.errorMessage = null;
+      _controller.setError(null);
       _controller.nextStep();
     } else if (_controller.currentStep == 2) {
       if (_controller.selectedPackage == null) {
-        _controller.errorMessage = 'Please select a funeral package.';
+        _controller.setError('Please select a funeral package.');
         return;
       }
-      _controller.errorMessage = null;
+      _controller.setError(null);
       _controller.nextStep();
     } else if (_controller.currentStep == 3) {
+      if (_controller.availableCovers.isEmpty) {
+        _controller.setError('Please run Check Cover before initiating the funeral arrangement.');
+        return;
+      }
+      if (_controller.selectedCovers.isEmpty) {
+        _controller.setError('Please select at least one membership cover before initiating the funeral arrangement.');
+        return;
+      }
+      if (_controller.hasInvalidSelectedCovers) {
+        _controller.setError('One selected cover is missing a valid claim selection id. Please run Check Cover again and reselect the cover.');
+        return;
+      }
       final success = await _controller.createServiceRequest();
       if (success) _controller.nextStep();
     } else if (_controller.currentStep == 4) {

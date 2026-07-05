@@ -55,7 +55,7 @@ class AppTheme {
         scrolledUnderElevation: 1,
         shadowColor: Color(0x1A0F172A),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: _containerBackground,
         surfaceTintColor: Colors.transparent,
         elevation: 1,
@@ -66,7 +66,7 @@ class AppTheme {
           side: const BorderSide(color: _divider),
         ),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: _containerBackground,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
