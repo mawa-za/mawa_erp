@@ -33,7 +33,7 @@ class AttachmentSection extends StatefulWidget {
 
 class _AttachmentSectionState extends State<AttachmentSection> {
   List<Attachment> _attachments = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
   bool _isUploading = false;
 
   @override
@@ -42,12 +42,31 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     _loadAttachments();
   }
 
+  @override
+  void didUpdateWidget(covariant AttachmentSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.objectId != widget.objectId) {
+      _loadAttachments();
+    }
+  }
+
+  bool get _hasObjectId => widget.objectId.trim().isNotEmpty;
+
   Future<void> _loadAttachments() async {
     if (!mounted) return;
+    if (!_hasObjectId) {
+      setState(() {
+        _attachments = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
     setState(() => _isLoading = true);
     
     try {
-      final response = await ApiClient().get('/v2/attachment?objectId=${widget.objectId}');
+      final encodedObjectId = Uri.encodeQueryComponent(widget.objectId.trim());
+      final response = await ApiClient().get('/v2/attachment?objectId=$encodedObjectId');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         
@@ -89,6 +108,15 @@ class _AttachmentSectionState extends State<AttachmentSection> {
   }
 
   Future<void> _uploadAttachment() async {
+    if (!_hasObjectId) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please save or create the record before attaching documents.')),
+        );
+      }
+      return;
+    }
+
     try {
       List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
       if (docTypes.isEmpty && widget.documentTypeField == 'CLAIM-DOCUMENT-TYPE') {

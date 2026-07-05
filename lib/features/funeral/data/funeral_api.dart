@@ -195,7 +195,11 @@ class FuneralApi {
 
 
   Future<FuneralClaimDto> submitClaimForApproval(String claimId) async {
-    final response = await _apiClient.post('/v2/funeral/claims/$claimId/submit-for-approval');
+    final normalizedClaimId = claimId.trim();
+    if (normalizedClaimId.isEmpty) {
+      throw Exception('Missing membership claim id. Please refresh claims and try again.');
+    }
+    final response = await _apiClient.post('/v2/funeral/claims/$normalizedClaimId/submit-for-approval');
     if (response.statusCode == 200 || response.statusCode == 201) {
       return FuneralClaimDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
     }

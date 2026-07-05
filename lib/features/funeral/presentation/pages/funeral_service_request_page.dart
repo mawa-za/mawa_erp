@@ -252,6 +252,13 @@ class _FuneralServiceRequestCard extends StatelessWidget {
                         request.deceasedName.isEmpty ? 'Unknown deceased' : request.deceasedName,
                         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                       ),
+                      if (request.serviceRequestNo != null && request.serviceRequestNo!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Request ${request.serviceRequestNo}',
+                          style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w700),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Text(
                         [
@@ -275,6 +282,10 @@ class _FuneralServiceRequestCard extends StatelessWidget {
               children: [
                 _InfoItem(label: 'Amount', value: Formatters.formatCentsAsRand(request.totalAmountCents)),
                 _InfoItem(label: 'Created', value: Formatters.formatFriendlyDate(request.createdAt)),
+                if (request.deathCertificateNo != null && request.deathCertificateNo!.isNotEmpty)
+                  _InfoItem(label: 'Certificate No', value: request.deathCertificateNo!),
+                if (request.causeOfDeath != null && request.causeOfDeath!.isNotEmpty)
+                  _InfoItem(label: 'Cause of Death', value: request.causeOfDeath!),
                 if (request.id != null && request.id!.isNotEmpty)
                   _InfoItem(label: 'Request ID', value: request.id!),
               ],

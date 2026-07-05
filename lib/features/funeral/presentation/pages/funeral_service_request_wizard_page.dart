@@ -30,6 +30,8 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   final _contactNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _locationController = TextEditingController();
+  final _deathCertificateController = TextEditingController();
+  final _causeOfDeathController = TextEditingController();
 
   final List<String> _stepTitles = [
     'Deceased',
@@ -63,6 +65,8 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _contactNameController.dispose();
     _contactNumberController.dispose();
     _locationController.dispose();
+    _deathCertificateController.dispose();
+    _causeOfDeathController.dispose();
     super.dispose();
   }
 
@@ -245,6 +249,28 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               .toList(),
           onChanged: (v) => setState(() => _controller.funeralLocation = v ?? ''),
           validator: (v) => v == null || v.isEmpty ? 'Funeral location is required' : null,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _deathCertificateController,
+          decoration: const InputDecoration(
+            labelText: 'Certificate Number',
+            helperText: 'Death certificate / supporting certificate number',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.characters,
+          onChanged: (v) => _controller.deathCertificateNo = v.trim().toUpperCase(),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _causeOfDeathController,
+          decoration: const InputDecoration(
+            labelText: 'Cause of Death',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 2,
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (v) => _controller.causeOfDeath = v.trim(),
         ),
       ],
     );
