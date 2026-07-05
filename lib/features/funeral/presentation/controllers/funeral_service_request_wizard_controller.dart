@@ -6,6 +6,7 @@ import '../../data/models/funeral_membership_cover_dto.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/initiate_funeral_claims_request_dto.dart';
 import '../../data/models/funeral_claim_dto.dart';
+import '../../data/models/funeral_enums.dart';
 import '../../data/models/funeral_invoice_preview_line_dto.dart';
 import '../../data/models/funeral_invoice_preview_request_dto.dart';
 import '../../data/models/generate_funeral_invoices_response_dto.dart';
@@ -208,6 +209,21 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
+  Future<void> submitClaimForApproval(String claimId) async {
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _api.submitClaimForApproval(claimId);
+      await loadClaims();
+    } catch (e) {
+      errorMessage = 'Failed to submit claim for approval: $e';
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {
     isLoading = true;
     notifyListeners();
@@ -273,5 +289,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
-  bool get hasPendingClaims => claims.any((c) => c.status.name == 'PENDING');
+  bool get hasDraftClaims => claims.any((c) => c.status == ClaimStatus.DRAFT);
+
+  bool get hasPendingClaims => claims.any((c) => ['DRAFT', 'PENDING', 'SUBMITTED', 'IN_PROGRESS'].contains(c.status.name));
 }

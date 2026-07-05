@@ -319,7 +319,7 @@ class ApiClient {
       }
 
       // Trying v2 endpoint as authenticate is versioned
-      final url = Uri.parse('https://$host/v2/refresh-token');
+      final url = _buildUrl(host ?? '', '/v2/refresh-token');
       debugPrint('ApiClient: Attempting refresh at $url');
       
       final response = await http.post(
@@ -328,9 +328,12 @@ class ApiClient {
           'Content-Type': 'application/json',
           'X-TenantID': tenantId ?? '',
           'X-Tenant-Id': tenantId ?? '',
+          'Authorization': 'Bearer $refreshToken',
+          'Refresh-Token': refreshToken,
         },
         body: jsonEncode({
           'refreshToken': refreshToken,
+          'refresh_token': refreshToken,
         }),
       );
 
@@ -348,16 +351,19 @@ class ApiClient {
       // If v2 fails with 404, fallback to root endpoint
       if (response.statusCode == 404) {
         debugPrint('ApiClient: /v2/refresh-token not found, falling back to /refresh-token');
-        final fallbackUrl = Uri.parse('https://$host/refresh-token');
+        final fallbackUrl = _buildUrl(host ?? '', '/refresh-token');
         final fallbackResponse = await http.post(
           fallbackUrl,
           headers: {
             'Content-Type': 'application/json',
             'X-TenantID': tenantId ?? '',
             'X-Tenant-Id': tenantId ?? '',
+            'Authorization': 'Bearer $refreshToken',
+            'Refresh-Token': refreshToken,
           },
           body: jsonEncode({
             'refreshToken': refreshToken,
+            'refresh_token': refreshToken,
           }),
         );
         

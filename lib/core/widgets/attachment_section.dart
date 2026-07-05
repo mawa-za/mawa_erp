@@ -17,12 +17,14 @@ class AttachmentSection extends StatefulWidget {
   final String objectId;
   final bool readOnly;
   final String documentTypeField;
+  final String? objectType;
   
   const AttachmentSection({
     super.key, 
     required this.objectId,
     this.readOnly = false,
     this.documentTypeField = 'DOCUMENT-TYPE',
+    this.objectType,
   });
 
   @override
@@ -88,7 +90,15 @@ class _AttachmentSectionState extends State<AttachmentSection> {
 
   Future<void> _uploadAttachment() async {
     try {
-      final List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
+      List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
+      if (docTypes.isEmpty && widget.documentTypeField == 'CLAIM-DOCUMENT-TYPE') {
+        docTypes = [
+          FieldOption(field: widget.documentTypeField, code: 'CLAIM-FORM', type: 'SYSTEM', description: 'Claim Form', validFrom: '', validTo: ''),
+          FieldOption(field: widget.documentTypeField, code: 'DEATH-CERTIFICATE', type: 'SYSTEM', description: 'Death Certificate', validFrom: '', validTo: ''),
+          FieldOption(field: widget.documentTypeField, code: 'ID-COPY', type: 'SYSTEM', description: 'ID Copy', validFrom: '', validTo: ''),
+          FieldOption(field: widget.documentTypeField, code: 'SUPPORTING-DOCUMENT', type: 'SYSTEM', description: 'Supporting Document', validFrom: '', validTo: ''),
+        ];
+      }
       
       if (!mounted) return;
 
@@ -251,6 +261,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         
         final payload = {
           'objectId': widget.objectId,
+          if (widget.objectType != null && widget.objectType!.isNotEmpty) 'objectType': widget.objectType,
           'documentType': selectedDocType!.code,
           'extension': extension,
           'file': base64Content,
