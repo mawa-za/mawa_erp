@@ -135,6 +135,13 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
 
   bool get hasInvalidSelectedCovers => selectedCovers.any((c) => !c.hasValidClaimSelectionId);
 
+  String get selectedClaimType => selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL';
+
+  int get selectedCoverTotalCents => selectedCovers.fold(
+        0,
+        (total, cover) => total + cover.amountForClaimType(selectedClaimType),
+      );
+
   Future<bool> createServiceRequest() async {
     if (selectedDeceased == null || familyRepPartnerId == null || selectedPackage == null) {
       errorMessage = 'Please complete all required fields';
@@ -171,6 +178,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           serviceRequestId!,
           InitiateFuneralClaimsRequestDto(
             membershipIds: membershipSelections,
+            claimType: selectedClaimType,
           ),
         );
       }
@@ -223,6 +231,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         packageId: selectedPackage?.id ?? '',
         familyRepId: familyRepPartnerId ?? '',
         memberships: selectedMembershipSelectionIds,
+        claimType: selectedClaimType,
         extras: extras,
       );
       previewLines = await _api.getInvoicePreview(request);
