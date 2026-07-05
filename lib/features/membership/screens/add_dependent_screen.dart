@@ -23,7 +23,7 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
   Partner? _selectedPartner;
   DependentType _selectedType = DependentType.OTHER;
 
-  String? _selectedIdentityType;
+  String? _selectedIdentityType = 'SA-ID';
   DateTime? _dateOfBirth;
   final _identityNumberController = TextEditingController();
   final _firstNameController = TextEditingController();
@@ -38,6 +38,31 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
   bool get _hasIdentityType => (_selectedIdentityType ?? '').trim().isNotEmpty;
   bool get _hasIdentityNumber => _identityNumberController.text.trim().isNotEmpty;
   bool get _hasIdentityPair => _hasIdentityType && _hasIdentityNumber;
+  bool get _isSaId => (_selectedIdentityType ?? '').toUpperCase().replaceAll('_', '-').replaceAll(' ', '-') == 'SA-ID';
+
+  DateTime? _dateOfBirthFromSaId(String value) {
+    final id = value.trim();
+    if (id.length != 13 || !RegExp(r'^\d{13}$').hasMatch(id)) return null;
+    final yy = int.tryParse(id.substring(0, 2));
+    final mm = int.tryParse(id.substring(2, 4));
+    final dd = int.tryParse(id.substring(4, 6));
+    if (yy == null || mm == null || dd == null) return null;
+    final now = DateTime.now();
+    final currentTwoDigitYear = now.year % 100;
+    final century = yy <= currentTwoDigitYear ? 2000 : 1900;
+    final date = DateTime(century + yy, mm, dd);
+    if (date.year != century + yy || date.month != mm || date.day != dd) return null;
+    if (date.isAfter(now)) return null;
+    return date;
+  }
+
+  void _deriveDateOfBirthFromId(String value) {
+    if (!_isSaId) return;
+    final dob = _dateOfBirthFromSaId(value);
+    if (dob != null && _dateOfBirth != dob) {
+      setState(() => _dateOfBirth = dob);
+    }
+  }
 
   Future<void> _selectDateOfBirth() async {
     final picked = await showDatePicker(
@@ -300,7 +325,10 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
         label: 'ID Type',
         icon: Icons.badge_outlined,
         value: _selectedIdentityType,
-        onChanged: (val) => setState(() => _selectedIdentityType = val),
+        onChanged: (val) => setState(() {
+          _selectedIdentityType = val;
+          _deriveDateOfBirthFromId(_identityNumberController.text);
+        }),
         validator: (val) {
           if (!_isCreatingNewPartner) return null;
           final hasType = (val ?? '').trim().isNotEmpty;
@@ -314,10 +342,14 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
         'ID Number',
         Icons.confirmation_number_outlined,
         requiredWhenCreating: false,
+        keyboardType: TextInputType.number,
+        onChanged: _deriveDateOfBirthFromId,
         validator: (val) {
           if (!_isCreatingNewPartner) return null;
-          final hasNumber = (val ?? '').trim().isNotEmpty;
+          final value = (val ?? '').trim();
+          final hasNumber = value.isNotEmpty;
           if (!hasNumber && _hasIdentityType) return 'ID Number is required when ID Type is captured';
+          if (_isSaId && hasNumber && _dateOfBirthFromSaId(value) == null) return 'Enter a valid 13 digit SA-ID number';
           return null;
         },
       ),
@@ -375,10 +407,14 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
     IconData icon, {
     bool requiredWhenCreating = true,
     String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       textCapitalization: TextCapitalization.characters,
+      keyboardType: keyboardType,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
