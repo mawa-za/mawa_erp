@@ -69,6 +69,11 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
+  void setError(String? message) {
+    errorMessage = message;
+    notifyListeners();
+  }
+
   void selectDeceased(MortuaryInventoryDto item) {
     selectedDeceased = item;
     if (item.identityNumber != null && item.identityNumber!.isNotEmpty) {
@@ -94,6 +99,33 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+
+
+  void toggleCoverSelection(FuneralMembershipCoverDto cover) {
+    final selectionId = cover.selectionId;
+    final existingIndex = selectedCovers.indexWhere((c) => c.selectionId == selectionId);
+    if (existingIndex >= 0) {
+      selectedCovers.removeAt(existingIndex);
+    } else {
+      selectedCovers.add(cover);
+    }
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  bool isCoverSelected(FuneralMembershipCoverDto cover) {
+    return selectedCovers.any((c) => c.selectionId == cover.selectionId);
+  }
+
+  List<String> get selectedMembershipSelectionIds => selectedCovers
+      .map((c) => c.membershipId?.trim())
+      .whereType<String>()
+      .where((id) => id.isNotEmpty && (id.startsWith('LOCAL:') || id.startsWith('EXTERNAL:')))
+      .toSet()
+      .toList();
+
+  bool get hasInvalidSelectedCovers => selectedCovers.any((c) => !c.hasValidClaimSelectionId);
 
   Future<bool> createServiceRequest() async {
     if (selectedDeceased == null || familyRepPartnerId == null || selectedPackage == null) {
@@ -121,15 +153,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       serviceRequestId = result.id;
       
       if (selectedCovers.isNotEmpty) {
-        final membershipSelections = selectedCovers
-            .map((c) => c.membershipId ?? c.sourceReference)
-            .whereType<String>()
-            .where((id) => id.trim().isNotEmpty)
-            .toSet()
-            .toList();
+        final membershipSelections = selectedMembershipSelectionIds;
 
         if (membershipSelections.isEmpty) {
-          throw Exception('At least one valid membership selection is required before claims can be initiated.');
+          throw Exception('The selected cover does not contain a valid claim selection id. Please run Check Cover again and select a valid cover.');
         }
 
         await _api.initiateClaims(
@@ -187,7 +214,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         deceasedName: selectedDeceased?.deceasedName ?? '',
         packageId: selectedPackage?.id ?? '',
         familyRepId: familyRepPartnerId ?? '',
-        memberships: selectedCovers.map((c) => c.membershipId ?? c.sourceReference ?? '').toList(),
+        memberships: selectedMembershipSelectionIds,
         extras: extras,
       );
       previewLines = await _api.getInvoicePreview(request);
