@@ -72,12 +72,12 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
 
   Future<void> _loadLogo() async {
     try {
-      final meta = await ApiClient().get('/v2/company-logo');
+      final meta = await ApiClient().get('/v2/company-logo', logoutOnUnauthorized: false);
       if (meta.statusCode == 200) {
         final decoded = jsonDecode(meta.body);
         if (decoded is Map) _logoMetadata = Map<String, dynamic>.from(decoded);
       }
-      final response = await ApiClient().get('/v2/company-logo/content');
+      final response = await ApiClient().get('/v2/company-logo/content', logoutOnUnauthorized: false);
       if (response.statusCode == 200) {
         setState(() {
           _logoBytes = response.bodyBytes;

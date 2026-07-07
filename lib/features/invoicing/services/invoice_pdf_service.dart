@@ -90,7 +90,7 @@ class InvoicePdfService {
 
   Future<Uint8List?> _loadCompanyLogoBytes() async {
     try {
-      final response = await ApiClient().get('/v2/company-logo/content');
+      final response = await ApiClient().get('/v2/company-logo/content', logoutOnUnauthorized: false);
       if (response.statusCode == 200) {
         return response.bodyBytes;
       }
