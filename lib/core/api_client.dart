@@ -306,82 +306,92 @@ class ApiClient {
     }
   }
 
+  bool _isSuccessfulRefreshResponse(http.Response response) =>
+      response.statusCode >= 200 && response.statusCode < 300;
+
+  Future<http.Response> _postRefreshRequest({
+    required Uri url,
+    required String refreshToken,
+    required String tenantId,
+  }) {
+    // mawa_pay refreshes using the refresh token as the Bearer token.
+    // Keep the token in the body/header too so older backend variants still work.
+    return http.post(
+      url,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $refreshToken',
+        'Refresh-Token': refreshToken,
+        'X-TenantID': tenantId,
+        'X-Tenant-Id': tenantId,
+      },
+      body: jsonEncode({
+        'refreshToken': refreshToken,
+        'refresh_token': refreshToken,
+        'refresh': refreshToken,
+      }),
+    );
+  }
+
   Future<bool> _refreshToken({bool logoutOnUnauthorized = true}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final refreshToken = prefs.getString('refreshToken');
+      final refreshToken = (prefs.getString('refreshToken') ?? '').trim();
       final host = await _getApiHost();
-      final tenantId = await _getTenantId();
+      final tenantId = (await _getTenantId() ?? '').trim();
 
-      if (refreshToken == null || refreshToken.isEmpty) {
+      if (host == null || host.isEmpty) {
+        debugPrint('ApiClient: API host not configured for token refresh');
+        return false;
+      }
+
+      if (refreshToken.isEmpty) {
         debugPrint('ApiClient: No refresh token available');
         if (logoutOnUnauthorized) await logout(reason: 'missing_refresh_token');
         return false;
       }
 
-      // Trying v2 endpoint as authenticate is versioned
-      final url = _buildUrl(host ?? '', '/v2/refresh-token');
-      debugPrint('ApiClient: Attempting refresh at $url');
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-TenantID': tenantId ?? '',
-          'X-Tenant-Id': tenantId ?? '',
-          'Refresh-Token': refreshToken,
-        },
-        body: jsonEncode({
-          'refreshToken': refreshToken,
-          'refresh_token': refreshToken,
-        }),
-      );
+      final refreshAttempts = <Uri>[
+        // Match mawa_pay behaviour first.
+        _buildUrl(host, '/refresh-token'),
+        // Keep v2 fallback for deployments that expose only the versioned endpoint.
+        _buildUrl(host, '/v2/refresh-token'),
+      ];
 
-      debugPrint('ApiClient: Refresh response ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        await _storeTokensFromResponse(response.body);
-        final newAccessToken = prefs.getString('accessToken');
-        if (newAccessToken != null && newAccessToken.isNotEmpty) {
-          debugPrint('ApiClient: Token refreshed successfully');
-          return true;
-        }
-      } 
-      
-      // If v2 refresh fails, fallback to root endpoint for older deployments.
-      if (response.statusCode != 200) {
-        debugPrint('ApiClient: /v2/refresh-token failed (${response.statusCode}), falling back to /refresh-token');
-        final fallbackUrl = _buildUrl(host ?? '', '/refresh-token');
-        final fallbackResponse = await http.post(
-          fallbackUrl,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-TenantID': tenantId ?? '',
-            'X-Tenant-Id': tenantId ?? '',
-            'Refresh-Token': refreshToken,
-          },
-          body: jsonEncode({
-            'refreshToken': refreshToken,
-            'refresh_token': refreshToken,
-          }),
+      http.Response? lastResponse;
+      for (final url in refreshAttempts) {
+        debugPrint('ApiClient: Attempting refresh at $url');
+        final response = await _postRefreshRequest(
+          url: url,
+          refreshToken: refreshToken,
+          tenantId: tenantId,
         );
-        
-        if (fallbackResponse.statusCode == 200) {
-          await _storeTokensFromResponse(fallbackResponse.body);
-          final newAccessToken = prefs.getString('accessToken');
-          if (newAccessToken != null && newAccessToken.isNotEmpty) {
-            debugPrint('ApiClient: Token refreshed via fallback successfully');
+        lastResponse = response;
+        debugPrint('ApiClient: Refresh response ${response.statusCode} from $url');
+
+        if (_isSuccessfulRefreshResponse(response)) {
+          await _storeTokensFromResponse(response.body);
+          final newAccessToken = (prefs.getString('accessToken') ?? '').trim();
+          final storedRefreshToken = (prefs.getString('refreshToken') ?? '').trim();
+          if (newAccessToken.isNotEmpty) {
+            if (storedRefreshToken.isEmpty) {
+              await prefs.setString('refreshToken', refreshToken);
+            }
+            debugPrint('ApiClient: Token refreshed successfully');
             return true;
           }
+          debugPrint('ApiClient: Refresh succeeded but no access token was returned');
         }
-        debugPrint('ApiClient: Fallback refresh also failed: ${fallbackResponse.statusCode}');
       }
-      
-      debugPrint('ApiClient: Refresh failed. Status: ${response.statusCode}');
-      if (logoutOnUnauthorized) await logout(reason: 'refresh_failed_${response.statusCode}');
+
+      final status = lastResponse?.statusCode ?? 0;
+      debugPrint('ApiClient: Refresh failed. Status: $status');
+      if (logoutOnUnauthorized) await logout(reason: 'refresh_failed_$status');
       return false;
     } catch (e) {
       debugPrint('ApiClient: Exception during _refreshToken: $e');
+      if (logoutOnUnauthorized) await logout(reason: 'refresh_exception');
       return false;
     }
   }
