@@ -183,7 +183,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                   const SizedBox(height: 8),
                   Center(
                     child: Text(
-                      'Logo upload must be exactly 600 x 180 px. It prints at 160 x 48 pt. A placeholder is used when no logo is loaded.',
+                      'Logo upload must not be larger than 600 x 180 px. It prints at 160 x 48 pt. A placeholder is used when no logo is loaded.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
