@@ -167,6 +167,17 @@ class FuneralApi {
     throw Exception('Failed to create service request: ${response.body}');
   }
 
+  Future<FuneralServiceRequestDto> updateServiceRequestPackage(String serviceRequestId, FuneralServiceRequestDto request) async {
+    final response = await _apiClient.put(
+      '/v2/funeral/service-request/$serviceRequestId/package',
+      body: request.toJson(),
+    );
+    if (response.statusCode == 200) {
+      return FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw Exception('Failed to update funeral package: ${response.body}');
+  }
+
   Future<void> initiateClaims(String serviceRequestId, InitiateFuneralClaimsRequestDto request) async {
     final response = await _apiClient.post(
       '/v2/funeral/service-request/$serviceRequestId/initiate-claims',

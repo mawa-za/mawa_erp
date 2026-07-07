@@ -38,16 +38,16 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<FieldOption> salesAreaOptions = [];
   List<FieldOption> causeOfDeathOptions = [];
 
-  // Step 3: Package & Extras
+  // Step 3: Membership Cover
   List<FuneralPackageDto> packages = [];
   FuneralPackageDto? selectedPackage;
   List<FuneralExtraDto> extras = [];
 
-  // Step 4: Membership Cover
+  // Step 4: Claims
   List<FuneralMembershipCoverDto> availableCovers = [];
   List<FuneralMembershipCoverDto> selectedCovers = [];
 
-  // Step 5: Claims
+  // Step 5: Package & Extras
   String? serviceRequestId;
   List<FuneralClaimDto> claims = [];
 
@@ -152,8 +152,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       );
 
   Future<bool> createServiceRequest() async {
-    if (selectedDeceased == null || familyRepPartnerId == null || selectedPackage == null) {
-      errorMessage = 'Please complete all required fields';
+    if (selectedDeceased == null || familyRepPartnerId == null) {
+      errorMessage = 'Please complete deceased and family representative details first';
       notifyListeners();
       return false;
     }
@@ -162,23 +162,25 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
-      final request = FuneralServiceRequestDto(
-        mortuaryInventoryId: selectedDeceased!.id,
-        deceasedName: selectedDeceased!.deceasedName,
-        deceasedIdentityNumber: deceasedIdentityNumber,
-        funeralDate: funeralDate,
-        funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
-        familyRepPartnerId: familyRepPartnerId!,
-        deathCertificateNo: deathCertificateNo.trim(),
-        causeOfDeath: causeOfDeathCode,
-        packageId: selectedPackage!.id,
-        extras: extras,
-      );
+      if (serviceRequestId == null || serviceRequestId!.isEmpty) {
+        final request = FuneralServiceRequestDto(
+          mortuaryInventoryId: selectedDeceased!.id,
+          deceasedName: selectedDeceased!.deceasedName,
+          deceasedIdentityNumber: deceasedIdentityNumber,
+          funeralDate: funeralDate,
+          funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
+          familyRepPartnerId: familyRepPartnerId!,
+          deathCertificateNo: deathCertificateNo.trim(),
+          causeOfDeath: causeOfDeathCode,
+          packageId: '',
+          extras: const [],
+        );
 
-      final result = await _api.createServiceRequest(request);
-      serviceRequestId = result.id;
-      
-      if (selectedCovers.isNotEmpty) {
+        final result = await _api.createServiceRequest(request);
+        serviceRequestId = result.id;
+      }
+
+      if (selectedCovers.isNotEmpty && claims.isEmpty) {
         final membershipSelections = selectedMembershipSelectionIds;
 
         if (membershipSelections.isEmpty) {
@@ -195,11 +197,47 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           ),
         );
       }
-      
+
       await loadClaims();
       return true;
     } catch (e) {
-      errorMessage = 'Failed to create service request: $e';
+      errorMessage = 'Failed to initiate funeral claims: $e';
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updatePackageSelection() async {
+    if (serviceRequestId == null || selectedPackage == null) {
+      errorMessage = 'Please select a funeral package before continuing.';
+      notifyListeners();
+      return false;
+    }
+
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _api.updateServiceRequestPackage(
+        serviceRequestId!,
+        FuneralServiceRequestDto(
+          mortuaryInventoryId: selectedDeceased?.id ?? '',
+          deceasedName: selectedDeceased?.deceasedName ?? '',
+          deceasedIdentityNumber: deceasedIdentityNumber,
+          funeralDate: funeralDate,
+          funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
+          familyRepPartnerId: familyRepPartnerId ?? '',
+          deathCertificateNo: deathCertificateNo.trim(),
+          causeOfDeath: causeOfDeathCode,
+          packageId: selectedPackage!.id,
+          extras: extras,
+        ),
+      );
+      return true;
+    } catch (e) {
+      errorMessage = 'Failed to update funeral package: $e';
       return false;
     } finally {
       isLoading = false;
