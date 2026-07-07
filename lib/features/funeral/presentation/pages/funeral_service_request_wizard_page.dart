@@ -552,6 +552,21 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                     Text('Service ID: ${_controller.generationResponse!.funeralServiceId}', style: const TextStyle(fontWeight: FontWeight.bold)),
                     const Divider(),
                     Text('Invoices Generated: ${_controller.generationResponse!.invoiceIds.length}'),
+                    const SizedBox(height: 12),
+                    if (_controller.generationResponse!.invoices.isNotEmpty)
+                      ..._controller.generationResponse!.invoices.map(
+                        (invoice) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.picture_as_pdf_outlined),
+                          title: Text(invoice.invoiceNo.isEmpty ? invoice.invoiceId : invoice.invoiceNo),
+                          subtitle: Text('Total: R${(invoice.totalCents / 100).toStringAsFixed(2)} • ${invoice.status}'),
+                          trailing: TextButton.icon(
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text('Open'),
+                            onPressed: () => context.push('/invoices/${invoice.invoiceId}/preview'),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
