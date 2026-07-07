@@ -24,6 +24,7 @@ import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
+import '../appointments/screens/appointment_calendar_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -251,6 +252,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
     if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     if (lowerId.contains('case')) return Icons.gavel_rounded;
+    if (lowerId.contains('appointment') || lowerId.contains('booking') || lowerId.contains('calendar')) return Icons.event_available_rounded;
     if (lowerId.contains('engagement') || lowerId.contains('communication')) return Icons.campaign_rounded;
     return Icons.apps_rounded;
   }
@@ -319,6 +321,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('GROUP') || id.contains('SOCIETY') || description.contains('group') || description.contains('society')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen()));
+    } else if (id.contains('APPOINTMENT') || id.contains('BOOKING') || id.contains('CALENDAR') || description.contains('appointment') || description.contains('booking') || description.contains('calendar')) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const AppointmentCalendarScreen()));
     } else if (id.contains('PAYMENT') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('PARTNER') || description.contains('partner')) {

@@ -32,6 +32,13 @@ class WorkcenterRouteRegistry {
     'EMPLOYEE_ENGAGEMENT': AppRoutes.internalCommunications,
     'EMPLOYEE-ENGAGEMENT': AppRoutes.internalCommunications,
     'ENGAGEMENT': AppRoutes.internalCommunications,
+    'APPOINTMENT': AppRoutes.appointments,
+    'APPOINTMENTS': AppRoutes.appointments,
+    'APPOINTMENT_BOOKING': AppRoutes.appointments,
+    'APPOINTMENT-BOOKING': AppRoutes.appointments,
+    'BOOKING': AppRoutes.appointments,
+    'BOOKINGS': AppRoutes.appointments,
+    'CALENDAR': AppRoutes.calendar,
     
     // Funeral Management
     'FUNERAL': AppRoutes.funeralDashboard,
