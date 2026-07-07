@@ -50,6 +50,33 @@ import '../api_client.dart';
 
 import '../../features/partners/screens/partner_list_screen.dart';
 
+
+String _partnerTitleForRole(String role, String rawRole) {
+  switch (role) {
+    case 'CUSTOMER':
+      return 'Customers';
+    case 'CLIENT':
+      return 'Clients';
+    case 'EMPLOYEE':
+      return 'Employees';
+    case 'SUPPLIER':
+      return 'Suppliers';
+    case 'BUSINESS_PARTNER':
+    case 'BUSINESS_PARTNERS':
+    case 'PARTNER':
+    case 'PARTNERS':
+      return 'Business Partners';
+    default:
+      final words = rawRole
+          .replaceAll('_', '-')
+          .split('-')
+          .where((word) => word.trim().isNotEmpty)
+          .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+          .join(' ');
+      return words.isEmpty ? 'Business Partners' : words;
+  }
+}
+
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
