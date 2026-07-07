@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'config.dart';
@@ -383,6 +384,28 @@ class ApiClient {
       debugPrint('ApiClient: Exception during _refreshToken: $e');
       return false;
     }
+  }
+
+
+  Future<http.StreamedResponse> uploadMultipart(
+    String path, {
+    required String fieldName,
+    required String filename,
+    required Uint8List bytes,
+    String? contentType,
+    Map<String, String>? fields,
+    bool includeRole = true,
+  }) async {
+    final host = await _getApiHost();
+    if (host == null || host.isEmpty) throw Exception('API Host not configured');
+    final url = _buildUrl(host, path);
+    final baseHeaders = await _getHeaders(includeRole: includeRole);
+    baseHeaders.remove('Content-Type');
+    final request = http.MultipartRequest('POST', url);
+    request.headers.addAll(baseHeaders);
+    if (fields != null) request.fields.addAll(fields);
+    request.files.add(http.MultipartFile.fromBytes(fieldName, bytes, filename: filename));
+    return request.send();
   }
 
   Future<void> logout({String reason = 'manual_or_unauthorized'}) async {

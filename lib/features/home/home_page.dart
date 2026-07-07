@@ -37,6 +37,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
   String? _displayName;
+  String? _username;
   String? _selectedRoleDisplay;
   String _appVersion = '';
   List<Workcenter> _workcenters = [];
@@ -77,7 +78,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final roleDesc = prefs.getString('selectedRoleDescription');
     
     setState(() {
-      _displayName = prefs.getString('displayName');
+      final storedDisplayName = prefs.getString('displayName');
+      final storedUsername = prefs.getString('username');
+      _username = storedUsername;
+      _displayName = (storedDisplayName != null && storedDisplayName.trim().isNotEmpty) ? storedDisplayName.trim() : storedUsername;
       _selectedRoleDisplay = roleDesc ?? roleId;
     });
 
@@ -507,7 +511,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hello, ${_displayName?.split(' ').first ?? 'User'}',
+                      'Hello, ${(_displayName == null || _displayName!.trim().isEmpty ? 'User' : _displayName!.trim().split(' ').first)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 28,
@@ -579,7 +583,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             radius: 16,
             backgroundColor: colorScheme.primaryContainer,
             child: Text(
-              _displayName?[0] ?? 'U',
+              _userInitials(),
               style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
@@ -597,7 +601,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                Text(_displayName ?? _username ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                if ((_username ?? '').isNotEmpty) Text(_username!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 Text(_selectedRoleDisplay ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 const Divider(),
               ],
@@ -609,6 +614,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         ],
       ),
     );
+  }
+
+  String _userInitials() {
+    final source = (_displayName != null && _displayName!.trim().isNotEmpty) ? _displayName!.trim() : (_username ?? 'User');
+    final parts = source.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return parts.isEmpty ? 'U' : parts.first[0].toUpperCase();
   }
 
   Widget _buildRecentModulesSection(ColorScheme colorScheme) {
