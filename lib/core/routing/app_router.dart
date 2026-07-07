@@ -10,6 +10,10 @@ import '../../features/home/home_page.dart';
 import '../../features/home/screens/feature_group_screen.dart';
 import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
+
+import '../../features/membership/screens/membership_plan_list_screen.dart';
+import '../../features/membership/screens/membership_claim_list_screen.dart';
+import '../../features/membership/screens/group_society_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
 import '../../features/payments/screens/payment_request_list_screen.dart';
@@ -156,6 +160,18 @@ class AppRouter {
         ],
       ),
       GoRoute(
+        path: AppRoutes.membershipPlans,
+        builder: (context, state) => const MembershipPlanListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.membershipClaims,
+        builder: (context, state) => const MembershipClaimListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.groupSocieties,
+        builder: (context, state) => const GroupSocietyListScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.invoices,
         builder: (context, state) => const InvoiceListScreen(),
         routes: [
@@ -206,13 +222,22 @@ class AppRouter {
         ],
       ),
       GoRoute(
+        path: AppRoutes.partners,
+        builder: (context, state) => const PartnerListScreen(
+          title: 'Business Partners',
+          allowCreate: true,
+        ),
+      ),
+      GoRoute(
         path: '/partners/:role',
         builder: (context, state) {
-          final role = state.pathParameters['role']!;
+          final rawRole = state.pathParameters['role']!;
+          final role = rawRole.replaceAll('-', '_').toUpperCase();
+          final title = _partnerTitleForRole(role, rawRole);
           return PartnerListScreen(
-            role: role,
-            title: '${role[0]}${role.substring(1).toLowerCase()}s',
-            allowCreate: false,
+            role: role == 'BUSINESS_PARTNER' ? null : role,
+            title: title,
+            allowCreate: role == 'BUSINESS_PARTNER',
           );
         },
       ),
