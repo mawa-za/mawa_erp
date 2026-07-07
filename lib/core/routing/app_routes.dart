@@ -7,6 +7,9 @@ class AppRoutes {
   static const String featureGroup = '/feature-groups/:groupId';
   static const String memberships = '/memberships';
   static const String membershipDetail = '/memberships/:id';
+  static const String membershipPlans = '/membership-plans';
+  static const String membershipClaims = '/membership-claims';
+  static const String groupSocieties = '/group-societies';
   static const String invoices = '/invoices';
   static const String paymentRequests = '/payment-requests';
   static const String cashups = '/cashups';
@@ -30,6 +33,12 @@ class AppRoutes {
   static const String fnbIntegrationAdmin = '/admin/fnb-integration';
   static const String messageQueueAdmin = '/admin/message-queue';
   static const String internalCommunications = '/internal-communications';
+  static const String partners = '/partners';
+  static const String customers = '/partners/customer';
+  static const String clients = '/partners/client';
+  static const String employees = '/partners/employee';
+  static const String suppliers = '/partners/supplier';
+  static const String businessPartners = '/partners/business-partner';
 
   // Appointment Booking and Calendar
   static const String appointments = '/appointments';
