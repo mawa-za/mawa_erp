@@ -21,6 +21,7 @@ import '../../features/products/screens/product_maintenance_screen.dart';
 import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
 import '../../features/admin/message_queue/message_queue_admin_screen.dart';
 import '../../features/appointments/screens/appointment_calendar_screen.dart';
+import '../../features/stock/screens/stock_management_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -213,6 +214,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.products,
         builder: (context, state) => const ProductMaintenanceScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.inventory,
+        builder: (context, state) => const InventoryManagementScreen(),
       ),
       GoRoute(
         path: AppRoutes.fnbIntegrationAdmin,
