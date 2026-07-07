@@ -19,7 +19,29 @@ class AppRoutes {
   static const String caseInvoicePreview = '/cases/:caseId/invoice-preview';
   static const String approvals = '/approvals';
   static const String settings = '/settings';
+  static const String products = '/products';
+  static const String fnbIntegrationAdmin = '/admin/fnb-integration';
+  static const String messageQueueAdmin = '/admin/message-queue';
+  static const String internalCommunications = '/internal-communications';
+
+  // Appointment Booking and Calendar
+  static const String appointments = '/appointments';
+  static const String calendar = '/calendar';
   
+  // Funeral Management
+  static const String funeralDashboard = '/funeral';
+  static const String funeralPickups = '/funeral/pickups';
+  static const String funeralNewPickup = '/funeral/pickups/new';
+  static const String funeralMortuary = '/funeral/mortuary';
+  static const String funeralServiceRequests = '/funeral/service-requests';
+  static const String funeralNewServiceRequest = '/funeral/service-request/new';
+  static const String funeralClaims = '/funeral/service-request/:id/claims';
+  static const String funeralAllClaims = '/funeral/claims';
+  static const String funeralInvoicePreview = '/funeral/service-request/:id/invoice-preview';
+  static const String funeralInvoicePayment = '/funeral/invoice/:invoiceId/payment';
+  static const String funeralPayments = '/funeral/payments';
+  static const String funeralPackageSetup = '/funeral/packages/setup';
+
   // Legacy routes for redirection
   static const String legacyMembershipDetail = '/membership-detail';
   static const String legacyInvoicePreview = '/invoice-preview';

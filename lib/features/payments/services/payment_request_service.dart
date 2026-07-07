@@ -29,8 +29,6 @@ class PaymentRequestService {
         } else if (decoded is Map && decoded.containsKey('content')) {
           data = decoded['content'] ?? [];
         } else if (decoded is Map) {
-          // If it's a map but not a standard paginated response, it might be a single item or something else
-          // But based on common patterns in this app, we check for a list.
           data = [];
           debugPrint('PaymentRequestService: Unexpected Map response format: $decoded');
         } else {
@@ -139,4 +137,77 @@ class PaymentRequestService {
     }
     throw Exception('Failed to load payment requests for payee');
   }
+
+  Future<Map<String, dynamic>?> getBankReport(String id) async {
+    final response = await _apiClient.get(
+      '/v2/payment-request/$id/bank-report',
+      logoutOnUnauthorized: false,
+    );
+    if (response.statusCode == 204 || response.body.trim().isEmpty) {
+      return null;
+    }
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      return null;
+    }
+    return null;
+  }
+
+  Future<PaymentRequestResponse> approvePaymentRequest(String id, {String? comment}) {
+    return updatePaymentRequestStatus(id, {
+      'status': 'APPROVED',
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    });
+  }
+
+  Future<PaymentRequestResponse> rejectPaymentRequest(String id, {String? comment}) {
+    return updatePaymentRequestStatus(id, {
+      'status': 'REJECTED',
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    });
+  }
+
+  Future<PaymentRequestResponse> queueForPayment(String id, {String? comment}) {
+    return updatePaymentRequestStatus(id, {
+      'status': 'QUEUED_FOR_PAYMENT',
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    });
+  }
+
+  Future<PaymentRequestResponse> markProcessed(String id, {String? comment}) {
+    return updatePaymentRequestStatus(id, {
+      'status': 'PROCESSED',
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    });
+  }
+
+  Future<PaymentRequestResponse> markFailed(String id, {String? comment}) {
+    return updatePaymentRequestStatus(id, {
+      'status': 'FAILED',
+      if (comment != null && comment.isNotEmpty) 'comment': comment,
+    });
+  }
+
+  Future<BankReport?> getTypedBankReport(String id) async {
+    final data = await getBankReport(id);
+    if (data == null) return null;
+    return BankReport.fromJson(data);
+  }
+
+  Future<List<PaymentRequestResponse>> searchPaymentRequests({
+    String? status,
+    String? type,
+    String? payeePartnerId,
+  }) async {
+    if (payeePartnerId != null && payeePartnerId.isNotEmpty) {
+      return getPaymentRequestsByPayee(payeePartnerId);
+    }
+    if (type != null && type.isNotEmpty && type != 'ALL') {
+      return getPaymentRequestsByType(type);
+    }
+    return getPaymentRequests(status: status);
+  }
+
 }

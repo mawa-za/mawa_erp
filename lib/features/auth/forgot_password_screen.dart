@@ -20,9 +20,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final email = _emailController.text.trim();
-      // The requirement says pass email query parameter.
-      // So the path would be /v2/forgot-password?email=...
-      final response = await ApiClient().post('/v2/forgot-password?email=$email');
+      final response = await ApiClient().post(
+        '/v2/forgot-password',
+        queryParameters: {'email': email},
+        includeRole: false,
+      );
 
       if (response.statusCode == 200) {
         if (mounted) {

@@ -7,9 +7,9 @@ class UserService {
   factory UserService() => _instance;
   UserService._internal();
 
-  Future<List<User>> getUsers() async {
+  Future<List<User>> getUsers({Map<String, dynamic>? query}) async {
     try {
-      final response = await ApiClient().get('/v2/user');
+      final response = await ApiClient().get('/v2/user', queryParameters: query);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => User.fromJson(Map<String, dynamic>.from(json))).toList();
@@ -90,9 +90,12 @@ class UserService {
     }
   }
 
-  Future<void> lockUser(String userId) async {
+  Future<void> lockUser(String userId, {required String reason}) async {
     try {
-      final response = await ApiClient().put('/v2/user/$userId/lock');
+      final response = await ApiClient().put(
+        '/v2/user/$userId/lock',
+        queryParameters: {'reason': reason},
+      );
       if (response.statusCode != 200) {
         throw Exception('Failed to lock user: ${response.body}');
       }
@@ -117,6 +120,58 @@ class UserService {
       final response = await ApiClient().put('/v2/user/$userId/reset');
       if (response.statusCode != 200) {
         throw Exception('Failed to reset user: ${response.body}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<User> getUserByUsername(String username) async {
+    try {
+      final response = await ApiClient().get('/v2/user/username/$username');
+      if (response.statusCode == 200) {
+        return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+      } else {
+        throw Exception('Failed to load user by username: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<User> getUserByPartnerId(String partnerId) async {
+    try {
+      final response = await ApiClient().get('/v2/user/partner/$partnerId');
+      if (response.statusCode == 200) {
+        return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+      } else {
+        throw Exception('Failed to load user by partner ID: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<User> getUserByEmail(String email) async {
+    try {
+      final response = await ApiClient().get('/v2/user/email/$email');
+      if (response.statusCode == 200) {
+        return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+      } else {
+        throw Exception('Failed to load user by email: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<User> getUserByCellphone(String cellphone) async {
+    try {
+      final response = await ApiClient().get('/v2/user/cellphone/$cellphone');
+      if (response.statusCode == 200) {
+        return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+      } else {
+        throw Exception('Failed to load user by cellphone: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

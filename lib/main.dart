@@ -2,8 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'core/api_client.dart';
 import 'core/services/session_service.dart';
+import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
+
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +23,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   StreamSubscription? _logoutSubscription;
+  final FocusNode _activityFocusNode = FocusNode(debugLabel: 'mawa_activity_listener');
 
   @override
   void initState() {
@@ -29,9 +34,11 @@ class _MyAppState extends State<MyApp> {
         SessionService().stopMonitoring();
         // GoRouter will handle redirection via its own logic if we trigger a refresh
         // but for now we can also force a refresh or rely on the next navigation
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session expired. Please login again.')),
-        );
+        rootScaffoldMessengerKey.currentState
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('Session expired. Please login again.')),
+          );
         // We can use the global navigator key if needed, or just let the router handle it
       }
     });
@@ -46,6 +53,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     _logoutSubscription?.cancel();
+    _activityFocusNode.dispose();
     super.dispose();
   }
 
@@ -54,16 +62,20 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp.router(
       title: 'Mawa ERP',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
+      theme: AppTheme.light,
       routerConfig: AppRouter.router,
       builder: (context, child) {
-        return Listener(
-          onPointerDown: (_) => SessionService().userActivityDetected(),
-          onPointerMove: (_) => SessionService().userActivityDetected(),
-          child: child ?? const SizedBox.shrink(),
+        return KeyboardListener(
+          focusNode: _activityFocusNode,
+          autofocus: true,
+          onKeyEvent: (_) => SessionService().userActivityDetected(),
+          child: Listener(
+            onPointerDown: (_) => SessionService().userActivityDetected(),
+            onPointerMove: (_) => SessionService().userActivityDetected(),
+            onPointerSignal: (_) => SessionService().userActivityDetected(),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );

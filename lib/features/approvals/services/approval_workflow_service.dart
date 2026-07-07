@@ -16,6 +16,26 @@ class ApprovalWorkflowService {
     }
   }
 
+  Future<List<ApprovalWorkflow>> getActiveWorkflows() async {
+    final response = await _apiClient.get('/v2/approval-workflow/active');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => ApprovalWorkflow.fromJson(item)).toList();
+    }
+    throw Exception('Failed to load active workflows');
+  }
+
+  Future<ApprovalWorkflow> getWorkflowByType(String approvalType, {bool activeOnly = false}) async {
+    final path = activeOnly 
+        ? '/v2/approval-workflow/type/$approvalType/active' 
+        : '/v2/approval-workflow/type/$approvalType';
+    final response = await _apiClient.get(path);
+    if (response.statusCode == 200) {
+      return ApprovalWorkflow.fromJson(jsonDecode(response.body));
+    }
+    throw Exception('Failed to load workflow by type');
+  }
+
   Future<ApprovalWorkflow> createWorkflow(ApprovalWorkflow workflow) async {
     final response = await _apiClient.post(
       '/v2/approval-workflow',
@@ -52,6 +72,20 @@ class ApprovalWorkflowService {
       return ApprovalWorkflow.fromJson(data);
     } else {
       throw Exception('Failed to update approval workflow: ${response.statusCode}');
+    }
+  }
+
+  Future<void> activateWorkflow(String id) async {
+    final response = await _apiClient.patch('/v2/approval-workflow/$id/activate');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to activate workflow');
+    }
+  }
+
+  Future<void> deactivateWorkflow(String id) async {
+    final response = await _apiClient.patch('/v2/approval-workflow/$id/deactivate');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to deactivate workflow');
     }
   }
 

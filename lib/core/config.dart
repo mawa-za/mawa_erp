@@ -21,17 +21,16 @@ class Config {
   }
 
   static String get webTenant {
-    if (kIsWeb) {
-      final url = Uri.base.toString();
-      if (url.contains('localhost') || url.contains('127.0.0.1')) {
-        return 'localhost';
-      }
-      
-      // Returns the whole URL excluding the protocol and trailing slash
-      return url
-          .replaceFirst(RegExp(r'^https?://'), '')
-          .replaceFirst(RegExp(r'/$'), '');
+    if (!kIsWeb) return '';
+
+    final host = Uri.base.host.trim();
+
+    if (host.isEmpty) return '';
+
+    if (host == 'localhost' || host == '127.0.0.1') {
+      return 'localhost';
     }
-    return '';
+
+    return host.toLowerCase();
   }
 }
