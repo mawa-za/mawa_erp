@@ -20,6 +20,7 @@ import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
+import '../../features/settings/screens/api_log_list_screen.dart';
 import '../../features/products/screens/product_maintenance_screen.dart';
 import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
 import '../../features/admin/message_queue/message_queue_admin_screen.dart';
@@ -174,6 +175,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.cashups,
         builder: (context, state) => const CashupListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.apiLogs,
+        builder: (context, state) => const ApiLogListScreen(),
       ),
       GoRoute(
         path: AppRoutes.cases,

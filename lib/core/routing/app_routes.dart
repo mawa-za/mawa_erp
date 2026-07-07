@@ -8,9 +8,9 @@ class AppRoutes {
   static const String memberships = '/memberships';
   static const String membershipDetail = '/memberships/:id';
   static const String invoices = '/invoices';
-  static const String invoicePreview = '/invoices/:id/preview';
   static const String paymentRequests = '/payment-requests';
   static const String cashups = '/cashups';
+  static const String invoicePreview = '/invoices/:id/preview';
   static const String cases = '/cases';
   static const String createCase = '/cases/new';
   static const String caseDetail = '/cases/:caseId';
@@ -22,6 +22,8 @@ class AppRoutes {
   static const String caseInvoicePreview = '/cases/:caseId/invoice-preview';
   static const String approvals = '/approvals';
   static const String settings = '/settings';
+  static const String systemConfiguration = settings;
+  static const String apiLogs = '/api-logs';
   static const String products = '/products';
   static const String inventory = '/inventory';
   static const String stock = inventory;

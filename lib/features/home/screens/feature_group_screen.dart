@@ -86,6 +86,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       return;
     }
 
+    if (routePath != null && routePath.trim().isNotEmpty) {
+      final routeByPath = WorkcenterRouteRegistry.getRoutePath(routePath);
+      if (routeByPath != null) {
+        context.push(routeByPath);
+        return;
+      }
+    }
+
     final routeByKey = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
     if (routeByKey != null) {
       context.push(routeByKey);
@@ -95,12 +103,6 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     final routeById = WorkcenterRouteRegistry.getRoutePath(wc.id);
     if (routeById != null) {
       context.push(routeById);
-      return;
-    }
-
-    final routeByPath = WorkcenterRouteRegistry.getRoutePath(wc.path);
-    if (routeByPath != null) {
-      context.push(routeByPath);
       return;
     }
 
