@@ -7,6 +7,7 @@ import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/routing/workcenter_route_registry.dart';
+import '../../core/routing/feature_group_registry.dart';
 import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
@@ -94,8 +95,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
-          _workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
-          _workcenters.sort((a, b) => a.position.compareTo(b.position));
+          final rawWorkcenters = data.map((json) => Workcenter.fromJson(json)).toList();
+          rawWorkcenters.sort((a, b) => a.position.compareTo(b.position));
+          _workcenters = _groupWorkcentersForHome(rawWorkcenters);
           _filteredWorkcenters = _workcenters;
           _isLoadingWorkcenters = false;
         });
@@ -138,6 +140,47 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+
+  List<Workcenter> _groupWorkcentersForHome(List<Workcenter> source) {
+    final Map<String, List<Workcenter>> groupedChildren = {};
+    final List<Workcenter> ungrouped = [];
+
+    for (final wc in source) {
+      final group = FeatureGroupRegistry.groupForWorkcenter(wc.id);
+      if (group == null) {
+        ungrouped.add(wc);
+      } else {
+        groupedChildren.putIfAbsent(group.id, () => []).add(wc);
+      }
+    }
+
+    final List<Workcenter> result = [];
+    for (final group in FeatureGroupRegistry.groups) {
+      final children = groupedChildren[group.id] ?? const <Workcenter>[];
+      if (children.isEmpty) continue;
+
+      final minPosition = children
+          .map((wc) => wc.position)
+          .fold<int>(children.first.position, (previous, current) => current < previous ? current : previous);
+
+      result.add(Workcenter(
+        id: group.id,
+        description: group.title,
+        defaultFunction: '',
+        path: group.routePath,
+        position: minPosition,
+        routeKey: group.id,
+        routePath: group.routePath,
+        isFeatureGroup: true,
+        childWorkcenterIds: children.map((wc) => wc.id).toList(),
+      ));
+    }
+
+    result.addAll(ungrouped);
+    result.sort((a, b) => a.position.compareTo(b.position));
+    return result;
+  }
+
   void _applySearch(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -146,7 +189,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         final lowercaseQuery = query.toLowerCase();
         _filteredWorkcenters = _workcenters.where((wc) {
           return wc.description.toLowerCase().contains(lowercaseQuery) ||
-                 wc.id.toLowerCase().contains(lowercaseQuery);
+                 wc.id.toLowerCase().contains(lowercaseQuery) ||
+                 wc.childWorkcenterIds.any((childId) => childId.toLowerCase().contains(lowercaseQuery));
         }).toList();
       }
     });
@@ -228,6 +272,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
+    if (lowerId == 'membership-management') return Icons.groups_rounded;
+    if (lowerId == 'funeral-management') return Icons.volunteer_activism_rounded;
+    if (lowerId == 'finance-management') return Icons.account_balance_wallet_rounded;
+    if (lowerId == 'inventory') return Icons.inventory_2_rounded;
+    if (lowerId == 'scheduling') return Icons.event_available_rounded;
+    if (lowerId == 'partner-management') return Icons.business_center_rounded;
+    if (lowerId == 'administration') return Icons.admin_panel_settings_rounded;
     if (lowerId == 'employee') return Icons.badge_rounded;
     if (lowerId == 'supplier') return Icons.local_shipping_rounded;
     if (lowerId == 'customer') return Icons.person_pin_rounded;
@@ -258,6 +309,22 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
+    if (wc.isFeatureGroup) {
+      _moduleUsageService.trackUsage(
+        moduleCode: wc.id,
+        moduleName: wc.description,
+        modulePath: wc.routePath,
+        workcenterId: wc.id,
+      );
+      _fetchRecentModules();
+      _fetchFrequentModules();
+      final route = wc.routePath ?? FeatureGroupRegistry.routeForGroup(wc.id);
+      if (route != null && route.startsWith('/')) {
+        context.push(route);
+        return;
+      }
+    }
+
     // Track module usage
     _moduleUsageService.trackUsage(
       moduleCode: wc.id,

@@ -7,6 +7,7 @@ import '../../features/setup/setup_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
 import '../../features/home/home_page.dart';
+import '../../features/home/screens/feature_group_screen.dart';
 import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
@@ -131,6 +132,12 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const MyHomePage(title: 'Mawa ERP'),
+      ),
+      GoRoute(
+        path: AppRoutes.featureGroup,
+        builder: (context, state) => FeatureGroupScreen(
+          groupId: state.pathParameters['groupId']!,
+        ),
       ),
       GoRoute(
         path: AppRoutes.memberships,
