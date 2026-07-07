@@ -20,6 +20,7 @@ import '../../features/settings/screens/system_configuration_screen.dart';
 import '../../features/products/screens/product_maintenance_screen.dart';
 import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
 import '../../features/admin/message_queue/message_queue_admin_screen.dart';
+import '../../features/appointments/screens/appointment_calendar_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -191,6 +192,15 @@ class AppRouter {
             allowCreate: false,
           );
         },
+      ),
+
+      GoRoute(
+        path: AppRoutes.appointments,
+        builder: (context, state) => const AppointmentCalendarScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.calendar,
+        builder: (context, state) => const AppointmentCalendarScreen(),
       ),
       GoRoute(
         path: AppRoutes.approvals,
