@@ -98,6 +98,12 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       return;
     }
 
+    final routeByPath = WorkcenterRouteRegistry.getRoutePath(wc.path);
+    if (routeByPath != null) {
+      context.push(routeByPath);
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${wc.description} feature coming soon')),
     );

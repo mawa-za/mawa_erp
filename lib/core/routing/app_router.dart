@@ -12,6 +12,8 @@ import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
+import '../../features/payments/screens/payment_request_list_screen.dart';
+import '../../features/cashup/screens/cashup_list_screen.dart';
 import '../../features/cases/screens/case_list_screen.dart';
 import '../../features/cases/screens/create_case_screen.dart';
 import '../../features/cases/screens/case_detail_screen.dart';
@@ -164,6 +166,14 @@ class AppRouter {
             },
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.paymentRequests,
+        builder: (context, state) => const PaymentRequestListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.cashups,
+        builder: (context, state) => const CashupListScreen(),
       ),
       GoRoute(
         path: AppRoutes.cases,
