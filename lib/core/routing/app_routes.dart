@@ -4,6 +4,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String resetPassword = '/reset-password';
   static const String home = '/home';
+  static const String featureGroup = '/feature-groups/:groupId';
   static const String memberships = '/memberships';
   static const String membershipDetail = '/memberships/:id';
   static const String invoices = '/invoices';

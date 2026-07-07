@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import '../../../core/services/setting_service.dart';
@@ -33,12 +31,12 @@ class InvoicePdfService {
     final companyVat = _getSetting(settings, 'VAT-NUMBER', '');
     final companyReg = _getSetting(settings, 'REGISTRATION-NUMBER', '');
 
-    // Load Logo if available
+    // Load validated company logo if available. Required upload size: 600x180 pixels.
     pw.MemoryImage? logoImage;
     try {
-      final logoBase64 = await _loadLogoBase64();
-      if (logoBase64 != null) {
-        logoImage = pw.MemoryImage(base64Decode(logoBase64));
+      final logoBytes = await _loadCompanyLogoBytes();
+      if (logoBytes != null) {
+        logoImage = pw.MemoryImage(logoBytes);
       }
     } catch (e) {
       print('Error loading logo for PDF: $e');
@@ -90,29 +88,14 @@ class InvoicePdfService {
     }
   }
 
-  Future<String?> _loadLogoBase64() async {
+  Future<Uint8List?> _loadCompanyLogoBytes() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final tenantId = prefs.getString('tenant');
-      if (tenantId == null) return null;
-
-      final response = await ApiClient().get('/attachment?objectId=$tenantId');
+      final response = await ApiClient().get('/v2/company-logo/content');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final logoAttachment = data.firstWhere(
-          (a) => a['documentType']?['id'] == 'LOGO',
-          orElse: () => null,
-        );
-
-        if (logoAttachment != null) {
-          final res = await ApiClient().get('/attachment/${logoAttachment['id']}');
-          if (res.statusCode == 200) {
-            return res.body.replaceAll('"', '');
-          }
-        }
+        return response.bodyBytes;
       }
     } catch (e) {
-      print('Error fetching logo: $e');
+      print('Error fetching company logo: $e');
     }
     return null;
   }
@@ -126,9 +109,17 @@ class InvoicePdfService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             if (logo != null)
-              pw.Container(height: 60, width: 60, child: pw.Image(logo))
+              pw.Container(height: 48, width: 160, child: pw.Image(logo, fit: pw.BoxFit.contain))
             else
-              pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+              pw.Container(
+                height: 48,
+                width: 160,
+                alignment: pw.Alignment.center,
+                decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey500)),
+                child: pw.Text('COMPANY LOGO', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
+              ),
+            pw.SizedBox(height: 4),
+            pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
             pw.SizedBox(height: 4),
             pw.Text(a1, style: const pw.TextStyle(fontSize: 9)),
             if (a2.isNotEmpty) pw.Text(a2, style: const pw.TextStyle(fontSize: 9)),

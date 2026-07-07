@@ -87,7 +87,7 @@ class InvoiceDetail {
       id: json['id'] ?? '',
       number: json['invoiceNo'] ?? json['number'] ?? '',
       reference: json['externalRef'] ?? json['reference'] ?? '',
-      customerName: fullName.isEmpty ? 'Unknown' : fullName,
+      customerName: (json['partnerName'] ?? json['customerName'] ?? (fullName.isEmpty ? 'Unknown' : fullName)).toString(),
       customerNumber: customer['number'] ?? partner['partnerNo'] ?? '',
       customerId: json['partnerId'] ?? customer['id'],
       invoiceDate: parsedDate,

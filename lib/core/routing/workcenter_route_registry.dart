@@ -1,7 +1,17 @@
 import 'app_routes.dart';
+import 'feature_group_registry.dart';
 
 class WorkcenterRouteRegistry {
   static const Map<String, String> _mappings = {
+    'MEMBERSHIP_MANAGEMENT': '/feature-groups/membership-management',
+    'MEMBERSHIP-MANAGEMENT': '/feature-groups/membership-management',
+    'FUNERAL_MANAGEMENT_GROUP': '/feature-groups/funeral-management',
+    'FINANCE_MANAGEMENT': '/feature-groups/finance-management',
+    'FINANCE-MANAGEMENT': '/feature-groups/finance-management',
+    'PARTNER_MANAGEMENT': '/feature-groups/partner-management',
+    'PARTNER-MANAGEMENT': '/feature-groups/partner-management',
+    'ADMINISTRATION': '/feature-groups/administration',
+    'SCHEDULING': AppRoutes.appointments,
     'MEMBERSHIP': AppRoutes.memberships,
     'MEMBER': AppRoutes.memberships,
     'MEMBERSHIPS': AppRoutes.memberships,
@@ -10,6 +20,8 @@ class WorkcenterRouteRegistry {
     'CASES': AppRoutes.cases,
     'CASE': AppRoutes.cases,
     'CASE_MANAGEMENT': AppRoutes.cases,
+    'LEGAL_CASE': AppRoutes.cases,
+    'LEGAL-CASE': AppRoutes.cases,
     'LEGAL_CASES': AppRoutes.cases,
     'LEGAL_CASE_MANAGEMENT': AppRoutes.cases,
     'APPROVALS': AppRoutes.approvals,
@@ -72,6 +84,9 @@ class WorkcenterRouteRegistry {
 
   static String? getRoutePath(String key) {
     final upperKey = key.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+    final groupRoute = FeatureGroupRegistry.routeForGroup(key);
+    if (groupRoute != null) return groupRoute;
+
     final route = _mappings[upperKey];
     if (route != null) return route;
     

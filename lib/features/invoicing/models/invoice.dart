@@ -52,7 +52,7 @@ class Invoice {
           ? (json['totalCents'] / 100.0) 
           : (json['amount'] ?? 0.0).toDouble(),
       status: json['status'] ?? 'DRAFT',
-      customerName: json['partnerName'] ?? json['customer'] ?? 'Partner: ${json['partnerId'] ?? 'Unknown'}',
+      customerName: json['partnerName'] ?? json['customerName'] ?? json['customer'] ?? 'Partner: ${json['partnerId'] ?? 'Unknown'}',
     );
   }
 }
