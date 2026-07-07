@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/api_client.dart';
 import '../../../core/models/setting.dart';
 import '../../../core/services/setting_service.dart';
@@ -19,7 +21,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   String? _tenantId;
-  String? _logoBase64;
+  Uint8List? _logoBytes;
+  Map<String, dynamic>? _logoMetadata;
   
   final Map<String, TextEditingController> _controllers = {
     'NAME': TextEditingController(),
@@ -69,28 +72,61 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
 
   Future<void> _loadLogo() async {
     try {
-      final response = await ApiClient().get('/v2/attachment?objectId=$_tenantId');
+      final meta = await ApiClient().get('/v2/company-logo', logoutOnUnauthorized: false);
+      if (meta.statusCode == 200) {
+        final decoded = jsonDecode(meta.body);
+        if (decoded is Map) _logoMetadata = Map<String, dynamic>.from(decoded);
+      }
+      final response = await ApiClient().get('/v2/company-logo/content', logoutOnUnauthorized: false);
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final logoAttachment = data.firstWhere(
-          (a) => a['documentType']?['id'] == 'LOGO',
-          orElse: () => null,
-        );
-
-        if (logoAttachment != null) {
-          final res = await ApiClient().get('/v2/attachment/${logoAttachment['id']}');
-          if (res.statusCode == 200) {
-            setState(() {
-              _logoBase64 = res.body.replaceAll('"', '');
-            });
-          }
-        }
+        setState(() {
+          _logoBytes = response.bodyBytes;
+        });
       }
     } catch (e) {
-      debugPrint('Error loading logo: $e');
+      debugPrint('Error loading company logo: $e');
     }
   }
 
+  Future<void> _uploadLogo() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['png', 'jpg', 'jpeg'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty || result.files.single.bytes == null) return;
+      final file = result.files.single;
+      final response = await ApiClient().uploadMultipart(
+        '/v2/company-logo',
+        fieldName: 'file',
+        filename: file.name,
+        bytes: file.bytes!,
+      );
+      final body = await response.stream.bytesToString();
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Company logo uploaded successfully'), behavior: SnackBarBehavior.floating),
+        );
+        await _loadLogo();
+      } else {
+        String message = body;
+        try {
+          final decoded = jsonDecode(body);
+          if (decoded is Map && decoded['message'] != null) message = decoded['message'].toString();
+        } catch (_) {}
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading logo: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
   Future<void> _saveCompanyInfo() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -144,6 +180,14 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildLogoHeader(),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Logo upload must be exactly 600 x 180 px. It prints at 160 x 48 pt. A placeholder is used when no logo is loaded.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   _buildSectionCard('General Details', [
                     _buildTextField('NAME', 'Company Name', Icons.business, validator: (v) => v!.isEmpty ? 'Required' : null),
@@ -207,8 +251,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
             ),
             child: ClipOval(
-              child: _logoBase64 != null
-                  ? Image.memory(base64Decode(_logoBase64!), fit: BoxFit.cover)
+              child: _logoBytes != null
+                  ? Image.memory(_logoBytes!, fit: BoxFit.contain)
                   : Icon(Icons.business, size: 60, color: Colors.grey[400]),
             ),
           ),
@@ -221,12 +265,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                 radius: 18,
                 child: IconButton(
                   icon: const Icon(Icons.edit, size: 18, color: Colors.white),
-                  onPressed: () {
-                    // This will be handled by AttachmentSection upload
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Use the Documents section below to upload a new LOGO')),
-                    );
-                  },
+                  onPressed: _uploadLogo,
                 ),
               ),
             ),

@@ -7,19 +7,29 @@ import '../../features/setup/setup_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
 import '../../features/home/home_page.dart';
+import '../../features/home/screens/feature_group_screen.dart';
 import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
+
+import '../../features/membership/screens/membership_plan_list_screen.dart';
+import '../../features/membership/screens/membership_claim_list_screen.dart';
+import '../../features/membership/screens/group_society_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
+import '../../features/payments/screens/payment_request_list_screen.dart';
+import '../../features/cashup/screens/cashup_list_screen.dart';
 import '../../features/cases/screens/case_list_screen.dart';
 import '../../features/cases/screens/create_case_screen.dart';
 import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
+import '../../features/settings/screens/api_log_list_screen.dart';
 import '../../features/products/screens/product_maintenance_screen.dart';
 import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
 import '../../features/admin/message_queue/message_queue_admin_screen.dart';
+import '../../features/appointments/screens/appointment_calendar_screen.dart';
+import '../../features/stock/screens/stock_management_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -39,6 +49,33 @@ import 'dart:async';
 import '../api_client.dart';
 
 import '../../features/partners/screens/partner_list_screen.dart';
+
+
+String _partnerTitleForRole(String role, String rawRole) {
+  switch (role) {
+    case 'CUSTOMER':
+      return 'Customers';
+    case 'CLIENT':
+      return 'Clients';
+    case 'EMPLOYEE':
+      return 'Employees';
+    case 'SUPPLIER':
+      return 'Suppliers';
+    case 'BUSINESS_PARTNER':
+    case 'BUSINESS_PARTNERS':
+    case 'PARTNER':
+    case 'PARTNERS':
+      return 'Business Partners';
+    default:
+      final words = rawRole
+          .replaceAll('_', '-')
+          .split('-')
+          .where((word) => word.trim().isNotEmpty)
+          .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+          .join(' ');
+      return words.isEmpty ? 'Business Partners' : words;
+  }
+}
 
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
@@ -131,6 +168,12 @@ class AppRouter {
         builder: (context, state) => const MyHomePage(title: 'Mawa ERP'),
       ),
       GoRoute(
+        path: AppRoutes.featureGroup,
+        builder: (context, state) => FeatureGroupScreen(
+          groupId: state.pathParameters['groupId']!,
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.memberships,
         builder: (context, state) => const MemberListScreen(),
         routes: [
@@ -144,6 +187,18 @@ class AppRouter {
         ],
       ),
       GoRoute(
+        path: AppRoutes.membershipPlans,
+        builder: (context, state) => const MembershipPlanListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.membershipClaims,
+        builder: (context, state) => const MembershipClaimListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.groupSocieties,
+        builder: (context, state) => const GroupSocietyListScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.invoices,
         builder: (context, state) => const InvoiceListScreen(),
         routes: [
@@ -155,6 +210,18 @@ class AppRouter {
             },
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.paymentRequests,
+        builder: (context, state) => const PaymentRequestListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.cashups,
+        builder: (context, state) => const CashupListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.apiLogs,
+        builder: (context, state) => const ApiLogListScreen(),
       ),
       GoRoute(
         path: AppRoutes.cases,
@@ -182,15 +249,33 @@ class AppRouter {
         ],
       ),
       GoRoute(
+        path: AppRoutes.partners,
+        builder: (context, state) => const PartnerListScreen(
+          title: 'Business Partners',
+          allowCreate: true,
+        ),
+      ),
+      GoRoute(
         path: '/partners/:role',
         builder: (context, state) {
-          final role = state.pathParameters['role']!;
+          final rawRole = state.pathParameters['role']!;
+          final role = rawRole.replaceAll('-', '_').toUpperCase();
+          final title = _partnerTitleForRole(role, rawRole);
           return PartnerListScreen(
-            role: role,
-            title: '${role[0]}${role.substring(1).toLowerCase()}s',
-            allowCreate: false,
+            role: role == 'BUSINESS_PARTNER' ? null : role,
+            title: title,
+            allowCreate: role == 'BUSINESS_PARTNER',
           );
         },
+      ),
+
+      GoRoute(
+        path: AppRoutes.appointments,
+        builder: (context, state) => const AppointmentCalendarScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.calendar,
+        builder: (context, state) => const AppointmentCalendarScreen(),
       ),
       GoRoute(
         path: AppRoutes.approvals,
@@ -203,6 +288,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.products,
         builder: (context, state) => const ProductMaintenanceScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.inventory,
+        builder: (context, state) => const InventoryManagementScreen(),
       ),
       GoRoute(
         path: AppRoutes.fnbIntegrationAdmin,
