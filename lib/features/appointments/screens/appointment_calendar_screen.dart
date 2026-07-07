@@ -7,6 +7,7 @@ import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../partners/models/partner.dart';
 import '../models/appointment_booking.dart';
 import '../services/appointment_booking_service.dart';
+import '../../invoicing/screens/invoice_pdf_preview_screen.dart';
 
 class AppointmentCalendarScreen extends StatefulWidget {
   const AppointmentCalendarScreen({super.key});
@@ -122,6 +123,28 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to cancel appointment: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _invoiceAppointment(AppointmentBooking appointment) async {
+    try {
+      final invoice = await _service.createInvoiceForAppointment(appointment.id);
+      final invoiceId = (invoice['id'] ?? '').toString();
+      if (!mounted) return;
+      if (invoiceId.isNotEmpty) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => InvoicePdfPreviewScreen(invoiceId: invoiceId)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invoice created, but preview id was not returned')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create invoice: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -257,8 +280,8 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
         final calendar = _buildMonthCalendar(colorScheme);
         final agenda = _buildDayAgenda(colorScheme);
         if (wide) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -320,7 +343,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
               crossAxisCount: 7,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.25,
+              childAspectRatio: 1.8,
               children: const ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
                   .map((d) => Center(child: Text(d, style: TextStyle(fontWeight: FontWeight.w700, color: Colors.grey))))
                   .toList(),
@@ -329,7 +352,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: totalCells,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 1.12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 1.35),
               itemBuilder: (context, index) {
                 final dayNumber = index - leadingEmptyDays + 1;
                 if (dayNumber < 1 || dayNumber > daysInMonth) return const SizedBox.shrink();
@@ -344,7 +367,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
                     margin: const EdgeInsets.all(4),
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: selected ? colorScheme.primary : today ? colorScheme.primary.withOpacity(0.08) : Colors.grey.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(14),
@@ -512,10 +535,12 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
                 if (value == 'processed') _updateStatus(appointment, 'PROCESSED');
                 if (value == 'missed') _updateStatus(appointment, 'MISSED');
                 if (value == 'booked') _updateStatus(appointment, 'BOOKED');
+                if (value == 'invoice') _invoiceAppointment(appointment);
                 if (value == 'cancel') _cancelAppointment(appointment);
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit / Reschedule'))),
+                const PopupMenuItem(value: 'invoice', child: ListTile(leading: Icon(Icons.receipt_long_outlined), title: Text('Create / Open Invoice'))),
                 if (!appointment.isProcessed)
                   const PopupMenuItem(value: 'processed', child: ListTile(leading: Icon(Icons.check_circle_outline), title: Text('Mark Processed'))),
                 const PopupMenuItem(value: 'missed', child: ListTile(leading: Icon(Icons.person_off_outlined), title: Text('Mark Missed'))),

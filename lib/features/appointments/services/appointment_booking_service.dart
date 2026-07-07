@@ -21,10 +21,10 @@ class AppointmentBookingService {
     String? status,
   }) async {
     final response = await _apiClient.get('/v2/appointment', queryParameters: {
-      if (date != null) 'appointmentDate': DateFormat('yyyy-MM-dd').format(date),
+      if (date != null) 'bookDate': DateFormat('yyyy-MM-dd').format(date),
       if (fromDate != null) 'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
       if (toDate != null) 'toDate': DateFormat('yyyy-MM-dd').format(toDate),
-      if (employeeId != null && employeeId.isNotEmpty) 'employeePartnerId': employeeId,
+      if (employeeId != null && employeeId.isNotEmpty) 'employeeId': employeeId,
       if (customerId != null && customerId.isNotEmpty) 'customerId': customerId,
       if (status != null && status.isNotEmpty && status != 'ALL') 'status': status,
     });
@@ -89,9 +89,9 @@ class AppointmentBookingService {
     String? status,
   }) async {
     final response = await _apiClient.put('/v2/appointment/$id', body: {
-      if (date != null) 'appointmentDate': DateFormat('yyyy-MM-dd').format(date),
+      if (date != null) 'bookDate': DateFormat('yyyy-MM-dd').format(date),
       if (time != null && time.isNotEmpty) 'startTime': time,
-      if (employeeId != null && employeeId.isNotEmpty) 'employeePartnerId': employeeId,
+      if (employeeId != null && employeeId.isNotEmpty) 'employeeId': employeeId,
       if (status != null && status.isNotEmpty) 'status': status,
     });
 
@@ -111,6 +111,17 @@ class AppointmentBookingService {
     if (response.statusCode != 200) {
       throw Exception('Failed to update appointment status: ${response.statusCode} ${response.body}');
     }
+  }
+
+  Future<Map<String, dynamic>> createInvoiceForAppointment(String id) async {
+    final response = await _apiClient.post('/v2/appointment/$id/invoice');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      return <String, dynamic>{};
+    }
+    throw Exception('Failed to invoice appointment: ${response.statusCode} ${response.body}');
   }
 
   Future<void> cancelAppointment(String id) async {
