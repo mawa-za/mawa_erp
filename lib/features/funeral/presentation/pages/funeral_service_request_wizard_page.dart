@@ -35,9 +35,9 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   final List<String> _stepTitles = [
     'Deceased',
     'Representative',
-    'Package',
     'Cover',
     'Claims',
+    'Package',
     'Preview',
     'Generate'
   ];
@@ -129,11 +129,11 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       case 1:
         return _buildFamilyRepStep();
       case 2:
-        return _buildPackageStep();
-      case 3:
         return _buildCoverStep();
-      case 4:
+      case 3:
         return _buildClaimsStep();
+      case 4:
+        return _buildPackageStep();
       case 5:
         return _buildPreviewStep();
       case 6:
@@ -285,6 +285,8 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       padding: const EdgeInsets.all(16),
       children: [
         const Text('Select Funeral Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        const Text('Claims are initiated before package selection. The package selected here is used for final costing and invoice splitting.', style: TextStyle(color: Colors.grey)),
         const SizedBox(height: 16),
         ..._controller.packages.map((p) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -337,7 +339,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Membership Cover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Find Cover and Initiate Claims', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ElevatedButton.icon(
               onPressed: _controller.checkMembership,
               icon: const Icon(Icons.search),
@@ -633,8 +635,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
 
   String _getNextButtonText() {
     switch (_controller.currentStep) {
+      case 2:
+        return 'Initiate Claims';
       case 3:
-        return 'Initiate Request';
+        return 'Continue to Package';
       case 4:
         return 'Continue to Preview';
       case 5:
@@ -670,19 +674,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       _controller.setError(null);
       _controller.nextStep();
     } else if (_controller.currentStep == 2) {
-      if (_controller.selectedPackage == null) {
-        _controller.setError('Please select a funeral package.');
-        return;
-      }
-      _controller.setError(null);
-      _controller.nextStep();
-    } else if (_controller.currentStep == 3) {
       if (_controller.availableCovers.isEmpty) {
-        _controller.setError('Please run Check Cover before initiating the funeral arrangement.');
+        _controller.setError('Please run Check Cover before initiating claims.');
         return;
       }
       if (_controller.selectedCovers.isEmpty) {
-        _controller.setError('Please select at least one membership cover before initiating the funeral arrangement.');
+        _controller.setError('Please select at least one membership cover before initiating claims.');
         return;
       }
       if (_controller.hasInvalidSelectedCovers) {
@@ -691,11 +688,20 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       }
       final success = await _controller.createServiceRequest();
       if (success) _controller.nextStep();
-    } else if (_controller.currentStep == 4) {
+    } else if (_controller.currentStep == 3) {
       if (_controller.hasDraftClaims) {
-        _controller.setError('Please attach claim documentation and submit all draft claims for approval before continuing.');
+        _controller.setError('Please attach claim documentation and submit all draft claims for approval before choosing the funeral package.');
         return;
       }
+      _controller.setError(null);
+      _controller.nextStep();
+    } else if (_controller.currentStep == 4) {
+      if (_controller.selectedPackage == null) {
+        _controller.setError('Please select a funeral package.');
+        return;
+      }
+      final updated = await _controller.updatePackageSelection();
+      if (!updated) return;
       await _controller.loadInvoicePreview();
       _controller.nextStep();
     } else if (_controller.currentStep == 5) {
