@@ -39,6 +39,42 @@ class StockService {
     return _decodeMapResponse(response.body, response.statusCode, 'quotation');
   }
 
+
+  Future<Map<String, dynamic>> quotation(String id) async {
+    final response = await _apiClient.get('/v2/quotations/$id');
+    return _decodeMapResponse(response.body, response.statusCode, 'quotation');
+  }
+
+  Future<Map<String, dynamic>> purchaseOrder(String id) async {
+    final response = await _apiClient.get('/v2/purchase-orders/$id');
+    return _decodeMapResponse(response.body, response.statusCode, 'purchase order');
+  }
+
+  Future<Map<String, dynamic>> goodsReceipt(String id) async {
+    final response = await _apiClient.get('/v2/goods-receipts/$id');
+    return _decodeMapResponse(response.body, response.statusCode, 'goods receipt');
+  }
+
+  Future<Map<String, dynamic>> salesOrder(String id) async {
+    final response = await _apiClient.get('/v2/sales-orders/$id');
+    return _decodeMapResponse(response.body, response.statusCode, 'sales order');
+  }
+
+  Future<List<Map<String, dynamic>>> searchPartners(String query, {String? role}) async {
+    final response = await _apiClient.get('/v2/partner', queryParameters: {
+      'query': query,
+      if (role != null && role.isNotEmpty) 'role': role,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'partners');
+  }
+
+  Future<List<Map<String, dynamic>>> searchProducts(String query) async {
+    final response = await _apiClient.get('/product', queryParameters: {
+      if (query.isNotEmpty) 'query': query,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'products');
+  }
+
   Future<Map<String, dynamic>> updateQuotationStatus(String id, String status) async {
     final response = await _apiClient.post('/v2/quotations/$id/status', body: {'status': status});
     return _decodeMapResponse(response.body, response.statusCode, 'quotation status');
@@ -85,10 +121,20 @@ class StockService {
     return _decodeMapResponse(response.body, response.statusCode, 'purchase order status');
   }
 
-  Future<Map<String, dynamic>> receivePurchaseOrder(String id, {String? warehouseId, String? storageLocationId}) async {
+  Future<Map<String, dynamic>> receivePurchaseOrder(
+    String id, {
+    String? warehouseId,
+    String? storageLocationId,
+    String? supplierReference,
+    String? notes,
+    List<Map<String, dynamic>>? lines,
+  }) async {
     final response = await _apiClient.post('/v2/purchase-orders/$id/goods-receipt', body: {
       if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId,
       if (storageLocationId != null && storageLocationId.isNotEmpty) 'storageLocationId': storageLocationId,
+      if (supplierReference != null && supplierReference.isNotEmpty) 'supplierReference': supplierReference,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+      if (lines != null && lines.isNotEmpty) 'lines': lines,
     });
     return _decodeMapResponse(response.body, response.statusCode, 'purchase order receipt');
   }

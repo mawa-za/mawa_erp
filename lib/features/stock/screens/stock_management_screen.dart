@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/stock_service.dart';
+import '../widgets/inventory_document_dialog.dart';
 
 class InventoryManagementScreen extends StatefulWidget {
   const InventoryManagementScreen({super.key});
@@ -17,6 +18,8 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
   List<Map<String, dynamic>> _quotations = [];
   List<Map<String, dynamic>> _purchaseOrders = [];
   List<Map<String, dynamic>> _stock = [];
+  List<Map<String, dynamic>> _warehouses = [];
+  List<Map<String, dynamic>> _locations = [];
   List<Map<String, dynamic>> _receipts = [];
   List<Map<String, dynamic>> _putaways = [];
   List<Map<String, dynamic>> _movements = [];
@@ -48,6 +51,8 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
         _service.quotations(),
         _service.purchaseOrders(),
         _service.stock(),
+        _service.warehouses(),
+        _service.storageLocations(),
         _service.goodsReceipts(),
         _service.putaways(),
         _service.movements(),
@@ -60,11 +65,13 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
         _quotations = List<Map<String, dynamic>>.from(results[1] as List);
         _purchaseOrders = List<Map<String, dynamic>>.from(results[2] as List);
         _stock = List<Map<String, dynamic>>.from(results[3] as List);
-        _receipts = List<Map<String, dynamic>>.from(results[4] as List);
-        _putaways = List<Map<String, dynamic>>.from(results[5] as List);
-        _movements = List<Map<String, dynamic>>.from(results[6] as List);
-        _salesOrders = List<Map<String, dynamic>>.from(results[7] as List);
-        _audit = List<Map<String, dynamic>>.from(results[8] as List);
+        _warehouses = List<Map<String, dynamic>>.from(results[4] as List);
+        _locations = List<Map<String, dynamic>>.from(results[5] as List);
+        _receipts = List<Map<String, dynamic>>.from(results[6] as List);
+        _putaways = List<Map<String, dynamic>>.from(results[7] as List);
+        _movements = List<Map<String, dynamic>>.from(results[8] as List);
+        _salesOrders = List<Map<String, dynamic>>.from(results[9] as List);
+        _audit = List<Map<String, dynamic>>.from(results[10] as List);
       });
     } catch (e) {
       if (!mounted) return;
@@ -109,7 +116,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
                     _quotationView(),
                     _purchaseOrderView(),
                     _tableView(_stock, const ['product_code', 'product_description', 'warehouse_code', 'location_code', 'on_hand_qty', 'reserved_qty', 'available_qty', 'uom']),
-                    _tableView(_receipts, const ['receipt_no', 'purchase_order_no', 'receipt_date', 'status', 'supplier_reference', 'warehouse_id', 'created_by']),
+                    _tableView(_receipts, const ['receipt_no', 'purchase_order_no', 'receipt_date', 'status', 'supplier_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount']),
                     _tableView(_putaways, const ['putaway_no', 'movement_date', 'status', 'warehouse_id', 'from_location_id', 'to_location_id']),
                     _tableView(_movements, const ['movement_no', 'movement_type', 'product_code', 'quantity', 'uom', 'reference_no', 'processed_by', 'movement_at']),
                     _salesOrderView(),
@@ -179,7 +186,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
 
   Widget _quotationView() => _actionTableView(
         rows: _quotations,
-        columns: const ['quotation_no', 'quotation_date', 'valid_until', 'status', 'customer_reference', 'total_amount'],
+        columns: const ['quotation_no', 'quotation_date', 'valid_until', 'status', 'customer_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
         actions: [
           _rowAction('Send', (row) => _service.updateQuotationStatus(_id(row), 'SENT')),
           _rowAction('Accept', (row) => _service.updateQuotationStatus(_id(row), 'ACCEPTED')),
@@ -189,7 +196,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
 
   Widget _purchaseOrderView() => _actionTableView(
         rows: _purchaseOrders,
-        columns: const ['purchase_order_no', 'order_date', 'expected_delivery_date', 'status', 'supplier_reference', 'total_amount'],
+        columns: const ['purchase_order_no', 'order_date', 'expected_delivery_date', 'status', 'supplier_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
         actions: [
           _rowAction('Send', (row) => _service.updatePurchaseOrderStatus(_id(row), 'SENT')),
           _rowAction('Receive', (row) => _receivePurchaseOrder(row)),
@@ -199,7 +206,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
 
   Widget _salesOrderView() => _actionTableView(
         rows: _salesOrders,
-        columns: const ['sales_order_no', 'order_date', 'requested_delivery_date', 'status', 'customer_reference', 'total_amount'],
+        columns: const ['sales_order_no', 'order_date', 'requested_delivery_date', 'status', 'customer_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
         actions: [
           _rowAction('Reserve', (row) => _service.reserveSalesOrder(_id(row))),
           _rowAction('Issue', (row) => _issueSalesOrder(row)),
@@ -300,50 +307,38 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
     ));
   }
 
-  Future<void> _openQuotationDialog() => _commercialLineDialog(
-    title: 'Create Quotation',
-    partnerField: 'customerPartnerId',
-    referenceField: 'customerReference',
-    actionLabel: 'Save Quotation',
-    onSave: (values, line) => _service.createQuotation(
-      customerPartnerId: values['customerPartnerId'],
-      customerReference: values['customerReference'],
-      validUntil: values['validUntil'],
-      requestedDeliveryDate: values['requestedDeliveryDate'],
-      notes: values['notes'],
-      lines: [line],
-    ),
-  );
+  Future<void> _openQuotationDialog() async {
+    final saved = await showInventoryDocumentDialog(
+      context: context,
+      service: _service,
+      type: InventoryDocumentType.quotation,
+      warehouses: _warehouses,
+      storageLocations: _locations,
+    );
+    if (saved == true) await _load();
+  }
 
-  Future<void> _openPurchaseOrderDialog() => _commercialLineDialog(
-    title: 'Create Purchase Order',
-    partnerField: 'supplierPartnerId',
-    referenceField: 'supplierReference',
-    extraFields: const ['warehouseId', 'receivingLocationId', 'expectedDeliveryDate'],
-    actionLabel: 'Save PO',
-    onSave: (values, line) => _service.createPurchaseOrder(
-      supplierPartnerId: values['supplierPartnerId'],
-      supplierReference: values['supplierReference'],
-      warehouseId: values['warehouseId'],
-      receivingLocationId: values['receivingLocationId'],
-      expectedDeliveryDate: values['expectedDeliveryDate'],
-      notes: values['notes'],
-      lines: [line],
-    ),
-  );
+  Future<void> _openPurchaseOrderDialog() async {
+    final saved = await showInventoryDocumentDialog(
+      context: context,
+      service: _service,
+      type: InventoryDocumentType.purchaseOrder,
+      warehouses: _warehouses,
+      storageLocations: _locations,
+    );
+    if (saved == true) await _load();
+  }
 
-  Future<void> _openGoodsReceiptDialog() => _lineDialog(
-    title: 'Create Goods Receipt',
-    actionLabel: 'Receive',
-    fields: const ['purchaseOrderId', 'warehouseId', 'storageLocationId', 'productId', 'quantity', 'uom', 'unitCost', 'batchNo', 'supplierReference'],
-    onSave: (values) => _service.createGoodsReceipt(
-      purchaseOrderId: values['purchaseOrderId'],
-      warehouseId: values['warehouseId']!,
-      storageLocationId: values['storageLocationId']!,
-      supplierReference: values['supplierReference'],
-      lines: [_line(values, includeCost: true, includeBatch: true)],
-    ),
-  );
+  Future<void> _openGoodsReceiptDialog() async {
+    final saved = await showInventoryDocumentDialog(
+      context: context,
+      service: _service,
+      type: InventoryDocumentType.goodsReceipt,
+      warehouses: _warehouses,
+      storageLocations: _locations,
+    );
+    if (saved == true) await _load();
+  }
 
   Future<void> _openPutawayDialog() => _lineDialog(
     title: 'Create Putaway',
@@ -358,42 +353,35 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
     ),
   );
 
-  Future<void> _openSalesOrderDialog() => _commercialLineDialog(
-    title: 'Create Sales Order',
-    partnerField: 'customerPartnerId',
-    referenceField: 'customerReference',
-    extraFields: const ['warehouseId', 'requestedDeliveryDate'],
-    actionLabel: 'Save Sales Order',
-    onSave: (values, line) => _service.createSalesOrder(
-      customerPartnerId: values['customerPartnerId'],
-      customerReference: values['customerReference'],
-      warehouseId: values['warehouseId'],
-      requestedDeliveryDate: values['requestedDeliveryDate'],
-      notes: values['notes'],
-      lines: [line],
-    ),
-  );
+  Future<void> _openSalesOrderDialog() async {
+    final saved = await showInventoryDocumentDialog(
+      context: context,
+      service: _service,
+      type: InventoryDocumentType.salesOrder,
+      warehouses: _warehouses,
+      storageLocations: _locations,
+    );
+    if (saved == true) await _load();
+  }
 
   Future<void> _receivePurchaseOrder(Map<String, dynamic> row) async {
-    final warehouse = TextEditingController(text: _text(row['warehouse_id']));
-    final location = TextEditingController(text: _text(row['receiving_location_id']));
-    await showDialog<void>(context: context, builder: (context) => AlertDialog(
-      title: Text('Receive ${_text(row['purchase_order_no'])}'),
-      content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(controller: warehouse, decoration: const InputDecoration(labelText: 'Warehouse ID')),
-        TextField(controller: location, decoration: const InputDecoration(labelText: 'Receiving location ID')),
-        const SizedBox(height: 8),
-        const Text('If no line quantities are supplied, the backend receives all remaining open quantities on the PO.'),
-      ])),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () async {
-          await _service.receivePurchaseOrder(_id(row), warehouseId: warehouse.text, storageLocationId: location.text);
-          if (mounted) Navigator.pop(context);
-          await _load();
-        }, child: const Text('Receive')),
-      ],
-    ));
+    try {
+      final po = await _service.purchaseOrder(_id(row));
+      if (!mounted) return;
+      final saved = await showInventoryDocumentDialog(
+        context: context,
+        service: _service,
+        type: InventoryDocumentType.goodsReceipt,
+        warehouses: _warehouses,
+        storageLocations: _locations,
+        sourceDocument: po,
+      );
+      if (saved == true) await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Future<void> _issueSalesOrder(Map<String, dynamic> row) async {
