@@ -14,6 +14,8 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
   bool _loading = true;
   String? _error;
   Map<String, dynamic> _dashboard = <String, dynamic>{};
+  List<Map<String, dynamic>> _quotations = [];
+  List<Map<String, dynamic>> _purchaseOrders = [];
   List<Map<String, dynamic>> _stock = [];
   List<Map<String, dynamic>> _receipts = [];
   List<Map<String, dynamic>> _putaways = [];
@@ -24,7 +26,8 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
+    _tabController.addListener(() => setState(() {}));
     _load();
   }
 
@@ -42,6 +45,8 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
     try {
       final results = await Future.wait<dynamic>([
         _service.dashboard(),
+        _service.quotations(),
+        _service.purchaseOrders(),
         _service.stock(),
         _service.goodsReceipts(),
         _service.putaways(),
@@ -52,12 +57,14 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
       if (!mounted) return;
       setState(() {
         _dashboard = Map<String, dynamic>.from(results[0] as Map);
-        _stock = List<Map<String, dynamic>>.from(results[1] as List);
-        _receipts = List<Map<String, dynamic>>.from(results[2] as List);
-        _putaways = List<Map<String, dynamic>>.from(results[3] as List);
-        _movements = List<Map<String, dynamic>>.from(results[4] as List);
-        _salesOrders = List<Map<String, dynamic>>.from(results[5] as List);
-        _audit = List<Map<String, dynamic>>.from(results[6] as List);
+        _quotations = List<Map<String, dynamic>>.from(results[1] as List);
+        _purchaseOrders = List<Map<String, dynamic>>.from(results[2] as List);
+        _stock = List<Map<String, dynamic>>.from(results[3] as List);
+        _receipts = List<Map<String, dynamic>>.from(results[4] as List);
+        _putaways = List<Map<String, dynamic>>.from(results[5] as List);
+        _movements = List<Map<String, dynamic>>.from(results[6] as List);
+        _salesOrders = List<Map<String, dynamic>>.from(results[7] as List);
+        _audit = List<Map<String, dynamic>>.from(results[8] as List);
       });
     } catch (e) {
       if (!mounted) return;
@@ -73,17 +80,17 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inventory Management'),
-        actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-        ],
+        actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           tabs: const [
             Tab(icon: Icon(Icons.dashboard_outlined), text: 'Dashboard'),
+            Tab(icon: Icon(Icons.request_quote_outlined), text: 'Quotations'),
+            Tab(icon: Icon(Icons.assignment_outlined), text: 'Purchase Orders'),
             Tab(icon: Icon(Icons.inventory_2_outlined), text: 'Stock'),
-            Tab(icon: Icon(Icons.call_received_outlined), text: 'Goods Receipt'),
-            Tab(icon: Icon(Icons.compare_arrows_outlined), text: 'Putaway'),
+            Tab(icon: Icon(Icons.call_received_outlined), text: 'Goods Receipts'),
+            Tab(icon: Icon(Icons.compare_arrows_outlined), text: 'Putaways'),
             Tab(icon: Icon(Icons.timeline_outlined), text: 'Movements'),
             Tab(icon: Icon(Icons.shopping_cart_outlined), text: 'Sales Orders'),
             Tab(icon: Icon(Icons.history_outlined), text: 'Audit'),
@@ -99,11 +106,13 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
                   controller: _tabController,
                   children: [
                     _dashboardView(theme),
+                    _quotationView(),
+                    _purchaseOrderView(),
                     _tableView(_stock, const ['product_code', 'product_description', 'warehouse_code', 'location_code', 'on_hand_qty', 'reserved_qty', 'available_qty', 'uom']),
-                    _tableView(_receipts, const ['receipt_no', 'receipt_date', 'status', 'supplier_reference', 'warehouse_id', 'created_by']),
+                    _tableView(_receipts, const ['receipt_no', 'purchase_order_no', 'receipt_date', 'status', 'supplier_reference', 'warehouse_id', 'created_by']),
                     _tableView(_putaways, const ['putaway_no', 'movement_date', 'status', 'warehouse_id', 'from_location_id', 'to_location_id']),
                     _tableView(_movements, const ['movement_no', 'movement_type', 'product_code', 'quantity', 'uom', 'reference_no', 'processed_by', 'movement_at']),
-                    _tableView(_salesOrders, const ['sales_order_no', 'order_date', 'status', 'customer_partner_id', 'warehouse_id', 'created_by']),
+                    _salesOrderView(),
                     _tableView(_audit, const ['entity_type', 'action', 'entity_id', 'notes', 'created_by', 'created_at']),
                   ],
                 ),
@@ -111,36 +120,34 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
   }
 
   Widget? _buildActionButton() {
-    return AnimatedBuilder(
-      animation: _tabController,
-      builder: (context, _) {
-        if (_tabController.index == 2) {
-          return FloatingActionButton.extended(onPressed: () => _openGoodsReceiptDialog(), icon: const Icon(Icons.add), label: const Text('Goods Receipt'));
-        }
-        if (_tabController.index == 3) {
-          return FloatingActionButton.extended(onPressed: () => _openPutawayDialog(), icon: const Icon(Icons.add), label: const Text('Putaway'));
-        }
-        if (_tabController.index == 5) {
-          return FloatingActionButton.extended(onPressed: () => _openSalesOrderDialog(), icon: const Icon(Icons.add), label: const Text('Sales Order'));
-        }
-        return FloatingActionButton.extended(onPressed: _openSetupDialog, icon: const Icon(Icons.store_mall_directory_outlined), label: const Text('Setup'));
-      },
-    );
+    if (_tabController.index == 1) {
+      return FloatingActionButton.extended(onPressed: _openQuotationDialog, icon: const Icon(Icons.add), label: const Text('Quotation'));
+    }
+    if (_tabController.index == 2) {
+      return FloatingActionButton.extended(onPressed: _openPurchaseOrderDialog, icon: const Icon(Icons.add), label: const Text('Purchase Order'));
+    }
+    if (_tabController.index == 4) {
+      return FloatingActionButton.extended(onPressed: _openGoodsReceiptDialog, icon: const Icon(Icons.add), label: const Text('Goods Receipt'));
+    }
+    if (_tabController.index == 5) {
+      return FloatingActionButton.extended(onPressed: _openPutawayDialog, icon: const Icon(Icons.add), label: const Text('Putaway'));
+    }
+    if (_tabController.index == 7) {
+      return FloatingActionButton.extended(onPressed: _openSalesOrderDialog, icon: const Icon(Icons.add), label: const Text('Sales Order'));
+    }
+    return FloatingActionButton.extended(onPressed: _openSetupDialog, icon: const Icon(Icons.store_mall_directory_outlined), label: const Text('Setup'));
   }
 
   Widget _errorView(ThemeData theme) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-              const SizedBox(height: 12),
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Retry')),
-            ],
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+            const SizedBox(height: 12),
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+          ]),
         ),
       );
 
@@ -150,86 +157,122 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
     final recentMovements = _asList(_dashboard['recentMovements']);
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _metric('Stock Qty', _dashboard['totalStockQuantity'], Icons.inventory_2_outlined),
-              _metric('Products', _dashboard['productCount'], Icons.category_outlined),
-              _metric('Low Stock', _dashboard['lowStockCount'], Icons.warning_amber_outlined),
-              _metric('Receipts Today', _dashboard['goodsReceiptsToday'], Icons.call_received_outlined),
-              _metric('Movements Today', _dashboard['stockMovementsToday'], Icons.timeline_outlined),
-              _metric('Open Orders', _dashboard['openSalesOrders'], Icons.shopping_cart_outlined),
-              _metric('Warehouses', _dashboard['activeWarehouses'], Icons.store_mall_directory_outlined),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _section('Warehouse visibility', _simpleList(stockByWarehouse, ['warehouse_code', 'name', 'on_hand_qty'])),
-          _section('Low stock visibility', _simpleList(lowStock, ['product_code', 'product_description', 'on_hand_qty', 'minimum_qty'])),
-          _section('Recent stock movements', _simpleList(recentMovements, ['movement_no', 'movement_type', 'product_code', 'quantity'])),
-        ],
-      ),
+      child: ListView(padding: const EdgeInsets.all(16), children: [
+        Wrap(spacing: 12, runSpacing: 12, children: [
+          _metric('Stock Qty', _dashboard['totalStockQuantity'], Icons.inventory_2_outlined),
+          _metric('Products', _dashboard['productCount'], Icons.category_outlined),
+          _metric('Low Stock', _dashboard['lowStockCount'], Icons.warning_amber_outlined),
+          _metric('Open Quotes', _dashboard['openQuotations'], Icons.request_quote_outlined),
+          _metric('Open POs', _dashboard['openPurchaseOrders'], Icons.assignment_outlined),
+          _metric('Pending Putaway', _dashboard['pendingPutaways'], Icons.compare_arrows_outlined),
+          _metric('Receipts Today', _dashboard['goodsReceiptsToday'], Icons.call_received_outlined),
+          _metric('Open Orders', _dashboard['openSalesOrders'], Icons.shopping_cart_outlined),
+          _metric('Warehouses', _dashboard['activeWarehouses'], Icons.store_mall_directory_outlined),
+        ]),
+        const SizedBox(height: 20),
+        _section('Warehouse visibility', _simpleList(stockByWarehouse, ['warehouse_code', 'name', 'on_hand_qty'])),
+        _section('Low stock visibility', _simpleList(lowStock, ['product_code', 'product_description', 'on_hand_qty', 'minimum_qty'])),
+        _section('Recent stock movements', _simpleList(recentMovements, ['movement_no', 'movement_type', 'product_code', 'quantity'])),
+      ]),
     );
   }
 
-  Widget _metric(String title, dynamic value, IconData icon) {
-    return SizedBox(
-      width: 190,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(icon),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Text(_text(value), style: Theme.of(context).textTheme.headlineSmall),
-          ]),
-        ),
-      ),
-    );
-  }
+  Widget _quotationView() => _actionTableView(
+        rows: _quotations,
+        columns: const ['quotation_no', 'quotation_date', 'valid_until', 'status', 'customer_reference', 'total_amount'],
+        actions: [
+          _rowAction('Send', (row) => _service.updateQuotationStatus(_id(row), 'SENT')),
+          _rowAction('Accept', (row) => _service.updateQuotationStatus(_id(row), 'ACCEPTED')),
+          _rowAction('Convert', (row) => _service.convertQuotationToSalesOrder(_id(row))),
+        ],
+      );
+
+  Widget _purchaseOrderView() => _actionTableView(
+        rows: _purchaseOrders,
+        columns: const ['purchase_order_no', 'order_date', 'expected_delivery_date', 'status', 'supplier_reference', 'total_amount'],
+        actions: [
+          _rowAction('Send', (row) => _service.updatePurchaseOrderStatus(_id(row), 'SENT')),
+          _rowAction('Receive', (row) => _receivePurchaseOrder(row)),
+          _rowAction('Cancel', (row) => _service.updatePurchaseOrderStatus(_id(row), 'CANCELLED')),
+        ],
+      );
+
+  Widget _salesOrderView() => _actionTableView(
+        rows: _salesOrders,
+        columns: const ['sales_order_no', 'order_date', 'requested_delivery_date', 'status', 'customer_reference', 'total_amount'],
+        actions: [
+          _rowAction('Reserve', (row) => _service.reserveSalesOrder(_id(row))),
+          _rowAction('Issue', (row) => _issueSalesOrder(row)),
+          _rowAction('Cancel', (row) => _service.updateSalesOrderStatus(_id(row), 'CANCELLED')),
+        ],
+      );
+
+  Widget _metric(String title, dynamic value, IconData icon) => SizedBox(
+        width: 180,
+        child: Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(_text(value), style: Theme.of(context).textTheme.headlineSmall),
+        ]))),
+      );
 
   Widget _section(String title, Widget child) => Card(
         margin: const EdgeInsets.only(bottom: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            child,
-          ]),
-        ),
+        child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          child,
+        ])),
       );
 
   Widget _simpleList(List<Map<String, dynamic>> rows, List<String> columns) {
     if (rows.isEmpty) return const Text('No records found');
-    return Column(
-      children: rows.take(8).map((row) => ListTile(
-            dense: true,
-            title: Text(columns.take(2).map((c) => _text(row[c])).where((v) => v.isNotEmpty).join(' • ')),
-            subtitle: Text(columns.skip(2).map((c) => '${_label(c)}: ${_text(row[c])}').join('   ')),
-          )).toList(),
-    );
+    return Column(children: rows.take(8).map((row) => ListTile(
+      dense: true,
+      title: Text(columns.take(2).map((c) => _text(row[c])).where((v) => v.isNotEmpty).join(' • ')),
+      subtitle: Text(columns.skip(2).map((c) => '${_label(c)}: ${_text(row[c])}').join('   ')),
+    )).toList());
   }
 
   Widget _tableView(List<Map<String, dynamic>> rows, List<String> columns) {
     if (rows.isEmpty) return const Center(child: Text('No records found'));
-    return Scrollbar(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        scrollDirection: Axis.horizontal,
-        child: SingleChildScrollView(
-          child: DataTable(
-            columns: columns.map((c) => DataColumn(label: Text(_label(c)))).toList(),
-            rows: rows.map((row) => DataRow(cells: columns.map((c) => DataCell(Text(_text(row[c])))).toList())).toList(),
-          ),
-        ),
-      ),
-    );
+    return Scrollbar(child: SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(child: DataTable(
+        columns: columns.map((c) => DataColumn(label: Text(_label(c)))).toList(),
+        rows: rows.map((row) => DataRow(cells: columns.map((c) => DataCell(Text(_text(row[c])))).toList())).toList(),
+      )),
+    ));
+  }
+
+  Widget _actionTableView({required List<Map<String, dynamic>> rows, required List<String> columns, required List<_RowAction> actions}) {
+    if (rows.isEmpty) return const Center(child: Text('No records found'));
+    return Scrollbar(child: SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(child: DataTable(
+        columns: [
+          ...columns.map((c) => DataColumn(label: Text(_label(c)))),
+          const DataColumn(label: Text('Actions')),
+        ],
+        rows: rows.map((row) => DataRow(cells: [
+          ...columns.map((c) => DataCell(Text(_text(row[c])))),
+          DataCell(Wrap(spacing: 6, children: actions.map((a) => OutlinedButton(onPressed: () => _runRowAction(a, row), child: Text(a.label))).toList())),
+        ])).toList(),
+      )),
+    ));
+  }
+
+  Future<void> _runRowAction(_RowAction action, Map<String, dynamic> row) async {
+    try {
+      await action.handler(row);
+      await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+    }
   }
 
   Future<void> _openSetupDialog() async {
@@ -257,46 +300,156 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
     ));
   }
 
+  Future<void> _openQuotationDialog() => _commercialLineDialog(
+    title: 'Create Quotation',
+    partnerField: 'customerPartnerId',
+    referenceField: 'customerReference',
+    actionLabel: 'Save Quotation',
+    onSave: (values, line) => _service.createQuotation(
+      customerPartnerId: values['customerPartnerId'],
+      customerReference: values['customerReference'],
+      validUntil: values['validUntil'],
+      requestedDeliveryDate: values['requestedDeliveryDate'],
+      notes: values['notes'],
+      lines: [line],
+    ),
+  );
+
+  Future<void> _openPurchaseOrderDialog() => _commercialLineDialog(
+    title: 'Create Purchase Order',
+    partnerField: 'supplierPartnerId',
+    referenceField: 'supplierReference',
+    extraFields: const ['warehouseId', 'receivingLocationId', 'expectedDeliveryDate'],
+    actionLabel: 'Save PO',
+    onSave: (values, line) => _service.createPurchaseOrder(
+      supplierPartnerId: values['supplierPartnerId'],
+      supplierReference: values['supplierReference'],
+      warehouseId: values['warehouseId'],
+      receivingLocationId: values['receivingLocationId'],
+      expectedDeliveryDate: values['expectedDeliveryDate'],
+      notes: values['notes'],
+      lines: [line],
+    ),
+  );
+
   Future<void> _openGoodsReceiptDialog() => _lineDialog(
     title: 'Create Goods Receipt',
     actionLabel: 'Receive',
-    fields: const ['warehouseId', 'storageLocationId', 'productId', 'quantity', 'uom', 'supplierReference'],
+    fields: const ['purchaseOrderId', 'warehouseId', 'storageLocationId', 'productId', 'quantity', 'uom', 'unitCost', 'batchNo', 'supplierReference'],
     onSave: (values) => _service.createGoodsReceipt(
+      purchaseOrderId: values['purchaseOrderId'],
       warehouseId: values['warehouseId']!,
       storageLocationId: values['storageLocationId']!,
       supplierReference: values['supplierReference'],
-      lines: [{'productId': values['productId'], 'quantity': values['quantity'], 'uom': values['uom'] ?? 'EA'}],
+      lines: [_line(values, includeCost: true, includeBatch: true)],
     ),
   );
 
   Future<void> _openPutawayDialog() => _lineDialog(
     title: 'Create Putaway',
     actionLabel: 'Move',
-    fields: const ['warehouseId', 'fromLocationId', 'toLocationId', 'productId', 'quantity', 'uom'],
+    fields: const ['goodsReceiptId', 'warehouseId', 'fromLocationId', 'toLocationId', 'productId', 'quantity', 'uom', 'batchNo'],
     onSave: (values) => _service.createPutaway(
+      goodsReceiptId: values['goodsReceiptId'],
       warehouseId: values['warehouseId']!,
       fromLocationId: values['fromLocationId']!,
       toLocationId: values['toLocationId']!,
-      lines: [{'productId': values['productId'], 'quantity': values['quantity'], 'uom': values['uom'] ?? 'EA'}],
+      lines: [_line(values, includeBatch: true)],
     ),
   );
 
-  Future<void> _openSalesOrderDialog() => _lineDialog(
+  Future<void> _openSalesOrderDialog() => _commercialLineDialog(
     title: 'Create Sales Order',
-    actionLabel: 'Create',
-    fields: const ['customerPartnerId', 'warehouseId', 'productId', 'quantity', 'uom'],
-    onSave: (values) => _service.createSalesOrder(
+    partnerField: 'customerPartnerId',
+    referenceField: 'customerReference',
+    extraFields: const ['warehouseId', 'requestedDeliveryDate'],
+    actionLabel: 'Save Sales Order',
+    onSave: (values, line) => _service.createSalesOrder(
       customerPartnerId: values['customerPartnerId'],
+      customerReference: values['customerReference'],
       warehouseId: values['warehouseId'],
-      lines: [{'productId': values['productId'], 'quantity': values['quantity'], 'uom': values['uom'] ?? 'EA'}],
+      requestedDeliveryDate: values['requestedDeliveryDate'],
+      notes: values['notes'],
+      lines: [line],
     ),
   );
+
+  Future<void> _receivePurchaseOrder(Map<String, dynamic> row) async {
+    final warehouse = TextEditingController(text: _text(row['warehouse_id']));
+    final location = TextEditingController(text: _text(row['receiving_location_id']));
+    await showDialog<void>(context: context, builder: (context) => AlertDialog(
+      title: Text('Receive ${_text(row['purchase_order_no'])}'),
+      content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: warehouse, decoration: const InputDecoration(labelText: 'Warehouse ID')),
+        TextField(controller: location, decoration: const InputDecoration(labelText: 'Receiving location ID')),
+        const SizedBox(height: 8),
+        const Text('If no line quantities are supplied, the backend receives all remaining open quantities on the PO.'),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () async {
+          await _service.receivePurchaseOrder(_id(row), warehouseId: warehouse.text, storageLocationId: location.text);
+          if (mounted) Navigator.pop(context);
+          await _load();
+        }, child: const Text('Receive')),
+      ],
+    ));
+  }
+
+  Future<void> _issueSalesOrder(Map<String, dynamic> row) async {
+    final warehouse = TextEditingController(text: _text(row['warehouse_id']));
+    final location = TextEditingController();
+    await showDialog<void>(context: context, builder: (context) => AlertDialog(
+      title: Text('Issue ${_text(row['sales_order_no'])}'),
+      content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: warehouse, decoration: const InputDecoration(labelText: 'Warehouse ID')),
+        TextField(controller: location, decoration: const InputDecoration(labelText: 'Storage location ID (optional)')),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () async {
+          await _service.issueSalesOrder(_id(row), warehouseId: warehouse.text, storageLocationId: location.text);
+          if (mounted) Navigator.pop(context);
+          await _load();
+        }, child: const Text('Issue')),
+      ],
+    ));
+  }
+
+  Future<void> _commercialLineDialog({
+    required String title,
+    required String partnerField,
+    required String referenceField,
+    List<String> extraFields = const [],
+    required String actionLabel,
+    required Future<dynamic> Function(Map<String, String>, Map<String, dynamic>) onSave,
+  }) async {
+    final fields = [partnerField, referenceField, ...extraFields, 'productId', 'quantity', 'uom', 'unitPrice', 'taxRate', 'notes'];
+    final controllers = {for (final f in fields) f: TextEditingController(text: f == 'uom' ? 'EA' : f == 'taxRate' ? '15' : '')};
+    await showDialog<void>(context: context, builder: (context) => AlertDialog(
+      title: Text(title),
+      content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: fields.map((f) => TextField(controller: controllers[f], decoration: InputDecoration(labelText: _label(f)))).toList()))),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () async {
+          try {
+            final values = {for (final entry in controllers.entries) entry.key: entry.value.text};
+            await onSave(values, _line(values, includePrice: true));
+            if (mounted) Navigator.pop(context);
+            await _load();
+          } catch (e) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+          }
+        }, child: Text(actionLabel)),
+      ],
+    ));
+  }
 
   Future<void> _lineDialog({required String title, required String actionLabel, required List<String> fields, required Future<dynamic> Function(Map<String, String>) onSave}) async {
     final controllers = {for (final f in fields) f: TextEditingController(text: f == 'uom' ? 'EA' : '')};
     await showDialog<void>(context: context, builder: (context) => AlertDialog(
       title: Text(title),
-      content: SizedBox(width: 460, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: fields.map((f) => TextField(controller: controllers[f], decoration: InputDecoration(labelText: _label(f)))).toList()))),
+      content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: fields.map((f) => TextField(controller: controllers[f], decoration: InputDecoration(labelText: _label(f)))).toList()))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(onPressed: () async {
@@ -312,11 +465,29 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> w
     ));
   }
 
-  List<Map<String, dynamic>> _asList(dynamic value) {
-    if (value is List) return value.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    return <Map<String, dynamic>>[];
+  Map<String, dynamic> _line(Map<String, String> values, {bool includePrice = false, bool includeCost = false, bool includeBatch = false}) {
+    return {
+      if (_has(values['productId'])) 'productId': values['productId'],
+      if (_has(values['productCode'])) 'productCode': values['productCode'],
+      'quantity': values['quantity'],
+      'uom': _has(values['uom']) ? values['uom'] : 'EA',
+      if (includePrice) 'unitPrice': _has(values['unitPrice']) ? values['unitPrice'] : '0',
+      if (includePrice) 'taxRate': _has(values['taxRate']) ? values['taxRate'] : '0',
+      if (includeCost) 'unitCost': _has(values['unitCost']) ? values['unitCost'] : '0',
+      if (includeBatch && _has(values['batchNo'])) 'batchNo': values['batchNo'],
+    };
   }
 
+  _RowAction _rowAction(String label, Future<dynamic> Function(Map<String, dynamic>) handler) => _RowAction(label, handler);
+  List<Map<String, dynamic>> _asList(dynamic value) => value is List ? value.map((e) => Map<String, dynamic>.from(e as Map)).toList() : <Map<String, dynamic>>[];
+  bool _has(String? value) => value != null && value.trim().isNotEmpty;
+  String _id(Map<String, dynamic> row) => _text(row['id']);
   String _text(dynamic value) => value == null ? '' : value.toString();
   String _label(String value) => value.replaceAll('_', ' ').replaceAllMapped(RegExp(r'(^|\s)([a-z])'), (m) => '${m[1]}${m[2]!.toUpperCase()}');
+}
+
+class _RowAction {
+  final String label;
+  final Future<dynamic> Function(Map<String, dynamic>) handler;
+  _RowAction(this.label, this.handler);
 }

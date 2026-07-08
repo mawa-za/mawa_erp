@@ -83,6 +83,8 @@ class FeatureGroupRegistry {
         'putaway',
         'stock-on-hand',
         'sales-order',
+        'quotation',
+        'purchase-order',
       ],
       aliases: ['inventory-management', 'stock-management'],
     ),
