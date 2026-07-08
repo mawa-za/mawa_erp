@@ -29,11 +29,11 @@ RUN flutter clean
 RUN flutter pub get
 RUN flutter pub upgrade
 RUN flutter build web --base-href / --dart-define=env=prod
-EXPOSE 8080
+EXPOSE 80
 ENTRYPOINT [ "/usr/local/bin/app/server/server.sh" ]
 
 # Stage 2 - Create the run-time image
 FROM nginx:1.21.1-alpine
 COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=build-env /app/build/web /usr/share/nginx/html
-EXPOSE 8080
+EXPOSE 80
