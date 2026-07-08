@@ -6,6 +6,7 @@ import 'route_guards.dart';
 import '../../features/setup/setup_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
+import '../../features/auth/admin_handoff_screen.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/screens/feature_group_screen.dart';
 import '../../features/membership/screens/membership_detail_screen.dart';
@@ -105,6 +106,7 @@ class AppRouter {
       final bool isPublicRoute = state.matchedLocation == AppRoutes.login || 
                                  state.matchedLocation == AppRoutes.setup ||
                                  state.matchedLocation == AppRoutes.resetPassword ||
+                                 state.matchedLocation == AppRoutes.adminHandoff ||
                                  state.matchedLocation.endsWith('/preview') ||
                                  state.matchedLocation == AppRoutes.legacyInvoicePreview; 
 
@@ -161,6 +163,14 @@ class AppRouter {
         builder: (context, state) {
           final token = state.uri.queryParameters['token'] ?? '';
           return ResetPasswordScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.adminHandoff,
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          final redirectPath = state.uri.queryParameters['redirect'] ?? AppRoutes.home;
+          return AdminHandoffScreen(token: token, redirectPath: redirectPath);
         },
       ),
       GoRoute(
