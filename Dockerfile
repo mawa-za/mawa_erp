@@ -34,4 +34,6 @@ ENTRYPOINT [ "/usr/local/bin/app/server/server.sh" ]
 
 # Stage 2 - Create the run-time image
 FROM nginx:1.21.1-alpine
+COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=build-env /app/build/web /usr/share/nginx/html
+EXPOSE 8080
