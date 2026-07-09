@@ -301,7 +301,9 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.inventory,
-        builder: (context, state) => const InventoryManagementScreen(),
+        builder: (context, state) => InventoryManagementScreen(
+          initialSection: state.uri.queryParameters['section'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.fnbIntegrationAdmin,
