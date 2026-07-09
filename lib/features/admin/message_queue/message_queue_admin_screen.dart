@@ -18,6 +18,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
   bool _schedulerEnabled = true;
   int _intervalSeconds = 60;
   int _batchSize = 10;
+  int _retryDelaySeconds = 10;
   String? _lastRunAt;
   String? _nextRunAt;
   String _status = 'ALL';
@@ -44,6 +45,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
           _schedulerEnabled = data['enabled'] == true;
           _intervalSeconds = (data['intervalSeconds'] as num?)?.toInt() ?? 60;
           _batchSize = (data['batchSize'] as num?)?.toInt() ?? 10;
+          _retryDelaySeconds = (data['retryDelaySeconds'] as num?)?.toInt() ?? 10;
           _lastRunAt = data['lastRunAt']?.toString();
           _nextRunAt = data['nextRunAt']?.toString();
         });
@@ -60,6 +62,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
         'enabled': enabled ?? _schedulerEnabled,
         'intervalSeconds': _intervalSeconds,
         'batchSize': _batchSize,
+        'retryDelaySeconds': _retryDelaySeconds,
       });
       if (response.statusCode != 200) throw Exception(response.body);
       await _loadSchedule();
@@ -219,6 +222,15 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
                     decoration: const InputDecoration(labelText: 'Batch size', border: OutlineInputBorder()),
                     keyboardType: TextInputType.number,
                     onChanged: (v) => _batchSize = int.tryParse(v) ?? _batchSize,
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: _retryDelaySeconds.toString(),
+                    decoration: const InputDecoration(labelText: 'Retry delay seconds', border: OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) => _retryDelaySeconds = int.tryParse(v) ?? _retryDelaySeconds,
                   ),
                 ),
                 ElevatedButton.icon(

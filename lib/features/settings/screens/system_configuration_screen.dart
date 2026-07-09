@@ -10,6 +10,7 @@ import '../../membership/screens/membership_plan_list_screen.dart';
 import '../../products/screens/product_maintenance_screen.dart';
 import '../../integrations/fnb/fnb_integration_admin_screen.dart';
 import '../../admin/message_queue/message_queue_admin_screen.dart';
+import 'scheduler_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -78,6 +79,15 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.account_balance_outlined,
             color: Colors.deepPurple,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FnbIntegrationAdminScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Scheduled Jobs',
+            subtitle: 'Configure automated backend jobs and run windows',
+            icon: Icons.schedule_outlined,
+            color: Colors.deepOrange,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SchedulerConfigurationScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
