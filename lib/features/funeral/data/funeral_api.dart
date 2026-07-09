@@ -14,6 +14,7 @@ import 'models/initiate_funeral_claims_request_dto.dart';
 import 'models/funeral_claim_dto.dart';
 import 'models/approve_funeral_claim_request_dto.dart';
 import 'models/funeral_invoice_preview_request_dto.dart';
+import 'models/funeral_service_configuration_dto.dart';
 import 'models/funeral_invoice_preview_line_dto.dart';
 import 'models/generate_funeral_invoices_response_dto.dart';
 import 'models/invoice_payment_request_dto.dart';
@@ -82,7 +83,23 @@ class FuneralApi {
     }
   }
 
-  // Packages and Membership
+  // Packages, configuration and Membership
+  Future<FuneralServiceConfigurationDto> getServiceConfiguration() async {
+    final response = await _apiClient.get('/v2/funeral/configuration');
+    if (response.statusCode == 200) {
+      return FuneralServiceConfigurationDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw Exception('Failed to load funeral service configuration: ${response.body}');
+  }
+
+  Future<FuneralServiceConfigurationDto> updateServiceConfiguration(FuneralServiceConfigurationDto configuration) async {
+    final response = await _apiClient.put('/v2/funeral/configuration', body: configuration.toJson());
+    if (response.statusCode == 200) {
+      return FuneralServiceConfigurationDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw Exception('Failed to update funeral service configuration: ${response.body}');
+  }
+
   Future<List<FuneralPackageDto>> getFuneralPackages({bool activeOnly = true}) async {
     final response = await _apiClient.get(
       '/v2/funeral/packages',

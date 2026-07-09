@@ -355,19 +355,23 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               child: Text('No memberships found or check not performed.', textAlign: TextAlign.center),
             ),
           ),
-        ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
-              cover: cover,
-              isSelected: _controller.isCoverSelected(cover),
-              claimType: _controller.selectedClaimType,
-              onTap: () => _controller.toggleCoverSelection(cover),
-            )),
+        ..._controller.availableCovers.map((cover) {
+          final isSelected = _controller.isCoverSelected(cover);
+          final disabledByLimit = !isSelected && _controller.coverSelectionLimitReached;
+          return MembershipCoverSelectionCard(
+            cover: cover,
+            isSelected: isSelected,
+            claimType: _controller.selectedClaimType,
+            disabled: disabledByLimit,
+            disabledReason: disabledByLimit ? 'Maximum cover selection reached' : null,
+            onTap: () => _controller.toggleCoverSelection(cover),
+          );
+        }),
         if (_controller.availableCovers.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(
-              _controller.selectedCovers.isEmpty
-                  ? 'Select one or more memberships to use for claim initiation.'
-                  : '${_controller.selectedCovers.length} cover(s) selected. Claim type: ${_controller.selectedClaimType}. Estimated cover: R ${(_controller.selectedCoverTotalCents / 100).toStringAsFixed(2)}',
+              _coverSelectionSummaryText(),
               style: TextStyle(
                 fontSize: 12,
                 color: _controller.selectedCovers.isEmpty ? Colors.grey : Colors.green.shade700,
@@ -386,6 +390,16 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ],
       ],
     );
+  }
+
+  String _coverSelectionSummaryText() {
+    final limitText = _controller.hasCoverSelectionLimit
+        ? ' Maximum allowed: ${_controller.maxSelectableCovers}. Remaining: ${_controller.remainingCoverSelections}.'
+        : ' No maximum cover limit configured.';
+    if (_controller.selectedCovers.isEmpty) {
+      return 'Select one or more memberships to use for claim initiation.$limitText';
+    }
+    return '${_controller.selectedCovers.length} cover(s) selected. Claim type: ${_controller.selectedClaimType}. Estimated cover: R ${(_controller.selectedCoverTotalCents / 100).toStringAsFixed(2)}.$limitText';
   }
 
   Widget _buildClaimsStep() {
@@ -680,6 +694,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       }
       if (_controller.selectedCovers.isEmpty) {
         _controller.setError('Please select at least one membership cover before initiating claims.');
+        return;
+      }
+      if (_controller.selectedCoversExceedLimit) {
+        _controller.setError('A maximum of ${_controller.maxSelectableCovers} cover(s) can be selected for one funeral service.');
         return;
       }
       if (_controller.hasInvalidSelectedCovers) {

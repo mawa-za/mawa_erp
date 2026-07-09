@@ -8,6 +8,8 @@ class MembershipCoverSelectionCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final String claimType;
+  final bool disabled;
+  final String? disabledReason;
 
   const MembershipCoverSelectionCard({
     super.key,
@@ -15,6 +17,8 @@ class MembershipCoverSelectionCard extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.claimType = 'FUNERAL',
+    this.disabled = false,
+    this.disabledReason,
   });
 
   @override
@@ -33,92 +37,102 @@ class MembershipCoverSelectionCard extends StatelessWidget {
             : BorderSide(color: Colors.grey.shade300),
       ),
       child: InkWell(
-        onTap: onTap,
+        onTap: disabled ? null : onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      cover.burialSocietyName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                  Checkbox(
-                    value: isSelected,
-                    onChanged: (_) => onTap(),
-                    activeColor: theme.primaryColor,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text('Membership: ${cover.membershipNumber}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isLocal ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isLocal ? 'LOCAL_TENANT' : 'EXTERNAL_TENANT',
-                      style: TextStyle(
-                        color: isLocal ? Colors.green : Colors.blue,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+        child: Opacity(
+          opacity: disabled ? 0.55 : 1,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        cover.burialSocietyName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                     ),
-                  ),
-                  if (isSelected)
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: disabled ? null : (_) => onTap(),
+                      activeColor: theme.primaryColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('Membership: ${cover.membershipNumber}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.08),
+                        color: isLocal ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        'USING $effectiveClaimType',
+                        isLocal ? 'LOCAL_TENANT' : 'EXTERNAL_TENANT',
                         style: TextStyle(
-                          color: theme.colorScheme.primary,
+                          color: isLocal ? Colors.green : Colors.blue,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                ],
-              ),
-              const Divider(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _AmountTile(
-                      label: 'FUNERAL',
-                      amountCents: cover.funeralAmountCents,
-                      highlighted: isSelected && effectiveClaimType == 'FUNERAL',
+                    if (isSelected)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'USING $effectiveClaimType',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _AmountTile(
+                        label: 'FUNERAL',
+                        amountCents: cover.funeralAmountCents,
+                        highlighted: isSelected && effectiveClaimType == 'FUNERAL',
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _AmountTile(
-                      label: 'COMBINATION',
-                      amountCents: cover.combinationAmountCents,
-                      highlighted: isSelected && effectiveClaimType == 'COMBINATION',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _AmountTile(
+                        label: 'COMBINATION',
+                        amountCents: cover.combinationAmountCents,
+                        highlighted: isSelected && effectiveClaimType == 'COMBINATION',
+                      ),
                     ),
+                  ],
+                ),
+                if (!isLocal && cover.sourceTenantName != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Source: ${cover.sourceTenantName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+                if (disabled && disabledReason != null && disabledReason!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    disabledReason!,
+                    style: TextStyle(fontSize: 12, color: Colors.orange.shade800, fontWeight: FontWeight.w600),
                   ),
                 ],
-              ),
-              if (!isLocal && cover.sourceTenantName != null) ...[
-                const SizedBox(height: 8),
-                Text('Source: ${cover.sourceTenantName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
-            ],
+            ),
           ),
         ),
       ),
