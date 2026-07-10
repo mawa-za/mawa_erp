@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_package_dto.dart';
+import '../../data/models/funeral_service_configuration_dto.dart';
 import '../widgets/funeral_money_text.dart';
 import '../../../../core/models/product_lookup.dart';
 import '../../../../core/services/product_lookup_service.dart';
@@ -18,6 +19,7 @@ class FuneralPackageSetupPage extends StatefulWidget {
 class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
   final FuneralApi _api = FuneralApi();
   List<FuneralPackageDto> _packages = [];
+  FuneralServiceConfigurationDto _configuration = const FuneralServiceConfigurationDto();
   bool _loading = true;
   String? _error;
 
@@ -34,10 +36,14 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
     });
 
     try {
-      final packages = await _api.getFuneralPackages(activeOnly: false);
+      final results = await Future.wait([
+        _api.getFuneralPackages(activeOnly: false),
+        _api.getServiceConfiguration().catchError((_) => const FuneralServiceConfigurationDto()),
+      ]);
       if (!mounted) return;
       setState(() {
-        _packages = packages;
+        _packages = results[0] as List<FuneralPackageDto>;
+        _configuration = results[1] as FuneralServiceConfigurationDto;
         _loading = false;
       });
     } catch (e) {
@@ -86,12 +92,63 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
     }
   }
 
+  Future<void> _openServiceSettingsDialog() async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => _FuneralServiceSettingsDialog(configuration: _configuration),
+    );
+
+    if (saved == true && mounted) {
+      await _loadPackages();
+    }
+  }
+
+  Widget _buildConfigurationCard() {
+    final hasLimit = _configuration.maxSelectableCovers > 0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.rule_outlined),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Funeral service cover selection', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasLimit
+                        ? 'Maximum ${_configuration.maxSelectableCovers} cover(s) can be selected per funeral service.'
+                        : 'No maximum cover selection limit configured.',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _openServiceSettingsDialog,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Edit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Funeral Package Setup'),
         actions: [
+          IconButton(
+            tooltip: 'Funeral service settings',
+            onPressed: _openServiceSettingsDialog,
+            icon: const Icon(Icons.tune),
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loadPackages,
@@ -132,30 +189,38 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
     }
 
     if (_packages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.inventory_2_outlined, size: 56),
-            const SizedBox(height: 12),
-            const Text('No funeral packages configured yet'),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => _openPackageDialog(),
-              icon: const Icon(Icons.add),
-              label: const Text('Create Funeral Package'),
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildConfigurationCard(),
+          const SizedBox(height: 24),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.inventory_2_outlined, size: 56),
+                const SizedBox(height: 12),
+                const Text('No funeral packages configured yet'),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => _openPackageDialog(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Funeral Package'),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-      itemCount: _packages.length,
+      itemCount: _packages.length + 1,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final package = _packages[index];
+        if (index == 0) return _buildConfigurationCard();
+        final package = _packages[index - 1];
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -201,6 +266,91 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _FuneralServiceSettingsDialog extends StatefulWidget {
+  const _FuneralServiceSettingsDialog({required this.configuration});
+
+  final FuneralServiceConfigurationDto configuration;
+
+  @override
+  State<_FuneralServiceSettingsDialog> createState() => _FuneralServiceSettingsDialogState();
+}
+
+class _FuneralServiceSettingsDialogState extends State<_FuneralServiceSettingsDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _api = FuneralApi();
+  late final TextEditingController _maxCoversController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _maxCoversController = TextEditingController(
+      text: widget.configuration.maxSelectableCovers <= 0 ? '' : widget.configuration.maxSelectableCovers.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _maxCoversController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final rawValue = _maxCoversController.text.trim();
+    final maxCovers = rawValue.isEmpty ? 0 : int.parse(rawValue);
+    try {
+      await _api.updateServiceConfiguration(FuneralServiceConfigurationDto(maxSelectableCovers: maxCovers));
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save funeral service settings: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Funeral Service Settings'),
+      content: SizedBox(
+        width: 420,
+        child: Form(
+          key: _formKey,
+          child: TextFormField(
+            controller: _maxCoversController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Maximum selected covers',
+              helperText: 'Leave blank or enter 0 for unlimited. Example: 2 means only two covers can be selected per funeral service.',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              final text = (value ?? '').trim();
+              if (text.isEmpty) return null;
+              final number = int.tryParse(text);
+              if (number == null || number < 0) return 'Enter 0 or a positive whole number';
+              if (number > 99) return 'Maximum may not exceed 99';
+              return null;
+            },
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Save'),
+        ),
+      ],
     );
   }
 }

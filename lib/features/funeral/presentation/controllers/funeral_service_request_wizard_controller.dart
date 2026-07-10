@@ -9,6 +9,7 @@ import '../../data/models/funeral_claim_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../data/models/funeral_invoice_preview_line_dto.dart';
 import '../../data/models/funeral_invoice_preview_request_dto.dart';
+import '../../data/models/funeral_service_configuration_dto.dart';
 import '../../data/models/generate_funeral_invoices_response_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../../../core/models/field_option.dart';
@@ -39,6 +40,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<FieldOption> causeOfDeathOptions = [];
 
   // Step 3: Membership Cover
+  FuneralServiceConfigurationDto serviceConfiguration = const FuneralServiceConfigurationDto();
   List<FuneralPackageDto> packages = [];
   FuneralPackageDto? selectedPackage;
   List<FuneralExtraDto> extras = [];
@@ -65,13 +67,15 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       final results = await Future.wait([
         _api.getMortuaryInventory(),
         _api.getFuneralPackages(),
+        _api.getServiceConfiguration().catchError((_) => const FuneralServiceConfigurationDto()),
         FieldService().getOptionsByField('SALES-AREA').catchError((_) => <FieldOption>[]),
         FieldService().getOptionsByField('CAUSE-OF-DEATH').catchError((_) => <FieldOption>[]),
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
-      salesAreaOptions = results[2] as List<FieldOption>;
-      causeOfDeathOptions = results[3] as List<FieldOption>;
+      serviceConfiguration = results[2] as FuneralServiceConfigurationDto;
+      salesAreaOptions = results[3] as List<FieldOption>;
+      causeOfDeathOptions = results[4] as List<FieldOption>;
       if (funeralLocation.isEmpty && salesAreaOptions.isNotEmpty) {
         funeralLocation = salesAreaOptions.first.code;
       }
@@ -124,9 +128,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     final existingIndex = selectedCovers.indexWhere((c) => c.selectionId == selectionId);
     if (existingIndex >= 0) {
       selectedCovers.removeAt(existingIndex);
-    } else {
-      selectedCovers.add(cover);
+      errorMessage = null;
+      notifyListeners();
+      return;
     }
+
+    if (coverSelectionLimitReached) {
+      errorMessage = 'A maximum of $maxSelectableCovers cover(s) can be selected for one funeral service.';
+      notifyListeners();
+      return;
+    }
+
+    selectedCovers.add(cover);
     errorMessage = null;
     notifyListeners();
   }
@@ -134,6 +147,21 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   bool isCoverSelected(FuneralMembershipCoverDto cover) {
     return selectedCovers.any((c) => c.selectionId == cover.selectionId);
   }
+
+
+  int get maxSelectableCovers => serviceConfiguration.maxSelectableCovers;
+
+  bool get hasCoverSelectionLimit => maxSelectableCovers > 0;
+
+  bool get coverSelectionLimitReached => hasCoverSelectionLimit && selectedCovers.length >= maxSelectableCovers;
+
+  int get remainingCoverSelections {
+    if (!hasCoverSelectionLimit) return 999999;
+    final remaining = maxSelectableCovers - selectedCovers.length;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  bool get selectedCoversExceedLimit => hasCoverSelectionLimit && selectedCovers.length > maxSelectableCovers;
 
   List<String> get selectedMembershipSelectionIds => selectedCovers
       .map((c) => c.membershipId?.trim())
@@ -181,6 +209,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       }
 
       if (selectedCovers.isNotEmpty && claims.isEmpty) {
+        if (selectedCoversExceedLimit) {
+          throw Exception('A maximum of $maxSelectableCovers cover(s) can be selected for one funeral service.');
+        }
+
         final membershipSelections = selectedMembershipSelectionIds;
 
         if (membershipSelections.isEmpty) {
