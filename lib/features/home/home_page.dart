@@ -7,11 +7,9 @@ import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/routing/workcenter_route_registry.dart';
-import '../../core/routing/feature_group_registry.dart';
 import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
-import '../../core/widgets/mawa_brand.dart';
 
 // Import missing screens for legacy navigation fallback
 import '../auth/role_selection_screen.dart';
@@ -20,13 +18,11 @@ import '../settings/screens/api_log_list_screen.dart';
 import '../invoicing/screens/invoice_create_screen.dart';
 import '../membership/screens/membership_claim_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
-import '../products/screens/product_maintenance_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
-import '../appointments/screens/appointment_calendar_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -38,7 +34,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin {
   String? _displayName;
-  String? _username;
   String? _selectedRoleDisplay;
   String _appVersion = '';
   List<Workcenter> _workcenters = [];
@@ -79,10 +74,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final roleDesc = prefs.getString('selectedRoleDescription');
     
     setState(() {
-      final storedDisplayName = prefs.getString('displayName');
-      final storedUsername = prefs.getString('username');
-      _username = storedUsername;
-      _displayName = (storedDisplayName != null && storedDisplayName.trim().isNotEmpty) ? storedDisplayName.trim() : storedUsername;
+      _displayName = prefs.getString('displayName');
       _selectedRoleDisplay = roleDesc ?? roleId;
     });
 
@@ -100,9 +92,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
-          final rawWorkcenters = data.map((json) => Workcenter.fromJson(json)).toList();
-          rawWorkcenters.sort((a, b) => a.position.compareTo(b.position));
-          _workcenters = _groupWorkcentersForHome(rawWorkcenters);
+          _workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
+          _workcenters.sort((a, b) => a.position.compareTo(b.position));
           _filteredWorkcenters = _workcenters;
           _isLoadingWorkcenters = false;
         });
@@ -145,47 +136,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
-
-  List<Workcenter> _groupWorkcentersForHome(List<Workcenter> source) {
-    final Map<String, List<Workcenter>> groupedChildren = {};
-    final List<Workcenter> ungrouped = [];
-
-    for (final wc in source) {
-      final group = FeatureGroupRegistry.groupForWorkcenter(wc.id);
-      if (group == null) {
-        ungrouped.add(wc);
-      } else {
-        groupedChildren.putIfAbsent(group.id, () => []).add(wc);
-      }
-    }
-
-    final List<Workcenter> result = [];
-    for (final group in FeatureGroupRegistry.groups) {
-      final children = groupedChildren[group.id] ?? const <Workcenter>[];
-      if (children.isEmpty) continue;
-
-      final minPosition = children
-          .map((wc) => wc.position)
-          .fold<int>(children.first.position, (previous, current) => current < previous ? current : previous);
-
-      result.add(Workcenter(
-        id: group.id,
-        description: group.title,
-        defaultFunction: '',
-        path: group.routePath,
-        position: minPosition,
-        routeKey: group.id,
-        routePath: group.routePath,
-        isFeatureGroup: true,
-        childWorkcenterIds: children.map((wc) => wc.id).toList(),
-      ));
-    }
-
-    result.addAll(ungrouped);
-    result.sort((a, b) => a.position.compareTo(b.position));
-    return result;
-  }
-
   void _applySearch(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -194,8 +144,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         final lowercaseQuery = query.toLowerCase();
         _filteredWorkcenters = _workcenters.where((wc) {
           return wc.description.toLowerCase().contains(lowercaseQuery) ||
-                 wc.id.toLowerCase().contains(lowercaseQuery) ||
-                 wc.childWorkcenterIds.any((childId) => childId.toLowerCase().contains(lowercaseQuery));
+                 wc.id.toLowerCase().contains(lowercaseQuery);
         }).toList();
       }
     });
@@ -277,13 +226,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
-    if (lowerId == 'membership-management') return Icons.groups_rounded;
-    if (lowerId == 'funeral-management') return Icons.volunteer_activism_rounded;
-    if (lowerId == 'finance-management') return Icons.account_balance_wallet_rounded;
-    if (lowerId == 'inventory') return Icons.inventory_2_rounded;
-    if (lowerId == 'scheduling') return Icons.event_available_rounded;
-    if (lowerId == 'partner-management') return Icons.business_center_rounded;
-    if (lowerId == 'administration') return Icons.admin_panel_settings_rounded;
     if (lowerId == 'employee') return Icons.badge_rounded;
     if (lowerId == 'supplier') return Icons.local_shipping_rounded;
     if (lowerId == 'customer') return Icons.person_pin_rounded;
@@ -308,28 +250,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
     if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     if (lowerId.contains('case')) return Icons.gavel_rounded;
-    if (lowerId.contains('appointment') || lowerId.contains('booking') || lowerId.contains('calendar')) return Icons.event_available_rounded;
     if (lowerId.contains('engagement') || lowerId.contains('communication')) return Icons.campaign_rounded;
     return Icons.apps_rounded;
   }
 
   void _navigateToWorkcenter(Workcenter wc) {
-    if (wc.isFeatureGroup) {
-      _moduleUsageService.trackUsage(
-        moduleCode: wc.id,
-        moduleName: wc.description,
-        modulePath: wc.routePath,
-        workcenterId: wc.id,
-      );
-      _fetchRecentModules();
-      _fetchFrequentModules();
-      final route = wc.routePath ?? FeatureGroupRegistry.routeForGroup(wc.id);
-      if (route != null && route.startsWith('/')) {
-        context.push(route);
-        return;
-      }
-    }
-
     // Track module usage
     _moduleUsageService.trackUsage(
       moduleCode: wc.id,
@@ -381,9 +306,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
       context.push(AppRoutes.invoices);
-    } else if (id.contains('PRODUCT') || description.contains('product')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ProductMaintenanceScreen()));
-    } else if (id.contains('PLAN') || description.contains('plan')) {
+    } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
     } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
       context.push(AppRoutes.memberships);
@@ -393,8 +316,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('GROUP') || id.contains('SOCIETY') || description.contains('group') || description.contains('society')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen()));
-    } else if (id.contains('APPOINTMENT') || id.contains('BOOKING') || id.contains('CALENDAR') || description.contains('appointment') || description.contains('booking') || description.contains('calendar')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const AppointmentCalendarScreen()));
     } else if (id.contains('PAYMENT') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('PARTNER') || description.contains('partner')) {
@@ -512,7 +433,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hello, ${(_displayName == null || _displayName!.trim().isEmpty ? 'User' : _displayName!.trim().split(' ').first)}',
+                      'Hello, ${_displayName?.split(' ').first ?? 'User'}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 28,
@@ -538,11 +459,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-            child: const MawaBrand(height: 22),
-          ),
+          Image.asset('assets/branding/mawa_logo.png', height: 30, fit: BoxFit.contain),
           if (_appVersion.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
@@ -588,7 +505,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             radius: 16,
             backgroundColor: colorScheme.primaryContainer,
             child: Text(
-              _userInitials(),
+              _displayName?[0] ?? 'U',
               style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
@@ -606,8 +523,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_displayName ?? _username ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                if ((_username ?? '').isNotEmpty) Text(_username!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(_displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
                 Text(_selectedRoleDisplay ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 const Divider(),
               ],
@@ -619,13 +535,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         ],
       ),
     );
-  }
-
-  String _userInitials() {
-    final source = (_displayName != null && _displayName!.trim().isNotEmpty) ? _displayName!.trim() : (_username ?? 'User');
-    final parts = source.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    return parts.isEmpty ? 'U' : parts.first[0].toUpperCase();
   }
 
   Widget _buildRecentModulesSection(ColorScheme colorScheme) {
@@ -945,7 +854,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       child: Column(
         children: [
           Text(
-            '© 2025 Mawa ERP',
+            '© 2026 mawa',
             style: TextStyle(color: Colors.grey[400], fontSize: 12),
           ),
         ],

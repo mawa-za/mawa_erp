@@ -138,21 +138,12 @@ class PaymentRequestService {
     throw Exception('Failed to load payment requests for payee');
   }
 
-  Future<Map<String, dynamic>?> getBankReport(String id) async {
-    final response = await _apiClient.get(
-      '/v2/payment-request/$id/bank-report',
-      logoutOnUnauthorized: false,
-    );
-    if (response.statusCode == 204 || response.body.trim().isEmpty) {
-      return null;
-    }
+  Future<Map<String, dynamic>> getBankReport(String id) async {
+    final response = await _apiClient.get('/v2/payment-request/$id/bank-report');
     if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      return null;
+      return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    return null;
+    throw Exception('Failed to load bank report');
   }
 
   Future<PaymentRequestResponse> approvePaymentRequest(String id, {String? comment}) {
@@ -190,9 +181,8 @@ class PaymentRequestService {
     });
   }
 
-  Future<BankReport?> getTypedBankReport(String id) async {
+  Future<BankReport> getTypedBankReport(String id) async {
     final data = await getBankReport(id);
-    if (data == null) return null;
     return BankReport.fromJson(data);
   }
 

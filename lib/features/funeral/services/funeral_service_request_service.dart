@@ -29,11 +29,6 @@ class FuneralServiceRequestService {
   Future<List<FuneralMembershipCoverDto>> checkMembership(String identityNumber) =>
       _api.checkMembership(identityNumber);
 
-  Future<List<FuneralServiceRequestDto>> getServiceRequests({String? query, String? status}) =>
-      _api.getServiceRequests(query: query, status: status);
-
-  Future<FuneralServiceRequestDto> getServiceRequest(String id) => _api.getServiceRequest(id);
-
   Future<FuneralServiceRequestDto> createServiceRequest(FuneralServiceRequestDto request) =>
       _api.createServiceRequest(request);
 

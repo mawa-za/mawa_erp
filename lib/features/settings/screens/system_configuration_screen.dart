@@ -7,10 +7,6 @@ import 'field_option_list_screen.dart';
 import 'api_log_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
-import '../../products/screens/product_maintenance_screen.dart';
-import '../../integrations/fnb/fnb_integration_admin_screen.dart';
-import '../../admin/message_queue/message_queue_admin_screen.dart';
-import 'scheduler_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -74,33 +70,6 @@ class SystemConfigurationScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _buildConfigTile(
             context,
-            title: 'FNB Integration',
-            subtitle: 'Maintain FNB API credentials, debtor account and enablement',
-            icon: Icons.account_balance_outlined,
-            color: Colors.deepPurple,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FnbIntegrationAdminScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Scheduled Jobs',
-            subtitle: 'Configure automated backend jobs and run windows',
-            icon: Icons.schedule_outlined,
-            color: Colors.deepOrange,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SchedulerConfigurationScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Message Queue Processing',
-            subtitle: 'Monitor pending messages, retry failures and trigger processing',
-            icon: Icons.queue_outlined,
-            color: Colors.blueGrey,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MessageQueueAdminScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
             title: 'API Activity Logs',
             subtitle: 'Monitor backend requests and system performance',
             icon: Icons.api_outlined,
@@ -110,17 +79,8 @@ class SystemConfigurationScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _buildConfigTile(
             context,
-            title: 'Product Maintenance',
-            subtitle: 'Configure products, funeral extras, packages and pricing',
-            icon: Icons.inventory_2_outlined,
-            color: Colors.cyan,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProductMaintenanceScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
             title: 'Membership Plans',
-            subtitle: 'Configure membership plans, premiums and claim payouts',
+            subtitle: 'Configure products, plans and pricing',
             icon: Icons.card_membership_outlined,
             color: Colors.teal,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())),

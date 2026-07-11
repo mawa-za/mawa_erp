@@ -9,13 +9,10 @@ import '../widgets/invoice_preview_summary_card.dart';
 import '../widgets/funeral_money_text.dart';
 import '../widgets/funeral_status_chip.dart';
 import '../../../../core/widgets/partner_search_dropdown.dart';
-import '../../../../core/widgets/attachment_section.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
-import '../../../../core/models/product_lookup.dart';
-import '../../../../core/services/product_lookup_service.dart';
 
 class FuneralServiceRequestWizardPage extends StatefulWidget {
   const FuneralServiceRequestWizardPage({super.key});
@@ -30,14 +27,13 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   final _contactNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _locationController = TextEditingController();
-  final _deathCertificateController = TextEditingController();
 
   final List<String> _stepTitles = [
     'Deceased',
     'Representative',
+    'Package',
     'Cover',
     'Claims',
-    'Package',
     'Preview',
     'Generate'
   ];
@@ -64,7 +60,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _contactNameController.dispose();
     _contactNumberController.dispose();
     _locationController.dispose();
-    _deathCertificateController.dispose();
     super.dispose();
   }
 
@@ -129,11 +124,11 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       case 1:
         return _buildFamilyRepStep();
       case 2:
-        return _buildCoverStep();
-      case 3:
-        return _buildClaimsStep();
-      case 4:
         return _buildPackageStep();
+      case 3:
+        return _buildCoverStep();
+      case 4:
+        return _buildClaimsStep();
       case 5:
         return _buildPreviewStep();
       case 6:
@@ -232,49 +227,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           },
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: _controller.salesAreaOptions.any((o) => o.code == _controller.funeralLocation)
-              ? _controller.funeralLocation
-              : null,
-          decoration: const InputDecoration(
-            labelText: 'Funeral Location / Area',
-            helperText: 'Field option: SALES-AREA',
-            border: OutlineInputBorder(),
-          ),
-          isExpanded: true,
-          items: _controller.salesAreaOptions
-              .map((opt) => DropdownMenuItem(value: opt.code, child: Text(opt.description)))
-              .toList(),
-          onChanged: (v) => setState(() => _controller.funeralLocation = v ?? ''),
-          validator: (v) => v == null || v.isEmpty ? 'Funeral location is required' : null,
-        ),
-        const SizedBox(height: 16),
         TextFormField(
-          controller: _deathCertificateController,
-          decoration: const InputDecoration(
-            labelText: 'Certificate Number',
-            helperText: 'Death certificate / supporting certificate number',
-            border: OutlineInputBorder(),
-          ),
-          textCapitalization: TextCapitalization.characters,
-          onChanged: (v) => _controller.deathCertificateNo = v.trim().toUpperCase(),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
-          value: _controller.causeOfDeathOptions.any((o) => o.code == _controller.causeOfDeathCode)
-              ? _controller.causeOfDeathCode
-              : null,
-          decoration: const InputDecoration(
-            labelText: 'Cause of Death',
-            helperText: 'Field option: CAUSE-OF-DEATH',
-            border: OutlineInputBorder(),
-          ),
-          isExpanded: true,
-          items: _controller.causeOfDeathOptions
-              .map((opt) => DropdownMenuItem(value: opt.code, child: Text(opt.description)))
-              .toList(),
-          onChanged: (v) => setState(() => _controller.causeOfDeathCode = v),
-          validator: (v) => v == null || v.isEmpty ? 'Cause of death is required' : null,
+          controller: _locationController,
+          decoration: const InputDecoration(labelText: 'Funeral Location / Area', border: OutlineInputBorder()),
+          onChanged: (v) => _controller.funeralLocation = v,
         ),
       ],
     );
@@ -285,8 +241,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       padding: const EdgeInsets.all(16),
       children: [
         const Text('Select Funeral Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        const Text('Claims are initiated before package selection. The package selected here is used for final costing and invoice splitting.', style: TextStyle(color: Colors.grey)),
         const SizedBox(height: 16),
         ..._controller.packages.map((p) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -339,7 +293,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Find Cover and Initiate Claims', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Membership Cover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ElevatedButton.icon(
               onPressed: _controller.checkMembership,
               icon: const Icon(Icons.search),
@@ -355,51 +309,27 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               child: Text('No memberships found or check not performed.', textAlign: TextAlign.center),
             ),
           ),
-        ..._controller.availableCovers.map((cover) {
-          final isSelected = _controller.isCoverSelected(cover);
-          final disabledByLimit = !isSelected && _controller.coverSelectionLimitReached;
-          return MembershipCoverSelectionCard(
-            cover: cover,
-            isSelected: isSelected,
-            claimType: _controller.selectedClaimType,
-            disabled: disabledByLimit,
-            disabledReason: disabledByLimit ? 'Maximum cover selection reached' : null,
-            onTap: () => _controller.toggleCoverSelection(cover),
-          );
-        }),
-        if (_controller.availableCovers.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              _coverSelectionSummaryText(),
-              style: TextStyle(
-                fontSize: 12,
-                color: _controller.selectedCovers.isEmpty ? Colors.grey : Colors.green.shade700,
-                fontWeight: _controller.selectedCovers.isEmpty ? FontWeight.normal : FontWeight.w600,
-              ),
-            ),
+        ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
+              cover: cover,
+              isSelected: _controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == (cover.membershipId ?? cover.sourceReference)),
+              onTap: () {
+                setState(() {
+                  final id = cover.membershipId ?? cover.sourceReference;
+                  if (_controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == id)) {
+                    _controller.selectedCovers.removeWhere((c) => (c.membershipId ?? c.sourceReference) == id);
+                  } else {
+                    _controller.selectedCovers.add(cover);
+                  }
+                });
+              },
+            )),
+        if (_controller.availableCovers.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text('Select one or more memberships to use for claim initiation.', style: TextStyle(fontSize: 12, color: Colors.grey)),
           ),
-          if (_controller.hasInvalidSelectedCovers)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(
-                'One selected cover is missing a valid claim selection id. Please run Check Cover again.',
-                style: TextStyle(fontSize: 12, color: Colors.orange.shade800, fontWeight: FontWeight.w600),
-              ),
-            ),
-        ],
       ],
     );
-  }
-
-  String _coverSelectionSummaryText() {
-    final limitText = _controller.hasCoverSelectionLimit
-        ? ' Maximum allowed: ${_controller.maxSelectableCovers}. Remaining: ${_controller.remainingCoverSelections}.'
-        : ' No maximum cover limit configured.';
-    if (_controller.selectedCovers.isEmpty) {
-      return 'Select one or more memberships to use for claim initiation.$limitText';
-    }
-    return '${_controller.selectedCovers.length} cover(s) selected. Claim type: ${_controller.selectedClaimType}. Estimated cover: R ${(_controller.selectedCoverTotalCents / 100).toStringAsFixed(2)}.$limitText';
   }
 
   Widget _buildClaimsStep() {
@@ -447,35 +377,16 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       ),
                       trailing: FuneralStatusChip(status: claim.status),
                     ),
-                    const Divider(),
-                    AttachmentSection(
-                      objectId: claim.id,
-                      objectType: 'claims',
-                      documentTypeField: 'CLAIM-DOCUMENT-TYPE',
-                      readOnly: claim.status != ClaimStatus.DRAFT,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (claim.status == ClaimStatus.DRAFT)
-                          ElevatedButton.icon(
-                            onPressed: () => _controller.submitClaimForApproval(claim.id),
-                            icon: const Icon(Icons.send_outlined),
-                            label: const Text('Submit for Approval'),
-                          ),
-                        if (claim.status == ClaimStatus.PENDING || claim.status == ClaimStatus.SUBMITTED || claim.status == ClaimStatus.IN_PROGRESS)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Text('Submitted to approval workflow', style: TextStyle(fontWeight: FontWeight.w600)),
-                          ),
-                        if (claim.status == ClaimStatus.PENDING)
+                    if (claim.status == ClaimStatus.PENDING)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
                           TextButton(
                             onPressed: () => _handleClaimApproval(claim),
                             child: const Text('Review & Approve'),
                           ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -568,21 +479,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                     Text('Service ID: ${_controller.generationResponse!.funeralServiceId}', style: const TextStyle(fontWeight: FontWeight.bold)),
                     const Divider(),
                     Text('Invoices Generated: ${_controller.generationResponse!.invoiceIds.length}'),
-                    const SizedBox(height: 12),
-                    if (_controller.generationResponse!.invoices.isNotEmpty)
-                      ..._controller.generationResponse!.invoices.map(
-                        (invoice) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.picture_as_pdf_outlined),
-                          title: Text(invoice.invoiceNo.isEmpty ? invoice.invoiceId : invoice.invoiceNo),
-                          subtitle: Text('Total: R${(invoice.totalCents / 100).toStringAsFixed(2)} • ${invoice.status}'),
-                          trailing: TextButton.icon(
-                            icon: const Icon(Icons.open_in_new),
-                            label: const Text('Open'),
-                            onPressed: () => context.push('/invoices/${invoice.invoiceId}/preview'),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -649,10 +545,8 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
 
   String _getNextButtonText() {
     switch (_controller.currentStep) {
-      case 2:
-        return 'Initiate Claims';
       case 3:
-        return 'Continue to Package';
+        return 'Initiate Request';
       case 4:
         return 'Continue to Preview';
       case 5:
@@ -667,59 +561,33 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   Future<void> _onNextPressed() async {
     if (_controller.currentStep == 0) {
       if (_controller.selectedDeceased == null) {
-        _controller.setError('Please select a deceased person from the list.');
+        _controller.errorMessage = 'Please select a deceased person from the list.';
         return;
       }
       if (_controller.deceasedIdentityNumber.isEmpty) {
-        _controller.setError('Identity number is required for the membership check step.');
+        _controller.errorMessage = 'Identity number is required for the membership check step.';
         return;
       }
-      _controller.setError(null);
+      _controller.errorMessage = null;
       _controller.nextStep();
     } else if (_controller.currentStep == 1) {
       if (_controller.familyRepPartnerId == null) {
-        _controller.setError('Please search and select a family representative.');
+        _controller.errorMessage = 'Please search and select a family representative.';
         return;
       }
-      if (_controller.funeralLocation.trim().isEmpty) {
-        _controller.setError('Please select a funeral location / sales area.');
-        return;
-      }
-      _controller.setError(null);
+      _controller.errorMessage = null;
       _controller.nextStep();
     } else if (_controller.currentStep == 2) {
-      if (_controller.availableCovers.isEmpty) {
-        _controller.setError('Please run Check Cover before initiating claims.');
+      if (_controller.selectedPackage == null) {
+        _controller.errorMessage = 'Please select a funeral package.';
         return;
       }
-      if (_controller.selectedCovers.isEmpty) {
-        _controller.setError('Please select at least one membership cover before initiating claims.');
-        return;
-      }
-      if (_controller.selectedCoversExceedLimit) {
-        _controller.setError('A maximum of ${_controller.maxSelectableCovers} cover(s) can be selected for one funeral service.');
-        return;
-      }
-      if (_controller.hasInvalidSelectedCovers) {
-        _controller.setError('One selected cover is missing a valid claim selection id. Please run Check Cover again and reselect the cover.');
-        return;
-      }
+      _controller.errorMessage = null;
+      _controller.nextStep();
+    } else if (_controller.currentStep == 3) {
       final success = await _controller.createServiceRequest();
       if (success) _controller.nextStep();
-    } else if (_controller.currentStep == 3) {
-      if (_controller.hasDraftClaims) {
-        _controller.setError('Please attach claim documentation and submit all draft claims for approval before choosing the funeral package.');
-        return;
-      }
-      _controller.setError(null);
-      _controller.nextStep();
     } else if (_controller.currentStep == 4) {
-      if (_controller.selectedPackage == null) {
-        _controller.setError('Please select a funeral package.');
-        return;
-      }
-      final updated = await _controller.updatePackageSelection();
-      if (!updated) return;
       await _controller.loadInvoicePreview();
       _controller.nextStep();
     } else if (_controller.currentStep == 5) {
@@ -744,14 +612,40 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   void _showAddExtraDialog() {
+    final descController = TextEditingController();
+    final amountController = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => const _FuneralExtraProductDialog(),
-    ).then((extra) {
-      if (extra is FuneralExtraDto) {
-        setState(() => _controller.extras.add(extra));
-      }
-    });
+      builder: (context) => AlertDialog(
+        title: const Text('Add Funeral Extra'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description', hintText: 'e.g. Flowers, Transport')),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountController, 
+              decoration: const InputDecoration(labelText: 'Amount (Rand)', prefixText: 'R '), 
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(amountController.text);
+              if (val != null && descController.text.isNotEmpty) {
+                final cents = (val * 100).toInt();
+                setState(() => _controller.extras.add(FuneralExtraDto(description: descController.text, amountCents: cents)));
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleClaimApproval(claim) async {
@@ -763,113 +657,5 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     if (result != null) {
       await _controller.approveClaim(claim.id, result);
     }
-  }
-}
-
-
-class _FuneralExtraProductDialog extends StatefulWidget {
-  const _FuneralExtraProductDialog();
-
-  @override
-  State<_FuneralExtraProductDialog> createState() => _FuneralExtraProductDialogState();
-}
-
-class _FuneralExtraProductDialogState extends State<_FuneralExtraProductDialog> {
-  final _service = ProductLookupService();
-  final _amountController = TextEditingController();
-  List<ProductLookup> _products = [];
-  ProductLookup? _selected;
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProducts();
-  }
-
-  Future<void> _loadProducts() async {
-    try {
-      final products = await _service.getProducts(type: 'FUNERAL-EXTRA');
-      if (!mounted) return;
-      setState(() {
-        _products = products;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Funeral Extra'),
-      content: SizedBox(
-        width: 520,
-        child: _loading
-            ? const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-            : _error != null
-                ? Text(_error!, style: const TextStyle(color: Colors.red))
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DropdownButtonFormField<ProductLookup>(
-                        value: _selected,
-                        decoration: const InputDecoration(labelText: 'Product', border: OutlineInputBorder()),
-                        isExpanded: true,
-                        items: _products
-                            .map((p) => DropdownMenuItem(
-                                  value: p,
-                                  child: Text('${p.description} (${p.code})'),
-                                ))
-                            .toList(),
-                        onChanged: (p) {
-                          setState(() {
-                            _selected = p;
-                            _amountController.text = ((p?.priceCents ?? 0) / 100).toStringAsFixed(2);
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _amountController,
-                        decoration: const InputDecoration(labelText: 'Amount (Rand)', prefixText: 'R ', border: OutlineInputBorder()),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      ),
-                    ],
-                  ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: _selected == null
-              ? null
-              : () {
-                  final cents = ((double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0) * 100).round();
-                  Navigator.pop(
-                    context,
-                    FuneralExtraDto(
-                      description: _selected!.description,
-                      amountCents: cents,
-                      productId: _selected!.id,
-                      productCode: _selected!.code,
-                    ),
-                  );
-                },
-          child: const Text('Add'),
-        ),
-      ],
-    );
   }
 }

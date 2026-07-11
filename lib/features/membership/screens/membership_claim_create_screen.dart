@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
-import '../models/membership_plan.dart' hide DependentType;
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
 import '../../../core/api_client.dart';
@@ -33,7 +32,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
   bool _isLoadingOptions = true;
-  MembershipPlan? _plan;
 
   // Form fields
   final _amountController = TextEditingController();
@@ -83,7 +81,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         FieldService().getOptionsByField('BANK-ACCOUNT-TYPE'),
         FieldService().getOptionsByField('BANK-NAME'),
         FieldService().getOptionsByField('CAUSE-OF-DEATH'),
-        MembershipService().getMembershipPlanById(widget.membership.planId).then<dynamic>((value) => value).catchError((_) => null),
       ]);
 
       setState(() {
@@ -92,7 +89,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         _accTypeOptions = results[2];
         _bankOptions = results[3];
         _causeOfDeathOptions = results[4];
-        _plan = results[5] is MembershipPlan ? results[5] as MembershipPlan : null;
         
         if (_claimTypeOptions.isNotEmpty) _selectedClaimTypeCode = _claimTypeOptions.first.code;
         if (_payoutMethodOptions.isNotEmpty) _selectedPayoutMethod = _payoutMethodOptions.first.code;
@@ -100,40 +96,11 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         if (_bankOptions.isNotEmpty) _selectedBankCode = _bankOptions.first.code;
         if (_causeOfDeathOptions.isNotEmpty) _selectedCauseOfDeathCode = _causeOfDeathOptions.first.code;
         
-        _applyPlanClaimAmount();
         _isLoadingOptions = false;
       });
     } catch (e) {
       debugPrint('Error loading field options: $e');
       setState(() => _isLoadingOptions = false);
-    }
-  }
-
-
-  void _applyPlanClaimAmount() {
-    final plan = _plan;
-    if (plan == null) return;
-    final claimType = _selectedClaimTypeCode;
-    if (claimType == null || claimType.isEmpty) return;
-    final relationship = widget.dependent != null ? widget.dependent!.dependentType : 'MAIN_MEMBER';
-
-    final activePayouts = (plan.claimPayouts ?? []).where((p) => p.active && p.claimType.name == claimType).toList();
-    MembershipPlanClaimPayout? payout;
-    for (final item in activePayouts) {
-      if (item.dependentType.name == relationship) {
-        payout = item;
-        break;
-      }
-    }
-    payout ??= activePayouts.cast<MembershipPlanClaimPayout?>().firstWhere(
-          (item) => item?.dependentType.name == 'ANY',
-          orElse: () => null,
-        );
-    payout ??= activePayouts.isNotEmpty ? activePayouts.first : null;
-
-    final amountCents = payout?.payoutAmountCents ?? 0;
-    if (amountCents > 0) {
-      _amountController.text = (amountCents / 100).toStringAsFixed(2);
     }
   }
 
@@ -453,7 +420,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
           } else if (_selectedPayoutMethod == null && _payoutMethodOptions.isNotEmpty) {
             _selectedPayoutMethod = _payoutMethodOptions.first.code;
           }
-          _applyPlanClaimAmount();
         }),
         validator: (v) => v == null ? 'Required' : null,
       ),
@@ -496,13 +462,8 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
       const SizedBox(height: 20),
       TextFormField(
         controller: _amountController,
-        readOnly: true,
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        decoration: _inputDecoration('Claim Amount', Icons.payments_outlined).copyWith(
-          prefixText: 'R ',
-          hintText: '0.00',
-          helperText: 'Calculated from the selected membership plan payout rule',
-        ),
+        decoration: _inputDecoration('Claim Amount', Icons.payments_outlined).copyWith(prefixText: 'R ', hintText: '0.00'),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         validator: (v) {
           if (v == null || v.isEmpty) return 'Required';

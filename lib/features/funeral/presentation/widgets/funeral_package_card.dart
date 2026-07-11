@@ -58,7 +58,7 @@ class FuneralPackageCard extends StatelessWidget {
               ),
               if (package.inclusions.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text(package.products.isNotEmpty ? 'Products:' : 'Inclusions:', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                const Text('Inclusions:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 4,
