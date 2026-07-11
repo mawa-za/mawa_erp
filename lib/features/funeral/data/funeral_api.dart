@@ -14,7 +14,6 @@ import 'models/initiate_funeral_claims_request_dto.dart';
 import 'models/funeral_claim_dto.dart';
 import 'models/approve_funeral_claim_request_dto.dart';
 import 'models/funeral_invoice_preview_request_dto.dart';
-import 'models/funeral_service_configuration_dto.dart';
 import 'models/funeral_invoice_preview_line_dto.dart';
 import 'models/generate_funeral_invoices_response_dto.dart';
 import 'models/invoice_payment_request_dto.dart';
@@ -83,23 +82,7 @@ class FuneralApi {
     }
   }
 
-  // Packages, configuration and Membership
-  Future<FuneralServiceConfigurationDto> getServiceConfiguration() async {
-    final response = await _apiClient.get('/v2/funeral/configuration');
-    if (response.statusCode == 200) {
-      return FuneralServiceConfigurationDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
-    }
-    throw Exception('Failed to load funeral service configuration: ${response.body}');
-  }
-
-  Future<FuneralServiceConfigurationDto> updateServiceConfiguration(FuneralServiceConfigurationDto configuration) async {
-    final response = await _apiClient.put('/v2/funeral/configuration', body: configuration.toJson());
-    if (response.statusCode == 200) {
-      return FuneralServiceConfigurationDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
-    }
-    throw Exception('Failed to update funeral service configuration: ${response.body}');
-  }
-
+  // Packages and Membership
   Future<List<FuneralPackageDto>> getFuneralPackages({bool activeOnly = true}) async {
     final response = await _apiClient.get(
       '/v2/funeral/packages',
@@ -147,35 +130,6 @@ class FuneralApi {
   }
 
   // Funeral Service and Claims
-  Future<List<FuneralServiceRequestDto>> getServiceRequests({
-    String? query,
-    String? status,
-    int page = 0,
-    int size = 50,
-  }) async {
-    final params = <String, dynamic>{
-      'page': page,
-      'size': size,
-      if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
-      if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
-    };
-    final response = await _apiClient.get('/v2/funeral/service-requests', queryParameters: params);
-    if (response.statusCode == 200) {
-      return _decodeList(response.body)
-          .map((e) => FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
-    }
-    throw Exception('Failed to load funeral service requests: ${response.body}');
-  }
-
-  Future<FuneralServiceRequestDto> getServiceRequest(String id) async {
-    final response = await _apiClient.get('/v2/funeral/service-request/$id');
-    if (response.statusCode == 200) {
-      return FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
-    }
-    throw Exception('Failed to load funeral service request: ${response.body}');
-  }
-
   Future<FuneralServiceRequestDto> createServiceRequest(FuneralServiceRequestDto request) async {
     final response = await _apiClient.post('/v2/funeral/service-request', body: request.toJson());
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -184,31 +138,14 @@ class FuneralApi {
     throw Exception('Failed to create service request: ${response.body}');
   }
 
-  Future<FuneralServiceRequestDto> updateServiceRequestPackage(String serviceRequestId, FuneralServiceRequestDto request) async {
-    final response = await _apiClient.put(
-      '/v2/funeral/service-request/$serviceRequestId/package',
-      body: request.toJson(),
-    );
-    if (response.statusCode == 200) {
-      return FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
-    }
-    throw Exception('Failed to update funeral package: ${response.body}');
-  }
-
   Future<void> initiateClaims(String serviceRequestId, InitiateFuneralClaimsRequestDto request) async {
     final response = await _apiClient.post(
       '/v2/funeral/service-request/$serviceRequestId/initiate-claims',
       body: request.toJson(),
     );
-
-    // Backend returns 201 Created with the created claim list when claims are
-    // initiated successfully. Older code only accepted 200 and therefore treated
-    // a successful response as an error, blocking the wizard on the cover step.
-    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
-      return;
+    if (response.statusCode != 200) {
+      throw Exception('Failed to initiate claims: ${response.body}');
     }
-
-    throw Exception('Failed to initiate claims: ${response.body}');
   }
 
   Future<List<FuneralClaimDto>> getClaims(String serviceRequestId) async {
@@ -219,19 +156,6 @@ class FuneralApi {
           .toList();
     }
     throw Exception('Failed to load claims: ${response.body}');
-  }
-
-
-  Future<FuneralClaimDto> submitClaimForApproval(String claimId) async {
-    final normalizedClaimId = claimId.trim();
-    if (normalizedClaimId.isEmpty) {
-      throw Exception('Missing membership claim id. Please refresh claims and try again.');
-    }
-    final response = await _apiClient.post('/v2/funeral/claims/$normalizedClaimId/submit-for-approval');
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return FuneralClaimDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
-    }
-    throw Exception('Failed to submit claim for approval: ${response.body}');
   }
 
   Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {
@@ -257,7 +181,7 @@ class FuneralApi {
 
   Future<GenerateFuneralInvoicesResponseDto> generateInvoices(Map<String, dynamic> request) async {
     final response = await _apiClient.post('/v2/funeral/generate-invoices', body: request);
-    if (response.statusCode == 200 || response.statusCode == 201) {
+    if (response.statusCode == 200) {
       return GenerateFuneralInvoicesResponseDto.fromJson(jsonDecode(response.body));
     }
     throw Exception('Failed to generate invoices: ${response.body}');

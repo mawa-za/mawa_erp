@@ -102,12 +102,10 @@ class Dependent {
           }
           return '$year-$month-$day';
         } catch (e) {
-          final fallback = date.toString().trim();
-          return fallback.isEmpty || fallback.toLowerCase() == 'null' ? null : fallback;
+          return date.toString();
         }
       }
-      final value = date.toString().trim();
-      return value.isEmpty || value.toLowerCase() == 'null' ? null : value;
+      return date.toString();
     }
 
     final depPartner = json['dependentPartner'] ?? json['dependentPartnerId'] ?? json['partnerId'] ?? json['partner'] ?? json['dependentPartnerPartner'];
@@ -169,20 +167,7 @@ class Dependent {
                depPartnerMap?['number'] ?? depPartnerMap?['partnerNo'] ?? depPartnerMap?['partnerNumber'] ?? '').toString(),
       status: FieldOption.fromDynamic(json['status']),
       title: FieldOption.fromDynamic(json['title']),
-      birthDate: parseDate(
-        json['birthDate'] ??
-        json['dateOfBirth'] ??
-        json['dob'] ??
-        json['birth_date'] ??
-        json['date_of_birth'] ??
-        json['partnerBirthDate'] ??
-        json['dependentBirthDate'] ??
-        depPartnerMap?['birthDate'] ??
-        depPartnerMap?['dateOfBirth'] ??
-        depPartnerMap?['dob'] ??
-        depPartnerMap?['birth_date'] ??
-        depPartnerMap?['date_of_birth'],
-      ),
+      birthDate: parseDate(json['birthDate'] ?? json['dateOfBirth'] ?? depPartnerMap?['birthDate'] ?? depPartnerMap?['dateOfBirth']),
       gender: FieldOption.fromDynamic(json['gender']),
       maritalStatus: FieldOption.fromDynamic(json['maritalStatus']),
       identity: identity,

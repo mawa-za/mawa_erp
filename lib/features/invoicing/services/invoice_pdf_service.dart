@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import '../../../core/services/setting_service.dart';
@@ -21,7 +23,7 @@ class InvoicePdfService {
       print('Error loading settings for PDF: $e');
     }
 
-    final companyName = _getSetting(settings, 'NAME', 'Mawa ERP');
+    final companyName = _getSetting(settings, 'NAME', 'mawa');
     final companyAddress1 = _getSetting(settings, 'ADDRESS-LINE-1', '');
     final companyAddress2 = _getSetting(settings, 'ADDRESS-LINE-2', '');
     final companyCity = _getSetting(settings, 'CITY', '');
@@ -31,12 +33,12 @@ class InvoicePdfService {
     final companyVat = _getSetting(settings, 'VAT-NUMBER', '');
     final companyReg = _getSetting(settings, 'REGISTRATION-NUMBER', '');
 
-    // Load validated company logo if available. Required upload size: 600x180 pixels.
+    // Load Logo if available
     pw.MemoryImage? logoImage;
     try {
-      final logoBytes = await _loadCompanyLogoBytes();
-      if (logoBytes != null) {
-        logoImage = pw.MemoryImage(logoBytes);
+      final logoBase64 = await _loadLogoBase64();
+      if (logoBase64 != null) {
+        logoImage = pw.MemoryImage(base64Decode(logoBase64));
       }
     } catch (e) {
       print('Error loading logo for PDF: $e');
@@ -88,21 +90,31 @@ class InvoicePdfService {
     }
   }
 
-  Future<Uint8List?> _loadCompanyLogoBytes() async {
+  Future<String?> _loadLogoBase64() async {
     try {
-      final response = await ApiClient().get('/v2/company-logo/content', logoutOnUnauthorized: false);
+      final prefs = await SharedPreferences.getInstance();
+      final tenantId = prefs.getString('tenant');
+      if (tenantId == null) return null;
+
+      final response = await ApiClient().get('/attachment?objectId=$tenantId');
       if (response.statusCode == 200) {
-        return response.bodyBytes;
+        final List<dynamic> data = jsonDecode(response.body);
+        final logoAttachment = data.firstWhere(
+          (a) => a['documentType']?['id'] == 'LOGO',
+          orElse: () => null,
+        );
+
+        if (logoAttachment != null) {
+          final res = await ApiClient().get('/attachment/${logoAttachment['id']}');
+          if (res.statusCode == 200) {
+            return res.body.replaceAll('"', '');
+          }
+        }
       }
     } catch (e) {
-      print('Error fetching company logo: $e');
+      print('Error fetching logo: $e');
     }
-    try {
-      final data = await rootBundle.load('assets/branding/mawa_logo_red.png');
-      return data.buffer.asUint8List();
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   pw.Widget _buildHeader(String name, String a1, String a2, String city, String pc, String email, String phone, String vat, String reg, pw.MemoryImage? logo) {
@@ -114,17 +126,9 @@ class InvoicePdfService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             if (logo != null)
-              pw.Container(height: 48, width: 160, child: pw.Image(logo, fit: pw.BoxFit.contain))
+              pw.Container(height: 60, width: 60, child: pw.Image(logo))
             else
-              pw.Container(
-                height: 48,
-                width: 160,
-                alignment: pw.Alignment.center,
-                decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey500)),
-                child: pw.Text('COMPANY LOGO', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
-              ),
-            pw.SizedBox(height: 4),
-            pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#DC1E35'))),
+              pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
             pw.SizedBox(height: 4),
             pw.Text(a1, style: const pw.TextStyle(fontSize: 9)),
             if (a2.isNotEmpty) pw.Text(a2, style: const pw.TextStyle(fontSize: 9)),
@@ -223,7 +227,7 @@ class InvoicePdfService {
       data: data,
       border: null,
       headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-      headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#DC1E35')),
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
       cellStyle: const pw.TextStyle(fontSize: 8),
       columnWidths: {
         0: const pw.FixedColumnWidth(20),
@@ -268,8 +272,8 @@ class InvoicePdfService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Balance Due', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#DC1E35'))),
-                    pw.Text('R ${invoice.balanceAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#DC1E35'))),
+                    pw.Text('Balance Due', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                    pw.Text('R ${invoice.balanceAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
                   ],
                 ),
               ],
@@ -328,7 +332,7 @@ class InvoicePdfService {
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text('Generated by Mawa ERP', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
+            pw.Text('Generated by mawa', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
             pw.Text('Page ${context.pageNumber} of ${context.pagesCount}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
           ],
         ),

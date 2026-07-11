@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/config.dart';
 import '../../core/services/field_service.dart';
-import '../../core/widgets/mawa_brand.dart';
 import '../settings/models/role.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
@@ -51,7 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
         headers: {
           'Content-Type': 'application/json',
           'X-TenantID': tenantId,
-          'X-Tenant-Id': tenantId,
         },
         body: jsonEncode({
           'username': _usernameController.text.trim(),
@@ -62,29 +60,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        final tokenContainer = data['data'] is Map<String, dynamic>
-            ? data['data'] as Map<String, dynamic>
-            : data;
-
-        final userId = (tokenContainer['userId'] ?? data['userId'])?.toString() ?? '';
-        final accessToken = (tokenContainer['accessToken'] ??
-                    tokenContainer['access_token'] ??
-                    tokenContainer['token'] ??
-                    data['accessToken'] ??
-                    data['access_token'] ??
-                    data['token'])
-                ?.toString() ??
-            '';
-        final refreshToken = (tokenContainer['refreshToken'] ??
-                    tokenContainer['refresh_token'] ??
-                    tokenContainer['refresh'] ??
-                    data['refreshToken'] ??
-                    data['refresh_token'] ??
-                    data['refresh'])
-                ?.toString() ??
-            '';
-        final username = (tokenContainer['username'] ?? data['username'] ?? _usernameController.text.trim()).toString();
-        final displayName = (tokenContainer['displayName'] ?? data['displayName'] ?? '').toString();
+        final userId = data['userId']?.toString() ?? '';
+        final accessToken = (data['accessToken'] ?? data['token'])?.toString() ?? '';
+        final refreshToken = data['refreshToken']?.toString() ?? '';
+        final username = (data['username'] ?? _usernameController.text.trim()).toString();
+        final displayName = (data['displayName'] ?? '').toString();
 
         await prefs.setString('userId', userId);
         await prefs.setString('username', username);
@@ -177,12 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const MawaBrand(height: 76),
-                          const SizedBox(height: 18),
-                          Text(
-                            'Business Suite',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                          ),
+                          Image.asset('assets/branding/mawa_logo.png', height: 72, fit: BoxFit.contain),
                           const SizedBox(height: 8),
                           Text(
                             'Login to continue',
@@ -232,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   onPressed: _login,
                                   style: ElevatedButton.styleFrom(
                                     minimumSize: const Size.fromHeight(56),
-                                    backgroundColor: Theme.of(context).colorScheme.primary,
+                                    backgroundColor: const Color(0xFFE53935),
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     elevation: 2,
