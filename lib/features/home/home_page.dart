@@ -11,6 +11,7 @@ import '../../core/routing/feature_group_registry.dart';
 import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
+import '../../core/widgets/mawa_brand.dart';
 
 // Import missing screens for legacy navigation fallback
 import '../auth/role_selection_screen.dart';
@@ -537,7 +538,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+            child: const MawaBrand(height: 22),
+          ),
           if (_appVersion.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(

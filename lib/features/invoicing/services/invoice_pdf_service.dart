@@ -97,7 +97,12 @@ class InvoicePdfService {
     } catch (e) {
       print('Error fetching company logo: $e');
     }
-    return null;
+    try {
+      final data = await rootBundle.load('assets/branding/mawa_logo_red.png');
+      return data.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
   }
 
   pw.Widget _buildHeader(String name, String a1, String a2, String city, String pc, String email, String phone, String vat, String reg, pw.MemoryImage? logo) {
@@ -119,7 +124,7 @@ class InvoicePdfService {
                 child: pw.Text('COMPANY LOGO', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
               ),
             pw.SizedBox(height: 4),
-            pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+            pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#DC1E35'))),
             pw.SizedBox(height: 4),
             pw.Text(a1, style: const pw.TextStyle(fontSize: 9)),
             if (a2.isNotEmpty) pw.Text(a2, style: const pw.TextStyle(fontSize: 9)),
@@ -218,7 +223,7 @@ class InvoicePdfService {
       data: data,
       border: null,
       headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.blue900),
+      headerDecoration: const pw.BoxDecoration(color: PdfColor.fromHex('#DC1E35')),
       cellStyle: const pw.TextStyle(fontSize: 8),
       columnWidths: {
         0: const pw.FixedColumnWidth(20),
@@ -263,8 +268,8 @@ class InvoicePdfService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Balance Due', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-                    pw.Text('R ${invoice.balanceAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+                    pw.Text('Balance Due', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#DC1E35'))),
+                    pw.Text('R ${invoice.balanceAmount.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#DC1E35'))),
                   ],
                 ),
               ],
