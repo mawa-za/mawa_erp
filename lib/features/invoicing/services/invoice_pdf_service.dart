@@ -223,7 +223,7 @@ class InvoicePdfService {
       data: data,
       border: null,
       headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.white),
-      headerDecoration: const pw.BoxDecoration(color: PdfColor.fromHex('#DC1E35')),
+      headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#DC1E35')),
       cellStyle: const pw.TextStyle(fontSize: 8),
       columnWidths: {
         0: const pw.FixedColumnWidth(20),
