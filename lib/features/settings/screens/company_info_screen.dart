@@ -253,7 +253,10 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
             child: ClipOval(
               child: _logoBytes != null
                   ? Image.memory(_logoBytes!, fit: BoxFit.contain)
-                  : Icon(Icons.business, size: 60, color: Colors.grey[400]),
+                  : Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Image.asset('assets/branding/mawa_logo_red.png', fit: BoxFit.contain),
+                    ),
             ),
           ),
           if (!widget.isReadOnly)

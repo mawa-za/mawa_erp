@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  static const Color _primary = Color(0xFF4F46E5);
+  static const Color _primary = Color(0xFFDC1E35);
   static const Color _pageBackground = Color(0xFFF3F5FA);
   static const Color _containerBackground = Color(0xFFFFFFFF);
   static const Color _fieldBackground = Color(0xFFFBFCFF);
   static const Color _fieldBorder = Color(0xFFCBD5E1);
-  static const Color _fieldFocusedBorder = Color(0xFF4F46E5);
+  static const Color _fieldFocusedBorder = Color(0xFFDC1E35);
   static const Color _text = Color(0xFF0F172A);
   static const Color _mutedText = Color(0xFF475569);
   static const Color _divider = Color(0xFFE2E8F0);
@@ -118,7 +118,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: const Color(0xFFF1F5F9),
-        selectedColor: const Color(0xFFE0E7FF),
+        selectedColor: const Color(0xFFFFE4E8),
         disabledColor: const Color(0xFFE2E8F0),
         labelStyle: const TextStyle(color: _text),
         secondaryLabelStyle: const TextStyle(color: _text),

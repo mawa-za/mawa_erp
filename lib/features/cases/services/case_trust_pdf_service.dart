@@ -186,6 +186,11 @@ class CaseTrustPdfService {
     } catch (e) {
       print('Error fetching logo: $e');
     }
-    return null;
+    try {
+      final data = await rootBundle.load('assets/branding/mawa_logo_red.png');
+      return base64Encode(data.buffer.asUint8List());
+    } catch (_) {
+      return null;
+    }
   }
 }

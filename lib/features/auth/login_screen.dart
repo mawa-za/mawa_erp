@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/config.dart';
 import '../../core/services/field_service.dart';
+import '../../core/widgets/mawa_brand.dart';
 import '../settings/models/role.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
@@ -176,14 +177,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.business_center, size: 100, color: Colors.deepPurple),
-                          const SizedBox(height: 16),
+                          const MawaBrand(height: 76),
+                          const SizedBox(height: 18),
                           Text(
-                            'Mawa ERP',
-                            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.deepPurple,
-                                ),
+                            'Business Suite',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -234,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   onPressed: _login,
                                   style: ElevatedButton.styleFrom(
                                     minimumSize: const Size.fromHeight(56),
-                                    backgroundColor: Colors.deepPurple,
+                                    backgroundColor: Theme.of(context).colorScheme.primary,
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     elevation: 2,
