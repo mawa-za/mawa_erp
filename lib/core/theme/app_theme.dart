@@ -3,14 +3,19 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  static const Color _primary = Color(0xFFDC1E35);
-  static const Color _pageBackground = Color(0xFFF3F5FA);
+  static const Color brandRed = Color(0xFFF20D1A);
+  static const Color brandRedDark = Color(0xFFC9000B);
+  static const Color brandNavy = Color(0xFF001A30);
+  static const Color brandNavySoft = Color(0xFF0B2940);
+
+  static const Color _primary = brandRed;
+  static const Color _pageBackground = Color(0xFFF5F7FA);
   static const Color _containerBackground = Color(0xFFFFFFFF);
   static const Color _fieldBackground = Color(0xFFFBFCFF);
   static const Color _fieldBorder = Color(0xFFCBD5E1);
-  static const Color _fieldFocusedBorder = Color(0xFFDC1E35);
-  static const Color _text = Color(0xFF0F172A);
-  static const Color _mutedText = Color(0xFF475569);
+  static const Color _fieldFocusedBorder = brandRed;
+  static const Color _text = brandNavy;
+  static const Color _mutedText = Color(0xFF526474);
   static const Color _divider = Color(0xFFE2E8F0);
 
   static ThemeData get light {
@@ -18,6 +23,9 @@ class AppTheme {
       seedColor: _primary,
       brightness: Brightness.light,
       primary: _primary,
+      onPrimary: Colors.white,
+      secondary: brandNavy,
+      onSecondary: Colors.white,
       surface: _containerBackground,
       error: const Color(0xFFDC2626),
     ).copyWith(
@@ -118,7 +126,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: const Color(0xFFF1F5F9),
-        selectedColor: const Color(0xFFFFE4E8),
+        selectedColor: const Color(0xFFFFE7E9),
         disabledColor: const Color(0xFFE2E8F0),
         labelStyle: const TextStyle(color: _text),
         secondaryLabelStyle: const TextStyle(color: _text),
@@ -154,9 +162,26 @@ class AppTheme {
         dataRowColor: WidgetStatePropertyAll(_containerBackground),
         dividerThickness: 1,
       ),
+      navigationRailTheme: const NavigationRailThemeData(
+        backgroundColor: _containerBackground,
+        indicatorColor: Color(0xFFFFE7E9),
+        selectedIconTheme: IconThemeData(color: brandRed),
+        selectedLabelTextStyle: TextStyle(color: brandNavy, fontWeight: FontWeight.w700),
+        unselectedIconTheme: IconThemeData(color: _mutedText),
+        unselectedLabelTextStyle: TextStyle(color: _mutedText),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: _containerBackground,
+        indicatorColor: Color(0xFFFFE7E9),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: brandRed),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: brandRed,
+        foregroundColor: Colors.white,
+      ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: brandNavy,
         contentTextStyle: const TextStyle(color: Colors.white),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),

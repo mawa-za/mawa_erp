@@ -80,14 +80,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 const Icon(
                   Icons.security,
                   size: 100,
-                  color: Colors.deepPurple,
+                  color: const Color(0xFFF20D1A),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Change Password',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
+                        color: const Color(0xFFF20D1A),
                       ),
                 ),
                 const SizedBox(height: 32),
@@ -141,7 +141,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         onPressed: _updatePassword,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
-                          backgroundColor: Colors.deepPurple,
+                          backgroundColor: const Color(0xFFF20D1A),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),

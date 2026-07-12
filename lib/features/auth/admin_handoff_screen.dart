@@ -130,7 +130,7 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
                   Icon(
                     _error == null ? Icons.admin_panel_settings_rounded : Icons.error_outline_rounded,
                     size: 56,
-                    color: _error == null ? Colors.deepPurple : Colors.red,
+                    color: _error == null ? const Color(0xFFF20D1A) : Colors.red,
                   ),
                   const SizedBox(height: 16),
                   Text(

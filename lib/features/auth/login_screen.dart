@@ -162,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             'Login to continue',
                             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Colors.grey[600],
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                           ),
                           const SizedBox(height: 48),
@@ -207,10 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   onPressed: _login,
                                   style: ElevatedButton.styleFrom(
                                     minimumSize: const Size.fromHeight(56),
-                                    backgroundColor: const Color(0xFFE53935),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    elevation: 2,
+                                    elevation: 1,
                                   ),
                                   child: const Text(
                                     'LOGIN',
