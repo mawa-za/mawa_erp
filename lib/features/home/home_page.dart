@@ -7,6 +7,7 @@ import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/routing/workcenter_route_registry.dart';
+import '../../core/routing/feature_group_registry.dart';
 import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
@@ -337,14 +338,54 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+  List<Workcenter> _groupWorkcenters(List<Workcenter> workcenters) {
+    final grouped = <String, List<Workcenter>>{};
+    final ungrouped = <Workcenter>[];
+
+    for (final workcenter in workcenters) {
+      final group = FeatureGroupRegistry.groupForWorkcenter(workcenter.id);
+      if (group == null) {
+        ungrouped.add(workcenter);
+      } else {
+        grouped.putIfAbsent(group.id, () => <Workcenter>[]).add(workcenter);
+      }
+    }
+
+    final result = <Workcenter>[...ungrouped];
+    for (final entry in grouped.entries) {
+      final group = FeatureGroupRegistry.groupById(entry.key)!;
+      final children = entry.value..sort((a, b) => a.position.compareTo(b.position));
+      result.add(
+        Workcenter(
+          id: group.id,
+          description: group.title,
+          defaultFunction: '',
+          path: group.routePath,
+          position: children.first.position,
+          routeKey: group.id,
+          routePath: group.routePath,
+          iconKey: 'group',
+        ),
+      );
+    }
+
+    result.sort((a, b) => a.position.compareTo(b.position));
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final double screenWidth = MediaQuery.of(context).size.width;
     final int crossAxisCount = (screenWidth / 180).floor().clamp(2, 8);
 
-    final modules = _filteredWorkcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
-    final reports = _filteredWorkcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
+    final moduleWorkcenters = _filteredWorkcenters
+        .where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report'))
+        .toList();
+    final modules = _groupWorkcenters(moduleWorkcenters);
+    final reports = _filteredWorkcenters
+        .where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report'))
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
