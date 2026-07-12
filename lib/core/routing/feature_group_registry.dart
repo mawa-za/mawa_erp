@@ -87,7 +87,7 @@ class FeatureGroupRegistry {
     FeatureGroupDefinition(
       id: 'inventory',
       title: 'Inventory Management',
-      routePath: AppRoutes.inventory,
+      routePath: '/feature-groups/inventory',
       childWorkcenterIds: [
         'inventory',
         'stock',
@@ -106,7 +106,7 @@ class FeatureGroupRegistry {
     FeatureGroupDefinition(
       id: 'scheduling',
       title: 'Calendar & Appointments',
-      routePath: AppRoutes.appointments,
+      routePath: '/feature-groups/scheduling',
       childWorkcenterIds: [
         'calendar',
         'appointment',
