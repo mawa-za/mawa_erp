@@ -4,6 +4,7 @@ import 'core/api_client.dart';
 import 'core/services/session_service.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
+import 'core/theme/app_theme.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -60,10 +61,7 @@ class _MyAppState extends State<MyApp> {
       title: 'mawa',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       routerConfig: AppRouter.router,
       builder: (context, child) {
         return Listener(

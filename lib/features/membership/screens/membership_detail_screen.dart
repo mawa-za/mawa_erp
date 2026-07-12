@@ -428,7 +428,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                     },
                     icon: const Icon(Icons.request_quote_outlined, size: 18),
                     label: const Text('PROCESS CLAIM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: Colors.deepPurple),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFF20D1A)),
                   ),
                 ),
               ],
@@ -603,7 +603,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                                 );
                                 if (result == true) _fetchData();
                               },
-                              child: const Text('PROCESS CLAIM', style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 11)),
+                              child: const Text('PROCESS CLAIM', style: TextStyle(color: const Color(0xFFF20D1A), fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
                           const SizedBox(width: 8),
                           FilledButton.tonal(

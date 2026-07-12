@@ -69,14 +69,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const Icon(
                 Icons.lock_reset,
                 size: 100,
-                color: Colors.deepPurple,
+                color: const Color(0xFFF20D1A),
               ),
               const SizedBox(height: 16),
               Text(
                 'Reset Password',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
+                      color: const Color(0xFFF20D1A),
                     ),
               ),
               const SizedBox(height: 8),
@@ -110,7 +110,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       onPressed: _resetPassword,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(56),
-                        backgroundColor: Colors.deepPurple,
+                        backgroundColor: const Color(0xFFF20D1A),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

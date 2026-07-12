@@ -236,7 +236,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF20D1A)))
           : CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
@@ -387,8 +387,8 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
               label: const Text('VIEW SOURCE TRANSACTION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF4F46E5),
-                side: const BorderSide(color: Color(0xFF4F46E5)),
+                foregroundColor: const Color(0xFFF20D1A),
+                side: const BorderSide(color: Color(0xFFF20D1A)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -497,15 +497,15 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: const Color(0xFF4F46E5).withOpacity(0.15)),
+        border: Border.all(color: const Color(0xFFF20D1A).withOpacity(0.15)),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF4F46E5).withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 8)),
+          BoxShadow(color: const Color(0xFFF20D1A).withOpacity(0.04), blurRadius: 24, offset: const Offset(0, 8)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('DECISION HUB', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF4F46E5), fontSize: 11, letterSpacing: 1.5)),
+          const Text('DECISION HUB', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFF20D1A), fontSize: 11, letterSpacing: 1.5)),
           const SizedBox(height: 16),
           TextField(
             controller: _commentController,
@@ -622,7 +622,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       case 'INVOICE': return const Color(0xFF0891B2);
       case 'CLAIM': return const Color(0xFF7C3AED);
       case 'PAYMENT': return const Color(0xFF2563EB);
-      case 'PAYMENT_REQUEST': return const Color(0xFF4F46E5);
+      case 'PAYMENT_REQUEST': return const Color(0xFFF20D1A);
       case 'CASHUP': return const Color(0xFFEA580C);
       case 'LEAVE': return const Color(0xFFDB2777);
       default: return const Color(0xFF475569);
