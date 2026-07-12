@@ -343,7 +343,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final ungrouped = <Workcenter>[];
 
     for (final workcenter in workcenters) {
-      final group = FeatureGroupRegistry.groupForWorkcenter(workcenter.id);
+      final group = FeatureGroupRegistry.groupForWorkcenter(workcenter.id, workcenter.description);
       if (group == null) {
         ungrouped.add(workcenter);
       } else {

@@ -55,7 +55,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
 
       final List<dynamic> data = jsonDecode(response.body);
       final all = data.map((json) => Workcenter.fromJson(json)).toList();
-      final allowed = all.where((wc) => group.matches(wc.id) && !FeatureGroupRegistry.isGroupId(wc.id)).toList()
+      final allowed = all.where((wc) => group.matches(wc.id, wc.description) && !FeatureGroupRegistry.isGroupId(wc.id)).toList()
         ..sort((a, b) => a.position.compareTo(b.position));
 
       if (!mounted) return;
