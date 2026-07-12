@@ -452,6 +452,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       pinned: true,
       elevation: 0,
       backgroundColor: colorScheme.primary,
+      foregroundColor: Colors.white,
+      iconTheme: const IconThemeData(color: Colors.white),
+      actionsIconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
@@ -500,7 +503,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/branding/mawa_logo.png', height: 30, fit: BoxFit.contain),
+          Image.asset(
+            'assets/branding/mawa_logo_white.png',
+            height: 34,
+            width: 120,
+            fit: BoxFit.contain,
+            alignment: Alignment.centerLeft,
+            filterQuality: FilterQuality.high,
+            semanticLabel: 'MAWA',
+          ),
           if (_appVersion.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
