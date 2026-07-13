@@ -15,7 +15,8 @@ class SessionService {
   void startMonitoring() async {
     if (_isMonitoring) return;
     _isMonitoring = true;
-    
+    ApiClient().startTokenKeepAlive();
+
     await _updateTimeoutFromSettings();
     _resetTimer();
     debugPrint('SessionService: Started monitoring with $_timeoutMinutes min timeout');
@@ -24,6 +25,7 @@ class SessionService {
   void stopMonitoring() {
     _isMonitoring = false;
     _inactivityTimer?.cancel();
+    ApiClient().stopTokenKeepAlive();
     debugPrint('SessionService: Stopped monitoring');
   }
 
