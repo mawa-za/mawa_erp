@@ -17,6 +17,7 @@ import 'models/funeral_invoice_preview_request_dto.dart';
 import 'models/funeral_invoice_preview_line_dto.dart';
 import 'models/generate_funeral_invoices_response_dto.dart';
 import 'models/invoice_payment_request_dto.dart';
+import 'models/funeral_payment_summary_dto.dart';
 
 class FuneralApi {
   final ApiClient _apiClient = ApiClient();
@@ -130,6 +131,27 @@ class FuneralApi {
   }
 
   // Funeral Service and Claims
+  Future<List<FuneralServiceRequestDto>> getServiceRequests({
+    String? query,
+    String? status,
+  }) async {
+    final response = await _apiClient.get(
+      '/v2/funeral/service-requests',
+      queryParameters: {
+        if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
+        if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+      },
+    );
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map((e) => FuneralServiceRequestDto.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+    }
+    throw Exception('Failed to load funeral service requests: ${response.body}');
+  }
+
   Future<FuneralServiceRequestDto> createServiceRequest(FuneralServiceRequestDto request) async {
     final response = await _apiClient.post('/v2/funeral/service-request', body: request.toJson());
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -166,6 +188,20 @@ class FuneralApi {
     if (response.statusCode != 200) {
       throw Exception('Failed to approve claim: ${response.body}');
     }
+  }
+
+  Future<List<FuneralPaymentSummaryDto>> getFuneralPayments() async {
+    final response = await _apiClient.get('/v2/funeral/payments');
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map(
+            (item) => FuneralPaymentSummaryDto.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList();
+    }
+    throw Exception('Failed to load funeral payments: ${response.body}');
   }
 
   // Invoicing

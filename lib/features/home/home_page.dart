@@ -266,8 +266,32 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _fetchRecentModules();
     _fetchFrequentModules();
 
-    // Resolve configured route paths through the registry first. This converts
-    // legacy values such as /cashup and /payment-request to current routes.
+    // Synthetic group cards must always open their feature-group screen.
+    // Do this before route normalization because a group such as `inventory`
+    // also has a valid operational route in the workcenter registry.
+    if (FeatureGroupRegistry.isGroupId(wc.id)) {
+      final groupRoute = FeatureGroupRegistry.routeForGroup(wc.id);
+      if (groupRoute != null) {
+        context.push(groupRoute);
+        return;
+      }
+    }
+
+    // Prefer the workcenter identity over a configured path. Some tenants still
+    // carry stale paths (for example Products pointing to Membership Plans),
+    // while the id/route key remains authoritative.
+    final routeById = WorkcenterRouteRegistry.getRoutePath(wc.id);
+    if (routeById != null) {
+      context.push(routeById);
+      return;
+    }
+
+    final routeByRegistry = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
+    if (routeByRegistry != null) {
+      context.push(routeByRegistry);
+      return;
+    }
+
     final configuredPath = wc.routePath?.trim();
     if (configuredPath != null && configuredPath.isNotEmpty) {
       final mappedPath = WorkcenterRouteRegistry.getRoutePath(configuredPath);
@@ -279,20 +303,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         context.push(configuredPath);
         return;
       }
-    }
-
-    // 2. Lookup by routeKey
-    final routeByRegistry = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
-    if (routeByRegistry != null) {
-      context.push(routeByRegistry);
-      return;
-    }
-
-    // 3. Lookup by id
-    final routeById = WorkcenterRouteRegistry.getRoutePath(wc.id);
-    if (routeById != null) {
-      context.push(routeById);
-      return;
     }
 
     // Fallback logic
@@ -316,8 +326,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
       context.push(AppRoutes.invoices);
-    } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
+    } else if (id.contains('PRODUCT')) {
+      context.push(AppRoutes.products);
+    } else if (id.contains('PLAN') || description.contains('plan')) {
+      context.push(AppRoutes.membershipPlans);
     } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
       context.push(AppRoutes.memberships);
     } else if (id.contains('PAYROLL') || description.contains('payroll')) {
