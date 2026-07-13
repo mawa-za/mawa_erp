@@ -228,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 16.0),
               child: Text(
-                'v1.0.0+1',
+                'v1.0.1+2',
                 style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w300),
               ),
             ),
