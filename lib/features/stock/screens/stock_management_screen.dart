@@ -103,9 +103,24 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
 
     final List<dynamic> data = jsonDecode(response.body);
     final workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
-    final Map<String, int> positionsById = {
-      for (final wc in workcenters) _normalize(wc.id): wc.position,
-    };
+    final Map<String, int> positionsById = <String, int>{};
+    for (final workcenter in workcenters) {
+      final routeSegments = workcenter.routePath == null
+          ? const <String>[]
+          : (Uri.tryParse(workcenter.routePath!)?.pathSegments ??
+              const <String>[]);
+      final candidates = <String>[
+        workcenter.id,
+        workcenter.routeKey,
+        workcenter.description,
+        ...routeSegments,
+      ];
+      for (final candidate in candidates) {
+        final normalized = _normalize(candidate);
+        if (normalized.isEmpty) continue;
+        positionsById.putIfAbsent(normalized, () => workcenter.position);
+      }
+    }
     final Set<String> allowed = positionsById.keys.toSet();
 
     final cards = _inventoryCardCatalog.where((card) => card.isAllowedBy(allowed)).toList();
@@ -703,7 +718,16 @@ class _InventoryCardDefinition {
     required this.sectionAliases,
   });
 
-  bool isAllowedBy(Set<String> allowedWorkcenters) => workcenterAliases.map(_normalizeStatic).any(allowedWorkcenters.contains);
+  bool isAllowedBy(Set<String> allowedWorkcenters) {
+    final aliases = workcenterAliases.map(_normalizeStatic).toSet();
+    if (aliases.any(allowedWorkcenters.contains)) return true;
+
+    return allowedWorkcenters.any(
+      (configured) => aliases.any(
+        (alias) => alias.length >= 5 && configured.contains(alias),
+      ),
+    );
+  }
 
   bool matchesSection(String normalizedSection) => sectionAliases.map(_normalizeStatic).contains(normalizedSection) || _normalizeStatic(title) == normalizedSection;
 

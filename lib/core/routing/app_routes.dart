@@ -26,6 +26,20 @@ class AppRoutes {
   static const String paymentRequests = '/payment-requests';
   static const String employeeRequests = '/employee-requests';
   static const String internalCommunications = '/internal-communications';
+  static const String products = '/products';
+  static const String membershipClaims = '/membership-claims';
+  static const String membershipPlans = '/membership-plans';
+  static const String groupSocieties = '/group-societies';
+  static const String inventory = '/inventory';
+  static const String inventoryQuotations = '/inventory/quotations';
+  static const String inventoryPurchaseOrders = '/inventory/purchase-orders';
+  static const String inventoryStockOnHand = '/inventory/stock-on-hand';
+  static const String inventoryGoodsReceipts = '/inventory/goods-receipts';
+  static const String inventoryPutaways = '/inventory/putaways';
+  static const String inventoryMovements = '/inventory/stock-movements';
+  static const String inventorySalesOrders = '/inventory/sales-orders';
+  static const String inventoryAudit = '/inventory/audit';
+  static const String inventorySetup = '/inventory/setup';
   
   // Funeral Management
   static const String funeralDashboard = '/funeral';

@@ -46,7 +46,47 @@ class WorkcenterRouteRegistry {
     'EMPLOYEE_ENGAGEMENT': AppRoutes.internalCommunications,
     'EMPLOYEE-ENGAGEMENT': AppRoutes.internalCommunications,
     'ENGAGEMENT': AppRoutes.internalCommunications,
-    
+
+    // Membership and product maintenance
+    'PRODUCT': AppRoutes.products,
+    'PRODUCTS': AppRoutes.products,
+    'PRODUCT_MAINTENANCE': AppRoutes.products,
+    'PRODUCT_MASTER': AppRoutes.products,
+    'MEMBERSHIP_CLAIM': AppRoutes.membershipClaims,
+    'MEMBERSHIP_CLAIMS': AppRoutes.membershipClaims,
+    'CLAIMS': AppRoutes.membershipClaims,
+    'MEMBERSHIP_PLAN': AppRoutes.membershipPlans,
+    'MEMBERSHIP_PLANS': AppRoutes.membershipPlans,
+    'GROUP_SOCIETY': AppRoutes.groupSocieties,
+    'GROUP_SOCIETIES': AppRoutes.groupSocieties,
+    'GROUP_SOCIETY_MANAGEMENT': AppRoutes.groupSocieties,
+
+    // Inventory Management
+    'INVENTORY': AppRoutes.inventory,
+    'INVENTORY_MANAGEMENT': AppRoutes.inventory,
+    'STOCK_MANAGEMENT': AppRoutes.inventory,
+    'QUOTATION': AppRoutes.inventoryQuotations,
+    'QUOTATIONS': AppRoutes.inventoryQuotations,
+    'QUOTE': AppRoutes.inventoryQuotations,
+    'QUOTES': AppRoutes.inventoryQuotations,
+    'PURCHASE_ORDER': AppRoutes.inventoryPurchaseOrders,
+    'PURCHASE_ORDERS': AppRoutes.inventoryPurchaseOrders,
+    'STOCK_ON_HAND': AppRoutes.inventoryStockOnHand,
+    'GOODS_RECEIPT': AppRoutes.inventoryGoodsReceipts,
+    'GOODS_RECEIPTS': AppRoutes.inventoryGoodsReceipts,
+    'PUTAWAY': AppRoutes.inventoryPutaways,
+    'PUTAWAYS': AppRoutes.inventoryPutaways,
+    'STOCK_MOVEMENT': AppRoutes.inventoryMovements,
+    'STOCK_MOVEMENTS': AppRoutes.inventoryMovements,
+    'INVENTORY_MOVEMENT': AppRoutes.inventoryMovements,
+    'INVENTORY_MOVEMENTS': AppRoutes.inventoryMovements,
+    'SALES_ORDER': AppRoutes.inventorySalesOrders,
+    'SALES_ORDERS': AppRoutes.inventorySalesOrders,
+    'INVENTORY_AUDIT': AppRoutes.inventoryAudit,
+    'STOCK_AUDIT': AppRoutes.inventoryAudit,
+    'INVENTORY_SETUP': AppRoutes.inventorySetup,
+    'WAREHOUSE_SETUP': AppRoutes.inventorySetup,
+
     // Funeral Management
     'FUNERAL': AppRoutes.funeralDashboard,
     'FUNERAL_MANAGEMENT': AppRoutes.funeralDashboard,
@@ -61,12 +101,71 @@ class WorkcenterRouteRegistry {
     'FUNERAL_PACKAGE': AppRoutes.funeralPackageSetup,
     'FUNERAL_PACKAGES': AppRoutes.funeralPackageSetup,
     'FUNERAL_PACKAGE_SETUP': AppRoutes.funeralPackageSetup,
+    'FUNERAL_CLAIM': AppRoutes.funeralAllClaims,
+    'FUNERAL_CLAIMS': AppRoutes.funeralAllClaims,
+    'FUNERAL_PAYMENT': AppRoutes.funeralPayments,
+    'FUNERAL_PAYMENTS': AppRoutes.funeralPayments,
   };
 
   static String? getRoutePath(String key) {
     final normalized = _normalizeKey(key);
     if (normalized.isEmpty) return null;
-    return _mappings[normalized];
+
+    final direct = _mappings[normalized];
+    if (direct != null) return direct;
+
+    // Tenant workcenter identifiers are not always consistent. Resolve the
+    // common descriptive variants here so configured cards never fall back to
+    // the old "feature coming soon" placeholder merely because a suffix such
+    // as LIST, MANAGEMENT or DISPLAY was added.
+    if (normalized.contains('FUNERAL') && normalized.contains('CLAIM')) {
+      return AppRoutes.funeralAllClaims;
+    }
+    if (normalized.contains('FUNERAL') && normalized.contains('PAYMENT')) {
+      return AppRoutes.funeralPayments;
+    }
+    if (normalized.contains('MEMBERSHIP') && normalized.contains('CLAIM')) {
+      return AppRoutes.membershipClaims;
+    }
+    if (normalized.contains('MEMBERSHIP') && normalized.contains('PLAN')) {
+      return AppRoutes.membershipPlans;
+    }
+    if (normalized.contains('GROUP') && normalized.contains('SOCIET')) {
+      return AppRoutes.groupSocieties;
+    }
+    if (normalized.contains('PRODUCT')) {
+      return AppRoutes.products;
+    }
+    if (normalized.contains('QUOT')) {
+      return AppRoutes.inventoryQuotations;
+    }
+    if (normalized.contains('PURCHASE') && normalized.contains('ORDER')) {
+      return AppRoutes.inventoryPurchaseOrders;
+    }
+    if (normalized.contains('STOCK') && normalized.contains('HAND')) {
+      return AppRoutes.inventoryStockOnHand;
+    }
+    if (normalized.contains('GOODS') && normalized.contains('RECEIPT')) {
+      return AppRoutes.inventoryGoodsReceipts;
+    }
+    if (normalized.contains('PUTAWAY')) {
+      return AppRoutes.inventoryPutaways;
+    }
+    if (normalized.contains('STOCK') && normalized.contains('MOVEMENT')) {
+      return AppRoutes.inventoryMovements;
+    }
+    if (normalized.contains('SALES') && normalized.contains('ORDER')) {
+      return AppRoutes.inventorySalesOrders;
+    }
+    if (normalized.contains('INVENTORY') && normalized.contains('AUDIT')) {
+      return AppRoutes.inventoryAudit;
+    }
+    if (normalized.contains('INVENTORY') &&
+        (normalized.contains('SETUP') || normalized.contains('CONFIG'))) {
+      return AppRoutes.inventorySetup;
+    }
+
+    return null;
   }
 
   static String _normalizeKey(String key) {

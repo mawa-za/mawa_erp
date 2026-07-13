@@ -10,8 +10,16 @@ import 'invoice_detail_screen.dart';
 class InvoiceListScreen extends StatefulWidget {
   final String? partnerId;
   final String? partnerName;
+  final String? title;
+  final bool allowCreate;
 
-  const InvoiceListScreen({super.key, this.partnerId, this.partnerName});
+  const InvoiceListScreen({
+    super.key,
+    this.partnerId,
+    this.partnerName,
+    this.title,
+    this.allowCreate = true,
+  });
 
   @override
   State<InvoiceListScreen> createState() => _InvoiceListScreenState();
@@ -129,7 +137,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.partnerName != null ? 'Invoices: ${widget.partnerName}' : 'Invoices'),
+        title: Text(widget.title ?? (widget.partnerName != null ? 'Invoices: ${widget.partnerName}' : 'Invoices')),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 18,
@@ -164,17 +172,18 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           Expanded(child: _buildBody(colorScheme)),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()),
-          );
-          // Always refresh when returning from create/detail flow
-          _fetchInvoices();
-        },
-        elevation: 2,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: widget.allowCreate
+          ? FloatingActionButton(
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()),
+                );
+                _fetchInvoices();
+              },
+              elevation: 2,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
