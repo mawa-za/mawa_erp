@@ -237,75 +237,164 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
                         ? _EmptyState(onCreate: () => _openProductDialog())
                         : LayoutBuilder(
                             builder: (context, constraints) {
-                              if (constraints.maxWidth < 760) {
-                                return ListView.separated(
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: _products.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                                  itemBuilder: (context, index) {
-                                    final product = _products[index];
-                                    return Card(
-                                      child: ListTile(
-                                        title: Text(product.code, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        subtitle: Text('${product.description}\n${_optionLabel(product.type)} • ${currency.format(product.price)}'),
-                                        isThreeLine: true,
-                                        trailing: PopupMenuButton<String>(
-                                          onSelected: (value) {
-                                            if (value == 'edit') _openProductDialog(product: product);
-                                            if (value == 'delete') _confirmDelete(product);
-                                          },
-                                          itemBuilder: (_) => const [
-                                            PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                            PopupMenuItem(value: 'delete', child: Text('Delete')),
+                              final columns = constraints.maxWidth >= 1180
+                                  ? 3
+                                  : constraints.maxWidth >= 760
+                                      ? 2
+                                      : 1;
+                              final aspectRatio = columns == 1 ? 2.15 : 1.65;
+
+                              return GridView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: columns,
+                                  childAspectRatio: aspectRatio,
+                                  crossAxisSpacing: 14,
+                                  mainAxisSpacing: 14,
+                                ),
+                                itemCount: _products.length,
+                                itemBuilder: (context, index) {
+                                  final product = _products[index];
+                                  final colorScheme = Theme.of(context).colorScheme;
+                                  return Card(
+                                    elevation: 0,
+                                    margin: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      side: BorderSide(
+                                        color: colorScheme.outlineVariant.withOpacity(0.55),
+                                      ),
+                                    ),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: () => _openProductDialog(product: product),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  width: 44,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    color: colorScheme.primaryContainer.withOpacity(0.55),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.inventory_2_outlined,
+                                                    color: colorScheme.primary,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        product.description.trim().isEmpty
+                                                            ? product.code
+                                                            : product.description,
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .titleMedium
+                                                            ?.copyWith(fontWeight: FontWeight.w700),
+                                                      ),
+                                                      const SizedBox(height: 3),
+                                                      Text(
+                                                        product.code,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .bodySmall
+                                                            ?.copyWith(color: colorScheme.onSurfaceVariant),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                PopupMenuButton<String>(
+                                                  tooltip: 'Product actions',
+                                                  onSelected: (value) {
+                                                    if (value == 'edit') {
+                                                      _openProductDialog(product: product);
+                                                    } else if (value == 'delete') {
+                                                      _confirmDelete(product);
+                                                    }
+                                                  },
+                                                  itemBuilder: (_) => const [
+                                                    PopupMenuItem(
+                                                      value: 'edit',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.edit_outlined),
+                                                          SizedBox(width: 10),
+                                                          Text('Edit'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.delete_outline),
+                                                          SizedBox(width: 10),
+                                                          Text('Delete'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                            const Spacer(),
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 8,
+                                              children: [
+                                                _ProductMetaChip(
+                                                  icon: Icons.category_outlined,
+                                                  label: _optionLabel(product.type),
+                                                ),
+                                                _ProductMetaChip(
+                                                  icon: Icons.straighten_outlined,
+                                                  label: _optionLabel(product.baseUnitOfMeasure),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'Selling price',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(color: colorScheme.onSurfaceVariant),
+                                                ),
+                                                const Spacer(),
+                                                Text(
+                                                  currency.format(product.price),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleMedium
+                                                      ?.copyWith(
+                                                        color: colorScheme.primary,
+                                                        fontWeight: FontWeight.w800,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                       ),
-                                    );
-                                  },
-                                );
-                              }
-                              return SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Card(
-                                  clipBehavior: Clip.antiAlias,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: DataTable(
-                                      columns: const [
-                                        DataColumn(label: Text('Code')),
-                                        DataColumn(label: Text('Description')),
-                                        DataColumn(label: Text('Type')),
-                                        DataColumn(label: Text('UOM')),
-                                        DataColumn(label: Text('Selling Price'), numeric: true),
-                                        DataColumn(label: Text('Actions')),
-                                      ],
-                                      rows: _products.map((product) {
-                                        return DataRow(cells: [
-                                          DataCell(Text(product.code, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                          DataCell(SizedBox(width: 280, child: Text(product.description, overflow: TextOverflow.ellipsis))),
-                                          DataCell(Text(_optionLabel(product.type))),
-                                          DataCell(Text(_optionLabel(product.baseUnitOfMeasure))),
-                                          DataCell(Text(currency.format(product.price))),
-                                          DataCell(Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                tooltip: 'Edit',
-                                                onPressed: () => _openProductDialog(product: product),
-                                                icon: const Icon(Icons.edit_outlined),
-                                              ),
-                                              IconButton(
-                                                tooltip: 'Delete',
-                                                onPressed: () => _confirmDelete(product),
-                                                icon: const Icon(Icons.delete_outline),
-                                              ),
-                                            ],
-                                          )),
-                                        ]);
-                                      }).toList(),
                                     ),
-                                  ),
-                                ),
+                                  );
+                                },
                               );
                             },
                           ),
@@ -334,6 +423,39 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
   List<FieldOption> _defaultPricingTypes() => [
         FieldOption(field: 'PRICING-TYPE', code: 'SELLING-PRICE', type: 'TENANT', description: 'Selling Price', validFrom: '', validTo: ''),
       ];
+}
+
+class _ProductMetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ProductMetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProductDialog extends StatefulWidget {

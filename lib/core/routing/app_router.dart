@@ -22,6 +22,11 @@ import '../../features/appointments/screens/appointment_calendar_screen.dart';
 import '../../features/cashup/screens/cashup_list_screen.dart';
 import '../../features/payments/screens/payment_request_list_screen.dart';
 import '../../features/leave_requests/screens/leave_request_list_screen.dart';
+import '../../features/products/screens/product_maintenance_screen.dart';
+import '../../features/membership/screens/membership_claim_list_screen.dart';
+import '../../features/membership/screens/membership_plan_list_screen.dart';
+import '../../features/membership/screens/group_society_list_screen.dart';
+import '../../features/stock/screens/stock_management_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -34,6 +39,8 @@ import '../../features/funeral/presentation/pages/funeral_invoice_preview_page.d
 import '../../features/funeral/presentation/pages/funeral_invoice_payment_page.dart';
 import '../../features/funeral/presentation/pages/funeral_service_request_page.dart';
 import '../../features/funeral/presentation/pages/funeral_package_setup_page.dart';
+import '../../features/funeral/presentation/pages/funeral_all_claims_page.dart';
+import '../../features/funeral/presentation/pages/funeral_payments_page.dart';
 
 import '../services/session_service.dart';
 
@@ -232,6 +239,62 @@ class AppRouter {
         path: AppRoutes.employeeRequests,
         builder: (context, state) => const LeaveRequestListScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.products,
+        builder: (context, state) => const ProductMaintenanceScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.membershipClaims,
+        builder: (context, state) => const MembershipClaimListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.membershipPlans,
+        builder: (context, state) => const MembershipPlanListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.groupSocieties,
+        builder: (context, state) => const GroupSocietyListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.inventory,
+        builder: (context, state) => const InventoryManagementScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryQuotations,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'quotations'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryPurchaseOrders,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'purchase-orders'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryStockOnHand,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'stock-on-hand'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryGoodsReceipts,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'goods-receipts'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryPutaways,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'putaways'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryMovements,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'stock-movements'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventorySalesOrders,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'sales-orders'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventoryAudit,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'inventory-audit'),
+      ),
+      GoRoute(
+        path: AppRoutes.inventorySetup,
+        builder: (context, state) => const InventoryManagementScreen(initialSection: 'inventory-setup'),
+      ),
 
       // Funeral Routes
       GoRoute(
@@ -280,7 +343,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.funeralPayments,
-        builder: (context, state) => const Scaffold(body: Center(child: Text('Funeral Payments List'))),
+        builder: (context, state) => const FuneralPaymentsPage(),
       ),
       GoRoute(
         path: AppRoutes.funeralPackageSetup,
@@ -288,7 +351,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.funeralAllClaims,
-        builder: (context, state) => const Scaffold(body: Center(child: Text('All Funeral Claims List'))),
+        builder: (context, state) => const FuneralAllClaimsPage(),
       ),
     ],
   );
