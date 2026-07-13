@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
-        android:label="mawa_erp"
+        android:label="mawa"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

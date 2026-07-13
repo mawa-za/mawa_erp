@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/routing/feature_group_registry.dart';
 import '../../home/models/workcenter.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
@@ -60,62 +59,6 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     }
   }
 
-
-  List<Workcenter> _displayWorkcenters() {
-    final List<Workcenter> display = [];
-    final Set<String> groupedChildIds = {};
-
-    for (final group in FeatureGroupRegistry.groups) {
-      final children = _allWorkcenters.where((wc) => group.matches(wc.id) && !FeatureGroupRegistry.isGroupId(wc.id)).toList();
-      if (children.isEmpty) continue;
-      groupedChildIds.addAll(children.map((wc) => wc.id));
-      final firstPosition = children.map((wc) => _positions[wc.id] ?? wc.position).fold<int>(
-        _positions[children.first.id] ?? children.first.position,
-        (previous, current) => current < previous ? current : previous,
-      );
-      display.add(Workcenter(
-        id: group.id,
-        description: group.title,
-        defaultFunction: '',
-        path: group.routePath,
-        position: firstPosition,
-        routeKey: group.id,
-        routePath: group.routePath,
-        isFeatureGroup: true,
-        childWorkcenterIds: children.map((wc) => wc.id).toList(),
-      ));
-      display.addAll(children.map((wc) => Workcenter(
-            id: wc.id,
-            description: '   ${wc.description}',
-            defaultFunction: wc.defaultFunction,
-            path: wc.path,
-            position: wc.position,
-            routeKey: wc.routeKey,
-            routePath: wc.routePath,
-            iconKey: wc.iconKey,
-            childWorkcenterIds: wc.childWorkcenterIds,
-          )));
-    }
-
-    display.addAll(_allWorkcenters.where((wc) => !groupedChildIds.contains(wc.id) && !FeatureGroupRegistry.isGroupId(wc.id)));
-    return display;
-  }
-
-  bool _isGroupSelected(Workcenter group) {
-    if (!group.isFeatureGroup || group.childWorkcenterIds.isEmpty) return false;
-    return group.childWorkcenterIds.any(_assignedWorkcenterIds.contains);
-  }
-
-  void _toggleGroup(Workcenter group, bool selected) {
-    for (final childId in group.childWorkcenterIds) {
-      if (selected) {
-        _assignedWorkcenterIds.add(childId);
-      } else {
-        _assignedWorkcenterIds.remove(childId);
-      }
-    }
-  }
-
   Future<void> _saveAssignments() async {
     setState(() => _isSaving = true);
     try {
@@ -167,56 +110,50 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : Builder(builder: (context) {
-                  final displayWorkcenters = _displayWorkcenters();
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: displayWorkcenters.length,
-                    itemBuilder: (context, index) {
-                      final wc = displayWorkcenters[index];
-                      final isSelected = wc.isFeatureGroup ? _isGroupSelected(wc) : _assignedWorkcenterIds.contains(wc.id);
-                      return Card(
-                        elevation: 0,
-                        color: wc.isFeatureGroup ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.18) : null,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: wc.isFeatureGroup ? Theme.of(context).colorScheme.primary.withOpacity(0.25) : Colors.grey.shade200),
-                        ),
-                        margin: EdgeInsets.only(bottom: wc.isFeatureGroup ? 10 : 6, left: wc.isFeatureGroup ? 0 : 20),
-                        child: CheckboxListTile(
-                          value: isSelected,
-                          title: Text(wc.description, style: TextStyle(fontWeight: wc.isFeatureGroup ? FontWeight.w800 : FontWeight.w600)),
-                          subtitle: Text(wc.isFeatureGroup ? 'Feature group: selects available child features' : 'ID: ${wc.id}'),
-                          secondary: !wc.isFeatureGroup && isSelected
-                            ? SizedBox(
-                                width: 60,
-                                child: TextFormField(
-                                  initialValue: _positions[wc.id]?.toString() ?? (index + 1).toString(),
-                                  decoration: const InputDecoration(labelText: 'Pos', isDense: true),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (val) {
-                                    final pos = int.tryParse(val) ?? 1;
-                                    _positions[wc.id] = pos;
-                                  },
-                                ),
-                              )
-                            : null,
-                          onChanged: (val) {
-                            setState(() {
-                              if (wc.isFeatureGroup) {
-                                _toggleGroup(wc, val == true);
-                              } else if (val == true) {
-                                _assignedWorkcenterIds.add(wc.id);
-                              } else {
-                                _assignedWorkcenterIds.remove(wc.id);
-                              }
-                            });
-                          },
-                        ),
-                      );
-                    },
-                  );
-                }),
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _allWorkcenters.length,
+                  itemBuilder: (context, index) {
+                    final wc = _allWorkcenters[index];
+                    final isSelected = _assignedWorkcenterIds.contains(wc.id);
+                    return Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: CheckboxListTile(
+                        value: isSelected,
+                        title: Text(wc.description, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('ID: ${wc.id}'),
+                        secondary: isSelected 
+                          ? SizedBox(
+                              width: 60,
+                              child: TextFormField(
+                                initialValue: _positions[wc.id]?.toString() ?? (index + 1).toString(),
+                                decoration: const InputDecoration(labelText: 'Pos', isDense: true),
+                                keyboardType: TextInputType.number,
+                                onChanged: (val) {
+                                  final pos = int.tryParse(val) ?? 1;
+                                  _positions[wc.id] = pos;
+                                },
+                              ),
+                            )
+                          : null,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _assignedWorkcenterIds.add(wc.id);
+                            } else {
+                              _assignedWorkcenterIds.remove(wc.id);
+                            }
+                          });
+                        },
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }

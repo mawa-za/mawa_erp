@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice.dart';
+import '../../partners/models/partner.dart';
 import 'invoice_create_screen.dart' hide Partner;
 import 'invoice_detail_screen.dart';
 
@@ -22,6 +23,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   String? _error;
   String _selectedStatus = 'ALL';
   DateTime? _selectedDate;
+  final Map<String, String> _partnerNames = {};
 
   final List<String> _statuses = ['ALL', 'DRAFT', 'PAID', 'NEW', 'OVERDUE'];
 
@@ -66,6 +68,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           _invoices = invoices;
           _isLoading = false;
         });
+        _resolvePartnerNames(invoices);
       } else {
         setState(() {
           _error = 'Failed to load invoices: ${response.statusCode}';
@@ -80,6 +83,29 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     }
   }
 
+  Future<void> _resolvePartnerNames(List<Invoice> invoices) async {
+    final uniquePartnerIds = invoices
+        .map((inv) => inv.partnerId)
+        .where((id) => id.isNotEmpty && !_partnerNames.containsKey(id))
+        .toSet();
+
+    for (final id in uniquePartnerIds) {
+      try {
+        final response = await ApiClient().get('/v2/partner/$id');
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final partner = Partner.fromJson(data);
+          if (mounted) {
+            setState(() {
+              _partnerNames[id] = partner.fullName;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error resolving partner name for $id: $e');
+      }
+    }
+  }
 
   Future<void> _pickDate() async {
     final DateTime? picked = await showDatePicker(
@@ -322,7 +348,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   }
 
   Widget _buildInvoiceCard(Invoice invoice, ColorScheme colorScheme) {
-    final displayCustomerName = invoice.customerName;
+    final displayCustomerName = _partnerNames[invoice.partnerId] ?? invoice.customerName;
 
     return Card(
       elevation: 0,

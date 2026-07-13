@@ -15,11 +15,18 @@ class FeatureGroupDefinition {
     this.aliases = const [],
   });
 
-  bool matches(String workcenterId) {
-    final normalized = FeatureGroupRegistry.normalize(workcenterId);
-    return normalizeList(childWorkcenterIds).contains(normalized) ||
-        normalizeList(aliases).contains(normalized) ||
-        normalize(id) == normalized;
+  bool matches(String workcenterId, [String? description]) {
+    final candidates = <String>{
+      FeatureGroupRegistry.normalize(workcenterId),
+      if (description != null && description.trim().isNotEmpty)
+        FeatureGroupRegistry.normalize(description),
+    };
+    final accepted = <String>{
+      ...normalizeList(childWorkcenterIds),
+      ...normalizeList(aliases),
+      normalize(id),
+    };
+    return candidates.any(accepted.contains);
   }
 
   static Set<String> normalizeList(List<String> values) =>
@@ -37,7 +44,9 @@ class FeatureGroupRegistry {
       routePath: '/feature-groups/membership-management',
       childWorkcenterIds: [
         'membership',
+        'memberships',
         'member',
+        'members',
         'membership-plan',
         'membership-claim',
         'group-society',
@@ -66,8 +75,11 @@ class FeatureGroupRegistry {
       routePath: '/feature-groups/finance-management',
       childWorkcenterIds: [
         'invoice',
+        'invoices',
         'payment-request',
+        'payment-requests',
         'cashup',
+        'cashups',
         'approvals',
       ],
       aliases: ['finance', 'finance-management'],
@@ -75,21 +87,26 @@ class FeatureGroupRegistry {
     FeatureGroupDefinition(
       id: 'inventory',
       title: 'Inventory Management',
-      routePath: AppRoutes.inventory,
+      routePath: '/feature-groups/inventory',
       childWorkcenterIds: [
         'inventory',
         'stock',
         'goods-receipt',
         'putaway',
         'stock-on-hand',
+        'stock-movement',
+        'inventory-audit',
+        'inventory-setup',
         'sales-order',
+        'quotation',
+        'purchase-order',
       ],
       aliases: ['inventory-management', 'stock-management'],
     ),
     FeatureGroupDefinition(
       id: 'scheduling',
       title: 'Calendar & Appointments',
-      routePath: AppRoutes.appointments,
+      routePath: '/feature-groups/scheduling',
       childWorkcenterIds: [
         'calendar',
         'appointment',
@@ -102,9 +119,13 @@ class FeatureGroupRegistry {
       routePath: '/feature-groups/partner-management',
       childWorkcenterIds: [
         'customer',
+        'customers',
         'client',
+        'clients',
         'supplier',
+        'suppliers',
         'employee',
+        'employees',
         'business-partner',
         'partner',
       ],
@@ -116,7 +137,9 @@ class FeatureGroupRegistry {
       routePath: '/feature-groups/administration',
       childWorkcenterIds: [
         'system-configuration',
+        'system-configurations',
         'api-log',
+        'api-logs',
         'settings',
         'fnb-integration-admin',
         'message-queue-admin',
@@ -148,9 +171,12 @@ class FeatureGroupRegistry {
   static String normalize(String value) =>
       value.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
 
-  static FeatureGroupDefinition? groupForWorkcenter(String workcenterId) {
+  static FeatureGroupDefinition? groupForWorkcenter(
+    String workcenterId, [
+    String? description,
+  ]) {
     for (final group in groups) {
-      if (group.matches(workcenterId)) return group;
+      if (group.matches(workcenterId, description)) return group;
     }
     return null;
   }

@@ -1,11 +1,11 @@
 {
-    "name": "mawa_erp",
-    "short_name": "mawa_erp",
+    "name": "mawa",
+    "short_name": "mawa",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Mawa ERP",
+    "description": "mawa",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

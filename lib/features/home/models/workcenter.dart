@@ -7,8 +7,6 @@ class Workcenter {
   final String routeKey;
   final String? routePath;
   final String? iconKey;
-  final bool isFeatureGroup;
-  final List<String> childWorkcenterIds;
 
   Workcenter({
     required this.id,
@@ -19,8 +17,6 @@ class Workcenter {
     required this.routeKey,
     this.routePath,
     this.iconKey,
-    this.isFeatureGroup = false,
-    this.childWorkcenterIds = const [],
   });
 
   factory Workcenter.fromJson(Map<String, dynamic> json) {
@@ -41,10 +37,6 @@ class Workcenter {
       routeKey: wc['routeKey']?.toString() ?? (defaultFunction.isNotEmpty ? defaultFunction : id),
       routePath: wc['routePath']?.toString() ?? (wc['path']?.toString() != null && wc['path'].toString().isNotEmpty ? wc['path'].toString() : null),
       iconKey: wc['iconKey']?.toString(),
-      isFeatureGroup: wc['isFeatureGroup'] == true,
-      childWorkcenterIds: wc['childWorkcenterIds'] is List
-          ? (wc['childWorkcenterIds'] as List).map((e) => e.toString()).toList()
-          : const [],
     );
   }
 }

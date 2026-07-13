@@ -46,10 +46,7 @@ enum CoverSource {
 }
 
 enum ClaimStatus {
-  DRAFT,
   PENDING,
-  SUBMITTED,
-  IN_PROGRESS,
   APPROVED,
   PARTIALLY_APPROVED,
   REJECTED,

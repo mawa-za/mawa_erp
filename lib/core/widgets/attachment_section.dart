@@ -17,14 +17,12 @@ class AttachmentSection extends StatefulWidget {
   final String objectId;
   final bool readOnly;
   final String documentTypeField;
-  final String? objectType;
   
   const AttachmentSection({
     super.key, 
     required this.objectId,
     this.readOnly = false,
     this.documentTypeField = 'DOCUMENT-TYPE',
-    this.objectType,
   });
 
   @override
@@ -33,7 +31,7 @@ class AttachmentSection extends StatefulWidget {
 
 class _AttachmentSectionState extends State<AttachmentSection> {
   List<Attachment> _attachments = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   bool _isUploading = false;
 
   @override
@@ -42,31 +40,12 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     _loadAttachments();
   }
 
-  @override
-  void didUpdateWidget(covariant AttachmentSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.objectId != widget.objectId) {
-      _loadAttachments();
-    }
-  }
-
-  bool get _hasObjectId => widget.objectId.trim().isNotEmpty;
-
   Future<void> _loadAttachments() async {
     if (!mounted) return;
-    if (!_hasObjectId) {
-      setState(() {
-        _attachments = [];
-        _isLoading = false;
-      });
-      return;
-    }
-
     setState(() => _isLoading = true);
     
     try {
-      final encodedObjectId = Uri.encodeQueryComponent(widget.objectId.trim());
-      final response = await ApiClient().get('/v2/attachment?objectId=$encodedObjectId');
+      final response = await ApiClient().get('/v2/attachment?objectId=${widget.objectId}');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         
@@ -108,24 +87,8 @@ class _AttachmentSectionState extends State<AttachmentSection> {
   }
 
   Future<void> _uploadAttachment() async {
-    if (!_hasObjectId) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please save or create the record before attaching documents.')),
-        );
-      }
-      return;
-    }
-
     try {
-      List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
-      if (docTypes.isEmpty && widget.documentTypeField == 'CLAIM-DOCUMENT-TYPE') {
-        docTypes = [
-          FieldOption(field: widget.documentTypeField, code: 'DEATH-CERTIFICATE', type: 'SYSTEM', description: 'Death Certificate', validFrom: '', validTo: ''),
-          FieldOption(field: widget.documentTypeField, code: 'ID-COPY', type: 'SYSTEM', description: 'ID Copy', validFrom: '', validTo: ''),
-          FieldOption(field: widget.documentTypeField, code: 'SUPPORTING-DOCUMENT', type: 'SYSTEM', description: 'Supporting Document', validFrom: '', validTo: ''),
-        ];
-      }
+      final List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
       
       if (!mounted) return;
 
@@ -288,7 +251,6 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         
         final payload = {
           'objectId': widget.objectId,
-          if (widget.objectType != null && widget.objectType!.isNotEmpty) 'objectType': widget.objectType,
           'documentType': selectedDocType!.code,
           'extension': extension,
           'file': base64Content,

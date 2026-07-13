@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
@@ -412,7 +411,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               const Divider(),
               const SizedBox(height: 16),
               _buildProfileRow(Icons.badge_outlined, 'Identity', '${member.idType ?? 'ID'}: ${member.identityNumber}'),
-              _buildProfileRow(Icons.cake_outlined, 'Birth Date', _displayDate(member.birthDate)),
+              _buildProfileRow(Icons.cake_outlined, 'Birth Date', member.birthDate ?? 'N/A'),
               _buildProfileRow(Icons.wc_outlined, 'Gender', member.gender ?? 'N/A'),
               if (member.email.isNotEmpty) _buildProfileRow(Icons.email_outlined, 'Email', member.email),
               if (member.phone.isNotEmpty) _buildProfileRow(Icons.phone_outlined, 'Phone', member.phone),
@@ -429,7 +428,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                     },
                     icon: const Icon(Icons.request_quote_outlined, size: 18),
                     label: const Text('PROCESS CLAIM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: Colors.deepPurple),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFF20D1A)),
                   ),
                 ),
               ],
@@ -438,37 +437,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         ),
       ),
     );
-  }
-
-  String _displayDate(dynamic value) {
-    if (value == null) return 'N/A';
-    if (value is DateTime) return DateFormat('yyyy-MM-dd').format(value);
-
-    final raw = value.toString().trim();
-    if (raw.isEmpty || raw.toLowerCase() == 'null' || raw.toUpperCase() == 'N/A') {
-      return 'N/A';
-    }
-
-    final parsed = DateTime.tryParse(raw);
-    if (parsed != null) return DateFormat('yyyy-MM-dd').format(parsed);
-
-    final millis = int.tryParse(raw);
-    if (millis != null && millis > 0) {
-      final dt = millis > 10000000000
-          ? DateTime.fromMillisecondsSinceEpoch(millis)
-          : DateTime.fromMillisecondsSinceEpoch(millis * 1000);
-      return DateFormat('yyyy-MM-dd').format(dt);
-    }
-
-    return raw;
-  }
-
-  String _firstNonEmptyDate(List<String?> values) {
-    for (final value in values) {
-      final formatted = _displayDate(value);
-      if (formatted != 'N/A') return formatted;
-    }
-    return 'N/A';
   }
 
   Widget _buildProfileRow(IconData icon, String label, String value) {
@@ -622,11 +590,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                       const Divider(),
                       const SizedBox(height: 12),
                       _buildProfileRow(Icons.badge_outlined, 'Identity', '$displayIdType: $displayId'),
-                      _buildProfileRow(
-                        Icons.cake_outlined,
-                        'Birth Date',
-                        _firstNonEmptyDate([partner?.birthDate, dependent.birthDate]),
-                      ),
+                      _buildProfileRow(Icons.cake_outlined, 'Birth Date', partner?.birthDate ?? dependent.birthDate ?? 'N/A'),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -639,7 +603,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                                 );
                                 if (result == true) _fetchData();
                               },
-                              child: const Text('PROCESS CLAIM', style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 11)),
+                              child: const Text('PROCESS CLAIM', style: TextStyle(color: const Color(0xFFF20D1A), fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
                           const SizedBox(width: 8),
                           FilledButton.tonal(

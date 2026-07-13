@@ -118,15 +118,7 @@ class Partner {
       validTo: parseToDateTime(identityObj?['validTo'] ?? identityObj?['valid_to'] ?? json['validTo'] ?? json['valid_to'] ?? json['expiryDate'] ?? json['expiry_date'] ?? json['endDate'] ?? json['validUntil'] ?? json['valid_until'] ?? json['expiredAt']),
       status: status.isEmpty ? 'ACTIVE' : status,
       title: title,
-      birthDate: parseToIsoString(
-        json['birthDate'] ??
-        json['dateOfBirth'] ??
-        json['dob'] ??
-        json['birth_date'] ??
-        json['date_of_birth'] ??
-        json['partnerBirthDate'] ??
-        json['dependentBirthDate'],
-      ),
+      birthDate: parseToIsoString(json['birthDate']),
       gender: gender,
       maritalStatus: maritalStatus,
       language: language,

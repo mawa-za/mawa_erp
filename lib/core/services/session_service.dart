@@ -1,24 +1,66 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'setting_service.dart';
+import '../api_client.dart';
 
 class SessionService {
   static final SessionService _instance = SessionService._internal();
   factory SessionService() => _instance;
   SessionService._internal();
 
+  Timer? _inactivityTimer;
+  int _timeoutMinutes = 30; // Default
   bool _isMonitoring = false;
 
-  void startMonitoring() {
+  void startMonitoring() async {
+    if (_isMonitoring) return;
     _isMonitoring = true;
-    debugPrint('SessionService: inactivity timeout disabled for mawa_erp');
+    
+    await _updateTimeoutFromSettings();
+    _resetTimer();
+    debugPrint('SessionService: Started monitoring with $_timeoutMinutes min timeout');
   }
 
   void stopMonitoring() {
     _isMonitoring = false;
-    debugPrint('SessionService: monitoring stopped');
+    _inactivityTimer?.cancel();
+    debugPrint('SessionService: Stopped monitoring');
+  }
+
+  Future<void> _updateTimeoutFromSettings() async {
+    try {
+      final settings = await SettingService().getSettings();
+      // Try to find INACTIVE-TIMEOUT attribute
+      final timeoutSetting = settings.firstWhere(
+        (s) => s.attribute == 'INACTIVE-TIMEOUT',
+        orElse: () => settings.firstWhere(
+          (s) => s.attribute == 'TIMEOUT', 
+          orElse: () => throw Exception('No timeout setting found')
+        ),
+      );
+      
+      final value = int.tryParse(timeoutSetting.value);
+      if (value != null && value > 0) {
+        _timeoutMinutes = value;
+      }
+    } catch (e) {
+      debugPrint('SessionService: Using default timeout of $_timeoutMinutes minutes ($e)');
+    }
   }
 
   void userActivityDetected() {
     if (!_isMonitoring) return;
-    // Screen/session timeout has been intentionally disabled for mawa_erp.
+    _resetTimer();
+  }
+
+  void _resetTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(Duration(minutes: _timeoutMinutes), _handleTimeout);
+  }
+
+  void _handleTimeout() {
+    if (!_isMonitoring) return;
+    debugPrint('SessionService: Inactivity timeout reached ($_timeoutMinutes minutes)');
+    ApiClient().logout();
   }
 }
