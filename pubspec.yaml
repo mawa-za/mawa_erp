@@ -35,4 +35,5 @@ flutter:
   assets:
     - assets/branding/mawa_logo.png
     - assets/branding/mawa_logo_white.png
+    - assets/branding/mawa_logo_red.png
     - assets/branding/mawa_app_icon.png

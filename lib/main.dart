@@ -28,16 +28,18 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _checkInitialStatus();
-    _logoutSubscription = ApiClient().logoutStream.listen((_) {
+    _logoutSubscription = ApiClient().logoutStream.listen((sessionExpired) {
       if (mounted) {
         SessionService().stopMonitoring();
         // GoRouter will handle redirection via its own logic if we trigger a refresh
         // but for now we can also force a refresh or rely on the next navigation
-        rootScaffoldMessengerKey.currentState
-          ?..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(content: Text('Session expired. Please login again.')),
-          );
+        if (sessionExpired) {
+          rootScaffoldMessengerKey.currentState
+            ?..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(content: Text('Session expired. Please login again.')),
+            );
+        }
         // We can use the global navigator key if needed, or just let the router handle it
       }
     });

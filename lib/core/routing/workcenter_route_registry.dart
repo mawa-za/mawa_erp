@@ -16,6 +16,30 @@ class WorkcenterRouteRegistry {
     'APPROVAL': AppRoutes.approvals,
     'SETTINGS': AppRoutes.settings,
     'SYSTEM_SETTINGS': AppRoutes.settings,
+    'SYSTEM_CONFIGURATION': AppRoutes.systemConfiguration,
+    'SYSTEM_CONFIGURATIONS': AppRoutes.systemConfiguration,
+    'CALENDAR': AppRoutes.calendar,
+    'APPOINTMENT': AppRoutes.appointments,
+    'APPOINTMENTS': AppRoutes.appointments,
+    'APPOINTMENT_BOOKING': AppRoutes.appointments,
+    'CASHUP': AppRoutes.cashups,
+    'CASHUPS': AppRoutes.cashups,
+    'PAYMENT_REQUEST': AppRoutes.paymentRequests,
+    'PAYMENT_REQUESTS': AppRoutes.paymentRequests,
+    'CUSTOMER': '/partners/CUSTOMER',
+    'CUSTOMERS': '/partners/CUSTOMER',
+    'CLIENT': '/partners/CUSTOMER',
+    'CLIENTS': '/partners/CUSTOMER',
+    'SUPPLIER': '/partners/SUPPLIER',
+    'SUPPLIERS': '/partners/SUPPLIER',
+    'EMPLOYEE': '/partners/EMPLOYEE',
+    'EMPLOYEES': '/partners/EMPLOYEE',
+    'PARTNER': '/partners/PARTNER',
+    'PARTNERS': '/partners/PARTNER',
+    'EMPLOYEE_REQUEST': AppRoutes.employeeRequests,
+    'EMPLOYEE_REQUESTS': AppRoutes.employeeRequests,
+    'LEAVE_REQUEST': AppRoutes.employeeRequests,
+    'LEAVE_REQUESTS': AppRoutes.employeeRequests,
     'INTERNAL_COMMUNICATIONS': AppRoutes.internalCommunications,
     'INTERNAL-COMMUNICATIONS': AppRoutes.internalCommunications,
     'COMMUNICATIONS': AppRoutes.internalCommunications,
@@ -40,10 +64,30 @@ class WorkcenterRouteRegistry {
   };
 
   static String? getRoutePath(String key) {
-    final upperKey = key.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
-    final route = _mappings[upperKey];
-    if (route != null) return route;
-    
-    return _mappings[key.toUpperCase()];
+    final normalized = _normalizeKey(key);
+    if (normalized.isEmpty) return null;
+    return _mappings[normalized];
+  }
+
+  static String _normalizeKey(String key) {
+    var value = key.trim();
+    if (value.isEmpty) return '';
+
+    // Workcenter configuration sometimes stores legacy absolute paths such as
+    // /cashup, /payment-requests or /partners/CUSTOMER. Resolve the final path
+    // segment through the registry before asking GoRouter to open it directly.
+    final parsed = Uri.tryParse(value);
+    final segments = parsed?.pathSegments
+            .where((segment) => segment.trim().isNotEmpty)
+            .toList() ??
+        const <String>[];
+    if (segments.isNotEmpty) {
+      value = segments.last;
+    }
+
+    return value
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
   }
 }
