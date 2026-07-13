@@ -61,6 +61,6 @@ class SessionService {
   void _handleTimeout() {
     if (!_isMonitoring) return;
     debugPrint('SessionService: Inactivity timeout reached ($_timeoutMinutes minutes)');
-    ApiClient().logout();
+    ApiClient().logout(sessionExpired: true);
   }
 }

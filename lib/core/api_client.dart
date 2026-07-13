@@ -268,7 +268,7 @@ class ApiClient {
 
       if (refreshToken == null || refreshToken.isEmpty) {
         debugPrint('ApiClient: No refresh token available');
-        await logout();
+        await logout(sessionExpired: true);
         return false;
       }
 
@@ -334,7 +334,7 @@ class ApiClient {
       }
       
       debugPrint('ApiClient: Refresh failed. Status: ${response.statusCode}');
-      await logout();
+      await logout(sessionExpired: true);
       return false;
     } catch (e) {
       debugPrint('ApiClient: Exception during _refreshToken: $e');
@@ -342,13 +342,13 @@ class ApiClient {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool sessionExpired = false}) async {
     final prefs = await SharedPreferences.getInstance();
     debugPrint('ApiClient: Performing logout, clearing tokens');
     await prefs.remove('accessToken');
     await prefs.remove('refreshToken');
     await prefs.remove('selectedRole');
     await prefs.remove('selectedRoleDescription');
-    _logoutController.add(true);
+    _logoutController.add(sessionExpired);
   }
 }

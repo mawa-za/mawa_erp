@@ -19,6 +19,12 @@ class AppRoutes {
   static const String caseInvoicePreview = '/cases/:caseId/invoice-preview';
   static const String approvals = '/approvals';
   static const String settings = '/settings';
+  static const String systemConfiguration = '/system-configuration';
+  static const String calendar = '/calendar';
+  static const String appointments = '/appointments';
+  static const String cashups = '/cashups';
+  static const String paymentRequests = '/payment-requests';
+  static const String employeeRequests = '/employee-requests';
   static const String internalCommunications = '/internal-communications';
   
   // Funeral Management

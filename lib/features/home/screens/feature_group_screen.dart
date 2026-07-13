@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/routing/app_routes.dart';
 import '../../../core/routing/feature_group_registry.dart';
 import '../../../core/routing/workcenter_route_registry.dart';
 import '../../../core/services/module_usage_service.dart';
@@ -81,15 +82,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     );
 
     final routePath = wc.routePath;
-    if (routePath != null && routePath.startsWith('/')) {
-      context.go(routePath);
-      return;
-    }
-
     if (routePath != null && routePath.trim().isNotEmpty) {
       final routeByPath = WorkcenterRouteRegistry.getRoutePath(routePath);
       if (routeByPath != null) {
         context.push(routeByPath);
+        return;
+      }
+      if (routePath.startsWith('/')) {
+        context.push(routePath);
         return;
       }
     }
@@ -141,6 +141,17 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
         title: Text(title),
         actions: [IconButton(onPressed: _loadChildren, icon: const Icon(Icons.refresh))],
       ),
