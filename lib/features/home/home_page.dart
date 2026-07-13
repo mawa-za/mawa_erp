@@ -266,10 +266,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _fetchRecentModules();
     _fetchFrequentModules();
 
-    // 1. If wc.routePath is not null and starts with /, use context.go(wc.routePath!)
-    if (wc.routePath != null && wc.routePath!.startsWith('/')) {
-      context.go(wc.routePath!);
-      return;
+    // Resolve configured route paths through the registry first. This converts
+    // legacy values such as /cashup and /payment-request to current routes.
+    final configuredPath = wc.routePath?.trim();
+    if (configuredPath != null && configuredPath.isNotEmpty) {
+      final mappedPath = WorkcenterRouteRegistry.getRoutePath(configuredPath);
+      if (mappedPath != null) {
+        context.push(mappedPath);
+        return;
+      }
+      if (configuredPath.startsWith('/')) {
+        context.push(configuredPath);
+        return;
+      }
     }
 
     // 2. Lookup by routeKey
@@ -446,30 +455,31 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   Widget _buildAppBar(ColorScheme colorScheme) {
+    const textColor = Color(0xFF20252D);
     return SliverAppBar(
       expandedHeight: 180,
       floating: false,
       pinned: true,
       elevation: 0,
-      backgroundColor: colorScheme.primary,
-      foregroundColor: Colors.white,
-      iconTheme: const IconThemeData(color: Colors.white),
-      actionsIconTheme: const IconThemeData(color: Colors.white),
+      scrolledUnderElevation: 1,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      foregroundColor: textColor,
+      iconTheme: const IconThemeData(color: textColor),
+      actionsIconTheme: const IconThemeData(color: textColor),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [colorScheme.primary, colorScheme.primary.withBlue(200)],
-            ),
-          ),
+          color: const Color(0xFFF8F9FD),
           child: Stack(
             children: [
               Positioned(
-                top: -20,
-                right: -20,
-                child: Icon(Icons.blur_on, size: 200, color: Colors.white.withOpacity(0.1)),
+                top: -24,
+                right: -24,
+                child: Icon(
+                  Icons.blur_on,
+                  size: 200,
+                  color: colorScheme.primary.withOpacity(0.05),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 80, 24, 0),
@@ -479,7 +489,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     Text(
                       'Hello, ${_displayName?.split(' ').first ?? 'User'}',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: textColor,
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         letterSpacing: -0.5,
@@ -489,7 +499,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     Text(
                       'Let\'s manage your business today',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: textColor.withOpacity(0.65),
                         fontSize: 16,
                       ),
                     ),
@@ -504,7 +514,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         mainAxisSize: MainAxisSize.min,
         children: [
           Image.asset(
-            'assets/branding/mawa_logo_white.png',
+            'assets/branding/mawa_logo.png',
             height: 34,
             width: 120,
             fit: BoxFit.contain,
@@ -517,15 +527,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: const Color(0xFFF1F2F5),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 _appVersion,
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withOpacity(0.9),
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.primary,
                 ),
               ),
             ),
@@ -534,7 +544,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined), 
+          icon: const Icon(Icons.notifications_outlined),
           onPressed: () {},
         ),
         const SizedBox(width: 8),
@@ -551,7 +561,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         child: Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+            border: Border.all(color: Colors.grey.shade300, width: 2),
           ),
           child: CircleAvatar(
             radius: 16,
