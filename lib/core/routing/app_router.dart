@@ -7,6 +7,7 @@ import '../../features/setup/setup_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
 import '../../features/home/home_page.dart';
+import '../../features/home/screens/feature_group_screen.dart';
 import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
@@ -17,10 +18,6 @@ import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
-import '../../features/products/screens/product_maintenance_screen.dart';
-import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
-import '../../features/admin/message_queue/message_queue_admin_screen.dart';
-import '../../features/appointments/screens/appointment_calendar_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -129,7 +126,13 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => const MyHomePage(title: 'Mawa ERP'),
+        builder: (context, state) => const MyHomePage(title: 'mawa'),
+      ),
+      GoRoute(
+        path: '/feature-groups/:groupId',
+        builder: (context, state) => FeatureGroupScreen(
+          groupId: state.pathParameters['groupId']!,
+        ),
       ),
       GoRoute(
         path: AppRoutes.memberships,
@@ -193,15 +196,6 @@ class AppRouter {
           );
         },
       ),
-
-      GoRoute(
-        path: AppRoutes.appointments,
-        builder: (context, state) => const AppointmentCalendarScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.calendar,
-        builder: (context, state) => const AppointmentCalendarScreen(),
-      ),
       GoRoute(
         path: AppRoutes.approvals,
         builder: (context, state) => const ApprovalListScreen(),
@@ -209,18 +203,6 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => const SystemConfigurationScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.products,
-        builder: (context, state) => const ProductMaintenanceScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.fnbIntegrationAdmin,
-        builder: (context, state) => const FnbIntegrationAdminScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.messageQueueAdmin,
-        builder: (context, state) => const MessageQueueAdminScreen(),
       ),
 
       // Funeral Routes

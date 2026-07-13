@@ -179,7 +179,7 @@ class _CaseDashboardScreenState extends State<CaseDashboardScreen> {
         _buildSummaryCard('Closed Cases', _summary!.totalClosedCases.toString(), Icons.folder_special_rounded, Colors.green),
         _buildSummaryCard('Overdue Tasks', _summary!.overdueTasks.toString(), Icons.assignment_late_rounded, Colors.red),
         _buildSummaryCard('Upcoming Events', _summary!.upcomingEvents.toString(), Icons.event_available_rounded, Colors.indigo),
-        _buildSummaryCard('Unbilled Amount', _formatCents(_summary!.unbilledAmountCents), Icons.money_off_rounded, Colors.deepPurple),
+        _buildSummaryCard('Unbilled Amount', _formatCents(_summary!.unbilledAmountCents), Icons.money_off_rounded, const Color(0xFFF20D1A)),
         _buildSummaryCard('Outstanding Balance', _formatCents(_summary!.totalBalanceCents), Icons.account_balance_wallet_rounded, Colors.teal),
       ],
     );

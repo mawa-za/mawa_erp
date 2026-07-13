@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "za.co.mawa" "\0"
-            VALUE "FileDescription", "mawa_erp" "\0"
+            VALUE "FileDescription", "mawa" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "mawa_erp" "\0"
+            VALUE "InternalName", "mawa" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 za.co.mawa. All rights reserved." "\0"
-            VALUE "OriginalFilename", "mawa_erp.exe" "\0"
-            VALUE "ProductName", "mawa_erp" "\0"
+            VALUE "OriginalFilename", "mawa.exe" "\0"
+            VALUE "ProductName", "mawa" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

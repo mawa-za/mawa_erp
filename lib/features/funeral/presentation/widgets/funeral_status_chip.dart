@@ -86,11 +86,7 @@ class FuneralStatusChip extends StatelessWidget {
 
     if (value is ClaimStatus) {
       switch (value) {
-        case ClaimStatus.DRAFT:
-          return Colors.grey;
         case ClaimStatus.PENDING:
-        case ClaimStatus.SUBMITTED:
-        case ClaimStatus.IN_PROGRESS:
           return Colors.orange;
         case ClaimStatus.APPROVED:
           return Colors.green;

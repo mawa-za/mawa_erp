@@ -19,14 +19,7 @@ class AppRoutes {
   static const String caseInvoicePreview = '/cases/:caseId/invoice-preview';
   static const String approvals = '/approvals';
   static const String settings = '/settings';
-  static const String products = '/products';
-  static const String fnbIntegrationAdmin = '/admin/fnb-integration';
-  static const String messageQueueAdmin = '/admin/message-queue';
   static const String internalCommunications = '/internal-communications';
-
-  // Appointment Booking and Calendar
-  static const String appointments = '/appointments';
-  static const String calendar = '/calendar';
   
   // Funeral Management
   static const String funeralDashboard = '/funeral';

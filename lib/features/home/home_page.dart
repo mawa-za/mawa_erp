@@ -7,6 +7,7 @@ import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/routing/workcenter_route_registry.dart';
+import '../../core/routing/feature_group_registry.dart';
 import '../../core/routing/app_routes.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
@@ -18,13 +19,11 @@ import '../settings/screens/api_log_list_screen.dart';
 import '../invoicing/screens/invoice_create_screen.dart';
 import '../membership/screens/membership_claim_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
-import '../products/screens/product_maintenance_screen.dart';
 import '../payroll/screens/payroll_batch_list_screen.dart';
 import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
-import '../appointments/screens/appointment_calendar_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -252,7 +251,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
     if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     if (lowerId.contains('case')) return Icons.gavel_rounded;
-    if (lowerId.contains('appointment') || lowerId.contains('booking') || lowerId.contains('calendar')) return Icons.event_available_rounded;
     if (lowerId.contains('engagement') || lowerId.contains('communication')) return Icons.campaign_rounded;
     return Icons.apps_rounded;
   }
@@ -309,9 +307,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
       context.push(AppRoutes.invoices);
-    } else if (id.contains('PRODUCT') || description.contains('product')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ProductMaintenanceScreen()));
-    } else if (id.contains('PLAN') || description.contains('plan')) {
+    } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
     } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
       context.push(AppRoutes.memberships);
@@ -321,8 +317,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('GROUP') || id.contains('SOCIETY') || description.contains('group') || description.contains('society')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GroupSocietyListScreen()));
-    } else if (id.contains('APPOINTMENT') || id.contains('BOOKING') || id.contains('CALENDAR') || description.contains('appointment') || description.contains('booking') || description.contains('calendar')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const AppointmentCalendarScreen()));
     } else if (id.contains('PAYMENT') || description.contains('payment')) {
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const PaymentRequestListScreen()));
     } else if (id.contains('PARTNER') || description.contains('partner')) {
@@ -344,14 +338,54 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
+  List<Workcenter> _groupWorkcenters(List<Workcenter> workcenters) {
+    final grouped = <String, List<Workcenter>>{};
+    final ungrouped = <Workcenter>[];
+
+    for (final workcenter in workcenters) {
+      final group = FeatureGroupRegistry.groupForWorkcenter(workcenter.id, workcenter.description);
+      if (group == null) {
+        ungrouped.add(workcenter);
+      } else {
+        grouped.putIfAbsent(group.id, () => <Workcenter>[]).add(workcenter);
+      }
+    }
+
+    final result = <Workcenter>[...ungrouped];
+    for (final entry in grouped.entries) {
+      final group = FeatureGroupRegistry.groupById(entry.key)!;
+      final children = entry.value..sort((a, b) => a.position.compareTo(b.position));
+      result.add(
+        Workcenter(
+          id: group.id,
+          description: group.title,
+          defaultFunction: '',
+          path: group.routePath,
+          position: children.first.position,
+          routeKey: group.id,
+          routePath: group.routePath,
+          iconKey: 'group',
+        ),
+      );
+    }
+
+    result.sort((a, b) => a.position.compareTo(b.position));
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final double screenWidth = MediaQuery.of(context).size.width;
     final int crossAxisCount = (screenWidth / 180).floor().clamp(2, 8);
 
-    final modules = _filteredWorkcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
-    final reports = _filteredWorkcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
+    final moduleWorkcenters = _filteredWorkcenters
+        .where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report'))
+        .toList();
+    final modules = _groupWorkcenters(moduleWorkcenters);
+    final reports = _filteredWorkcenters
+        .where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report'))
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
@@ -418,6 +452,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       pinned: true,
       elevation: 0,
       backgroundColor: colorScheme.primary,
+      foregroundColor: Colors.white,
+      iconTheme: const IconThemeData(color: Colors.white),
+      actionsIconTheme: const IconThemeData(color: Colors.white),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
@@ -466,7 +503,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          Image.asset(
+            'assets/branding/mawa_logo_white.png',
+            height: 34,
+            width: 120,
+            fit: BoxFit.contain,
+            alignment: Alignment.centerLeft,
+            filterQuality: FilterQuality.high,
+            semanticLabel: 'MAWA',
+          ),
           if (_appVersion.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
@@ -861,7 +906,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       child: Column(
         children: [
           Text(
-            '© 2025 Mawa ERP',
+            '© 2026 mawa',
             style: TextStyle(color: Colors.grey[400], fontSize: 12),
           ),
         ],
