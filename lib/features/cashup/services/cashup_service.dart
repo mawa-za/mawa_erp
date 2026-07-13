@@ -8,6 +8,44 @@ class CashupService {
   factory CashupService() => _instance;
   CashupService._internal();
 
+
+  Future<CashupPage> getCashupPage({
+    String status = 'ALL',
+    int page = 0,
+    int size = 50,
+  }) async {
+    final response = await ApiClient().get(
+      '/v2/cashup/page',
+      queryParameters: {
+        'status': status,
+        'page': page,
+        'size': size,
+      },
+      includeRole: false,
+    );
+    if (response.statusCode != 200) {
+      throw Exception(_extractErrorMessage(
+        response.body,
+        'Failed to load cashups: ${response.statusCode}',
+      ));
+    }
+
+    final dynamic decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+    if (decoded is! Map) {
+      return const CashupPage(items: [], page: 0, last: true);
+    }
+    final content = decoded['content'] is List ? decoded['content'] as List : const [];
+    final items = content
+        .whereType<Map>()
+        .map((item) => Cashup.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+    return CashupPage(
+      items: items,
+      page: _asInt(decoded['number']),
+      last: decoded['last'] == true,
+    );
+  }
+
   Future<List<Cashup>> getCashups({
     String? userId,
     String? fromDate,
@@ -204,6 +242,12 @@ class CashupService {
         .toList();
   }
 
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
   String _extractErrorMessage(String body, String fallback) {
     try {
       if (body.isEmpty) return fallback;
@@ -215,4 +259,16 @@ class CashupService {
     return fallback;
   }
 
+}
+
+class CashupPage {
+  const CashupPage({
+    required this.items,
+    required this.page,
+    required this.last,
+  });
+
+  final List<Cashup> items;
+  final int page;
+  final bool last;
 }
