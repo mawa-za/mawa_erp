@@ -8,6 +8,8 @@ class ProductMaintenanceItem {
   final FieldOption? baseUnitOfMeasure;
   final double price;
   final String pricingType;
+  final DateTime? validFrom;
+  final DateTime? validTo;
   final List<ProductPrice> pricings;
 
   const ProductMaintenanceItem({
@@ -18,6 +20,8 @@ class ProductMaintenanceItem {
     this.baseUnitOfMeasure,
     required this.price,
     required this.pricingType,
+    this.validFrom,
+    this.validTo,
     this.pricings = const [],
   });
 
@@ -32,6 +36,8 @@ class ProductMaintenanceItem {
       baseUnitOfMeasure: _fieldOption(json['baseUnitOfMeasure'] ?? json['uom'], fallbackField: 'UOM'),
       price: preferredPrice?.value ?? _parseDouble(json['price'] ?? json['value'] ?? json['amount']),
       pricingType: preferredPrice?.pricingCode ?? 'SELLING-PRICE',
+      validFrom: _parseDate(json['validFrom'] ?? json['valid_from']),
+      validTo: _parseDate(json['validTo'] ?? json['valid_to']),
       pricings: pricings,
     );
   }
@@ -66,6 +72,24 @@ class ProductMaintenanceItem {
       if (price.pricingCode.toUpperCase() == 'SELLING-PRICE') return price;
     }
     return prices.first;
+  }
+
+
+  bool get isActive {
+    final expiry = validTo;
+    if (expiry == null) return true;
+    return !expiry.isBefore(DateTime.now());
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is num) {
+      final raw = value.toInt();
+      return DateTime.fromMillisecondsSinceEpoch(raw < 100000000000 ? raw * 1000 : raw);
+    }
+    final text = value.toString().trim();
+    if (text.isEmpty) return null;
+    return DateTime.tryParse(text);
   }
 
   static double _parseDouble(dynamic value) {

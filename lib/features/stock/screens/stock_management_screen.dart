@@ -23,6 +23,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
   String? _error;
   bool _initialSectionApplied = false;
   _InventorySection? _selectedSection;
+  final Map<_InventorySection, String> _statusFilters = <_InventorySection, String>{};
   List<_InventoryCardDefinition> _visibleCards = [];
 
   Map<String, dynamic> _dashboard = <String, dynamic>{};
@@ -334,15 +335,31 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       case _InventorySection.stock:
         return _tableView(_stock, const ['product_code', 'product_description', 'warehouse_code', 'location_code', 'on_hand_qty', 'reserved_qty', 'available_qty', 'uom']);
       case _InventorySection.goodsReceipts:
-        return _tableView(_receipts, const ['receipt_no', 'purchase_order_no', 'receipt_date', 'status', 'supplier_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount']);
+        return _statusTableView(
+          section: _InventorySection.goodsReceipts,
+          rows: _receipts,
+          columns: const ['receipt_no', 'purchase_order_no', 'receipt_date', 'status', 'supplier_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
+          dateKeys: const ['receipt_date', 'created_at', 'createdAt'],
+        );
       case _InventorySection.putaways:
-        return _tableView(_putaways, const ['putaway_no', 'movement_date', 'status', 'warehouse_id', 'from_location_id', 'to_location_id']);
+        return _statusTableView(
+          section: _InventorySection.putaways,
+          rows: _putaways,
+          columns: const ['putaway_no', 'movement_date', 'status', 'warehouse_id', 'from_location_id', 'to_location_id'],
+          dateKeys: const ['movement_date', 'created_at', 'createdAt'],
+        );
       case _InventorySection.movements:
-        return _tableView(_movements, const ['movement_no', 'movement_type', 'product_code', 'quantity', 'uom', 'reference_no', 'processed_by', 'movement_at']);
+        return _tableView(
+          _sortLatest(_movements, const ['movement_at', 'created_at', 'createdAt']),
+          const ['movement_no', 'movement_type', 'product_code', 'quantity', 'uom', 'reference_no', 'processed_by', 'movement_at'],
+        );
       case _InventorySection.salesOrders:
         return _salesOrderView();
       case _InventorySection.audit:
-        return _tableView(_audit, const ['entity_type', 'action', 'entity_id', 'notes', 'created_by', 'created_at']);
+        return _tableView(
+          _sortLatest(_audit, const ['created_at', 'createdAt']),
+          const ['entity_type', 'action', 'entity_id', 'notes', 'created_by', 'created_at'],
+        );
       case _InventorySection.setup:
         return _setupView(theme);
     }
@@ -385,9 +402,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     ]);
   }
 
-  Widget _quotationView() => _actionTableView(
+  Widget _quotationView() => _statusTableView(
+        section: _InventorySection.quotations,
         rows: _quotations,
         columns: const ['quotation_no', 'quotation_date', 'valid_until', 'status', 'customer_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
+        dateKeys: const ['quotation_date', 'created_at', 'createdAt'],
         actions: [
           _rowAction('Send', (row) => _service.updateQuotationStatus(_id(row), 'SENT')),
           _rowAction('Accept', (row) => _service.updateQuotationStatus(_id(row), 'ACCEPTED')),
@@ -395,9 +414,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         ],
       );
 
-  Widget _purchaseOrderView() => _actionTableView(
+  Widget _purchaseOrderView() => _statusTableView(
+        section: _InventorySection.purchaseOrders,
         rows: _purchaseOrders,
         columns: const ['purchase_order_no', 'order_date', 'expected_delivery_date', 'status', 'supplier_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
+        dateKeys: const ['order_date', 'created_at', 'createdAt'],
         actions: [
           _rowAction('Send', (row) => _service.updatePurchaseOrderStatus(_id(row), 'SENT')),
           _rowAction('Receive', (row) => _receivePurchaseOrder(row)),
@@ -405,15 +426,107 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         ],
       );
 
-  Widget _salesOrderView() => _actionTableView(
+  Widget _salesOrderView() => _statusTableView(
+        section: _InventorySection.salesOrders,
         rows: _salesOrders,
         columns: const ['sales_order_no', 'order_date', 'requested_delivery_date', 'status', 'customer_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
+        dateKeys: const ['order_date', 'created_at', 'createdAt'],
         actions: [
           _rowAction('Reserve', (row) => _service.reserveSalesOrder(_id(row))),
           _rowAction('Issue', (row) => _issueSalesOrder(row)),
           _rowAction('Cancel', (row) => _service.updateSalesOrderStatus(_id(row), 'CANCELLED')),
         ],
       );
+
+  Widget _statusTableView({
+    required _InventorySection section,
+    required List<Map<String, dynamic>> rows,
+    required List<String> columns,
+    required List<String> dateKeys,
+    List<_RowAction>? actions,
+  }) {
+    if (rows.isEmpty) return const Center(child: Text('No records found'));
+
+    final statuses = rows
+        .map((row) => _text(row['status']).trim().toUpperCase())
+        .where((status) => status.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final selected = statuses.contains(_statusFilters[section])
+        ? _statusFilters[section]!
+        : 'ALL';
+    final filtered = _sortLatest(
+      selected == 'ALL'
+          ? rows
+          : rows.where((row) => _text(row['status']).trim().toUpperCase() == selected).toList(),
+      dateKeys,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (statuses.isNotEmpty)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: ['ALL', ...statuses].map((status) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(status == 'ALL' ? 'All statuses' : status),
+                    selected: selected == status,
+                    onSelected: (_) => setState(() => _statusFilters[section] = status),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        Expanded(
+          child: actions == null
+              ? _tableView(filtered, columns)
+              : _actionTableView(rows: filtered, columns: columns, actions: actions),
+        ),
+      ],
+    );
+  }
+
+  List<Map<String, dynamic>> _sortLatest(
+    List<Map<String, dynamic>> rows,
+    List<String> dateKeys,
+  ) {
+    final sorted = List<Map<String, dynamic>>.from(rows);
+    sorted.sort((a, b) {
+      final dateCompare = _dateRank(b, dateKeys).compareTo(_dateRank(a, dateKeys));
+      if (dateCompare != 0) return dateCompare;
+      final aRef = _text(a['id'] ?? a['number'] ?? a['code']);
+      final bRef = _text(b['id'] ?? b['number'] ?? b['code']);
+      return bRef.compareTo(aRef);
+    });
+    return sorted;
+  }
+
+  int _dateRank(Map<String, dynamic> row, List<String> keys) {
+    for (final key in [...dateKeysFallback, ...keys]) {
+      final value = row[key];
+      if (value == null) continue;
+      if (value is num) {
+        final raw = value.toInt();
+        return raw < 100000000000 ? raw * 1000 : raw;
+      }
+      final parsed = DateTime.tryParse(value.toString());
+      if (parsed != null) return parsed.millisecondsSinceEpoch;
+    }
+    return 0;
+  }
+
+  static const List<String> dateKeysFallback = <String>[
+    'created_at',
+    'createdAt',
+    'updated_at',
+    'updatedAt',
+  ];
 
   Widget _metric(String title, dynamic value, IconData icon) => SizedBox(
         width: 180,

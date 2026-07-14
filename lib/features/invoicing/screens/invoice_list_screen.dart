@@ -71,7 +71,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final invoices = data.map((json) => Invoice.fromJson(json)).toList();
+        final invoices = data.map((json) => Invoice.fromJson(json)).toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
         setState(() {
           _invoices = invoices;
           _isLoading = false;

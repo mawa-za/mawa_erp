@@ -23,6 +23,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
   List<FieldOption> _uoms = [];
   List<FieldOption> _pricingTypes = [];
   String? _selectedTypeFilter;
+  String _selectedStatus = 'ALL';
   bool _isLoading = true;
   String? _error;
 
@@ -95,7 +96,14 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       );
       if (mounted) {
         setState(() {
-          _products = products;
+          _products = products
+            ..sort((a, b) {
+              final aDate = a.validFrom ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate = b.validFrom ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final dateCompare = bDate.compareTo(aDate);
+              if (dateCompare != 0) return dateCompare;
+              return b.code.compareTo(a.code);
+            });
           _isLoading = false;
         });
       }
@@ -228,173 +236,99 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
               ],
             ),
           ),
+          if (!_isLoading && _error == null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  children: ['ALL', 'ACTIVE', 'INACTIVE'].map((status) {
+                    return ChoiceChip(
+                      label: Text(status == 'ALL' ? 'All statuses' : status),
+                      selected: _selectedStatus == status,
+                      onSelected: (_) => setState(() => _selectedStatus = status),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
                     ? _ErrorState(message: _error!, onRetry: _loadInitialData)
-                    : _products.isEmpty
+                    : _visibleProducts.isEmpty
                         ? _EmptyState(onCreate: () => _openProductDialog())
-                        : LayoutBuilder(
-                            builder: (context, constraints) {
-                              final columns = constraints.maxWidth >= 1180
-                                  ? 3
-                                  : constraints.maxWidth >= 760
-                                      ? 2
-                                      : 1;
-                              final aspectRatio = columns == 1 ? 2.15 : 1.65;
-
-                              return GridView.builder(
-                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: columns,
-                                  childAspectRatio: aspectRatio,
-                                  crossAxisSpacing: 14,
-                                  mainAxisSpacing: 14,
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            itemCount: _visibleProducts.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final product = _visibleProducts[index];
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
                                 ),
-                                itemCount: _products.length,
-                                itemBuilder: (context, index) {
-                                  final product = _products[index];
-                                  final colorScheme = Theme.of(context).colorScheme;
-                                  return Card(
-                                    elevation: 0,
-                                    margin: EdgeInsets.zero,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                      side: BorderSide(
-                                        color: colorScheme.outlineVariant.withOpacity(0.55),
+                                leading: CircleAvatar(
+                                  child: Text(
+                                    product.code.trim().isEmpty
+                                        ? '?'
+                                        : product.code.trim()[0].toUpperCase(),
+                                  ),
+                                ),
+                                title: Text(
+                                  product.description.trim().isEmpty
+                                      ? product.code
+                                      : product.description,
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Wrap(
+                                    spacing: 14,
+                                    runSpacing: 4,
+                                    children: [
+                                      Text('Code: ${product.code}'),
+                                      Text('Type: ${_optionLabel(product.type)}'),
+                                      Text('UOM: ${_optionLabel(product.baseUnitOfMeasure)}'),
+                                    ],
+                                  ),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      currency.format(product.price),
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(16),
-                                      onTap: () => _openProductDialog(product: product),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Container(
-                                                  width: 44,
-                                                  height: 44,
-                                                  decoration: BoxDecoration(
-                                                    color: colorScheme.primaryContainer.withOpacity(0.55),
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.inventory_2_outlined,
-                                                    color: colorScheme.primary,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        product.description.trim().isEmpty
-                                                            ? product.code
-                                                            : product.description,
-                                                        maxLines: 2,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .titleMedium
-                                                            ?.copyWith(fontWeight: FontWeight.w700),
-                                                      ),
-                                                      const SizedBox(height: 3),
-                                                      Text(
-                                                        product.code,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(color: colorScheme.onSurfaceVariant),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                PopupMenuButton<String>(
-                                                  tooltip: 'Product actions',
-                                                  onSelected: (value) {
-                                                    if (value == 'edit') {
-                                                      _openProductDialog(product: product);
-                                                    } else if (value == 'delete') {
-                                                      _confirmDelete(product);
-                                                    }
-                                                  },
-                                                  itemBuilder: (_) => const [
-                                                    PopupMenuItem(
-                                                      value: 'edit',
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(Icons.edit_outlined),
-                                                          SizedBox(width: 10),
-                                                          Text('Edit'),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    PopupMenuItem(
-                                                      value: 'delete',
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(Icons.delete_outline),
-                                                          SizedBox(width: 10),
-                                                          Text('Delete'),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            const Spacer(),
-                                            Wrap(
-                                              spacing: 8,
-                                              runSpacing: 8,
-                                              children: [
-                                                _ProductMetaChip(
-                                                  icon: Icons.category_outlined,
-                                                  label: _optionLabel(product.type),
-                                                ),
-                                                _ProductMetaChip(
-                                                  icon: Icons.straighten_outlined,
-                                                  label: _optionLabel(product.baseUnitOfMeasure),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 12),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'Selling price',
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(color: colorScheme.onSurfaceVariant),
-                                                ),
-                                                const Spacer(),
-                                                Text(
-                                                  currency.format(product.price),
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleMedium
-                                                      ?.copyWith(
-                                                        color: colorScheme.primary,
-                                                        fontWeight: FontWeight.w800,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                    PopupMenuButton<String>(
+                                      tooltip: 'Product actions',
+                                      onSelected: (value) {
+                                        if (value == 'edit') {
+                                          _openProductDialog(product: product);
+                                        } else if (value == 'delete') {
+                                          _confirmDelete(product);
+                                        }
+                                      },
+                                      itemBuilder: (_) => const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('Edit'),
                                         ),
-                                      ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text('Delete'),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                },
+                                  ],
+                                ),
+                                onTap: () => _openProductDialog(product: product),
                               );
                             },
                           ),
@@ -402,6 +336,16 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
         ],
       ),
     );
+  }
+
+  List<ProductMaintenanceItem> get _visibleProducts {
+    if (_selectedStatus == 'ACTIVE') {
+      return _products.where((product) => product.isActive).toList();
+    }
+    if (_selectedStatus == 'INACTIVE') {
+      return _products.where((product) => !product.isActive).toList();
+    }
+    return _products;
   }
 
   String _optionLabel(FieldOption? option) {

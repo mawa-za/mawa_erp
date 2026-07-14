@@ -46,6 +46,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
       final results = await _service.getPaymentRequests(
         status: _selectedStatus == 'ALL' ? null : _selectedStatus,
       );
+      results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
       if (mounted) {
         setState(() {

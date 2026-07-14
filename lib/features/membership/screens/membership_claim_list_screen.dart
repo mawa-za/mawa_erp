@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/membership_claim.dart';
 import '../services/membership_service.dart';
 import 'membership_claim_detail_screen.dart';
@@ -12,229 +11,241 @@ class MembershipClaimListScreen extends StatefulWidget {
 }
 
 class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
+  static const Map<String, String> _statuses = {
+    'ALL': 'All',
+    'DRAFT': 'Draft',
+    'SUBMITTED': 'Submitted',
+    'IN_PROGRESS': 'In progress',
+    'APPROVED': 'Approved',
+    'REJECTED': 'Rejected',
+    'CANCELLED': 'Cancelled',
+    'PAID': 'Paid',
+  };
+
   final MembershipService _membershipService = MembershipService();
-  List<MembershipClaim> _claims = [];
+  final ScrollController _scrollController = ScrollController();
+  final List<MembershipClaim> _claims = [];
+
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _lastPage = false;
+  int _page = 0;
+  int _requestGeneration = 0;
+  String _selectedStatus = 'ALL';
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchClaims();
+    _scrollController.addListener(_onScroll);
+    _fetchClaims(reset: true);
   }
 
-  Future<void> _fetchClaims() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 240 &&
+        !_isLoading &&
+        !_isLoadingMore &&
+        !_lastPage) {
+      _fetchClaims(reset: false);
+    }
+  }
+
+  Future<void> _fetchClaims({required bool reset}) async {
+    final generation = reset ? ++_requestGeneration : _requestGeneration;
+    if (reset) {
+      setState(() {
+        _page = 0;
+        _lastPage = false;
+        _claims.clear();
+        _isLoading = true;
+        _error = null;
+      });
+    } else {
+      setState(() => _isLoadingMore = true);
+    }
 
     try {
-      final claims = await _membershipService.getMembershipClaims();
+      final result = await _membershipService.getMembershipClaimPage(
+        status: _selectedStatus == 'ALL' ? null : _selectedStatus,
+        page: _page,
+        size: 50,
+      );
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        _claims = claims;
+        _claims.addAll(result.items);
+        _claims.sort((a, b) {
+          final ad = DateTime.tryParse(a.createdAt.replaceFirst(' ', 'T'));
+          final bd = DateTime.tryParse(b.createdAt.replaceFirst(' ', 'T'));
+          return (bd ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(ad ?? DateTime.fromMillisecondsSinceEpoch(0));
+        });
+        _page = result.page + 1;
+        _lastPage = result.last;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (e) {
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
+  }
+
+  void _selectStatus(String status) {
+    if (_selectedStatus == status) return;
+    _selectedStatus = status;
+    _fetchClaims(reset: true);
+  }
+
+  Future<void> _openClaim(MembershipClaim claim) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MembershipClaimDetailScreen(claimId: claim.id),
+      ),
+    );
+    if (result == true) _fetchClaims(reset: true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Membership Claims'),
-        titleTextStyle: TextStyle(
-          color: colorScheme.onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchClaims,
+            onPressed: () => _fetchClaims(reset: true),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorWidget()
-              : _claims.isEmpty
-                  ? _buildEmptyWidget()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _claims.length,
-                      itemBuilder: (context, index) {
-                        final claim = _claims[index];
-                        return _buildClaimCard(claim, colorScheme);
-                      },
-                    ),
-    );
-  }
-
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: _fetchClaims, child: const Text('RETRY')),
+          _buildStatusFilters(),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.assignment_outlined, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('No claims found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildClaimCard(MembershipClaim claim, ColorScheme colorScheme) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: InkWell(
-        onTap: () async {
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => MembershipClaimDetailScreen(claimId: claim.id),
-            ),
-          );
-          if (result == true) _fetchClaims();
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Claim #${claim.claimNo}', 
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 4),
-                      Text('Date: ${claim.claimDate}', 
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                    ],
-                  ),
-                  _buildStatusChip(claim.status),
-                ],
+  Widget _buildStatusFilters() {
+    return Material(
+      color: Colors.white,
+      child: SizedBox(
+        height: 56,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          children: _statuses.entries.map((entry) {
+            final selected = entry.key == _selectedStatus;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                selected: selected,
+                label: Text(entry.value),
+                onSelected: (_) => _selectStatus(entry.key),
               ),
-              const Divider(height: 24),
-              _buildMiniInfo('Membership', claim.membershipId),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildMiniInfo('Type', claim.claimType),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text('AMOUNT', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-                      Text(
-                        'R ${claim.claimAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.green),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              if (claim.notes != null && claim.notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  claim.notes!,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
+            );
+          }).toList(),
         ),
       ),
     );
   }
 
-  Widget _buildMiniInfo(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      ],
+  Widget _buildBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_error != null && _claims.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(_error!, textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => _fetchClaims(reset: true),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_claims.isEmpty) {
+      return Center(
+        child: Text('No ${_statuses[_selectedStatus]!.toLowerCase()} claims'),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _fetchClaims(reset: true),
+      child: ListView.separated(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: _claims.length + (_isLoadingMore ? 1 : 0),
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          if (index == _claims.length) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          final claim = _claims[index];
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            leading: CircleAvatar(
+              child: Text(claim.claimType.isEmpty ? '?' : claim.claimType[0]),
+            ),
+            title: Text(
+              claim.claimNo.isEmpty ? 'Membership claim' : claim.claimNo,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text(
+              '${claim.membershipId}\n${claim.claimDate}',
+              maxLines: 2,
+            ),
+            isThreeLine: true,
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _statusChip(claim.status),
+                const SizedBox(height: 4),
+                Text('R ${claim.claimAmount.toStringAsFixed(2)}'),
+              ],
+            ),
+            onTap: () => _openClaim(claim),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    Color backgroundColor;
-    Color textColor;
-
-    switch (status.toUpperCase()) {
-      case 'APPROVED':
-        backgroundColor = Colors.green.withOpacity(0.1);
-        textColor = Colors.green.shade700;
-        break;
-      case 'DRAFT':
-        backgroundColor = Colors.blue.withOpacity(0.1);
-        textColor = Colors.blue.shade700;
-        break;
-      case 'REJECTED':
-        backgroundColor = Colors.red.withOpacity(0.1);
-        textColor = Colors.red.shade700;
-        break;
-      case 'SUBMITTED':
-        backgroundColor = Colors.orange.withOpacity(0.1);
-        textColor = Colors.orange.shade700;
-        break;
-      default:
-        backgroundColor = Colors.grey.withOpacity(0.1);
-        textColor = Colors.grey.shade700;
-    }
-
+  Widget _statusChip(String status) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status.toUpperCase(),
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
+        status.replaceAll('_', ' '),
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
   }
