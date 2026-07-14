@@ -6,6 +6,7 @@ import 'route_guards.dart';
 import '../../features/setup/setup_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
+import '../../features/auth/admin_handoff_screen.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/screens/feature_group_screen.dart';
 import '../../features/membership/screens/membership_detail_screen.dart';
@@ -79,6 +80,7 @@ class AppRouter {
       final bool isPublicRoute = state.matchedLocation == AppRoutes.login || 
                                  state.matchedLocation == AppRoutes.setup ||
                                  state.matchedLocation == AppRoutes.resetPassword ||
+                                 state.matchedLocation == AppRoutes.adminHandoff ||
                                  state.matchedLocation.endsWith('/preview') ||
                                  state.matchedLocation == AppRoutes.legacyInvoicePreview; 
 
@@ -136,6 +138,13 @@ class AppRouter {
           final token = state.uri.queryParameters['token'] ?? '';
           return ResetPasswordScreen(token: token);
         },
+      ),
+      GoRoute(
+        path: AppRoutes.adminHandoff,
+        builder: (context, state) => AdminHandoffScreen(
+          token: state.uri.queryParameters['token'] ?? '',
+          redirectPath: state.uri.queryParameters['redirect'] ?? AppRoutes.home,
+        ),
       ),
       GoRoute(
         path: AppRoutes.home,
@@ -211,7 +220,10 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.approvals,
-        builder: (context, state) => const ApprovalListScreen(),
+        builder: (context, state) => ApprovalListScreen(
+          approvalType: state.uri.queryParameters['type'],
+          title: state.uri.queryParameters['title'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.settings,

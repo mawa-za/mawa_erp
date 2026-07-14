@@ -9,6 +9,7 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/routing/feature_group_registry.dart';
 import '../../../core/routing/workcenter_route_registry.dart';
 import '../../../core/services/module_usage_service.dart';
+import '../../approvals/services/approval_workflow_service.dart';
 import '../models/workcenter.dart';
 
 class FeatureGroupScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class FeatureGroupScreen extends StatefulWidget {
 
 class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
   final ModuleUsageService _moduleUsageService = ModuleUsageService();
+  final ApprovalWorkflowService _approvalWorkflowService = ApprovalWorkflowService();
   bool _loading = true;
   String? _error;
   List<Workcenter> _children = [];
@@ -59,6 +61,37 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       final allowed = all.where((wc) => group.matches(wc.id, wc.description) && !FeatureGroupRegistry.isGroupId(wc.id)).toList()
         ..sort((a, b) => a.position.compareTo(b.position));
 
+      // Active approval workflows are first-class features. Surface each type
+      // in the business group that owns the object instead of hiding every
+      // approval behind one generic Finance card.
+      try {
+        final workflows = await _approvalWorkflowService.getActiveWorkflows();
+        var nextPosition = allowed.isEmpty
+            ? 900
+            : allowed.map((item) => item.position).reduce((a, b) => a > b ? a : b) + 1;
+        for (final workflow in workflows) {
+          final type = FeatureGroupRegistry.normalize(workflow.approvalType);
+          if (FeatureGroupRegistry.approvalGroup(type) != group.id) continue;
+          if (allowed.any((item) =>
+              FeatureGroupRegistry.normalize(item.id) == 'APPROVAL_$type')) {
+            continue;
+          }
+          final label = FeatureGroupRegistry.approvalLabel(type);
+          allowed.add(Workcenter(
+            id: 'approval-$type',
+            description: '$label Approvals',
+            defaultFunction: 'APPROVALS',
+            path: AppRoutes.approvals,
+            position: nextPosition++,
+            routeKey: 'APPROVAL_$type',
+            routePath: '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
+            iconKey: 'APPROVAL',
+          ));
+        }
+      } catch (_) {
+        // Role workcenters remain usable when workflow discovery is unavailable.
+      }
+
       if (!mounted) return;
       setState(() {
         _children = allowed;
@@ -80,6 +113,12 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       modulePath: wc.routePath,
       workcenterId: wc.id,
     );
+
+    if (FeatureGroupRegistry.normalize(wc.id).startsWith('APPROVAL_') &&
+        wc.routePath != null) {
+      context.push(wc.routePath!);
+      return;
+    }
 
     // Some tenants use generic child identifiers such as CLAIMS or PAYMENTS.
     // Resolve them in the context of the group before applying the global
@@ -155,6 +194,28 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         return AppRoutes.groupSocieties;
       }
       if (identity.contains('MEMBER')) return AppRoutes.memberships;
+    }
+
+    if (group == FeatureGroupRegistry.normalize('sales-management')) {
+      if (identity.contains('CUSTOMER') || identity.contains('CLIENT')) {
+        return '/partners/CUSTOMER';
+      }
+      if (identity.contains('QUOT')) return AppRoutes.inventoryQuotations;
+      if (identity.contains('SALES') && identity.contains('ORDER')) {
+        return AppRoutes.inventorySalesOrders;
+      }
+    }
+
+    if (group == FeatureGroupRegistry.normalize('procurement-management')) {
+      if (identity.contains('SUPPLIER') && !identity.contains('INVOICE')) {
+        return '/partners/SUPPLIER';
+      }
+      if (identity.contains('PURCHASE') && identity.contains('ORDER')) {
+        return AppRoutes.inventoryPurchaseOrders;
+      }
+      if (identity.contains('GOODS') && identity.contains('RECEIPT')) {
+        return AppRoutes.inventoryGoodsReceipts;
+      }
     }
 
     if (group == FeatureGroupRegistry.normalize('inventory')) {

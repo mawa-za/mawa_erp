@@ -26,10 +26,12 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
   List<Partner> _partners = [];
   String? _error;
   String _selectedType = 'ALL';
+  String _selectedStatus = 'ALL';
   final TextEditingController _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
   final List<String> _types = ['ALL', 'INDIVIDUAL', 'ORGANISATION', 'GROUP'];
+  final List<String> _statuses = ['ALL', 'ACTIVE', 'PENDING', 'INACTIVE', 'ARCHIVED', 'DECEASED'];
 
   @override
   void initState() {
@@ -58,12 +60,13 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         final List<dynamic> data = jsonDecode(response.body);
         final allPartners = data.map((json) => Partner.fromJson(json)).toList();
         
+        allPartners.sort((a, b) => b.number.compareTo(a.number));
         setState(() {
-          if (_selectedType == 'ALL') {
-            _partners = allPartners;
-          } else {
-            _partners = allPartners.where((p) => p.type == _selectedType).toList();
-          }
+          _partners = allPartners.where((partner) {
+            final typeMatches = _selectedType == 'ALL' || partner.type.toUpperCase() == _selectedType;
+            final statusMatches = _selectedStatus == 'ALL' || partner.status.toUpperCase() == _selectedStatus;
+            return typeMatches && statusMatches;
+          }).toList();
           _isLoading = false;
         });
       } else {
@@ -111,6 +114,7 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         children: [
           _buildSearchBar(entityName),
           _buildTypeFilter(),
+          _buildStatusFilter(),
           Expanded(child: _buildBody(colorScheme, entityName)),
         ],
       ),
@@ -203,6 +207,35 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
               showCheckmark: false,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
+          );
+        },
+      ),
+    );
+  }
+
+
+  Widget _buildStatusFilter() {
+    return Container(
+      height: 50,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = _statuses[index];
+          final selected = status == _selectedStatus;
+          return ChoiceChip(
+            label: Text(status, style: const TextStyle(fontSize: 11)),
+            selected: selected,
+            onSelected: (_) {
+              setState(() => _selectedStatus = status);
+              _fetchPartners();
+            },
+            showCheckmark: false,
+            selectedColor: Theme.of(context).colorScheme.primaryContainer,
           );
         },
       ),

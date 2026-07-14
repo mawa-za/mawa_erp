@@ -35,6 +35,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
       final results = await _service.getLeaveRequests(
         status: _selectedStatus == 'ALL' ? null : _selectedStatus,
       );
+      results.sort((a, b) => (b.createdAt ?? b.startDate).compareTo(a.createdAt ?? a.startDate));
       if (mounted) {
         setState(() {
           _requests = results;

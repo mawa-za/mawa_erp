@@ -24,6 +24,7 @@ class MembershipService {
     List<String>? sort,
     String query = '',
     List<String>? memberIds,
+    String? status,
   }) async {
     try {
       final bool isSearch = query.isNotEmpty || (memberIds != null && memberIds.isNotEmpty);
@@ -36,6 +37,9 @@ class MembershipService {
         for (var id in memberIds) {
           path += '&memberId=$id';
         }
+      }
+      if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+        path += '&status=${Uri.encodeComponent(status.toUpperCase())}';
       }
       if (sort != null && sort.isNotEmpty) {
         for (var s in sort) {
@@ -466,6 +470,40 @@ class MembershipService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<MembershipClaimPage> getMembershipClaimPage({
+    String? status,
+    int page = 0,
+    int size = 50,
+  }) async {
+    var path = '/v2/membership-claim/page?page=$page&size=$size';
+    if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
+      path += '&status=${Uri.encodeComponent(status.toUpperCase())}';
+    }
+
+    final response = await ApiClient().get(path);
+    if (response.statusCode != 200) {
+      throw Exception(_extractErrorMessage(
+        response.body,
+        'Failed to load membership claims: ${response.statusCode}',
+      ));
+    }
+
+    final dynamic decoded = jsonDecode(response.body);
+    if (decoded is! Map) {
+      return const MembershipClaimPage(items: [], page: 0, last: true);
+    }
+    final map = Map<String, dynamic>.from(decoded);
+    final items = (map['content'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => MembershipClaim.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+    return MembershipClaimPage(
+      items: items,
+      page: (map['number'] as num?)?.toInt() ?? page,
+      last: map['last'] == true,
+    );
   }
 
   Future<List<MembershipClaim>> getMembershipClaims({String? membershipId}) async {
@@ -1001,4 +1039,16 @@ class MembershipService {
     return fallback;
   }
 
+}
+
+class MembershipClaimPage {
+  final List<MembershipClaim> items;
+  final int page;
+  final bool last;
+
+  const MembershipClaimPage({
+    required this.items,
+    required this.page,
+    required this.last,
+  });
 }

@@ -29,7 +29,9 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'JOURNAL',
     'PAYMENT_REQUEST',
     'SUPPLIER_INVOICE',
-    'CUSTOMER_REFUND'
+    'CUSTOMER_REFUND',
+    'SUPPLIER_ONBOARDING',
+    'SUPPLIER_BANKING_DETAILS'
   ];
   
   final List<String> _approverTypes = ['USER', 'ROLE', 'GROUP', 'MANAGER'];

@@ -24,6 +24,7 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
   String? _error;
 
   String? _selectedStatus;
+  final List<String> _statuses = ['ALL', 'ACTIVE', 'DORMANT', 'SUSPENDED', 'INACTIVE'];
   String? _selectedType;
 
   @override
@@ -43,6 +44,8 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
         status: _selectedStatus,
         societyType: _selectedType,
       );
+
+      societies.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       // Fetch unique partner details for names
       final partnerIds = societies.map((s) => s.partnerId).toSet();
@@ -101,20 +104,30 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorWidget()
-              : _societies.isEmpty
-                  ? _buildEmptyWidget()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _societies.length,
-                      itemBuilder: (context, index) {
-                        final society = _societies[index];
-                        return _buildSocietyCard(society, colorScheme);
-                      },
-                    ),
+      body: Column(
+        children: [
+          _buildStatusFilter(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? _buildErrorWidget()
+                    : _societies.isEmpty
+                        ? _buildEmptyWidget()
+                        : RefreshIndicator(
+                            onRefresh: _fetchSocieties,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _societies.length,
+                              itemBuilder: (context, index) {
+                                final society = _societies[index];
+                                return _buildSocietyCard(society, colorScheme);
+                              },
+                            ),
+                          ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.of(context).push(
@@ -126,6 +139,33 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
         },
         label: const Text('New Society'),
         icon: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    return Container(
+      height: 52,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = _statuses[index];
+          final selected = status == (_selectedStatus ?? 'ALL');
+          return ChoiceChip(
+            label: Text(status, style: const TextStyle(fontSize: 11)),
+            selected: selected,
+            showCheckmark: false,
+            onSelected: (_) {
+              setState(() => _selectedStatus = status == 'ALL' ? null : status);
+              _fetchSocieties();
+            },
+          );
+        },
       ),
     );
   }
@@ -284,13 +324,6 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
-                value: _selectedStatus,
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: ['ACTIVE', 'INACTIVE', 'DORMANT', 'SUSPENDED'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                onChanged: (v) => setDialogState(() => _selectedStatus = v),
-              ),
-              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: _selectedType,
                 decoration: const InputDecoration(labelText: 'Society Type'),
