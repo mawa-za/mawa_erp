@@ -19,10 +19,16 @@ class LeaveService {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => LeaveRequest.fromJson(json)).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        final List<dynamic> data = decoded is List
+            ? decoded
+            : (decoded is Map && decoded['content'] is List ? decoded['content'] as List<dynamic> : const []);
+        return data
+            .whereType<Map>()
+            .map((json) => LeaveRequest.fromJson(Map<String, dynamic>.from(json)))
+            .toList();
       } else {
-        throw Exception('Failed to load leave requests');
+        throw Exception('Failed to load leave requests (${response.statusCode}): ${response.body}');
       }
     } catch (e) {
       rethrow;
