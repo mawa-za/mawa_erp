@@ -108,40 +108,55 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final payload = {
-      'type': _selectedType,
-      'name1': _name1Controller.text,
-      'name2': _selectedType == 'INDIVIDUAL' ? _name2Controller.text : '',
-      'name3': _selectedType == 'INDIVIDUAL' ? _name3Controller.text : '',
-      'name4': _name4Controller.text,
-      'identityNumber': _identityController.text,
-      'email': _emailController.text,
-      'phone': _phoneController.text,
+    final isNewSupplier = widget.existingPartner == null &&
+        _selectedRoles.any((role) => role.toUpperCase() == 'SUPPLIER');
+    final primaryRole = isNewSupplier
+        ? 'SUPPLIER'
+        : (_selectedRoles.isEmpty ? null : _selectedRoles.first);
+    final payload = <String, dynamic>{
+      'partnerType': _selectedType,
+      'partnerRole': primaryRole,
+      'identityType': _selectedType == 'INDIVIDUAL' ? 'ID' : 'REGISTRATION',
+      'identityNumber': _identityController.text.trim(),
+      'name1': _name1Controller.text.trim(),
+      'name2': _selectedType == 'INDIVIDUAL' ? _name2Controller.text.trim() : '',
+      'name3': _selectedType == 'INDIVIDUAL' ? _name3Controller.text.trim() : '',
+      'name4': _name4Controller.text.trim(),
+      'email': _emailController.text.trim(),
+      'contactNumber': _phoneController.text.trim(),
       'title': _selectedTitle,
       'birthDate': _birthDate?.toIso8601String(),
       'maritalStatus': _selectedMaritalStatus,
       'gender': _selectedGender,
       'language': _selectedLanguage,
-      'addresses': _addresses.map((a) => a.toJson()).toList(),
-      'roles': _selectedRoles,
     };
 
     try {
       final response = widget.existingPartner == null
-          ? await ApiClient().post('/v2/partner', body: payload)
-          : await ApiClient().post('/v2/partner/${widget.existingPartner!.id}', body: payload);
+          ? await ApiClient().post(
+              isNewSupplier
+                  ? '/v2/partner/supplier/submit-for-approval'
+                  : '/v2/partner',
+              body: payload,
+            )
+          : await ApiClient().put('/v2/partner/${widget.existingPartner!.id}', body: payload);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final String? createdId = responseData['id'];
+        final String? createdId = (responseData['partnerId'] ?? responseData['id'])?.toString();
 
         if (mounted) {
           final entityName = widget.isMemberContext ? 'Member' : 'Partner';
+          final message = isNewSupplier
+              ? 'Supplier submitted for approval. It will become available after final approval.'
+              : '$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
           );
-          
-          if (widget.existingPartner == null && createdId != null) {
+
+          if (isNewSupplier) {
+            Navigator.of(context).pop(true);
+          } else if (widget.existingPartner == null && createdId != null) {
             // Navigate to details for new partner
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: createdId, isMemberContext: widget.isMemberContext))

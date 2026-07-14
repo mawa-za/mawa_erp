@@ -14,7 +14,10 @@ class PayrollBatchListScreen extends StatefulWidget {
 
 class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   bool _isLoading = true;
+  List<PayrollBatchSummary> _allBatches = [];
   List<PayrollBatchSummary> _batches = [];
+  String _selectedStatus = 'ALL';
+  final List<String> _statuses = ['ALL', 'NEW', 'DRAFT', 'AWAITING-APPROVAL', 'APPROVED', 'PROCESSED', 'PAID', 'FAILED'];
   String? _error;
   late String _selectedPayPeriod;
 
@@ -33,8 +36,13 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
 
     try {
       final batches = await PayrollService().getPayrollBatches(payPeriod: _selectedPayPeriod);
+      batches.sort((a, b) {
+        final byDate = b.paymentDate.compareTo(a.paymentDate);
+        return byDate != 0 ? byDate : b.batchNo.compareTo(a.batchNo);
+      });
       setState(() {
-        _batches = batches;
+        _allBatches = batches;
+        _applyStatusFilter();
         _isLoading = false;
       });
     } catch (e) {
@@ -43,6 +51,12 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _applyStatusFilter() {
+    _batches = _selectedStatus == 'ALL'
+        ? List<PayrollBatchSummary>.from(_allBatches)
+        : _allBatches.where((batch) => batch.status.toUpperCase() == _selectedStatus).toList();
   }
 
   Future<void> _selectPayPeriod() async {
@@ -239,6 +253,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
       body: Column(
         children: [
           _buildPeriodIndicator(colorScheme),
+          _buildStatusFilter(),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -289,6 +304,32 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
             child: const Text('Change', style: TextStyle(fontSize: 12)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    return Container(
+      height: 52,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = _statuses[index];
+          return ChoiceChip(
+            label: Text(status.replaceAll('-', ' '), style: const TextStyle(fontSize: 10)),
+            selected: _selectedStatus == status,
+            showCheckmark: false,
+            onSelected: (_) => setState(() {
+              _selectedStatus = status;
+              _applyStatusFilter();
+            }),
+          );
+        },
       ),
     );
   }

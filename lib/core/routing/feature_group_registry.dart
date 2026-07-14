@@ -90,13 +90,44 @@ class FeatureGroupRegistry {
       aliases: ['finance', 'finance-management'],
     ),
     FeatureGroupDefinition(
+      id: 'sales-management',
+      title: 'Sales Management',
+      routePath: '/feature-groups/sales-management',
+      childWorkcenterIds: [
+        'customer',
+        'customers',
+        'client',
+        'clients',
+        'quotation',
+        'quotations',
+        'sales-order',
+        'sales-orders',
+      ],
+      aliases: ['sales', 'customer-management'],
+    ),
+    FeatureGroupDefinition(
+      id: 'procurement-management',
+      title: 'Procurement Management',
+      routePath: '/feature-groups/procurement-management',
+      childWorkcenterIds: [
+        'supplier',
+        'suppliers',
+        'purchase-order',
+        'purchase-orders',
+        'goods-receipt',
+        'goods-receipts',
+        'supplier-invoice',
+        'supplier-invoices',
+      ],
+      aliases: ['procurement', 'purchasing'],
+    ),
+    FeatureGroupDefinition(
       id: 'inventory',
       title: 'Inventory Management',
       routePath: '/feature-groups/inventory',
       childWorkcenterIds: [
         'inventory',
         'stock',
-        'goods-receipt',
         'putaway',
         'putaways',
         'stock-on-hand',
@@ -104,12 +135,6 @@ class FeatureGroupRegistry {
         'stock-movements',
         'inventory-audit',
         'inventory-setup',
-        'sales-order',
-        'sales-orders',
-        'quotation',
-        'quotations',
-        'purchase-order',
-        'purchase-orders',
         'products',
         'product',
       ],
@@ -130,12 +155,6 @@ class FeatureGroupRegistry {
       title: 'Partner Management',
       routePath: '/feature-groups/partner-management',
       childWorkcenterIds: [
-        'customer',
-        'customers',
-        'client',
-        'clients',
-        'supplier',
-        'suppliers',
         'employee',
         'employees',
         'employee-request',
@@ -187,6 +206,31 @@ class FeatureGroupRegistry {
       aliases: ['engagement'],
     ),
   ];
+
+  static const Map<String, String> approvalTypeGroups = {
+    'CLAIM': 'membership-management',
+    'PAYMENT': 'finance-management',
+    'PAYMENT_REQUEST': 'finance-management',
+    'INVOICE': 'finance-management',
+    'CASHUP': 'finance-management',
+    'JOURNAL': 'finance-management',
+    'CUSTOMER_REFUND': 'finance-management',
+    'PURCHASE_ORDER': 'procurement-management',
+    'SUPPLIER_INVOICE': 'procurement-management',
+    'SUPPLIER_ONBOARDING': 'procurement-management',
+    'SUPPLIER_BANKING_DETAILS': 'procurement-management',
+    'LEAVE': 'partner-management',
+  };
+
+  static String approvalGroup(String approvalType) =>
+      approvalTypeGroups[normalize(approvalType)] ?? 'finance-management';
+
+  static String approvalLabel(String approvalType) => approvalType
+      .split('_')
+      .map((part) => part.isEmpty
+          ? part
+          : '${part[0]}${part.substring(1).toLowerCase()}')
+      .join(' ');
 
   static String normalize(String value) =>
       value.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');

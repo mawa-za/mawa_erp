@@ -32,6 +32,15 @@ class _MemberListScreenState extends State<MemberListScreen> {
   Map<String, Partner> _partners = {};
   String? _error;
   List<String>? _currentMemberIds;
+  String _selectedStatus = 'ALL';
+  static const List<String> _statuses = [
+    'ALL',
+    'ACTIVE',
+    'PENDING',
+    'LAPSED',
+    'CANCELLED',
+    'INACTIVE',
+  ];
 
   @override
   void initState() {
@@ -127,9 +136,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
         MembershipService().getMemberships(
           page: _currentPage, 
           size: _pageSize, 
-          sort: ['membershipNo,asc'],
+          sort: ['createdAt,desc'],
           query: query,
           memberIds: _currentMemberIds,
+          status: _selectedStatus,
         ),
         MembershipService().getMembershipPlans(size: 100),
       ]);
@@ -166,9 +176,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
       final response = await MembershipService().getMemberships(
         page: nextPage, 
         size: _pageSize, 
-        sort: ['membershipNo,asc'],
+        sort: ['createdAt,desc'],
         query: _searchController.text.trim(),
         memberIds: _currentMemberIds,
+        status: _selectedStatus,
       );
 
       if (mounted) {
@@ -220,6 +231,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
       body: Column(
         children: [
           _buildSearchBar(),
+          _buildStatusFilter(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -281,6 +293,33 @@ class _MemberListScreenState extends State<MemberListScreen> {
           ),
           fillColor: const Color(0xFFF5F7F9),
           filled: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    return Material(
+      color: Colors.white,
+      child: SizedBox(
+        height: 52,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          itemCount: _statuses.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final status = _statuses[index];
+            return ChoiceChip(
+              selected: _selectedStatus == status,
+              label: Text(status.replaceAll('_', ' ')),
+              onSelected: (_) {
+                if (_selectedStatus == status) return;
+                setState(() => _selectedStatus = status);
+                _fetchInitialData();
+              },
+            );
+          },
         ),
       ),
     );

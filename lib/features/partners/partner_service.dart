@@ -345,4 +345,32 @@ class PartnerService {
       rethrow;
     }
   }
+  Future<List<Map<String, dynamic>>> getSupplierBankAccounts(String partnerId) async {
+    final response = await _apiClient.get('/v2/partner/$partnerId/bank-accounts');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load supplier banking details: ${response.statusCode}');
+    }
+    final dynamic decoded = jsonDecode(response.body);
+    if (decoded is! Map) return [];
+    final raw = decoded['partnerBankAccountDtoList'];
+    if (raw is! List) return [];
+    return raw.whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> submitSupplierBankingDetails(
+    String partnerId,
+    Map<String, dynamic> details,
+  ) async {
+    final response = await _apiClient.post(
+      '/v2/partner/$partnerId/bank-accounts/submit-for-approval',
+      body: details,
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to submit banking details for approval: ${response.body}');
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
 }
