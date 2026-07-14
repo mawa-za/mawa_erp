@@ -39,6 +39,8 @@ class _CaseListScreenState extends State<CaseListScreen> {
     setState(() => _isLoading = true);
     try {
       final cases = await _caseService.getCases();
+      cases.sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
       if (!mounted) return;
       setState(() {
         _cases = cases;

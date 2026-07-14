@@ -220,7 +220,10 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.approvals,
-        builder: (context, state) => const ApprovalListScreen(),
+        builder: (context, state) => ApprovalListScreen(
+          approvalType: state.uri.queryParameters['type'],
+          title: state.uri.queryParameters['title'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.settings,

@@ -31,6 +31,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
   Partner? _partner;
   List<PartnerRole> _detailedRoles = [];
   List<PartnerIdentity> _detailedIdentities = [];
+  List<Map<String, dynamic>> _bankAccounts = [];
   String? _error;
 
   @override
@@ -55,12 +56,14 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         final results = await Future.wait([
           PartnerService().getPartnerRoles(widget.partnerId).catchError((_) => <PartnerRole>[]),
           PartnerService().getPartnerIdentities(widget.partnerId).catchError((_) => <PartnerIdentity>[]),
+          PartnerService().getSupplierBankAccounts(widget.partnerId).catchError((_) => <Map<String, dynamic>>[]),
         ]);
         
         setState(() {
           _partner = partner;
           _detailedRoles = results[0] as List<PartnerRole>;
           _detailedIdentities = results[1] as List<PartnerIdentity>;
+          _bankAccounts = results[2] as List<Map<String, dynamic>>;
           _isLoading = false;
         });
       } else {
@@ -102,6 +105,28 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
       ),
     );
     if (result == true) _fetchPartnerDetails();
+  }
+
+  bool get _isSupplier => _detailedRoles.any((role) {
+        final value = '${role.id} ${role.description}'.toUpperCase();
+        return value.contains('SUPPLIER');
+      });
+
+  Future<void> _showSupplierBankingDialog() async {
+    final submitted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _SupplierBankingApprovalDialog(
+        partnerId: widget.partnerId,
+      ),
+    );
+    if (submitted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Supplier banking details submitted for approval.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -188,6 +213,24 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           _buildSectionHeader(Icons.info_outline, 'GENERAL INFORMATION'),
           const SizedBox(height: 12),
           _buildGeneralInfoCard(partner, colorScheme),
+          if (_isSupplier) ...[
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionHeader(Icons.account_balance_outlined, 'APPROVED BANKING DETAILS'),
+                TextButton.icon(
+                  onPressed: _showSupplierBankingDialog,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('SUBMIT CHANGE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ..._bankAccounts.map((account) => _buildBankAccountRow(account, colorScheme)),
+            if (_bankAccounts.isEmpty)
+              _buildEmptyPrompt('No approved supplier banking details recorded.'),
+          ],
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -418,10 +461,181 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     );
   }
 
+  Widget _buildBankAccountRow(Map<String, dynamic> account, ColorScheme colorScheme) {
+    final number = (account['accountNumber'] ?? '').toString();
+    final masked = number.length > 4
+        ? '${'*' * (number.length - 4)}${number.substring(number.length - 4)}'
+        : number;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.account_balance, color: colorScheme.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (account['bankName'] ?? 'Bank account').toString(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('${account['accountHolder'] ?? ''} • $masked'),
+                Text(
+                  '${account['accountType'] ?? ''} • Branch ${account['branchCode'] ?? '-'}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyPrompt(String message) {
     return Padding(
       padding: const EdgeInsets.only(left: 8.0),
       child: Text(message, style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
+    );
+  }
+}
+
+
+class _SupplierBankingApprovalDialog extends StatefulWidget {
+  final String partnerId;
+
+  const _SupplierBankingApprovalDialog({required this.partnerId});
+
+  @override
+  State<_SupplierBankingApprovalDialog> createState() =>
+      _SupplierBankingApprovalDialogState();
+}
+
+class _SupplierBankingApprovalDialogState
+    extends State<_SupplierBankingApprovalDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _holder = TextEditingController();
+  final _number = TextEditingController();
+  final _bank = TextEditingController();
+  final _branch = TextEditingController();
+  final _accountType = TextEditingController(text: 'CURRENT');
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _holder.dispose();
+    _number.dispose();
+    _bank.dispose();
+    _branch.dispose();
+    _accountType.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await PartnerService().submitSupplierBankingDetails(widget.partnerId, {
+        'partner': widget.partnerId,
+        'accountHolder': _holder.text.trim(),
+        'accountNumber': _number.text.trim(),
+        'bankName': _bank.text.trim(),
+        'branchCode': _branch.text.trim(),
+        'accountType': _accountType.text.trim().toUpperCase(),
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    InputDecoration decoration(String label) => InputDecoration(labelText: label);
+    return AlertDialog(
+      title: const Text('Submit banking details'),
+      content: SizedBox(
+        width: 480,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'The details will only become active after final approval.',
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _holder,
+                  decoration: decoration('Account holder'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Account holder is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _bank,
+                  decoration: decoration('Bank name'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Bank name is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _number,
+                  decoration: decoration('Account number'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Account number is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _branch,
+                  decoration: decoration('Branch code'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Branch code is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _accountType,
+                  decoration: decoration('Account type'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Submit for approval'),
+        ),
+      ],
     );
   }
 }

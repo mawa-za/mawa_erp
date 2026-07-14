@@ -16,6 +16,8 @@ class _UserListScreenState extends State<UserListScreen> {
   List<User> _allUsers = [];
   List<User> _filteredUsers = [];
   String? _error;
+  String _selectedStatus = 'ALL';
+  final List<String> _statuses = ['ALL', 'ACTIVE', 'PENDING', 'LOCKED', 'INACTIVE'];
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -33,6 +35,10 @@ class _UserListScreenState extends State<UserListScreen> {
       final users = await UserService().getUsers();
       if (mounted) {
         setState(() {
+          users.sort((a, b) {
+            final byDate = (b.validFrom ?? '').compareTo(a.validFrom ?? '');
+            return byDate != 0 ? byDate : b.id.compareTo(a.id);
+          });
           _allUsers = users;
           _filteredUsers = users;
           _isLoading = false;
@@ -51,15 +57,14 @@ class _UserListScreenState extends State<UserListScreen> {
 
   void _applySearch(String query) {
     setState(() {
-      if (query.isEmpty) {
-        _filteredUsers = _allUsers;
-      } else {
-        final lowercaseQuery = query.toLowerCase();
-        _filteredUsers = _allUsers.where((user) {
-          return user.username.toLowerCase().contains(lowercaseQuery) ||
-                 (user.email?.toLowerCase().contains(lowercaseQuery) ?? false);
-        }).toList();
-      }
+      final lowercaseQuery = query.toLowerCase();
+      _filteredUsers = _allUsers.where((user) {
+        final statusMatches = _selectedStatus == 'ALL' || user.status.toUpperCase() == _selectedStatus;
+        final searchMatches = query.isEmpty ||
+            user.username.toLowerCase().contains(lowercaseQuery) ||
+            (user.email?.toLowerCase().contains(lowercaseQuery) ?? false);
+        return statusMatches && searchMatches;
+      }).toList();
     });
   }
 
@@ -84,6 +89,7 @@ class _UserListScreenState extends State<UserListScreen> {
       body: Column(
         children: [
           _buildSearchBar(),
+          _buildStatusFilter(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -140,6 +146,32 @@ class _UserListScreenState extends State<UserListScreen> {
           fillColor: Colors.grey[100],
           filled: true,
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    return Container(
+      height: 52,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = _statuses[index];
+          return ChoiceChip(
+            label: Text(status, style: const TextStyle(fontSize: 11)),
+            selected: _selectedStatus == status,
+            showCheckmark: false,
+            onSelected: (_) {
+              setState(() => _selectedStatus = status);
+              _applySearch(_searchController.text);
+            },
+          );
+        },
       ),
     );
   }

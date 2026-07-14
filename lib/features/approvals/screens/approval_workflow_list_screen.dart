@@ -13,7 +13,9 @@ class ApprovalWorkflowListScreen extends StatefulWidget {
 class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen> {
   final ApprovalWorkflowService _service = ApprovalWorkflowService();
   bool _isLoading = true;
+  List<ApprovalWorkflow> _allWorkflows = [];
   List<ApprovalWorkflow> _workflows = [];
+  String _selectedStatus = 'ALL';
   String? _error;
 
   @override
@@ -30,8 +32,11 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
     try {
       final response = await _service.getWorkflows();
       if (mounted) {
+        response.sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
         setState(() {
-          _workflows = response;
+          _allWorkflows = response;
+          _applyStatusFilter();
           _isLoading = false;
         });
       }
@@ -43,6 +48,41 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
         });
       }
     }
+  }
+
+  void _applyStatusFilter() {
+    _workflows = switch (_selectedStatus) {
+      'ACTIVE' => _allWorkflows.where((workflow) => workflow.active).toList(),
+      'INACTIVE' => _allWorkflows.where((workflow) => !workflow.active).toList(),
+      _ => List<ApprovalWorkflow>.from(_allWorkflows),
+    };
+  }
+
+  Widget _buildStatusFilter() {
+    const statuses = ['ALL', 'ACTIVE', 'INACTIVE'];
+    return Container(
+      height: 52,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = statuses[index];
+          return ChoiceChip(
+            label: Text(status),
+            selected: _selectedStatus == status,
+            showCheckmark: false,
+            onSelected: (_) => setState(() {
+              _selectedStatus = status;
+              _applyStatusFilter();
+            }),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -62,7 +102,11 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
           ),
         ],
       ),
-      body: _isLoading
+      body: Column(
+        children: [
+          _buildStatusFilter(),
+          Expanded(
+            child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
@@ -145,6 +189,9 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
                         );
                       },
                     ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(
