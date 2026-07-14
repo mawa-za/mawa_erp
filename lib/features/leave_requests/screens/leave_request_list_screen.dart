@@ -18,7 +18,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
   String? _error;
   String _selectedStatus = 'ALL';
 
-  final List<String> _statuses = ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+  final List<String> _statuses = ['ALL', 'PENDING', 'AWAITING-APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED'];
 
   @override
   void initState() {
@@ -111,7 +111,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(status, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
+              label: Text(_statusLabel(status), style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
               selected: isSelected,
               onSelected: (selected) {
                 if (selected) {
@@ -187,6 +187,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
       case 'APPROVED': color = Colors.green; break;
       case 'REJECTED': color = Colors.red; break;
       case 'PENDING': color = Colors.orange; break;
+      case 'AWAITING-APPROVAL': color = Colors.deepOrange; break;
       case 'CANCELLED': color = Colors.grey; break;
       default: color = Colors.blue;
     }
@@ -220,4 +221,11 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
       child: Text('No leave requests found'),
     );
   }
+  String _statusLabel(String status) {
+    return status
+        .split('-')
+        .map((part) => part.isEmpty ? part : '${part[0]}${part.substring(1).toLowerCase()}')
+        .join(' ');
+  }
+
 }

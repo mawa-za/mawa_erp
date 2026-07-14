@@ -1,10 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/api_client.dart';
-import '../../../core/models/user.dart';
-import '../../../core/services/user_service.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../models/leave_request.dart';
@@ -20,14 +16,11 @@ class LeaveRequestDetailScreen extends StatefulWidget {
 
 class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
   final _service = LeaveService();
-  final _userService = UserService();
   final _approvalService = ApprovalService();
 
   bool _isLoading = true;
   bool _isActionLoading = false;
   LeaveRequest? _request;
-  User? _employee;
-  User? _approver;
   String? _error;
 
   @override
@@ -44,30 +37,9 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
 
     try {
       final request = await _service.getLeaveRequestById(widget.requestId);
-      
-      final results = await Future.wait([
-        _userService.getUser(request.employeeId).catchError((_) => User(
-          id: request.employeeId, 
-          username: 'Unknown',
-          type: 'EMPLOYEE',
-          status: 'ACTIVE',
-        )),
-        if (request.approverId != null)
-          _userService.getUser(request.approverId!).catchError((_) => User(
-            id: request.approverId!, 
-            username: 'Unknown',
-            type: 'APPROVER',
-            status: 'ACTIVE',
-          ))
-        else
-          Future.value(null),
-      ]);
-
       if (mounted) {
         setState(() {
           _request = request;
-          _employee = results[0] as User?;
-          _approver = results[1] as User?;
           _isLoading = false;
         });
       }
@@ -93,7 +65,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
         referenceId: _request!.id,
         referenceNo: _request!.id, // Leave requests might not have a separate human-readable number
         title: 'Leave Request: ${_request!.type}',
-        description: 'Approval requested for ${_request!.days} day(s) from ${_request!.startDate} to ${_request!.endDate} for ${_employee?.username ?? _request!.employeeId}',
+        description: 'Approval requested for ${_request!.days} day(s) from ${_request!.startDate} to ${_request!.endDate} for ${_request!.employeeName ?? _request!.employeeId}',
         requesterId: userId,
         payloadJson: jsonEncode(_request!.toJson()),
       );
@@ -163,6 +135,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
       case 'APPROVED': color = Colors.green; break;
       case 'REJECTED': color = Colors.red; break;
       case 'PENDING': color = Colors.orange; break;
+      case 'AWAITING-APPROVAL': color = Colors.deepOrange; break;
       default: color = Colors.grey;
     }
 
@@ -222,9 +195,8 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
           children: [
             const Text('PERSONNEL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
             const Divider(),
-            _buildDetailRow('Employee', _employee?.username ?? _request!.employeeId),
-            _buildDetailRow('Email', _employee?.email ?? '-'),
-            _buildDetailRow('Approver', _approver?.username ?? _request!.approverId ?? 'Not Assigned'),
+            _buildDetailRow('Employee', _request!.employeeName ?? _request!.employeeId),
+            _buildDetailRow('Approver', _request!.approverName ?? _request!.approverId ?? 'Not Assigned'),
           ],
         ),
       ),

@@ -37,6 +37,16 @@ class FeatureGroupDefinition {
 }
 
 class FeatureGroupRegistry {
+  static const Set<String> standaloneCardIds = {
+    'EMPLOYMENT',
+    'EMPLOYMENT_MANAGEMENT',
+    'LEAVE_MANAGEMENT',
+    'ASSET',
+    'ASSETS',
+    'ASSET_REGISTER',
+    'ASSET_MANAGEMENT',
+  };
+
   static const List<FeatureGroupDefinition> groups = [
     FeatureGroupDefinition(
       id: 'membership-management',
@@ -239,6 +249,13 @@ class FeatureGroupRegistry {
 
   static String normalize(String value) =>
       value.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+
+  static bool isStandaloneCard(String workcenterId, [String? description]) {
+    if (standaloneCardIds.contains(normalize(workcenterId))) return true;
+    return description != null &&
+        description.trim().isNotEmpty &&
+        standaloneCardIds.contains(normalize(description));
+  }
 
   static FeatureGroupDefinition? groupForWorkcenter(
     String workcenterId, [
