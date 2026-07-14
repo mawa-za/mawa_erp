@@ -7,6 +7,8 @@ import 'field_option_list_screen.dart';
 import 'api_log_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
+import '../../integrations/fnb/fnb_integration_admin_screen.dart';
+import 'xero_integration_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -30,6 +32,24 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.settings_applications_outlined,
             color: Colors.blue,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SystemSettingsScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'FNB Integration',
+            subtitle: 'Activate and configure FNB payment processing',
+            icon: Icons.account_balance_outlined,
+            color: Colors.green,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FnbIntegrationAdminScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Xero Integration',
+            subtitle: 'Activate Xero and select the invoice organisation',
+            icon: Icons.account_balance_wallet_outlined,
+            color: Colors.blue,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const XeroIntegrationScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
