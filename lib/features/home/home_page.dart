@@ -227,6 +227,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id) {
     final lowerId = id.toLowerCase();
+    if (lowerId.contains('employment')) return Icons.work_history_rounded;
+    if (lowerId.contains('leave')) return Icons.event_available_rounded;
+    if (lowerId.contains('asset')) return Icons.precision_manufacturing_rounded;
     if (lowerId == 'employee') return Icons.badge_rounded;
     if (lowerId == 'supplier') return Icons.local_shipping_rounded;
     if (lowerId == 'customer') return Icons.person_pin_rounded;
@@ -369,7 +372,18 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final ungrouped = <Workcenter>[];
 
     for (final workcenter in workcenters) {
-      final group = FeatureGroupRegistry.groupForWorkcenter(workcenter.id, workcenter.description);
+      if (FeatureGroupRegistry.isStandaloneCard(
+        workcenter.id,
+        workcenter.description,
+      )) {
+        ungrouped.add(workcenter);
+        continue;
+      }
+
+      final group = FeatureGroupRegistry.groupForWorkcenter(
+        workcenter.id,
+        workcenter.description,
+      );
       if (group == null) {
         ungrouped.add(workcenter);
       } else {

@@ -58,7 +58,17 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
 
       final List<dynamic> data = jsonDecode(response.body);
       final all = data.map((json) => Workcenter.fromJson(json)).toList();
-      final allowed = all.where((wc) => group.matches(wc.id, wc.description) && !FeatureGroupRegistry.isGroupId(wc.id)).toList()
+      final allowed = all
+          .where(
+            (wc) =>
+                group.matches(wc.id, wc.description) &&
+                !FeatureGroupRegistry.isGroupId(wc.id) &&
+                !FeatureGroupRegistry.isStandaloneCard(
+                  wc.id,
+                  wc.description,
+                ),
+          )
+          .toList()
         ..sort((a, b) => a.position.compareTo(b.position));
 
       // Active approval workflows are first-class features. Surface each type
