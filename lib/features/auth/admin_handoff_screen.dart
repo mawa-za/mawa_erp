@@ -39,10 +39,9 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
     }
 
     try {
-      final response = await ApiClient().post(
+      final response = await ApiClient().postPublic(
         '/v2/admin-handoff/exchange',
         body: {'token': handoffToken},
-        includeRole: false,
       );
 
       if (response.statusCode != 200) {
