@@ -30,9 +30,9 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
 
   final List<String> _stepTitles = [
     'Deceased',
+    'Cover',
     'Representative',
     'Package',
-    'Cover',
     'Claims',
     'Preview',
     'Generate'
@@ -122,11 +122,11 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       case 0:
         return _buildDeceasedStep();
       case 1:
-        return _buildFamilyRepStep();
-      case 2:
-        return _buildPackageStep();
-      case 3:
         return _buildCoverStep();
+      case 2:
+        return _buildFamilyRepStep();
+      case 3:
+        return _buildPackageStep();
       case 4:
         return _buildClaimsStep();
       case 5:
@@ -569,22 +569,25 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         return;
       }
       _controller.errorMessage = null;
+      await _controller.checkMembership();
       _controller.nextStep();
     } else if (_controller.currentStep == 1) {
+      // Cover selection is optional, but the membership lookup has already
+      // happened before the user can proceed to package selection.
+      _controller.errorMessage = null;
+      _controller.nextStep();
+    } else if (_controller.currentStep == 2) {
       if (_controller.familyRepPartnerId == null) {
         _controller.errorMessage = 'Please search and select a family representative.';
         return;
       }
       _controller.errorMessage = null;
       _controller.nextStep();
-    } else if (_controller.currentStep == 2) {
+    } else if (_controller.currentStep == 3) {
       if (_controller.selectedPackage == null) {
         _controller.errorMessage = 'Please select a funeral package.';
         return;
       }
-      _controller.errorMessage = null;
-      _controller.nextStep();
-    } else if (_controller.currentStep == 3) {
       final success = await _controller.createServiceRequest();
       if (success) _controller.nextStep();
     } else if (_controller.currentStep == 4) {
