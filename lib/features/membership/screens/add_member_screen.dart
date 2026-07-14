@@ -109,7 +109,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
                 ),
                 child: PartnerSearchDropdown(
-                  role: 'CUSTOMER',
+                  role: 'MEMBER',
                   label: 'Search for a member...',
                   onPartnerSelected: (p) => setState(() => _selectedMember = p),
                 ),

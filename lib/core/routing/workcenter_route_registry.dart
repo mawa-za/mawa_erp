@@ -3,8 +3,9 @@ import 'app_routes.dart';
 class WorkcenterRouteRegistry {
   static const Map<String, String> _mappings = {
     'MEMBERSHIP': AppRoutes.memberships,
-    'MEMBER': AppRoutes.memberships,
     'MEMBERSHIPS': AppRoutes.memberships,
+    'MEMBER': '/partners/MEMBER',
+    'MEMBERS': '/partners/MEMBER',
     'INVOICE': AppRoutes.invoices,
     'INVOICES': AppRoutes.invoices,
     'CASES': AppRoutes.cases,

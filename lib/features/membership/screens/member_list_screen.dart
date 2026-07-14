@@ -116,7 +116,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
       if (query.isNotEmpty) {
         try {
-          final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
+          final partners = await PartnerService().getPartnersByRole('MEMBER', query: query);
           _currentMemberIds = partners.map((p) => p.id).toList();
 
           if (mounted) {
@@ -213,7 +213,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('Members'),
+        title: const Text('Memberships'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
@@ -360,7 +360,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
             child: Icon(Icons.contact_emergency_outlined, size: 64, color: Colors.grey[300]),
           ),
           const SizedBox(height: 24),
-          Text(_searchController.text.isEmpty ? 'No members found' : 'No matches found',
+          Text(_searchController.text.isEmpty ? 'No memberships found' : 'No matches found',
             style: TextStyle(color: Colors.grey[800], fontSize: 18, fontWeight: FontWeight.bold)
           ),
           const SizedBox(height: 8),
