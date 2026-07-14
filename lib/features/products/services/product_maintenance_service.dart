@@ -81,6 +81,25 @@ class ProductMaintenanceService {
     }
   }
 
+
+  Future<void> replaceBarcodes(String productId, List<String> barcodes) async {
+    final response = await ApiClient().put('/v2/products/$productId/barcodes', body: {
+      'barcodes': barcodes,
+      'barcodeType': 'EAN',
+    });
+    if (response.statusCode != 200) {
+      throw Exception(_errorMessage(response.body, 'Failed to save product barcodes'));
+    }
+  }
+
+  Future<Map<String, dynamic>> findByBarcode(String barcode) async {
+    final response = await ApiClient().get('/v2/products/by-barcode/${Uri.encodeComponent(barcode.trim())}');
+    if (response.statusCode != 200) {
+      throw Exception(_errorMessage(response.body, 'Product not found for barcode'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   String _errorMessage(String body, String fallback) {
     try {
       final decoded = jsonDecode(body);

@@ -38,14 +38,22 @@ class WorkcenterRouteRegistry {
     'CLIENTS': '/partners/CUSTOMER',
     'SUPPLIER': '/partners/SUPPLIER',
     'SUPPLIERS': '/partners/SUPPLIER',
-    'EMPLOYEE': '/partners/EMPLOYEE',
-    'EMPLOYEES': '/partners/EMPLOYEE',
+    'EMPLOYEE': AppRoutes.employment,
+    'EMPLOYEES': AppRoutes.employment,
+    'EMPLOYMENT': AppRoutes.employment,
+    'EMPLOYMENT_MANAGEMENT': AppRoutes.employment,
     'PARTNER': '/partners/PARTNER',
     'PARTNERS': '/partners/PARTNER',
     'EMPLOYEE_REQUEST': AppRoutes.employeeRequests,
     'EMPLOYEE_REQUESTS': AppRoutes.employeeRequests,
     'LEAVE_REQUEST': AppRoutes.employeeRequests,
     'LEAVE_REQUESTS': AppRoutes.employeeRequests,
+    'LEAVE_APPROVAL': AppRoutes.employeeRequests,
+    'LEAVE_APPROVALS': AppRoutes.employeeRequests,
+    'LEAVE_MANAGEMENT': AppRoutes.employeeRequests,
+    'ASSET': AppRoutes.assetRegister,
+    'ASSETS': AppRoutes.assetRegister,
+    'ASSET_REGISTER': AppRoutes.assetRegister,
     'INTERNAL_COMMUNICATIONS': AppRoutes.internalCommunications,
     'INTERNAL-COMMUNICATIONS': AppRoutes.internalCommunications,
     'COMMUNICATIONS': AppRoutes.internalCommunications,
@@ -100,8 +108,8 @@ class WorkcenterRouteRegistry {
     'MORTUARY_INVENTORY': AppRoutes.funeralMortuary,
     'PICKUP_REQUESTS': AppRoutes.funeralPickups,
     'PICKUP_REQUEST': AppRoutes.funeralPickups,
-    'FUNERAL_SERVICE_REQUEST': AppRoutes.funeralNewServiceRequest,
-    'FUNERAL_SERVICE_REQUESTS': AppRoutes.funeralNewServiceRequest,
+    'FUNERAL_SERVICE_REQUEST': AppRoutes.funeralServiceRequests,
+    'FUNERAL_SERVICE_REQUESTS': AppRoutes.funeralServiceRequests,
     'CORPSE_CHECK_IN': AppRoutes.funeralPickups, // Usually happens via Pickups
     'CORPSE_CHECK_OUT': AppRoutes.funeralMortuary, // Usually happens via Mortuary
     'FUNERAL_PACKAGE': AppRoutes.funeralPackageSetup,
@@ -144,6 +152,18 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('GROUP') && normalized.contains('SOCIET')) {
       return AppRoutes.groupSocieties;
+    }
+    if (normalized.contains('EMPLOYMENT') || normalized == 'EMPLOYEE' || normalized == 'EMPLOYEES') {
+      return AppRoutes.employment;
+    }
+    if (normalized.contains('LEAVE')) {
+      return AppRoutes.employeeRequests;
+    }
+    if (normalized.contains('ASSET')) {
+      return AppRoutes.assetRegister;
+    }
+    if (normalized.contains('FUNERAL') && normalized.contains('SERVICE') && normalized.contains('REQUEST')) {
+      return AppRoutes.funeralServiceRequests;
     }
     if (normalized.contains('PRODUCT')) {
       return AppRoutes.products;

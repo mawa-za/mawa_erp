@@ -309,7 +309,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final id = wc.id.toUpperCase();
     final description = wc.description.toLowerCase();
 
-    if (['EMPLOYEE', 'SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
+    if (id == 'EMPLOYEE') {
+      context.push(AppRoutes.employment);
+      return;
+    }
+
+    if (['SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
       context.push('/partners/$id'); // Assuming we'll have this route, or use fallback navigation
       return;
     }

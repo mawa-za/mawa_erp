@@ -11,6 +11,7 @@ class ProductMaintenanceItem {
   final DateTime? validFrom;
   final DateTime? validTo;
   final List<ProductPrice> pricings;
+  final List<String> barcodes;
 
   const ProductMaintenanceItem({
     required this.id,
@@ -23,6 +24,7 @@ class ProductMaintenanceItem {
     this.validFrom,
     this.validTo,
     this.pricings = const [],
+    this.barcodes = const [],
   });
 
   factory ProductMaintenanceItem.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,10 @@ class ProductMaintenanceItem {
       validFrom: _parseDate(json['validFrom'] ?? json['valid_from']),
       validTo: _parseDate(json['validTo'] ?? json['valid_to']),
       pricings: pricings,
+      barcodes: (json['barcodes'] as List? ?? const <dynamic>[])
+          .map((value) => value.toString())
+          .where((value) => value.trim().isNotEmpty)
+          .toList(),
     );
   }
 

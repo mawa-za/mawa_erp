@@ -25,6 +25,8 @@ import '../../features/appointments/screens/appointment_calendar_screen.dart';
 import '../../features/cashup/screens/cashup_list_screen.dart';
 import '../../features/payments/screens/payment_request_list_screen.dart';
 import '../../features/leave_requests/screens/leave_request_list_screen.dart';
+import '../../features/employment/screens/employment_management_screen.dart';
+import '../../features/assets/screens/asset_register_screen.dart';
 import '../../features/products/screens/product_maintenance_screen.dart';
 import '../../features/membership/screens/membership_claim_list_screen.dart';
 import '../../features/membership/screens/membership_plan_list_screen.dart';
@@ -256,6 +258,14 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.paymentRequests,
         builder: (context, state) => const PaymentRequestListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.employment,
+        builder: (context, state) => const EmploymentManagementScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.assetRegister,
+        builder: (context, state) => const AssetRegisterScreen(),
       ),
       GoRoute(
         path: AppRoutes.employeeRequests,

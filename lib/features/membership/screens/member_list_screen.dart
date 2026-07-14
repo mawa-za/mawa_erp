@@ -7,7 +7,7 @@ import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/models/partner.dart';
 import 'add_member_screen.dart';
-import 'membership_detail_screen.dart';
+import '../../partners/screens/partner_detail_screen.dart';
 
 class MemberListScreen extends StatefulWidget {
   const MemberListScreen({super.key});
@@ -213,7 +213,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: const Text('Memberships'),
+        title: const Text('Members'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         elevation: 0,
         backgroundColor: Colors.white,
@@ -360,7 +360,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
             child: Icon(Icons.contact_emergency_outlined, size: 64, color: Colors.grey[300]),
           ),
           const SizedBox(height: 24),
-          Text(_searchController.text.isEmpty ? 'No memberships found' : 'No matches found',
+          Text(_searchController.text.isEmpty ? 'No members found' : 'No matches found',
             style: TextStyle(color: Colors.grey[800], fontSize: 18, fontWeight: FontWeight.bold)
           ),
           const SizedBox(height: 8),
@@ -414,7 +414,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         child: InkWell(
           onTap: () async {
             await Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => MembershipDetailScreen(membershipId: membership.id)),
+              MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: membership.memberId, title: 'Member Details', isMemberContext: true)),
             );
             _fetchInitialData();
           },
