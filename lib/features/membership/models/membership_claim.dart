@@ -2,6 +2,10 @@ class MembershipClaim {
   final String id;
   final String claimNo;
   final String membershipId;
+  final String membershipNo;
+  final String memberName;
+  final String deceasedName;
+  final String claimantName;
   final String claimType;
   final String deceasedType;
   final String deceasedPartnerId;
@@ -27,6 +31,10 @@ class MembershipClaim {
     required this.id,
     required this.claimNo,
     required this.membershipId,
+    required this.membershipNo,
+    required this.memberName,
+    required this.deceasedName,
+    required this.claimantName,
     required this.claimType,
     required this.deceasedType,
     required this.deceasedPartnerId,
@@ -86,6 +94,10 @@ class MembershipClaim {
       id: (json['id'] ?? '').toString(),
       claimNo: (json['claimNo'] ?? '').toString(),
       membershipId: (json['membershipId'] ?? '').toString(),
+      membershipNo: (json['membershipNo'] ?? '').toString(),
+      memberName: (json['memberName'] ?? '').toString(),
+      deceasedName: (json['deceasedName'] ?? '').toString(),
+      claimantName: (json['claimantName'] ?? '').toString(),
       claimType: (json['claimType'] ?? '').toString(),
       deceasedType: (json['deceasedType'] ?? '').toString(),
       deceasedPartnerId: (json['deceasedPartnerId'] ?? '').toString(),
@@ -117,6 +129,10 @@ class MembershipClaim {
       'id': id,
       'claimNo': claimNo,
       'membershipId': membershipId,
+      'membershipNo': membershipNo,
+      'memberName': memberName,
+      'deceasedName': deceasedName,
+      'claimantName': claimantName,
       'claimType': claimType,
       'deceasedType': deceasedType,
       'deceasedPartnerId': deceasedPartnerId,

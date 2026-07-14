@@ -1,312 +1,228 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../data/funeral_api.dart';
-import '../../data/models/mortuary_inventory_dto.dart';
-import '../../data/models/funeral_package_dto.dart';
-import '../../data/models/funeral_membership_cover_dto.dart';
-import '../../data/models/funeral_service_request_dto.dart';
-import '../../data/models/initiate_funeral_claims_request_dto.dart';
-import '../widgets/funeral_package_selector.dart';
-import '../widgets/membership_cover_card.dart';
-import '../../../../core/widgets/partner_search_dropdown.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/routing/app_routes.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../data/funeral_api.dart';
+import '../../data/models/funeral_service_request_dto.dart';
+import '../widgets/funeral_status_chip.dart';
 
 class FuneralServiceRequestPage extends StatefulWidget {
   const FuneralServiceRequestPage({super.key});
 
   @override
-  State<FuneralServiceRequestPage> createState() => _FuneralServiceRequestPageState();
+  State<FuneralServiceRequestPage> createState() =>
+      _FuneralServiceRequestPageState();
 }
 
 class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
-  final _api = FuneralApi();
-  int _currentStep = 0;
-  bool _isLoading = false;
-
-  // Data
-  List<MortuaryInventoryDto> _inventory = [];
-  List<FuneralPackageDto> _packages = [];
-  List<FuneralMembershipCoverDto> _availableCovers = [];
-
-  // Selections
-  MortuaryInventoryDto? _selectedDeceased;
-  final _idNumberController = TextEditingController();
-  DateTime _funeralDate = DateTime.now().add(const Duration(days: 3));
-  final _locationController = TextEditingController();
-  String? _familyRepPartnerId;
-  FuneralPackageDto? _selectedPackage;
-  final List<FuneralExtraDto> _extras = [];
-  final List<String> _selectedMembershipIds = [];
+  final FuneralApi _api = FuneralApi();
+  final TextEditingController _search = TextEditingController();
+  Timer? _debounce;
+  List<FuneralServiceRequestDto> _requests = const [];
+  bool _loading = true;
+  String? _error;
+  String _status = 'ALL';
 
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    _load();
   }
 
-  Future<void> _loadInitialData() async {
-    setState(() => _isLoading = true);
-    try {
-      final results = await Future.wait([
-        _api.getMortuaryInventory(),
-        _api.getFuneralPackages(),
-      ]);
-      setState(() {
-        _inventory = results[0] as List<MortuaryInventoryDto>;
-        _packages = results[1] as List<FuneralPackageDto>;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
-      }
-    }
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
   }
 
-  Future<void> _checkMembership() async {
-    if (_idNumberController.text.isEmpty) return;
-    setState(() => _isLoading = true);
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final covers = await _api.checkMembership(_idNumberController.text);
-      setState(() {
-        _availableCovers = covers;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error checking membership: $e')));
-      }
-    }
-  }
-
-  Future<void> _createServiceRequest() async {
-    if (_selectedDeceased == null || _selectedPackage == null || _familyRepPartnerId == null) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final request = FuneralServiceRequestDto(
-        mortuaryInventoryId: _selectedDeceased!.id,
-        deceasedName: _selectedDeceased!.deceasedName,
-        deceasedIdentityNumber: _idNumberController.text,
-        funeralDate: _funeralDate,
-        funeralLocation: _locationController.text,
-        familyRepPartnerId: _familyRepPartnerId!,
-        packageId: _selectedPackage!.id,
-        extras: _extras,
+      final requests = await _api.getServiceRequests(
+        query: _search.text,
+        status: _status == 'ALL' ? null : _status,
       );
-
-      final created = await _api.createServiceRequest(request);
-      
-      if (_selectedMembershipIds.isNotEmpty) {
-        await _api.initiateClaims(
-          created.id!,
-          InitiateFuneralClaimsRequestDto(membershipIds: _selectedMembershipIds),
-        );
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Funeral Arrangement Saved')));
-        context.pushReplacement('/funeral/service-request/${created.id}/invoice-preview');
-      }
+      requests.sort((a, b) => b.funeralDate.compareTo(a.funeralDate));
+      if (mounted) setState(() => _requests = requests);
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _newRequest() async {
+    await context.push(AppRoutes.funeralNewServiceRequest);
+    await _load();
   }
 
   @override
   Widget build(BuildContext context) {
+    final currency = NumberFormat.currency(locale: 'en_ZA', symbol: 'R ');
     return Scaffold(
-      appBar: AppBar(title: const Text('New Funeral Arrangement')),
-      body: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : Stepper(
-              currentStep: _currentStep,
-              onStepContinue: () {
-                if (_currentStep == 0 && (_selectedDeceased == null || _idNumberController.text.isEmpty)) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select deceased and enter ID')));
-                   return;
-                }
-                if (_currentStep == 2 && _selectedPackage == null) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a package')));
-                   return;
-                }
-                
-                if (_currentStep < 4) {
-                  setState(() => _currentStep += 1);
-                } else {
-                  _createServiceRequest();
-                }
+      backgroundColor: const Color(0xFFF8F9FD),
+      appBar: AppBar(
+        title: const Text('Funeral Service Requests'),
+        actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _newRequest,
+        icon: const Icon(Icons.add),
+        label: const Text('New Arrangement'),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              controller: _search,
+              onChanged: (_) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 450), _load);
               },
-              onStepCancel: () {
-                if (_currentStep > 0) setState(() => _currentStep -= 1);
-              },
-              steps: [
-                Step(
-                  title: const Text('Deceased Details'),
-                  isActive: _currentStep >= 0,
-                  content: Column(
-                    children: [
-                      DropdownButtonFormField<MortuaryInventoryDto>(
-                        value: _selectedDeceased,
-                        decoration: const InputDecoration(labelText: 'Select Deceased from Mortuary', border: OutlineInputBorder()),
-                        items: _inventory.map((i) => DropdownMenuItem(value: i, child: Text(i.deceasedName))).toList(),
-                        onChanged: (v) => setState(() => _selectedDeceased = v),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _idNumberController,
-                        decoration: const InputDecoration(labelText: 'Deceased Identity Number', border: OutlineInputBorder()),
-                      ),
-                    ],
-                  ),
-                ),
-                Step(
-                  title: const Text('Funeral Details'),
-                  isActive: _currentStep >= 1,
-                  content: Column(
-                    children: [
-                      ListTile(
-                        title: const Text('Funeral Date'),
-                        subtitle: Text(Formatters.formatDate(_funeralDate)),
-                        trailing: const Icon(Icons.calendar_today),
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: _funeralDate,
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
-                          );
-                          if (date != null) setState(() => _funeralDate = date);
-                        },
-                      ),
-                      TextFormField(
-                        controller: _locationController,
-                        decoration: const InputDecoration(labelText: 'Funeral Location / Area', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 16),
-                      PartnerSearchDropdown(
-                        role: 'CUSTOMER',
-                        label: 'Family Representative',
-                        onPartnerSelected: (p) => setState(() => _familyRepPartnerId = p?.id),
-                      ),
-                    ],
-                  ),
-                ),
-                Step(
-                  title: const Text('Package & Extras'),
-                  isActive: _currentStep >= 2,
-                  content: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      FuneralPackageSelector(
-                        packages: _packages,
-                        selectedPackage: _selectedPackage,
-                        onSelected: (p) => setState(() => _selectedPackage = p),
-                      ),
-                      const Divider(height: 32),
-                      const Text('Extras', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ..._extras.map((e) => ListTile(
-                        title: Text(e.description),
-                        trailing: Text(Formatters.formatCentsAsRand(e.amountCents)),
-                        onLongPress: () => setState(() => _extras.remove(e)),
-                      )),
-                      TextButton.icon(
-                        onPressed: _showAddExtraDialog,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Extra'),
-                      ),
-                    ],
-                  ),
-                ),
-                Step(
-                  title: const Text('Membership Check'),
-                  isActive: _currentStep >= 3,
-                  content: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ElevatedButton(onPressed: _checkMembership, child: const Text('Check for Available Cover')),
-                      const SizedBox(height: 16),
-                      if (_availableCovers.isEmpty) const Text('No active memberships found for this ID.'),
-                      ..._availableCovers.map((cover) => MembershipCoverCard(
-                        cover: cover,
-                        isSelected: _selectedMembershipIds.contains(cover.membershipId ?? cover.sourceReference),
-                        onTap: () {
-                          final id = cover.membershipId ?? cover.sourceReference;
-                          if (id == null) return;
-                          setState(() {
-                            if (_selectedMembershipIds.contains(id)) {
-                              _selectedMembershipIds.remove(id);
-                            } else {
-                              _selectedMembershipIds.add(id);
-                            }
-                          });
-                        },
-                      )),
-                    ],
-                  ),
-                ),
-                Step(
-                  title: const Text('Review'),
-                  isActive: _currentStep >= 4,
-                  content: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Deceased: ${_selectedDeceased?.deceasedName ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text('Funeral: ${Formatters.formatDate(_funeralDate)} at ${_locationController.text}'),
-                      Text('Package: ${_selectedPackage?.name ?? 'N/A'}'),
-                      Text('Selected Claims: ${_selectedMembershipIds.length}'),
-                      const SizedBox(height: 16),
-                      const Text('Total Estimate:', style: TextStyle(fontSize: 16)),
-                      Text(
-                        Formatters.formatCentsAsRand((_selectedPackage?.basePriceCents ?? 0) + _extras.fold(0, (sum, e) => sum + e.amountCents)),
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              decoration: const InputDecoration(
+                labelText: 'Search request number, deceased or identity number',
+                prefixIcon: Icon(Icons.search),
+              ),
             ),
-    );
-  }
-
-  void _showAddExtraDialog() {
-    final descController = TextEditingController();
-    final amountController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Extra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
-            TextField(controller: amountController, decoration: const InputDecoration(labelText: 'Amount (Rand)'), keyboardType: TextInputType.number),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final cents = (double.tryParse(amountController.text) ?? 0 * 100).toInt();
-              setState(() => _extras.add(FuneralExtraDto(description: descController.text, amountCents: cents)));
-              Navigator.pop(context);
-            },
-            child: const Text('Add'),
           ),
+          SizedBox(
+            height: 52,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              scrollDirection: Axis.horizontal,
+              children: ['ALL', 'COVER_IDENTIFIED', 'ARRANGEMENT_CREATED', 'CLAIMS_INITIATED', 'CLAIMS_RESOLVED', 'INVOICED']
+                  .map((status) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(status.replaceAll('_', ' ')),
+                          selected: _status == status,
+                          onSelected: (_) {
+                            setState(() => _status = status);
+                            _load();
+                          },
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ),
+          Expanded(child: _body(currency)),
         ],
       ),
     );
   }
 
-  @override
-  void dispose() {
-    _idNumberController.dispose();
-    _locationController.dispose();
-    super.dispose();
+  Widget _body(NumberFormat currency) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48),
+            const SizedBox(height: 12),
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+    if (_requests.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.volunteer_activism_outlined, size: 56),
+            const SizedBox(height: 12),
+            const Text('No funeral service requests found.'),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _newRequest,
+              icon: const Icon(Icons.add),
+              label: const Text('New Arrangement'),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
+        itemCount: _requests.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, index) {
+          final request = _requests[index];
+          final id = request.id ?? '';
+          return Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: Colors.grey.shade200),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          request.serviceRequestNo?.isNotEmpty == true
+                              ? request.serviceRequestNo!
+                              : 'Funeral Service Request',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                      ),
+                      FuneralStatusChip(status: request.status ?? 'DRAFT'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(request.deceasedName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 6,
+                    children: [
+                      Text('ID: ${request.deceasedIdentityNumber.isEmpty ? '-' : request.deceasedIdentityNumber}'),
+                      Text('Funeral: ${Formatters.formatDate(request.funeralDate)}'),
+                      Text('Area: ${request.funeralLocation.isEmpty ? '-' : request.funeralLocation}'),
+                      Text('Total: ${currency.format(request.totalAmountCents / 100)}'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/claims'),
+                        icon: const Icon(Icons.request_quote_outlined),
+                        label: const Text('Claims'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/invoice-preview'),
+                        icon: const Icon(Icons.receipt_long_outlined),
+                        label: const Text('Invoice Preview'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
