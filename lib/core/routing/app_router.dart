@@ -18,6 +18,8 @@ import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
+import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
+import '../../features/settings/screens/xero_integration_screen.dart';
 import '../../features/appointments/screens/appointment_calendar_screen.dart';
 import '../../features/cashup/screens/cashup_list_screen.dart';
 import '../../features/payments/screens/payment_request_list_screen.dart';
@@ -218,6 +220,14 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.systemConfiguration,
         builder: (context, state) => const SystemConfigurationScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.fnbIntegration,
+        builder: (context, state) => const FnbIntegrationAdminScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.xeroIntegration,
+        builder: (context, state) => const XeroIntegrationScreen(),
       ),
       GoRoute(
         path: AppRoutes.calendar,
