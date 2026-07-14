@@ -26,7 +26,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   final _idNumberController = TextEditingController();
   final _contactNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
-  final _locationController = TextEditingController();
+  final _deathCertificateController = TextEditingController();
 
   final List<String> _stepTitles = [
     'Deceased',
@@ -59,7 +59,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _idNumberController.dispose();
     _contactNameController.dispose();
     _contactNumberController.dispose();
-    _locationController.dispose();
+    _deathCertificateController.dispose();
     super.dispose();
   }
 
@@ -167,6 +167,31 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           ),
           onChanged: (val) => _controller.deceasedIdentityNumber = val,
         ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _controller.causeOfDeath,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Cause of Death',
+            border: OutlineInputBorder(),
+          ),
+          items: _controller.causeOfDeathOptions
+              .map((option) => DropdownMenuItem<String>(
+                    value: option.description,
+                    child: Text(option.description),
+                  ))
+              .toList(),
+          onChanged: (value) => setState(() => _controller.causeOfDeath = value),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _deathCertificateController,
+          decoration: const InputDecoration(
+            labelText: 'Death Certificate Number',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => _controller.deathCertificateNo = value,
+        ),
       ],
     );
   }
@@ -227,10 +252,20 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           },
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: _locationController,
-          decoration: const InputDecoration(labelText: 'Funeral Location / Area', border: OutlineInputBorder()),
-          onChanged: (v) => _controller.funeralLocation = v,
+        DropdownButtonFormField<String>(
+          value: _controller.funeralLocation.isEmpty ? null : _controller.funeralLocation,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Funeral Location / Area',
+            border: OutlineInputBorder(),
+          ),
+          items: _controller.salesAreaOptions
+              .map((option) => DropdownMenuItem<String>(
+                    value: option.description,
+                    child: Text(option.description),
+                  ))
+              .toList(),
+          onChanged: (value) => setState(() => _controller.funeralLocation = value ?? ''),
         ),
       ],
     );
@@ -565,7 +600,15 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         return;
       }
       if (_controller.deceasedIdentityNumber.isEmpty) {
-        _controller.errorMessage = 'Identity number is required for the membership check step.';
+        setState(() => _controller.errorMessage = 'Identity number is required for the membership check step.');
+        return;
+      }
+      if (_controller.causeOfDeath == null || _controller.causeOfDeath!.isEmpty) {
+        setState(() => _controller.errorMessage = 'Please select the cause of death.');
+        return;
+      }
+      if (_controller.deathCertificateNo.trim().isEmpty) {
+        setState(() => _controller.errorMessage = 'Death Certificate Number is required.');
         return;
       }
       _controller.errorMessage = null;
@@ -578,7 +621,11 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       _controller.nextStep();
     } else if (_controller.currentStep == 2) {
       if (_controller.familyRepPartnerId == null) {
-        _controller.errorMessage = 'Please search and select a family representative.';
+        setState(() => _controller.errorMessage = 'Please search and select a family representative.');
+        return;
+      }
+      if (_controller.funeralLocation.trim().isEmpty) {
+        setState(() => _controller.errorMessage = 'Please select the Funeral Location / Area.');
         return;
       }
       _controller.errorMessage = null;

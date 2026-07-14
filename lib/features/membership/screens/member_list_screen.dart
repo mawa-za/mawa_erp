@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/models/paginated_response.dart';
+import '../../../core/routing/app_routes.dart';
 import '../models/membership.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/models/partner.dart';
 import 'add_member_screen.dart';
-import '../../partners/screens/partner_detail_screen.dart';
 
 class MemberListScreen extends StatefulWidget {
   const MemberListScreen({super.key});
@@ -413,9 +414,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: membership.memberId, title: 'Member Details', isMemberContext: true)),
-            );
+            await context.push('${AppRoutes.memberships}/${membership.id}');
             _fetchInitialData();
           },
           borderRadius: BorderRadius.circular(20),

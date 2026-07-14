@@ -1,12 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/api_client.dart';
+
 import '../../../core/models/field_option.dart';
-import '../../../core/models/user.dart';
 import '../../../core/services/field_service.dart';
-import '../../../core/services/user_service.dart';
+import '../../../core/widgets/partner_search_dropdown.dart';
+import '../../partners/models/partner.dart';
 import '../services/leave_service.dart';
 
 class LeaveRequestCreateScreen extends StatefulWidget {
@@ -20,17 +18,17 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _service = LeaveService();
   final _fieldService = FieldService();
-  final _userService = UserService();
 
   bool _isLoadingOptions = true;
   bool _isSubmitting = false;
+  String? _optionsError;
 
   String? _selectedLeaveType;
-  User? _selectedEmployee;
-  User? _selectedApprover;
+  Partner? _selectedEmployee;
+  Partner? _selectedApprover;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 1));
-  final _daysController = TextEditingController(text: '1');
+  final _daysController = TextEditingController(text: '2');
 
   List<FieldOption> _leaveTypeOptions = [];
 
@@ -40,46 +38,48 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
     _loadOptions();
   }
 
+  @override
+  void dispose() {
+    _daysController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadOptions() async {
     try {
       final types = await _fieldService.getOptionsByField('LEAVE-TYPE');
+      if (!mounted) return;
       setState(() {
         _leaveTypeOptions = types;
-        if (_leaveTypeOptions.isNotEmpty) _selectedLeaveType = _leaveTypeOptions.first.code;
+        _selectedLeaveType = types.isEmpty ? null : types.first.code;
+        _optionsError = types.isEmpty ? 'No LEAVE-TYPE field options are configured.' : null;
         _isLoadingOptions = false;
       });
     } catch (e) {
-      debugPrint('Error loading options: $e');
-      setState(() => _isLoadingOptions = false);
+      if (!mounted) return;
+      setState(() {
+        _optionsError = 'Unable to load leave types: $e';
+        _isLoadingOptions = false;
+      });
     }
   }
 
   void _calculateDays() {
     final difference = _endDate.difference(_startDate).inDays;
-    setState(() {
-      _daysController.text = (difference + 1).toString();
-    });
-  }
-
-  Future<List<User>> _searchUsers(String query) async {
-    try {
-      final users = await _userService.getUsers();
-      if (query.isEmpty) return users;
-      return users.where((u) =>
-        u.username.toLowerCase().contains(query.toLowerCase()) ||
-        (u.email?.toLowerCase().contains(query.toLowerCase()) ?? false)
-      ).toList();
-    } catch (e) {
-      return [];
-    }
+    _daysController.text = (difference + 1).clamp(1, 9999).toString();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedLeaveType == null || _selectedLeaveType!.isEmpty) {
+      _showError('Please select a leave type.');
+      return;
+    }
     if (_selectedEmployee == null || _selectedApprover == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select employee and approver')),
-      );
+      _showError('Please select the employee and approver.');
+      return;
+    }
+    if (_endDate.isBefore(_startDate)) {
+      _showError('End Date cannot be before Start Date.');
       return;
     }
 
@@ -89,33 +89,36 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
         'type': _selectedLeaveType,
         'employee': _selectedEmployee!.id,
         'approver': _selectedApprover!.id,
-        'startDate': _startDate.toIso8601String(),
-        'endDate': _endDate.toIso8601String(),
+        'startDate': DateFormat('yyyy-MM-dd').format(_startDate),
+        'endDate': DateFormat('yyyy-MM-dd').format(_endDate),
         'days': double.tryParse(_daysController.text) ?? 0.0,
       };
 
       await _service.createLeaveRequest(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Leave request submitted successfully'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Leave request created successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) _showError('Unable to create leave request: $e');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -130,34 +133,73 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (_optionsError != null) ...[
+                    Card(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline),
+                            const SizedBox(width: 12),
+                            Expanded(child: Text(_optionsError!)),
+                            IconButton(onPressed: _loadOptions, icon: const Icon(Icons.refresh)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   _buildSectionCard(
                     title: 'LEAVE DETAILS',
                     children: [
                       DropdownButtonFormField<String>(
                         value: _selectedLeaveType,
-                        decoration: const InputDecoration(labelText: 'Leave Type', border: OutlineInputBorder()),
-                        items: _leaveTypeOptions.map((opt) => DropdownMenuItem(value: opt.code, child: Text(opt.description))).toList(),
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Leave Type',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _leaveTypeOptions
+                            .map((opt) => DropdownMenuItem(
+                                  value: opt.code,
+                                  child: Text(opt.description),
+                                ))
+                            .toList(),
+                        validator: (value) => value == null || value.isEmpty ? 'Select a leave type' : null,
                         onChanged: (val) => setState(() => _selectedLeaveType = val),
                       ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Expanded(child: _buildDatePicker('Start Date', _startDate, (d) {
-                            setState(() => _startDate = d);
-                            _calculateDays();
-                          })),
+                          Expanded(
+                            child: _buildDatePicker('Start Date', _startDate, (date) {
+                              setState(() {
+                                _startDate = date;
+                                if (_endDate.isBefore(date)) _endDate = date;
+                                _calculateDays();
+                              });
+                            }),
+                          ),
                           const SizedBox(width: 16),
-                          Expanded(child: _buildDatePicker('End Date', _endDate, (d) {
-                            setState(() => _endDate = d);
-                            _calculateDays();
-                          })),
+                          Expanded(
+                            child: _buildDatePicker('End Date', _endDate, (date) {
+                              setState(() {
+                                _endDate = date;
+                                _calculateDays();
+                              });
+                            }),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _daysController,
-                        decoration: const InputDecoration(labelText: 'Total Days', border: OutlineInputBorder()),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Total Days',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                     ],
                   ),
@@ -165,19 +207,33 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
                   _buildSectionCard(
                     title: 'PERSONNEL',
                     children: [
-                      _buildUserSearch('Employee', _selectedEmployee, (u) => setState(() => _selectedEmployee = u)),
+                      PartnerSearchDropdown(
+                        role: 'EMPLOYEE',
+                        label: 'Select Employee',
+                        onPartnerSelected: (partner) => _selectedEmployee = partner,
+                        validator: (partner) => partner == null ? 'Select an employee' : null,
+                      ),
                       const SizedBox(height: 16),
-                      _buildUserSearch('Approver', _selectedApprover, (u) => setState(() => _selectedApprover = u)),
+                      PartnerSearchDropdown(
+                        role: 'EMPLOYEE',
+                        label: 'Select Approver',
+                        onPartnerSelected: (partner) => _selectedApprover = partner,
+                        validator: (partner) => partner == null ? 'Select an approver' : null,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 32),
                   SizedBox(
                     height: 50,
                     child: FilledButton(
-                      onPressed: _isSubmitting ? null : _submit,
+                      onPressed: _isSubmitting || _leaveTypeOptions.isEmpty ? null : _submit,
                       child: _isSubmitting
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('SUBMIT REQUEST'),
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text('CREATE REQUEST'),
                     ),
                   ),
                 ],
@@ -189,13 +245,24 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
   Widget _buildSectionCard({required String title, required List<Widget> children}) {
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                letterSpacing: 1,
+              ),
+            ),
             const SizedBox(height: 16),
             ...children,
           ],
@@ -204,7 +271,7 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
     );
   }
 
-  Widget _buildDatePicker(String label, DateTime date, Function(DateTime) onPicked) {
+  Widget _buildDatePicker(String label, DateTime date, ValueChanged<DateTime> onPicked) {
     return InkWell(
       onTap: () async {
         final picked = await showDatePicker(
@@ -216,39 +283,13 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
         if (picked != null) onPicked(picked);
       },
       child: InputDecorator(
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
         child: Text(DateFormat('yyyy-MM-dd').format(date)),
       ),
-    );
-  }
-
-  Widget _buildUserSearch(String label, User? selected, Function(User?) onSelected) {
-    return SearchAnchor(
-      builder: (context, controller) {
-        return TextField(
-          controller: controller,
-          onTap: () => controller.openView(),
-          readOnly: true,
-          decoration: InputDecoration(
-            labelText: label,
-            hintText: selected?.username ?? 'Select $label',
-            prefixIcon: const Icon(Icons.person_outline),
-            border: const OutlineInputBorder(),
-            suffixIcon: selected != null ? IconButton(icon: const Icon(Icons.clear), onPressed: () => onSelected(null)) : null,
-          ),
-        );
-      },
-      suggestionsBuilder: (context, controller) async {
-        final users = await _searchUsers(controller.text);
-        return users.map((u) => ListTile(
-          title: Text(u.username),
-          subtitle: Text(u.email ?? ''),
-          onTap: () {
-            onSelected(u);
-            controller.closeView(u.username);
-          },
-        )).toList();
-      },
     );
   }
 }
