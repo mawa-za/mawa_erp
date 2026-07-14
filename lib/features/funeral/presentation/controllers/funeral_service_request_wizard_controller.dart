@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/models/field_option.dart';
+import '../../../../core/services/field_service.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/mortuary_inventory_dto.dart';
 import '../../data/models/funeral_package_dto.dart';
@@ -13,6 +15,7 @@ import '../../data/models/approve_funeral_claim_request_dto.dart';
 
 class FuneralServiceRequestWizardController extends ChangeNotifier {
   final FuneralApi _api = FuneralApi();
+  final FieldService _fieldService = FieldService();
 
   int currentStep = 0;
   bool isLoading = false;
@@ -22,6 +25,9 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<MortuaryInventoryDto> inventory = [];
   MortuaryInventoryDto? selectedDeceased;
   String deceasedIdentityNumber = '';
+  String deathCertificateNo = '';
+  String? causeOfDeath;
+  List<FieldOption> causeOfDeathOptions = [];
 
   // Step 2: Family Rep & Funeral Info
   String? familyRepPartnerId;
@@ -30,6 +36,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   String contactNumber = '';
   DateTime funeralDate = DateTime.now().add(const Duration(days: 3));
   String funeralLocation = '';
+  List<FieldOption> salesAreaOptions = [];
 
   // Step 3: Package & Extras
   List<FuneralPackageDto> packages = [];
@@ -58,9 +65,13 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       final results = await Future.wait([
         _api.getMortuaryInventory(),
         _api.getFuneralPackages(),
+        _fieldService.getOptionsByField('CAUSE-OF-DEATH'),
+        _fieldService.getOptionsByField('SALES-AREA'),
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
+      causeOfDeathOptions = results[2] as List<FieldOption>;
+      salesAreaOptions = results[3] as List<FieldOption>;
     } catch (e) {
       errorMessage = 'Failed to load initial data: $e';
     } finally {
@@ -96,7 +107,13 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   Future<bool> createServiceRequest() async {
-    if (selectedDeceased == null || familyRepPartnerId == null || selectedPackage == null) {
+    if (selectedDeceased == null ||
+        familyRepPartnerId == null ||
+        selectedPackage == null ||
+        deathCertificateNo.trim().isEmpty ||
+        causeOfDeath == null ||
+        causeOfDeath!.trim().isEmpty ||
+        funeralLocation.trim().isEmpty) {
       errorMessage = 'Please complete all required fields';
       notifyListeners();
       return false;
@@ -110,6 +127,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         mortuaryInventoryId: selectedDeceased!.id,
         deceasedName: selectedDeceased!.deceasedName,
         deceasedIdentityNumber: deceasedIdentityNumber,
+        deathCertificateNo: deathCertificateNo.trim(),
+        causeOfDeath: causeOfDeath!,
         funeralDate: funeralDate,
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
         familyRepPartnerId: familyRepPartnerId!,

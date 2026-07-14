@@ -6,6 +6,8 @@ class FuneralServiceRequestDto {
   final String mortuaryInventoryId;
   final String deceasedName;
   final String deceasedIdentityNumber;
+  final String deathCertificateNo;
+  final String causeOfDeath;
   final DateTime funeralDate;
   final String funeralLocation;
   final String familyRepPartnerId;
@@ -20,6 +22,8 @@ class FuneralServiceRequestDto {
     required this.mortuaryInventoryId,
     required this.deceasedName,
     required this.deceasedIdentityNumber,
+    required this.deathCertificateNo,
+    required this.causeOfDeath,
     required this.funeralDate,
     required this.funeralLocation,
     required this.familyRepPartnerId,
@@ -36,7 +40,9 @@ class FuneralServiceRequestDto {
       'mortuaryInventoryId': mortuaryInventoryId,
       'deceasedName': deceasedName,
       'deceasedIdentityNumber': deceasedIdentityNumber,
-      'funeralDate': funeralDate.toIso8601String(),
+      'deathCertificateNo': deathCertificateNo,
+      'causeOfDeath': causeOfDeath,
+      'funeralDate': funeralDate.toIso8601String().substring(0, 10),
       // Backend DTO uses funeralArea/familyRepId. Keep the existing Flutter names too
       // for backwards compatibility with older builds/endpoints.
       'funeralArea': funeralLocation,
@@ -57,6 +63,8 @@ class FuneralServiceRequestDto {
       mortuaryInventoryId: json['mortuaryInventoryId']?.toString() ?? '',
       deceasedName: json['deceasedName']?.toString() ?? '',
       deceasedIdentityNumber: json['deceasedIdentityNumber']?.toString() ?? '',
+      deathCertificateNo: (json['deathCertificateNo'] ?? json['deathCertificateNumber'] ?? json['certificateNumber'] ?? '').toString(),
+      causeOfDeath: json['causeOfDeath']?.toString() ?? '',
       funeralDate: _parseDateTime(json['funeralDate']),
       funeralLocation: (json['funeralLocation'] ?? json['funeralArea'] ?? '').toString(),
       familyRepPartnerId: (json['familyRepPartnerId'] ?? json['familyRepId'] ?? '').toString(),
