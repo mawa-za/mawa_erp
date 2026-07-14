@@ -196,6 +196,12 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       if (identity.contains('MEMBER')) return AppRoutes.memberships;
     }
 
+
+    if (group == FeatureGroupRegistry.normalize('partner-management')) {
+      if (identity.contains('LEAVE')) return AppRoutes.employeeRequests;
+      if (identity.contains('EMPLOY')) return AppRoutes.employment;
+    }
+
     if (group == FeatureGroupRegistry.normalize('sales-management')) {
       if (identity.contains('CUSTOMER') || identity.contains('CLIENT')) {
         return '/partners/CUSTOMER';
@@ -219,6 +225,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     }
 
     if (group == FeatureGroupRegistry.normalize('inventory')) {
+      if (identity.contains('ASSET')) return AppRoutes.assetRegister;
       if (identity.contains('PRODUCT')) return AppRoutes.products;
       if (identity.contains('QUOT')) return AppRoutes.inventoryQuotations;
       if (identity.contains('PURCHASE') && identity.contains('ORDER')) {
@@ -260,7 +267,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     if (lower.contains('calendar') || lower.contains('appointment')) return Icons.event_available_outlined;
     if (lower.contains('customer') || lower.contains('client') || lower.contains('partner')) return Icons.people_alt_outlined;
     if (lower.contains('supplier')) return Icons.local_shipping_outlined;
-    if (lower.contains('employee')) return Icons.badge_outlined;
+    if (lower.contains('asset')) return Icons.precision_manufacturing_outlined;
+    if (lower.contains('employee') || lower.contains('employment')) return Icons.badge_outlined;
     if (lower.contains('setting') || lower.contains('config')) return Icons.settings_outlined;
     if (lower.contains('api') || lower.contains('queue')) return Icons.integration_instructions_outlined;
     return Icons.apps_outlined;

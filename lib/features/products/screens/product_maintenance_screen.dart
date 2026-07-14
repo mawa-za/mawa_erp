@@ -293,6 +293,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
                                       Text('Code: ${product.code}'),
                                       Text('Type: ${_optionLabel(product.type)}'),
                                       Text('UOM: ${_optionLabel(product.baseUnitOfMeasure)}'),
+                                      if (product.barcodes.isNotEmpty) Text('Barcode: ${product.barcodes.first}'),
                                     ],
                                   ),
                                 ),
@@ -426,6 +427,7 @@ class _ProductDialogState extends State<_ProductDialog> {
   late final TextEditingController _codeController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _priceController;
+  late final TextEditingController _barcodesController;
   String? _typeCode;
   String? _uomCode;
   String? _pricingTypeCode;
@@ -440,6 +442,7 @@ class _ProductDialogState extends State<_ProductDialog> {
     _codeController = TextEditingController(text: product?.code ?? '');
     _descriptionController = TextEditingController(text: product?.description ?? '');
     _priceController = TextEditingController(text: product == null || product.price == 0 ? '' : product.price.toStringAsFixed(2));
+    _barcodesController = TextEditingController(text: product?.barcodes.join(', ') ?? '');
     _typeCode = _resolveCode(product?.type?.code, widget.productTypes, fallback: widget.productTypes.isNotEmpty ? widget.productTypes.first.code : 'GENERAL');
     _uomCode = _resolveCode(product?.baseUnitOfMeasure?.code, widget.uoms, fallback: widget.uoms.isNotEmpty ? widget.uoms.first.code : 'EA');
     _pricingTypeCode = _resolveCode(product?.pricingType, widget.pricingTypes, fallback: 'SELLING-PRICE');
@@ -450,6 +453,7 @@ class _ProductDialogState extends State<_ProductDialog> {
     _codeController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _barcodesController.dispose();
     super.dispose();
   }
 
@@ -467,9 +471,11 @@ class _ProductDialogState extends State<_ProductDialog> {
     setState(() => _isSaving = true);
     try {
       final price = double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0;
+      String productId;
       if (_isEditing) {
+        productId = widget.product!.id;
         await widget.service.updateProduct(
-          id: widget.product!.id,
+          id: productId,
           code: _codeController.text,
           description: _descriptionController.text,
           type: _typeCode ?? 'GENERAL',
@@ -478,7 +484,7 @@ class _ProductDialogState extends State<_ProductDialog> {
           pricingType: _pricingTypeCode ?? 'SELLING-PRICE',
         );
       } else {
-        await widget.service.createProduct(
+        final created = await widget.service.createProduct(
           code: _codeController.text,
           description: _descriptionController.text,
           type: _typeCode ?? 'GENERAL',
@@ -486,7 +492,15 @@ class _ProductDialogState extends State<_ProductDialog> {
           price: price,
           pricingType: _pricingTypeCode ?? 'SELLING-PRICE',
         );
+        productId = created.id;
       }
+      final barcodes = _barcodesController.text
+          .split(RegExp(r'[,;\n]'))
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList();
+      await widget.service.replaceBarcodes(productId, barcodes);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -520,6 +534,17 @@ class _ProductDialogState extends State<_ProductDialog> {
                   textCapitalization: TextCapitalization.characters,
                   decoration: const InputDecoration(labelText: 'Description'),
                   validator: (value) => value == null || value.trim().isEmpty ? 'Description is required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _barcodesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Barcodes',
+                    hintText: 'Scan or enter one or more barcodes, separated by commas',
+                    prefixIcon: Icon(Icons.qr_code_scanner),
+                  ),
+                  minLines: 1,
+                  maxLines: 3,
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(

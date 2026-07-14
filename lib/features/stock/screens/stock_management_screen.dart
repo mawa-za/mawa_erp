@@ -50,43 +50,122 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait<dynamic>([
-        _service.dashboard(),
-        _service.quotations(),
-        _service.purchaseOrders(),
-        _service.stock(),
-        _service.warehouses(),
-        _service.storageLocations(),
-        _service.goodsReceipts(),
-        _service.putaways(),
-        _service.movements(),
-        _service.salesOrders(),
-        _service.audit(),
-        _loadVisibleCards(),
-      ]);
+      List<_InventoryCardDefinition> cards;
+      try {
+        cards = await _loadVisibleCards();
+      } catch (_) {
+        // The backend still protects every operation. A stale role-workcenter
+        // response must not make a valid deep-linked inventory tile unusable.
+        cards = List<_InventoryCardDefinition>.from(_inventoryCardCatalog);
+      }
+
+      final requested = _requestedSection();
+      if (requested != null && !cards.any((card) => card.section == requested)) {
+        cards.add(_inventoryCardCatalog.firstWhere((card) => card.section == requested));
+      }
+      if (cards.isEmpty && widget.initialSection == null) {
+        cards = List<_InventoryCardDefinition>.from(_inventoryCardCatalog);
+      }
+
       if (!mounted) return;
-      final cards = List<_InventoryCardDefinition>.from(results[11] as List);
       setState(() {
-        _dashboard = Map<String, dynamic>.from(results[0] as Map);
-        _quotations = List<Map<String, dynamic>>.from(results[1] as List);
-        _purchaseOrders = List<Map<String, dynamic>>.from(results[2] as List);
-        _stock = List<Map<String, dynamic>>.from(results[3] as List);
-        _warehouses = List<Map<String, dynamic>>.from(results[4] as List);
-        _locations = List<Map<String, dynamic>>.from(results[5] as List);
-        _receipts = List<Map<String, dynamic>>.from(results[6] as List);
-        _putaways = List<Map<String, dynamic>>.from(results[7] as List);
-        _movements = List<Map<String, dynamic>>.from(results[8] as List);
-        _salesOrders = List<Map<String, dynamic>>.from(results[9] as List);
-        _audit = List<Map<String, dynamic>>.from(results[10] as List);
         _visibleCards = cards;
-        if (_selectedSection != null && !_visibleCards.any((card) => card.section == _selectedSection)) {
+        _selectedSection ??= requested;
+      });
+
+      await _loadSectionData(_selectedSection ?? _InventorySection.dashboard);
+      if (!mounted) return;
+      setState(() {
+        _initialSectionApplied = true;
+        if (_selectedSection != null &&
+            !_visibleCards.any((card) => card.section == _selectedSection)) {
           _selectedSection = null;
         }
-        _applyInitialSectionIfNeeded();
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  _InventorySection? _requestedSection() {
+    final requested = widget.initialSection;
+    if (requested == null || requested.trim().isEmpty) return null;
+    final normalized = _normalize(requested);
+    for (final card in _inventoryCardCatalog) {
+      if (card.matchesSection(normalized)) return card.section;
+    }
+    return null;
+  }
+
+  Future<void> _loadSectionData(_InventorySection section) async {
+    switch (section) {
+      case _InventorySection.dashboard:
+        _dashboard = await _service.dashboard();
+        break;
+      case _InventorySection.quotations:
+        _quotations = await _service.quotations();
+        break;
+      case _InventorySection.purchaseOrders:
+        _purchaseOrders = await _service.purchaseOrders();
+        break;
+      case _InventorySection.stock:
+        _stock = await _service.stock();
+        break;
+      case _InventorySection.goodsReceipts:
+        _receipts = await _service.goodsReceipts();
+        final dependencies = await Future.wait<dynamic>([
+          _service.purchaseOrders().catchError((_) => <Map<String, dynamic>>[]),
+          _service.warehouses().catchError((_) => <Map<String, dynamic>>[]),
+          _service.storageLocations().catchError((_) => <Map<String, dynamic>>[]),
+        ]);
+        _purchaseOrders = List<Map<String, dynamic>>.from(dependencies[0] as List);
+        _warehouses = List<Map<String, dynamic>>.from(dependencies[1] as List);
+        _locations = List<Map<String, dynamic>>.from(dependencies[2] as List);
+        break;
+      case _InventorySection.putaways:
+        _putaways = await _service.putaways();
+        final dependencies = await Future.wait<dynamic>([
+          _service.goodsReceipts().catchError((_) => <Map<String, dynamic>>[]),
+          _service.warehouses().catchError((_) => <Map<String, dynamic>>[]),
+          _service.storageLocations().catchError((_) => <Map<String, dynamic>>[]),
+        ]);
+        _receipts = List<Map<String, dynamic>>.from(dependencies[0] as List);
+        _warehouses = List<Map<String, dynamic>>.from(dependencies[1] as List);
+        _locations = List<Map<String, dynamic>>.from(dependencies[2] as List);
+        break;
+      case _InventorySection.movements:
+        _movements = await _service.movements();
+        break;
+      case _InventorySection.salesOrders:
+        _salesOrders = await _service.salesOrders();
+        break;
+      case _InventorySection.audit:
+        _audit = await _service.audit();
+        break;
+      case _InventorySection.setup:
+        final setup = await Future.wait<dynamic>([
+          _service.warehouses(),
+          _service.storageLocations(),
+        ]);
+        _warehouses = List<Map<String, dynamic>>.from(setup[0] as List);
+        _locations = List<Map<String, dynamic>>.from(setup[1] as List);
+        break;
+    }
+  }
+
+  Future<void> _openSection(_InventorySection section) async {
+    setState(() {
+      _selectedSection = section;
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await _loadSectionData(section);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -278,7 +357,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () => setState(() => _selectedSection = card.section),
+        onTap: () => _openSection(card.section),
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

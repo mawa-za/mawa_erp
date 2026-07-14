@@ -207,7 +207,7 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
           }
           final claim = _claims[index];
           return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
             leading: CircleAvatar(
               child: Text(claim.claimType.isEmpty ? '?' : claim.claimType[0]),
             ),
@@ -215,9 +215,18 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
               claim.claimNo.isEmpty ? 'Membership claim' : claim.claimNo,
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
-            subtitle: Text(
-              '${claim.membershipId}\n${claim.claimDate}',
-              maxLines: 2,
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                [
+                  if (claim.memberName.isNotEmpty) 'Member: ${claim.memberName}',
+                  'Membership: ${claim.membershipNo.isNotEmpty ? claim.membershipNo : claim.membershipId}',
+                  if (claim.deceasedName.isNotEmpty) 'Deceased: ${claim.deceasedName}',
+                  '${claim.claimType.replaceAll('_', ' ')} • ${claim.claimDate}',
+                ].join('\n'),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             isThreeLine: true,
             trailing: Column(

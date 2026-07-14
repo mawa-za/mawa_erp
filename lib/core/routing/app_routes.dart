@@ -27,7 +27,9 @@ class AppRoutes {
   static const String appointments = '/appointments';
   static const String cashups = '/cashups';
   static const String paymentRequests = '/payment-requests';
+  static const String employment = '/employment';
   static const String employeeRequests = '/employee-requests';
+  static const String assetRegister = '/assets';
   static const String internalCommunications = '/internal-communications';
   static const String products = '/products';
   static const String membershipClaims = '/membership-claims';
