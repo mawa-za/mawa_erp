@@ -43,7 +43,6 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
         '/v2/admin-handoff/exchange',
         body: {'token': handoffToken},
         includeRole: false,
-        logoutOnUnauthorized: false,
       );
 
       if (response.statusCode != 200) {

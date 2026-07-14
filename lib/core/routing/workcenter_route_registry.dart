@@ -18,6 +18,12 @@ class WorkcenterRouteRegistry {
     'SYSTEM_SETTINGS': AppRoutes.settings,
     'SYSTEM_CONFIGURATION': AppRoutes.systemConfiguration,
     'SYSTEM_CONFIGURATIONS': AppRoutes.systemConfiguration,
+    'FNB_INTEGRATION': AppRoutes.fnbIntegration,
+    'FNB_INTEGRATION_ADMIN': AppRoutes.fnbIntegration,
+    'FNB_API': AppRoutes.fnbIntegration,
+    'XERO': AppRoutes.xeroIntegration,
+    'XERO_INTEGRATION': AppRoutes.xeroIntegration,
+    'XERO_INTEGRATION_ADMIN': AppRoutes.xeroIntegration,
     'CALENDAR': AppRoutes.calendar,
     'APPOINTMENT': AppRoutes.appointments,
     'APPOINTMENTS': AppRoutes.appointments,
@@ -118,6 +124,12 @@ class WorkcenterRouteRegistry {
     // common descriptive variants here so configured cards never fall back to
     // the old "feature coming soon" placeholder merely because a suffix such
     // as LIST, MANAGEMENT or DISPLAY was added.
+    if (normalized.contains('FNB') && normalized.contains('INTEGRATION')) {
+      return AppRoutes.fnbIntegration;
+    }
+    if (normalized.contains('XERO')) {
+      return AppRoutes.xeroIntegration;
+    }
     if (normalized.contains('FUNERAL') && normalized.contains('CLAIM')) {
       return AppRoutes.funeralAllClaims;
     }
