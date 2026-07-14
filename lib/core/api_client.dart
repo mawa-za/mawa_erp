@@ -185,6 +185,31 @@ class ApiClient {
         includeRole: includeRole,
       );
 
+  /// Sends a request without an existing ERP session. Used by short-lived
+  /// admin handoff exchange so a stale user token cannot interfere with it.
+  Future<http.Response> postPublic(
+    String path, {
+    dynamic body,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    final host = await _getApiHost();
+    if (host == null || host.isEmpty) {
+      throw Exception('API Host not configured');
+    }
+    final tenantId = (await _getTenantId() ?? '').trim();
+    return _execute(
+      'POST',
+      _buildUrl(host, path, queryParameters),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-TenantID': tenantId,
+        'X-Tenant-Id': tenantId,
+      },
+      body: body,
+    );
+  }
+
   Future<http.Response> put(
     String path, {
     dynamic body,
