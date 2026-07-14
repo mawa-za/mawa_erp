@@ -71,7 +71,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       // Add a default address
       _addresses.add(PartnerAddress(type: 'RESIDENTIAL', line1: '', city: '', state: '', postalCode: ''));
       if (widget.isMemberContext) {
-        _selectedRoles.add('CUSTOMER');
+        _selectedRoles.add('MEMBER');
       }
     }
   }

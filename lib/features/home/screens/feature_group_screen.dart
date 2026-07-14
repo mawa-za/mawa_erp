@@ -193,7 +193,17 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       if (identity.contains('GROUP') || identity.contains('SOCIET')) {
         return AppRoutes.groupSocieties;
       }
-      if (identity.contains('MEMBER')) return AppRoutes.memberships;
+
+      final memberIdentities = <String>{
+        FeatureGroupRegistry.normalize(workcenter.id),
+        FeatureGroupRegistry.normalize(workcenter.routeKey),
+        FeatureGroupRegistry.normalize(workcenter.description),
+      };
+      if (memberIdentities.contains('MEMBER') ||
+          memberIdentities.contains('MEMBERS')) {
+        return '/partners/MEMBER';
+      }
+      if (identity.contains('MEMBERSHIP')) return AppRoutes.memberships;
     }
 
 
