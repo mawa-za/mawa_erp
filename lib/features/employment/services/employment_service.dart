@@ -6,7 +6,7 @@ class EmploymentService {
   final ApiClient _api = ApiClient();
 
   Future<List<Map<String, dynamic>>> list({String? status, String? query}) async {
-    final response = await _api.get('/employment', queryParameters: {
+    final response = await _api.get('/v2/employment', queryParameters: {
       if (status != null && status != 'ALL') 'status': status,
     });
     if (response.statusCode != 200) {
@@ -38,7 +38,7 @@ class EmploymentService {
   }
 
   Future<String> hire(Map<String, dynamic> payload) async {
-    final response = await _api.post('/employment', body: payload);
+    final response = await _api.post('/v2/employment', body: payload);
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception('Failed to hire employee: ${response.body}');
     }
@@ -48,21 +48,21 @@ class EmploymentService {
   }
 
   Future<void> update(String id, Map<String, dynamic> payload) async {
-    final response = await _api.put('/employment/$id', body: payload);
+    final response = await _api.put('/v2/employment/$id', body: payload);
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to update employee record: ${response.body}');
     }
   }
 
   Future<void> terminate(String id) async {
-    final response = await _api.put('/employment/$id/terminate');
+    final response = await _api.put('/v2/employment/$id/terminate');
     if (response.statusCode != 200) {
       throw Exception('Failed to terminate employee: ${response.body}');
     }
   }
 
   Future<void> rehire(String id, {required String startDate, String? endDate}) async {
-    final response = await _api.put('/employment/$id/rehire', queryParameters: {
+    final response = await _api.put('/v2/employment/$id/rehire', queryParameters: {
       'startDate': startDate,
       if (endDate != null && endDate.isNotEmpty) 'endDate': endDate,
     });
