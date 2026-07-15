@@ -8,6 +8,7 @@ import 'api_log_list_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 import '../../integrations/fnb/fnb_integration_admin_screen.dart';
+import '../../admin/message_queue/message_queue_admin_screen.dart';
 import 'xero_integration_screen.dart';
 import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
@@ -52,6 +53,20 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.account_balance_wallet_outlined,
             color: Colors.blue,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const XeroIntegrationScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Message Queue Processing',
+            subtitle: 'Schedule, start, stop and monitor message queue processing',
+            icon: Icons.queue_outlined,
+            color: Colors.blueGrey,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MessageQueueAdminScreen(),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
