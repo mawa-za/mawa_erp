@@ -78,7 +78,10 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         );
 
         if (logoAttachment != null) {
-          final res = await ApiClient().get('/v2/attachment/${logoAttachment['id']}');
+          final res = await ApiClient().get(
+            '/v2/attachment/${logoAttachment['id']}',
+            accept: 'text/plain',
+          );
           if (res.statusCode == 200) {
             setState(() {
               _logoBase64 = res.body.replaceAll('"', '');
