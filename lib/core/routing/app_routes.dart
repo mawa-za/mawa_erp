@@ -23,6 +23,7 @@ class AppRoutes {
   static const String systemConfiguration = '/system-configuration';
   static const String fnbIntegration = '/system-configuration/fnb-integration';
   static const String xeroIntegration = '/system-configuration/xero-integration';
+  static const String messageQueueAdmin = '/admin/message-queue';
   static const String calendar = '/calendar';
   static const String appointments = '/appointments';
   static const String cashups = '/cashups';

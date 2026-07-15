@@ -25,6 +25,9 @@ class WorkcenterRouteRegistry {
     'XERO': AppRoutes.xeroIntegration,
     'XERO_INTEGRATION': AppRoutes.xeroIntegration,
     'XERO_INTEGRATION_ADMIN': AppRoutes.xeroIntegration,
+    'MESSAGE_QUEUE': AppRoutes.messageQueueAdmin,
+    'MESSAGE_QUEUE_ADMIN': AppRoutes.messageQueueAdmin,
+    'QUEUE_ADMIN': AppRoutes.messageQueueAdmin,
     'CALENDAR': AppRoutes.calendar,
     'APPOINTMENT': AppRoutes.appointments,
     'APPOINTMENTS': AppRoutes.appointments,
@@ -138,6 +141,9 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('XERO')) {
       return AppRoutes.xeroIntegration;
+    }
+    if (normalized.contains('MESSAGE') && normalized.contains('QUEUE')) {
+      return AppRoutes.messageQueueAdmin;
     }
     if (normalized.contains('FUNERAL') && normalized.contains('CLAIM')) {
       return AppRoutes.funeralAllClaims;
