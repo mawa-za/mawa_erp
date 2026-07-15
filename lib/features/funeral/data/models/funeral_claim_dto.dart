@@ -9,6 +9,7 @@ class FuneralClaimDto {
   final int approvedAmountCents;
   final ClaimStatus status;
   final CoverSource coverSource;
+  final String claimStorageScope;
   final String? sourceTenantName;
 
   FuneralClaimDto({
@@ -20,8 +21,11 @@ class FuneralClaimDto {
     required this.approvedAmountCents,
     required this.status,
     required this.coverSource,
+    this.claimStorageScope = 'LOCAL',
     this.sourceTenantName,
   });
+
+  bool get managedExternally => claimStorageScope == 'EXTERNAL';
 
   Map<String, dynamic> toJson() {
     return {
@@ -33,20 +37,25 @@ class FuneralClaimDto {
       'approvedAmountCents': approvedAmountCents,
       'status': status.name,
       'coverSource': coverSource.name,
+      'claimStorageScope': claimStorageScope,
       if (sourceTenantName != null) 'sourceTenantName': sourceTenantName,
     };
   }
 
   factory FuneralClaimDto.fromJson(Map<String, dynamic> json) {
     return FuneralClaimDto(
-      id: json['id']?.toString() ?? '',
-      claimNumber: json['claimNumber']?.toString(),
+      id: (json['id'] ?? json['membershipClaimId'])?.toString() ?? '',
+      claimNumber: (json['claimNumber'] ?? json['claimNo'])?.toString(),
       membershipNumber: json['membershipNumber']?.toString() ?? '',
-      burialSocietyName: json['burialSocietyName']?.toString() ?? '',
+      burialSocietyName: json['burialSocietyName']?.toString() ??
+          json['sourceTenantName']?.toString() ??
+          '',
       claimedAmountCents: json['claimedAmountCents'] as int? ?? 0,
       approvedAmountCents: json['approvedAmountCents'] as int? ?? 0,
       status: ClaimStatus.parse(json['status']),
       coverSource: CoverSource.parse(json['coverSource']),
+      claimStorageScope:
+          json['claimStorageScope']?.toString().toUpperCase() ?? 'LOCAL',
       sourceTenantName: json['sourceTenantName']?.toString(),
     );
   }

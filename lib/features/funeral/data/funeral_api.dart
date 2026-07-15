@@ -18,6 +18,9 @@ import 'models/funeral_invoice_preview_line_dto.dart';
 import 'models/generate_funeral_invoices_response_dto.dart';
 import 'models/invoice_payment_request_dto.dart';
 import 'models/funeral_payment_summary_dto.dart';
+import 'models/funeral_tenant_integration_configuration_dto.dart';
+import 'models/funeral_tenant_option_dto.dart';
+import 'models/tenant_trust_relationship_dto.dart';
 
 class FuneralApi {
   final ApiClient _apiClient = ApiClient();
@@ -130,6 +133,68 @@ class FuneralApi {
     throw Exception('Failed to check membership: ${response.body}');
   }
 
+  Future<FuneralTenantIntegrationConfigurationDto>
+      getTenantIntegrationConfiguration() async {
+    final response = await _apiClient.get('/v2/funeral/tenant-integration');
+    if (response.statusCode == 200) {
+      return FuneralTenantIntegrationConfigurationDto.fromJson(
+        Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+      );
+    }
+    throw Exception('Failed to load tenant integration: ${response.body}');
+  }
+
+  Future<FuneralTenantIntegrationConfigurationDto>
+      updateTenantIntegrationConfiguration(
+    FuneralTenantIntegrationConfigurationDto configuration,
+  ) async {
+    final response = await _apiClient.put(
+      '/v2/funeral/tenant-integration',
+      body: configuration.toJson(),
+    );
+    if (response.statusCode == 200) {
+      return FuneralTenantIntegrationConfigurationDto.fromJson(
+        Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+      );
+    }
+    throw Exception('Failed to save tenant integration: ${response.body}');
+  }
+
+  Future<List<FuneralTenantOptionDto>> getAvailableTenantOptions() async {
+    final response = await _apiClient.get(
+      '/v2/funeral/tenant-integration/available-tenants',
+    );
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map(
+            (item) => FuneralTenantOptionDto.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .where((tenant) => tenant.id.isNotEmpty)
+          .toList();
+    }
+    throw Exception('Failed to load tenants: ${response.body}');
+  }
+
+  Future<List<TenantTrustRelationshipDto>> getTrustedTenants() async {
+    final response = await _apiClient.get('/v2/funeral/trusted-tenants');
+    if (response.statusCode == 200) return _decodeList(response.body).map((e) => TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(e as Map))).toList();
+    throw Exception('Failed to load trusted tenants: ${response.body}');
+  }
+
+  Future<TenantTrustRelationshipDto> requestTrustedTenant(TenantTrustRelationshipDto request) async {
+    final response = await _apiClient.post('/v2/funeral/trusted-tenants', body: request.toJson());
+    if (response.statusCode == 200) return TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(jsonDecode(response.body) as Map));
+    throw Exception('Failed to request trusted tenant: ${response.body}');
+  }
+
+  Future<TenantTrustRelationshipDto> updateTrustedTenantStatus(String id, String status) async {
+    final response = await _apiClient.put('/v2/funeral/trusted-tenants/$id/status/$status');
+    if (response.statusCode == 200) return TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(jsonDecode(response.body) as Map));
+    throw Exception('Failed to update trusted tenant: ${response.body}');
+  }
+
   // Funeral Service and Claims
   Future<List<FuneralServiceRequestDto>> getServiceRequests({
     String? query,
@@ -165,7 +230,7 @@ class FuneralApi {
       '/v2/funeral/service-request/$serviceRequestId/initiate-claims',
       body: request.toJson(),
     );
-    if (response.statusCode != 200) {
+    if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception('Failed to initiate claims: ${response.body}');
     }
   }
