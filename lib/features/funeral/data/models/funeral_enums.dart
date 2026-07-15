@@ -54,8 +54,15 @@ enum ClaimStatus {
 
   static ClaimStatus parse(String? value) {
     if (value == null) return ClaimStatus.PENDING;
+    final normalized = value.trim().toUpperCase();
+    if (normalized == 'DRAFT' || normalized == 'SUBMITTED') {
+      return ClaimStatus.PENDING;
+    }
+    if (normalized == 'PAID') {
+      return ClaimStatus.APPROVED;
+    }
     return ClaimStatus.values.firstWhere(
-      (e) => e.name.toUpperCase() == value.toUpperCase(),
+      (e) => e.name.toUpperCase() == normalized,
       orElse: () => ClaimStatus.PENDING,
     );
   }

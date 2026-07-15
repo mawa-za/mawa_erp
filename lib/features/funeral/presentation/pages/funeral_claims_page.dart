@@ -79,7 +79,7 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
           ),
           ElevatedButton(
             onPressed: () {
-              final cents = (double.tryParse(amountController.text) ?? 0 * 100).toInt();
+              final cents = ((double.tryParse(amountController.text) ?? 0) * 100).round();
               Navigator.pop(context, ApproveFuneralClaimRequestDto(
                 approvedAmountCents: cents,
                 status: cents >= claim.claimedAmountCents ? ClaimStatus.APPROVED : ClaimStatus.PARTIALLY_APPROVED,
