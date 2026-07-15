@@ -168,7 +168,7 @@ class CaseTrustPdfService {
       final tenantId = prefs.getString('tenant');
       if (tenantId == null) return null;
 
-      final response = await ApiClient().get('/attachment?objectId=$tenantId');
+      final response = await ApiClient().get('/v2/attachment?objectId=$tenantId');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         final logoAttachment = data.firstWhere(
@@ -177,7 +177,10 @@ class CaseTrustPdfService {
         );
 
         if (logoAttachment != null) {
-          final res = await ApiClient().get('/attachment/${logoAttachment['id']}');
+          final res = await ApiClient().get(
+            '/v2/attachment/${logoAttachment['id']}',
+            accept: 'text/plain',
+          );
           if (res.statusCode == 200) {
             return res.body.replaceAll('"', '');
           }
