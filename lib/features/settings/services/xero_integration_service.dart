@@ -25,6 +25,7 @@ class XeroActivationResult {
   final String? clientSecretSecret;
   final String? refreshTokenSecret;
   final String? tenantIdSecret;
+  final String? accessTokenSecret;
   final String? redirectUrl;
   final String? selectedTenantId;
   final String? selectedTenantName;
@@ -38,6 +39,7 @@ class XeroActivationResult {
     this.clientSecretSecret,
     this.refreshTokenSecret,
     this.tenantIdSecret,
+    this.accessTokenSecret,
     this.redirectUrl,
     this.selectedTenantId,
     this.selectedTenantName,
@@ -53,6 +55,7 @@ class XeroActivationResult {
       clientSecretSecret: json['clientSecretSecret']?.toString(),
       refreshTokenSecret: json['refreshTokenSecret']?.toString(),
       tenantIdSecret: json['tenantIdSecret']?.toString(),
+      accessTokenSecret: json['accessTokenSecret']?.toString(),
       redirectUrl: json['redirectUrl']?.toString(),
       selectedTenantId: json['selectedTenantId']?.toString(),
       selectedTenantName: json['selectedTenantName']?.toString(),
@@ -66,6 +69,14 @@ class XeroIntegrationService {
   static final XeroIntegrationService _instance = XeroIntegrationService._internal();
   factory XeroIntegrationService() => _instance;
   XeroIntegrationService._internal();
+
+  Future<XeroActivationResult> secretNames() async {
+    final response = await ApiClient().get('/v2/integrations/xero/secret-names');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to retrieve Xero secret names: ${response.body}');
+    }
+    return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
 
   Future<XeroActivationResult> activate({
     required String clientId,

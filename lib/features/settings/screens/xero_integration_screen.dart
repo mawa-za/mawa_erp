@@ -27,6 +27,11 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   String? _selectedTenantId;
   String? _statusMessage;
   String? _authenticationUrl;
+  String? _clientIdSecretName;
+  String? _clientSecretSecretName;
+  String? _refreshTokenSecretName;
+  String? _tenantIdSecretName;
+  String? _accessTokenSecretName;
 
   @override
   void initState() {
@@ -35,7 +40,27 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     if (host.isNotEmpty) {
       _redirectUrlController.text = 'https://$host/xero/callback';
     }
+    _loadSecretNames();
     _loadConnections(showErrors: false);
+  }
+
+  Future<void> _loadSecretNames() async {
+    try {
+      final result = await _service.secretNames();
+      if (!mounted) return;
+      setState(() {
+        _clientIdSecretName = result.clientIdSecret;
+        _clientSecretSecretName = result.clientSecretSecret;
+        _refreshTokenSecretName = result.refreshTokenSecret;
+        _tenantIdSecretName = result.tenantIdSecret;
+        _accessTokenSecretName = result.accessTokenSecret;
+        if ((result.redirectUrl ?? '').trim().isNotEmpty) {
+          _redirectUrlController.text = result.redirectUrl!;
+        }
+      });
+    } catch (_) {
+      // The activation call still generates and returns the same fixed names.
+    }
   }
 
   @override
@@ -67,6 +92,11 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         _statusMessage = result.message;
         _authenticationUrl = result.authenticationUrl;
         _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _clientIdSecretName = result.clientIdSecret;
+        _clientSecretSecretName = result.clientSecretSecret;
+        _refreshTokenSecretName = result.refreshTokenSecret;
+        _tenantIdSecretName = result.tenantIdSecret;
+        _accessTokenSecretName = result.accessTokenSecret;
       });
 
       final authUrl = result.authenticationUrl;
@@ -228,6 +258,26 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Generated GCP Secret Names', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('These tenant-specific names are generated automatically and cannot be changed.'),
+                  const SizedBox(height: 12),
+                  _secretNameRow('Client ID', _clientIdSecretName),
+                  _secretNameRow('Client Secret', _clientSecretSecretName),
+                  _secretNameRow('Refresh Token', _refreshTokenSecretName),
+                  _secretNameRow('Access Token', _accessTokenSecretName),
+                  _secretNameRow('Xero Tenant ID', _tenantIdSecretName),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -358,6 +408,19 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _secretNameRow(String label, String? name) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 130, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600))),
+          Expanded(child: SelectableText((name ?? '').isEmpty ? 'Loading…' : name!)),
         ],
       ),
     );
