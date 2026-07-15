@@ -2,6 +2,8 @@ class ApiEndpointLog {
   final String id;
   final String? requestId;
   final String? userId;
+  final String direction;
+  final String? integrationName;
   final String? username;
   final String method;
   final String endpoint;
@@ -9,6 +11,8 @@ class ApiEndpointLog {
   final int statusCode;
   final String? requestIp;
   final String? userAgent;
+  final String? requestBody;
+  final String? responseBody;
   final int durationMs;
   final bool success;
   final String? errorMessage;
@@ -18,6 +22,8 @@ class ApiEndpointLog {
     required this.id,
     this.requestId,
     this.userId,
+    this.direction = 'INBOUND',
+    this.integrationName,
     this.username,
     required this.method,
     required this.endpoint,
@@ -25,6 +31,8 @@ class ApiEndpointLog {
     required this.statusCode,
     this.requestIp,
     this.userAgent,
+    this.requestBody,
+    this.responseBody,
     required this.durationMs,
     required this.success,
     this.errorMessage,
@@ -36,6 +44,8 @@ class ApiEndpointLog {
       id: (json['id'] ?? '').toString(),
       requestId: json['requestId']?.toString(),
       userId: json['userId']?.toString(),
+      direction: (json['direction'] ?? 'INBOUND').toString(),
+      integrationName: json['integrationName']?.toString(),
       username: json['username']?.toString(),
       method: (json['method'] ?? '').toString(),
       endpoint: (json['endpoint'] ?? '').toString(),
@@ -43,6 +53,8 @@ class ApiEndpointLog {
       statusCode: json['statusCode'] is int ? json['statusCode'] : int.tryParse(json['statusCode']?.toString() ?? '0') ?? 0,
       requestIp: json['requestIp']?.toString(),
       userAgent: json['userAgent']?.toString(),
+      requestBody: json['requestBody']?.toString(),
+      responseBody: json['responseBody']?.toString(),
       durationMs: json['durationMs'] is int ? json['durationMs'] : int.tryParse(json['durationMs']?.toString() ?? '0') ?? 0,
       success: json['success'] == true,
       errorMessage: json['errorMessage']?.toString(),
@@ -55,6 +67,8 @@ class ApiEndpointLog {
       'id': id,
       'requestId': requestId,
       'userId': userId,
+      'direction': direction,
+      'integrationName': integrationName,
       'username': username,
       'method': method,
       'endpoint': endpoint,
@@ -62,6 +76,8 @@ class ApiEndpointLog {
       'statusCode': statusCode,
       'requestIp': requestIp,
       'userAgent': userAgent,
+      'requestBody': requestBody,
+      'responseBody': responseBody,
       'durationMs': durationMs,
       'success': success,
       'errorMessage': errorMessage,
