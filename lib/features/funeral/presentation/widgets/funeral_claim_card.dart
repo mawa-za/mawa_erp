@@ -19,7 +19,8 @@ class FuneralClaimCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPending = claim.status == ClaimStatus.PENDING;
-    final isLocal = claim.coverSource == CoverSource.LOCAL_TENANT;
+    final isLocalCover = claim.coverSource == CoverSource.LOCAL_TENANT;
+    final managedExternally = claim.managedExternally;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -52,19 +53,19 @@ class FuneralClaimCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isLocal ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                    color: isLocalCover ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    isLocal ? 'Same Tenant' : 'External Tenant',
+                    isLocalCover ? 'Same Tenant' : 'External Tenant',
                     style: TextStyle(
-                      color: isLocal ? Colors.green : Colors.blue,
+                      color: isLocalCover ? Colors.green : Colors.blue,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                if (!isLocal && claim.sourceTenantName != null) ...[
+                if (!isLocalCover && claim.sourceTenantName != null) ...[
                   const SizedBox(width: 8),
                   Text('Source: ${claim.sourceTenantName}', style: const TextStyle(fontSize: 12)),
                 ],
@@ -94,7 +95,22 @@ class FuneralClaimCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (isPending && (onApprove != null || onReject != null)) ...[
+            if (isPending && managedExternally) ...[
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This claim is maintained and approved in the source membership tenant.',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (isPending && !managedExternally &&
+                (onApprove != null || onReject != null)) ...[
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,

@@ -412,7 +412,8 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       ),
                       trailing: FuneralStatusChip(status: claim.status),
                     ),
-                    if (claim.status == ClaimStatus.PENDING)
+                    if (claim.status == ClaimStatus.PENDING &&
+                        !claim.managedExternally)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -421,6 +422,22 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                             child: const Text('Review & Approve'),
                           ),
                         ],
+                      ),
+                    if (claim.status == ClaimStatus.PENDING &&
+                        claim.managedExternally)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 18),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Approval is managed in the source membership tenant.',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                 ),

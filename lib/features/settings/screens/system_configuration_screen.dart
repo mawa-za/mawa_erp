@@ -9,6 +9,7 @@ import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 import '../../integrations/fnb/fnb_integration_admin_screen.dart';
 import 'xero_integration_screen.dart';
+import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -104,6 +105,21 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.card_membership_outlined,
             color: Colors.teal,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Funeral Tenant Integration',
+            subtitle: 'Configure local and external membership and claim sources',
+            icon: Icons.hub_outlined,
+            color: Colors.deepPurple,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    const FuneralTenantIntegrationSetupPage(),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
