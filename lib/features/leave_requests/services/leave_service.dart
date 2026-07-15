@@ -12,7 +12,7 @@ class LeaveService {
   Future<List<LeaveRequest>> getLeaveRequests({String? status}) async {
     try {
       final response = await _apiClient.get(
-        '/leave-request',
+        '/v2/leave-request',
         queryParameters: {
           if (status != null) 'status': status,
         },
@@ -36,7 +36,7 @@ class LeaveService {
   }
 
   Future<LeaveRequest> getLeaveRequestById(String id) async {
-    final response = await _apiClient.get('/leave-request/$id');
+    final response = await _apiClient.get('/v2/leave-request/$id');
     if (response.statusCode == 200) {
       return LeaveRequest.fromJson(jsonDecode(response.body));
     }
@@ -44,7 +44,7 @@ class LeaveService {
   }
 
   Future<LeaveRequest> createLeaveRequest(Map<String, dynamic> data) async {
-    final response = await _apiClient.post('/leave-request', body: data);
+    final response = await _apiClient.post('/v2/leave-request', body: data);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return LeaveRequest.fromJson(jsonDecode(response.body));
     }
@@ -52,7 +52,7 @@ class LeaveService {
   }
 
   Future<LeaveRequest> updateLeaveRequest(String id, Map<String, dynamic> data) async {
-    final response = await _apiClient.put('/leave-request/$id', body: data);
+    final response = await _apiClient.put('/v2/leave-request/$id', body: data);
     if (response.statusCode == 200) {
       return LeaveRequest.fromJson(jsonDecode(response.body));
     }
@@ -60,35 +60,35 @@ class LeaveService {
   }
 
   Future<void> deleteLeaveRequest(String id) async {
-    final response = await _apiClient.delete('/leave-request/$id');
+    final response = await _apiClient.delete('/v2/leave-request/$id');
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Failed to delete leave request');
     }
   }
 
   Future<void> submitLeaveRequest(String id) async {
-    final response = await _apiClient.put('/leave-request/$id/submit');
+    final response = await _apiClient.put('/v2/leave-request/$id/submit');
     if (response.statusCode != 200) {
       throw Exception('Failed to submit leave request');
     }
   }
 
   Future<void> approveLeaveRequest(String id) async {
-    final response = await _apiClient.put('/leave-request/$id/approve');
+    final response = await _apiClient.put('/v2/leave-request/$id/approve');
     if (response.statusCode != 200) {
       throw Exception('Failed to approve leave request');
     }
   }
 
   Future<void> rejectLeaveRequest(String id) async {
-    final response = await _apiClient.put('/leave-request/$id/reject');
+    final response = await _apiClient.put('/v2/leave-request/$id/reject');
     if (response.statusCode != 200) {
       throw Exception('Failed to reject leave request');
     }
   }
 
   Future<void> cancelLeaveRequest(String id, Map<String, dynamic> data) async {
-    final response = await _apiClient.put('/leave-request/$id/cancel', body: data);
+    final response = await _apiClient.put('/v2/leave-request/$id/cancel', body: data);
     if (response.statusCode != 200) {
       throw Exception('Failed to cancel leave request');
     }

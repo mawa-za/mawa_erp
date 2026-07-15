@@ -398,8 +398,8 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
                   decoration: const InputDecoration(labelText: 'Employment Type'),
                   items: const [
                     DropdownMenuItem(value: 'PERMANENT', child: Text('Permanent')),
-                    DropdownMenuItem(value: 'TEMPORARY', child: Text('Temporary')),
-                    DropdownMenuItem(value: 'CONTRACT', child: Text('Contract')),
+                    DropdownMenuItem(value: 'TEMP', child: Text('Temporary')),
+                    DropdownMenuItem(value: 'FIXED-TERM', child: Text('Fixed-term Contract')),
                     DropdownMenuItem(value: 'CASUAL', child: Text('Casual')),
                   ],
                   onChanged: (v) => setState(() => _type = v ?? 'PERMANENT'),
