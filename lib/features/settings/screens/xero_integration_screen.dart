@@ -49,6 +49,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.secretNames();
       if (!mounted) return;
       setState(() {
+        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -134,12 +135,30 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       setState(() {
         _connections = connections;
+        if (connections.isEmpty) {
+          _invoiceIntegrationEnabled = false;
+          _selectedTenantId = null;
+        }
         _statusMessage = connections.isEmpty
             ? 'No authorised Xero organisations were found. Activate or reconnect Xero first.'
             : '${connections.length} Xero organisation${connections.length == 1 ? '' : 's'} available.';
       });
     } catch (error) {
-      if (showErrors && mounted) {
+      if (!mounted) return;
+      final reconnectRequired = error is XeroIntegrationException &&
+          error.reauthorisationRequired;
+      final message = error.toString().replaceFirst('Exception: ', '').trim();
+      setState(() {
+        _connections = const [];
+        _selectedTenantId = null;
+        if (reconnectRequired) {
+          _invoiceIntegrationEnabled = false;
+        }
+        _statusMessage = message.isEmpty
+            ? 'Unable to load Xero organisations. Activate or reconnect Xero.'
+            : message;
+      });
+      if (showErrors && !reconnectRequired) {
         _showError('Unable to load Xero organisations', error);
       }
     } finally {
