@@ -140,6 +140,7 @@ class ApiClient {
   Future<Map<String, String>> _getHeaders({
     bool includeRole = true,
     bool refreshIfNeeded = true,
+    String accept = 'application/json',
   }) async {
     if (refreshIfNeeded) {
       await ensureFreshAccessToken();
@@ -153,7 +154,7 @@ class ApiClient {
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      'Accept': accept,
       'X-TenantID': tenantId ?? '',
       'X-Tenant-Id': tenantId ?? '',
     };
@@ -242,12 +243,14 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? queryParameters,
     bool includeRole = true,
+    String accept = 'application/json',
   }) =>
       _send(
         'GET',
         path,
         queryParameters: queryParameters,
         includeRole: includeRole,
+        accept: accept,
       );
 
   Future<http.Response> delete(
@@ -268,6 +271,7 @@ class ApiClient {
     dynamic body,
     Map<String, dynamic>? queryParameters,
     required bool includeRole,
+    String accept = 'application/json',
   }) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) {
@@ -278,7 +282,10 @@ class ApiClient {
     var response = await _execute(
       method,
       url,
-      headers: await _getHeaders(includeRole: includeRole),
+      headers: await _getHeaders(
+        includeRole: includeRole,
+        accept: accept,
+      ),
       body: body,
     );
 
@@ -291,6 +298,7 @@ class ApiClient {
           headers: await _getHeaders(
             includeRole: includeRole,
             refreshIfNeeded: false,
+            accept: accept,
           ),
           body: body,
         );
