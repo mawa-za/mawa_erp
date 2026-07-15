@@ -20,6 +20,7 @@ import 'models/invoice_payment_request_dto.dart';
 import 'models/funeral_payment_summary_dto.dart';
 import 'models/funeral_tenant_integration_configuration_dto.dart';
 import 'models/funeral_tenant_option_dto.dart';
+import 'models/tenant_trust_relationship_dto.dart';
 
 class FuneralApi {
   final ApiClient _apiClient = ApiClient();
@@ -174,6 +175,24 @@ class FuneralApi {
           .toList();
     }
     throw Exception('Failed to load tenants: ${response.body}');
+  }
+
+  Future<List<TenantTrustRelationshipDto>> getTrustedTenants() async {
+    final response = await _apiClient.get('/v2/funeral/trusted-tenants');
+    if (response.statusCode == 200) return _decodeList(response.body).map((e) => TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(e as Map))).toList();
+    throw Exception('Failed to load trusted tenants: ${response.body}');
+  }
+
+  Future<TenantTrustRelationshipDto> requestTrustedTenant(TenantTrustRelationshipDto request) async {
+    final response = await _apiClient.post('/v2/funeral/trusted-tenants', body: request.toJson());
+    if (response.statusCode == 200) return TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(jsonDecode(response.body) as Map));
+    throw Exception('Failed to request trusted tenant: ${response.body}');
+  }
+
+  Future<TenantTrustRelationshipDto> updateTrustedTenantStatus(String id, String status) async {
+    final response = await _apiClient.put('/v2/funeral/trusted-tenants/$id/status/$status');
+    if (response.statusCode == 200) return TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(jsonDecode(response.body) as Map));
+    throw Exception('Failed to update trusted tenant: ${response.body}');
   }
 
   // Funeral Service and Claims
