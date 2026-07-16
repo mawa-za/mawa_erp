@@ -13,6 +13,7 @@ import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../../payments/screens/payment_request_detail_screen.dart';
+import '../../tombstones/screens/tombstone_order_detail_screen.dart';
 
 class MembershipClaimDetailScreen extends StatefulWidget {
   final String claimId;
@@ -26,7 +27,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   final MembershipService _membershipService = MembershipService();
   final PartnerService _partnerService = PartnerService();
   final ApprovalService _approvalService = ApprovalService();
-  
+
   late TabController _tabController;
   MembershipClaim? _claim;
   Partner? _deceasedPartner;
@@ -54,7 +55,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       final results = await Future.wait([
         _partnerService.getPartnerById(claim.deceasedPartnerId).catchError((_) => null),
         _partnerService.getPartnerById(claim.claimantPartnerId).catchError((_) => null),
-        if (claim.membershipId.isNotEmpty) 
+        if (claim.membershipId.isNotEmpty)
           _membershipService.getMembershipDetail(claim.membershipId).catchError((_) => null)
         else Future.value(null)
       ]);
@@ -113,7 +114,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         );
 
         await _approvalService.submitApproval(submission);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -172,16 +173,16 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           unselectedLabelColor: Colors.grey,
         ),
       ),
-      body: (_isLoading || _isSubmitting) 
-          ? const Center(child: CircularProgressIndicator()) 
-          : _error != null 
-              ? _buildErrorWidget(colorScheme) 
+      body: (_isLoading || _isSubmitting)
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _buildErrorWidget(colorScheme)
               : TabBarView(
                   controller: _tabController,
                   children: [
                     _buildDetailsTab(colorScheme),
                     SingleChildScrollView(
-                      padding: const EdgeInsets.all(24), 
+                      padding: const EdgeInsets.all(24),
                       child: _buildAttachmentContainer(),
                     ),
                   ],
@@ -202,20 +203,20 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => _cancelClaim(), 
+              onPressed: () => _cancelClaim(),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red,
                 side: const BorderSide(color: Colors.red),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-              ), 
+              ),
               child: const Text('CANCEL DRAFT', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: FilledButton(
-              onPressed: _submitClaim, 
+              onPressed: _submitClaim,
               style: FilledButton.styleFrom(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -243,7 +244,12 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             const SizedBox(height: 20),
             _buildDisbursementCard(claim, colorScheme),
           ],
-          
+          if ((claim.claimType.toUpperCase() == 'TOMBSTONE' || claim.claimType.toUpperCase() == 'COMBINATION') &&
+              (claim.tombstoneOrderId?.isNotEmpty ?? false)) ...[
+            const SizedBox(height: 20),
+            _buildTombstoneSettlementCard(claim, colorScheme),
+          ],
+
           if (_membershipDetail != null) ...[
             const SizedBox(height: 32),
             Row(
@@ -260,7 +266,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             const SizedBox(height: 12),
             _buildMembershipCard(_membershipDetail!, colorScheme),
           ],
-          
+
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.people_outline, 'PEOPLE INVOLVED'),
           const SizedBox(height: 12),
@@ -269,7 +275,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             const SizedBox(height: 12),
             _buildPartnerCard('Claimant (Beneficiary)', _claimantPartner!, colorScheme),
           ],
-          
+
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.info_outline, 'CLAIM SPECIFICATIONS'),
           const SizedBox(height: 12),
@@ -281,14 +287,14 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   }
 
   Widget _buildStatusBanner(MembershipClaim claim, ColorScheme colorScheme) {
-    Color color; 
+    Color color;
     switch (claim.status.toUpperCase()) {
       case 'APPROVED': color = Colors.green; break;
       case 'PAYMENT_PENDING': color = Colors.orange; break;
       case 'PAYMENT_PROCESSING': color = Colors.blue; break;
       case 'PAYMENT_FAILED':
       case 'REJECTED': color = Colors.red; break;
-      case 'SUBMITTED': 
+      case 'SUBMITTED':
       case 'AWAITING-APPROVAL': color = Colors.orange; break;
       case 'PAID': color = Colors.teal; break;
       default: color = colorScheme.primary;
@@ -378,6 +384,49 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
                   ),
                   icon: const Icon(Icons.open_in_new_rounded, size: 16),
                   label: const Text('VIEW PAYMENT REQUEST'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTombstoneSettlementCard(MembershipClaim claim, ColorScheme colorScheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.account_balance_outlined, color: colorScheme.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('TOMBSTONE BENEFIT SETTLEMENT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.8)),
+                const SizedBox(height: 6),
+                const Text('The approved funeral-cover benefit was settled internally against a tombstone order. No cash payment is sent to the family for this allocation.'),
+                const SizedBox(height: 8),
+                Text('Order: ${claim.tombstoneOrderId}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                if (claim.settledAt?.isNotEmpty ?? false)
+                  Text('Settled: ${claim.settledAt}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TombstoneOrderDetailScreen(orderId: claim.tombstoneOrderId!),
+                    ),
+                  ),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: const Text('VIEW TOMBSTONE ORDER'),
                 ),
               ],
             ),
@@ -503,7 +552,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         const Spacer(),
         Flexible(
           child: Text(
-            value, 
+            value,
             textAlign: TextAlign.right,
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: valueColor ?? Colors.black87),
           ),
@@ -559,8 +608,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       ),
     );
   }
-  
-  Future<void> _cancelClaim() async { 
+
+  Future<void> _cancelClaim() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -570,7 +619,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('GO BACK')),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true), 
+            onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('CANCEL CLAIM'),
           ),
@@ -598,7 +647,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
        }
     }
   }
-  
+
   Future<void> _showEditDialog() async {
     // Navigate to create screen with existing data or implement a dialog
     // For now, let's just show a notification
