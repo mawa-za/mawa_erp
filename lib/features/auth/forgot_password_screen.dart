@@ -20,21 +20,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final email = _emailController.text.trim();
-      // The requirement says pass email query parameter.
-      // So the path would be /v2/forgot-password?email=...
-      final response = await ApiClient().post('/v2/forgot-password?email=$email');
+      final response = await ApiClient().postPublic(
+        '/v2/forgot-password',
+        body: {'email': email},
+      );
 
       if (response.statusCode == 200) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Password reset instructions sent to your email.')),
+            const SnackBar(
+              content: Text(
+                'If the email address is registered, password reset instructions will be sent.',
+              ),
+            ),
           );
           Navigator.of(context).pop();
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to request reset: ${response.statusCode}')),
+            const SnackBar(
+              content: Text('Unable to request a password reset. Please try again.'),
+            ),
           );
         }
       }
