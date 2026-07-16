@@ -258,6 +258,14 @@ class _UserListScreenState extends State<UserListScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
+            if (user.protectedUser) ...[
+              _buildMiniBadge('PROTECTED', Colors.green),
+              const SizedBox(width: 6),
+            ],
+            if (user.testUser) ...[
+              _buildMiniBadge('TEST', Colors.orange),
+              const SizedBox(width: 6),
+            ],
             _buildStatusBadge(user.status),
           ],
         ),
@@ -284,7 +292,7 @@ class _UserListScreenState extends State<UserListScreen> {
                 const Icon(Icons.badge_outlined, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
                 Text(
-                  user.type,
+                  '${user.type} • ${user.accountType}',
                   style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
               ],
@@ -299,6 +307,17 @@ class _UserListScreenState extends State<UserListScreen> {
           ).then((_) => _fetchUsers());
         },
       ),
+    );
+  }
+
+  Widget _buildMiniBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(text, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
     );
   }
 

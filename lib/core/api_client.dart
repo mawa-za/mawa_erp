@@ -443,6 +443,27 @@ class ApiClient {
     await prefs.remove('refreshToken');
     await prefs.remove('selectedRole');
     await prefs.remove('selectedRoleDescription');
+    await prefs.remove('adminHandoffSession');
+    for (final key in const [
+      'accountType',
+      'testUser',
+      'protectedUser',
+      'systemManaged',
+      'accessScope',
+      'environmentScope',
+      'externalTransactionsBlocked',
+      'accessExpiresAt',
+      'mfaRequired',
+      'platformSession',
+      'platformUserId',
+      'handoffId',
+      'accessReason',
+      'ticketReference',
+      'accessTenantId',
+      'allWorkcentres',
+    ]) {
+      await prefs.remove(key);
+    }
     _logoutController.add(sessionExpired);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/role.dart';
 import '../services/role_service.dart';
 import 'role_workcenter_assignment_screen.dart';
@@ -11,238 +12,269 @@ class RoleListScreen extends StatefulWidget {
 }
 
 class _RoleListScreenState extends State<RoleListScreen> {
-  final RoleService _roleService = RoleService();
-  bool _isLoading = true;
-  List<Role> _roles = [];
+  final RoleService _service = RoleService();
+  bool _loading = true;
   String? _error;
+  List<Role> _roles = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchRoles();
+    _load();
   }
 
-  Future<void> _fetchRoles() async {
+  Future<void> _load() async {
     setState(() {
-      _isLoading = true;
+      _loading = true;
       _error = null;
     });
     try {
-      final roles = await _roleService.getRoles();
-      if (mounted) {
-        setState(() {
-          _roles = roles;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
+      final roles = await _service.getRoles();
+      if (!mounted) return;
+      setState(() {
+        _roles = roles;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
     }
   }
 
-  Future<void> _showCreateRoleDialog() async {
-    final idController = TextEditingController();
-    final descController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+  Future<void> _edit([Role? existing]) async {
+    final idController = TextEditingController(text: existing?.id ?? '');
+    final descriptionController =
+        TextEditingController(text: existing?.description ?? '');
+    bool accessAll = existing?.accessAllWorkcentres ?? false;
+    bool protectedRole = existing?.protectedRole ?? false;
 
-    final bool? result = await showDialog<bool>(
+    final save = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create New Role'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: idController,
-                decoration: const InputDecoration(
-                  labelText: 'Role ID',
-                  hintText: 'e.g. MANAGER',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setLocalState) => AlertDialog(
+          title: Text(existing == null ? 'Create role' : 'Edit ${existing.id}'),
+          content: SizedBox(
+            width: 540,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: idController,
+                  enabled: existing == null,
+                  decoration: const InputDecoration(labelText: 'Role ID'),
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                textCapitalization: TextCapitalization.characters,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: descController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'e.g. Store Manager',
+                const SizedBox(height: 10),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-              ),
-            ],
+                SwitchListTile(
+                  value: accessAll,
+                  onChanged: existing?.systemRole == true ||
+                          existing?.protectedRole == true
+                      ? null
+                      : (value) =>
+                          setLocalState(() => accessAll = value),
+                  title: const Text(
+                    'Access all current and future workcentres',
+                  ),
+                ),
+                SwitchListTile(
+                  value: protectedRole,
+                  onChanged: existing?.systemRole == true
+                      ? null
+                      : (value) =>
+                          setLocalState(() => protectedRole = value),
+                  title: const Text('Protected role'),
+                  subtitle: const Text(
+                    'Cannot be deleted; removing the final protected '
+                    'assignment is blocked.',
+                  ),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Save'),
+            ),
+          ],
         ),
+      ),
+    );
+
+    if (save != true) return;
+
+    try {
+      final role = Role(
+        id: idController.text.trim().toUpperCase(),
+        description: descriptionController.text.trim(),
+        systemRole: existing?.systemRole ?? false,
+        protectedRole: protectedRole,
+        accessAllWorkcentres: accessAll,
+      );
+      if (existing == null) {
+        await _service.createRole(role);
+      } else {
+        await _service.updateRole(role);
+      }
+      await _load();
+    } catch (error) {
+      _show(error);
+    }
+  }
+
+  Future<void> _delete(Role role) async {
+    if (role.systemRole || role.protectedRole) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete role'),
+        content: Text('Delete ${role.id}?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, true);
-              }
-            },
-            child: const Text('CREATE'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
 
-    if (result == true) {
-      try {
-        await _roleService.createRole(Role(
-          id: idController.text.trim().toUpperCase(),
-          description: descController.text.trim(),
-        ));
-        _fetchRoles();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Role created successfully')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _deleteRole(Role role) async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Role'),
-        content: Text('Are you sure you want to delete the role "${role.id}"? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('DELETE'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      try {
-        await _roleService.deleteRole(role.id);
-        _fetchRoles();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Role deleted successfully')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-          );
-        }
-      }
+    if (confirmed != true) return;
+    try {
+      await _service.deleteRole(role.id);
+      await _load();
+    } catch (error) {
+      _show(error);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Role Management', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        title: const Text('Role Maintenance'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchRoles,
-          ),
+          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
-      body: _isLoading
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _edit(),
+        icon: const Icon(Icons.add),
+        label: const Text('ROLE'),
+      ),
+      body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: $_error', style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(onPressed: _fetchRoles, child: const Text('Retry')),
-                    ],
-                  ),
-                )
-              : _roles.isEmpty
-                  ? const Center(child: Text('No roles found'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _roles.length,
-                      itemBuilder: (context, index) {
-                        final role = _roles[index];
-                        return Card(
-                          elevation: 0,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.grey.shade200),
+              ? Center(child: Text(_error!))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _roles.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final role = _roles[index];
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Icon(
+                            role.accessAllWorkcentres
+                                ? Icons.all_inclusive
+                                : Icons.admin_panel_settings,
                           ),
-                          child: ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.admin_panel_settings_outlined),
+                        ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                role.id,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                            title: Text(role.id, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(role.description),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.settings_outlined),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => RoleWorkcenterAssignmentScreen(role: role),
-                                      ),
-                                    );
-                                  },
-                                  tooltip: 'Assign Workcenters',
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                  onPressed: () => _deleteRole(role),
-                                  tooltip: 'Delete Role',
-                                ),
-                              ],
+                            if (role.systemRole)
+                              _badge('SYSTEM', Colors.blue),
+                            if (role.protectedRole)
+                              _badge('PROTECTED', Colors.green),
+                            if (role.accessAllWorkcentres)
+                              _badge('ALL WORKCENTRES', Colors.purple),
+                          ],
+                        ),
+                        subtitle: Text(
+                          '${role.description}\n'
+                          '${role.accessAllWorkcentres ? 'Automatically includes future workcentres' : 'Configured through role workcentre maintenance'}',
+                        ),
+                        isThreeLine: true,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RoleWorkcenterAssignmentScreen(
+                              role: role,
                             ),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => RoleWorkcenterAssignmentScreen(role: role),
-                                ),
-                              );
-                            },
                           ),
-                        );
-                      },
-                    ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateRoleDialog,
-        child: const Icon(Icons.add),
+                        ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'edit') _edit(role);
+                            if (value == 'delete') _delete(role);
+                          },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit role'),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              enabled: !role.systemRole && !role.protectedRole,
+                              child: const Text('Delete role'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  Widget _badge(String text, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(left: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 9,
+        ),
+      ),
+    );
+  }
+
+  void _show(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$error'),
+        backgroundColor: Colors.red,
       ),
     );
   }
