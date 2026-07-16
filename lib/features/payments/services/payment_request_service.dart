@@ -111,6 +111,17 @@ class PaymentRequestService {
     throw Exception('Failed to cancel payment request');
   }
 
+  Future<List<PaymentDisbursementAttempt>> getPaymentAttempts(String id) async {
+    final response = await _apiClient.get('/v2/payment-request/$id/attempts');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data
+          .map((json) => PaymentDisbursementAttempt.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    }
+    throw Exception('Failed to load payment attempts');
+  }
+
   Future<List<PaymentRequestStatusHistoryEntity>> getPaymentRequestHistory(String id) async {
     final response = await _apiClient.get('/v2/payment-request/$id/history');
     if (response.statusCode == 200) {

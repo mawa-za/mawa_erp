@@ -2,19 +2,6 @@ import 'dart:convert';
 
 import '../../../core/api_client.dart';
 
-class XeroIntegrationException implements Exception {
-  final String message;
-  final bool reauthorisationRequired;
-
-  const XeroIntegrationException(
-    this.message, {
-    this.reauthorisationRequired = false,
-  });
-
-  @override
-  String toString() => message;
-}
-
 class XeroConnection {
   final String tenantId;
   final String? tenantName;
@@ -118,16 +105,7 @@ class XeroIntegrationService {
     final response = await ApiClient().get('/v2/integrations/xero/connections');
 
     if (response.statusCode != 200) {
-      throw XeroIntegrationException(
-        _errorMessage(
-          response.body,
-          fallback: 'Unable to retrieve Xero organisations. Reconnect Xero and try again.',
-        ),
-        reauthorisationRequired: _reauthorisationRequired(
-          response.statusCode,
-          response.body,
-        ),
-      );
+      throw Exception('Failed to retrieve Xero organisations: ${response.body}');
     }
 
     final decoded = jsonDecode(response.body);
@@ -163,37 +141,4 @@ class XeroIntegrationService {
 
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
-  bool _reauthorisationRequired(int statusCode, String body) {
-    if (statusCode == 401) return true;
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map && decoded['reauthorisationRequired'] is bool) {
-        return decoded['reauthorisationRequired'] == true;
-      }
-    } catch (_) {
-      // Fall through to message-based detection for legacy responses.
-    }
-    final normalised = body.toLowerCase();
-    return normalised.contains('invalid_grant') ||
-        normalised.contains('refresh token') ||
-        normalised.contains('reconnect xero') ||
-        normalised.contains('authorisation has expired');
-  }
-
-  String _errorMessage(String body, {required String fallback}) {
-    final trimmed = body.trim();
-    if (trimmed.isEmpty) return fallback;
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is Map) {
-        final message = decoded['message']?.toString().trim();
-        if (message != null && message.isNotEmpty) return message;
-      }
-    } catch (_) {
-      // Plain-text and HTML responses are handled below.
-    }
-    if (trimmed.startsWith('<')) return fallback;
-    return trimmed;
-  }
-
 }
