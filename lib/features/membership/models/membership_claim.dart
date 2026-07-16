@@ -15,8 +15,12 @@ class MembershipClaim {
   final String? deathCertificateNo;
   final String claimantPartnerId;
   final int claimAmountCents;
+  final int approvedAmountCents;
   final int combinedClaimAmountCents;
   final String status;
+  final String? payoutMethod;
+  final String? paymentRequestId;
+  final String? approvedAt;
   final String? rejectionReason;
   final String? notes;
   final bool parentCombinationClaim;
@@ -44,8 +48,12 @@ class MembershipClaim {
     this.deathCertificateNo,
     required this.claimantPartnerId,
     required this.claimAmountCents,
+    required this.approvedAmountCents,
     required this.combinedClaimAmountCents,
     required this.status,
+    this.payoutMethod,
+    this.paymentRequestId,
+    this.approvedAt,
     this.rejectionReason,
     this.notes,
     required this.parentCombinationClaim,
@@ -107,8 +115,12 @@ class MembershipClaim {
       deathCertificateNo: json['deathCertificateNo']?.toString(),
       claimantPartnerId: (json['claimantPartnerId'] ?? '').toString(),
       claimAmountCents: toInt(json['claimAmountCents']),
+      approvedAmountCents: toInt(json['approvedAmountCents']),
       combinedClaimAmountCents: toInt(json['combinedClaimAmountCents']),
       status: (json['status'] ?? '').toString(),
+      payoutMethod: json['payoutMethod']?.toString(),
+      paymentRequestId: json['paymentRequestId']?.toString(),
+      approvedAt: json['approvedAt'] == null ? null : parseDate(json['approvedAt']),
       rejectionReason: json['rejectionReason']?.toString(),
       notes: json['notes']?.toString(),
       parentCombinationClaim: json['parentCombinationClaim'] == true,
@@ -142,8 +154,12 @@ class MembershipClaim {
       'deathCertificateNo': deathCertificateNo,
       'claimantPartnerId': claimantPartnerId,
       'claimAmountCents': claimAmountCents,
+      'approvedAmountCents': approvedAmountCents,
       'combinedClaimAmountCents': combinedClaimAmountCents,
       'status': status,
+      'payoutMethod': payoutMethod,
+      'paymentRequestId': paymentRequestId,
+      'approvedAt': approvedAt,
       'rejectionReason': rejectionReason,
       'notes': notes,
       'parentCombinationClaim': parentCombinationClaim,

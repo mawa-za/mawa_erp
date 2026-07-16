@@ -24,6 +24,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
   bool _isActionLoading = false;
   PaymentRequestResponse? _detail;
   List<PaymentRequestStatusHistoryEntity> _history = [];
+  List<PaymentDisbursementAttempt> _attempts = [];
   BankReport? _bankReport;
   String? _error;
 
@@ -43,13 +44,15 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
       final results = await Future.wait([
         _service.getPaymentRequestById(widget.paymentId),
         _service.getPaymentRequestHistory(widget.paymentId),
+        _service.getPaymentAttempts(widget.paymentId),
         ApiClient().get('/v2/payment-request/${widget.paymentId}/bank-report'),
       ]);
 
       _detail = results[0] as PaymentRequestResponse;
       _history = results[1] as List<PaymentRequestStatusHistoryEntity>;
+      _attempts = results[2] as List<PaymentDisbursementAttempt>;
       
-      final bankResponse = results[2] as dynamic;
+      final bankResponse = results[3] as dynamic;
       if (bankResponse.statusCode == 200) {
         _bankReport = BankReport.fromJson(jsonDecode(bankResponse.body));
       }
@@ -243,6 +246,10 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Created Date', _detail!.createdAt),
             _buildInfoRow('Due Date', _detail!.requestedPaymentDate ?? 'N/A'),
             _buildInfoRow('Status', _detail!.status, isStatus: true),
+            if (_detail!.approvalInherited)
+              _buildInfoRow('Approval Source', _detail!.approvalSource ?? 'CLAIM_APPROVAL'),
+            if (_detail!.fnbInstructionId?.isNotEmpty ?? false)
+              _buildInfoRow('FNB Instruction', _detail!.fnbInstructionId!),
           ]),
           const SizedBox(height: 24),
           _buildSectionTitle('Recipient & Banking'),
@@ -262,6 +269,12 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               _buildInfoRow('Paid Reference', _detail!.paidReference ?? 'N/A'),
               _buildInfoRow('Paid By', _detail!.paidBy ?? 'N/A'),
             ]),
+          ],
+
+          if (_attempts.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _buildSectionTitle('Disbursement Attempts'),
+            _buildAttemptCard(),
           ],
 
           if (_bankReport != null) ...[
@@ -304,6 +317,48 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               children: [
                 if (h.comment != null) Text(h.comment!, style: const TextStyle(fontStyle: FontStyle.italic)),
                 Text('By ${h.changedBy} on ${h.changedAt}', style: const TextStyle(fontSize: 11)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAttemptCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _attempts.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final attempt = _attempts[index];
+          final failed = attempt.status == 'FAILED';
+          final succeeded = attempt.status == 'SUCCEEDED';
+          return ListTile(
+            leading: Icon(
+              failed ? Icons.error_outline : succeeded ? Icons.check_circle_outline : Icons.sync_rounded,
+              color: failed ? Colors.red : succeeded ? Colors.green : Colors.blue,
+            ),
+            title: Text(
+              '${attempt.provider} attempt ${attempt.attemptNo}: ${attempt.status.replaceAll('_', ' ')}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (attempt.providerStatus?.isNotEmpty ?? false)
+                  Text('Bank status: ${attempt.providerStatus}'),
+                if (attempt.instructionId?.isNotEmpty ?? false)
+                  Text('Instruction: ${attempt.instructionId}'),
+                if (attempt.failureMessage?.isNotEmpty ?? false)
+                  Text(attempt.failureMessage!, style: const TextStyle(color: Colors.red)),
               ],
             ),
           );
