@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/routing/workcenter_route_registry.dart';
 import '../../core/routing/feature_group_registry.dart';
 import '../../core/routing/app_routes.dart';
+import '../../core/models/access_profile.dart';
+import '../../core/services/access_profile_service.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
 
@@ -37,6 +39,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   String? _displayName;
   String? _selectedRoleDisplay;
   String _appVersion = '';
+  AccessProfile? _accessProfile;
   List<Workcenter> _workcenters = [];
   List<Workcenter> _filteredWorkcenters = [];
   List<ModuleUsage> _recentModules = [];
@@ -78,6 +81,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       _displayName = prefs.getString('displayName');
       _selectedRoleDisplay = roleDesc ?? roleId;
     });
+
+    try {
+      final profile = await AccessProfileService().getProfile();
+      if (mounted) setState(() => _accessProfile = profile);
+    } catch (e) {
+      debugPrint('Unable to load access profile: $e');
+    }
 
     if (roleId != null) {
       _fetchWorkcenters(roleId);
@@ -440,6 +450,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_accessProfile != null &&
+                            (_accessProfile!.platformSession || _accessProfile!.testUser)) ...[
+                          _buildAccessSessionBanner(_accessProfile!),
+                          const SizedBox(height: 24),
+                        ],
                         if (!_isLoadingRecent && _recentModules.isNotEmpty) ...[
                           _buildRecentModulesSection(colorScheme),
                           const SizedBox(height: 32),
@@ -482,6 +497,57 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 ),
               ],
             ),
+    );
+  }
+
+
+  Widget _buildAccessSessionBanner(AccessProfile profile) {
+    final isPlatform = profile.platformSession;
+    final background = isPlatform ? Colors.red.shade50 : Colors.orange.shade50;
+    final border = isPlatform ? Colors.red.shade200 : Colors.orange.shade200;
+    final iconColor = isPlatform ? Colors.red.shade700 : Colors.orange.shade800;
+    final title = isPlatform
+        ? 'PLATFORM ADMINISTRATION SESSION'
+        : 'TEST SESSION — ${profile.accountType.replaceAll('_', ' ')}';
+    final detail = isPlatform
+        ? 'Tenant: ${profile.tenantId} • ${profile.displayName} • ${profile.accessReason.isEmpty ? 'No reason supplied' : profile.accessReason}'
+        : profile.externalTransactionsBlocked
+            ? 'External financial and integration transactions are disabled.'
+            : 'Testing account restrictions are active for this environment.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: background,
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(isPlatform ? Icons.shield_rounded : Icons.science_rounded,
+              color: iconColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        color: iconColor,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5)),
+                const SizedBox(height: 4),
+                Text(detail),
+                if (profile.expiresAt != null)
+                  Text('Access expires: ${profile.expiresAt!.toLocal()}'),
+                if (profile.ticketReference.isNotEmpty)
+                  Text('Reference: ${profile.ticketReference}'),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

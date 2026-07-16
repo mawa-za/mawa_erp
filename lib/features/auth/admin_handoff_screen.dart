@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/routing/app_routes.dart';
 import '../../core/services/session_service.dart';
+import '../../core/services/access_profile_service.dart';
 
 class AdminHandoffScreen extends StatefulWidget {
   final String token;
@@ -73,6 +74,8 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       final userId = _readString(tokenContainer, const ['userId', 'user_id', 'id']) ?? '';
       final username = _readString(tokenContainer, const ['username']) ?? 'system';
       final displayName = _readString(tokenContainer, const ['displayName', 'display_name']) ?? 'Support Admin';
+      final roleId = _readString(tokenContainer, const ['roleId', 'role_id']) ?? 'SUPPORT_VERIFICATION';
+      final roleDescription = _readString(tokenContainer, const ['roleDescription', 'role_description']) ?? roleId;
 
       if (accessToken == null || accessToken.isEmpty) {
         setState(() => _error = 'Admin handoff did not return an access token.');
@@ -87,9 +90,16 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       await prefs.setString('userId', userId);
       await prefs.setString('username', username);
       await prefs.setString('displayName', displayName);
-      await prefs.setString('selectedRole', 'SYSTEM');
-      await prefs.setString('selectedRoleDescription', 'System Support');
+      await prefs.setString('selectedRole', roleId);
+      await prefs.setString('selectedRoleDescription', roleDescription);
       await prefs.setBool('adminHandoffSession', true);
+      await AccessProfileService().persistAuthentication(tokenContainer);
+      try {
+        await AccessProfileService().getProfile();
+      } catch (_) {
+        // The handoff response itself still contains enough metadata to render
+        // the protected platform-session warning banner.
+      }
 
       SessionService().startMonitoring();
 
