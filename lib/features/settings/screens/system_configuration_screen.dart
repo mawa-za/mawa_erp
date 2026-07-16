@@ -12,6 +12,7 @@ import '../../admin/message_queue/message_queue_admin_screen.dart';
 import 'xero_integration_screen.dart';
 import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
+import 'pos_printing_settings_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -67,6 +68,15 @@ class SystemConfigurationScreen extends StatelessWidget {
                 builder: (context) => const MessageQueueAdminScreen(),
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'POS Printing',
+            subtitle: 'Pair terminals, Windows agents and receipt printers',
+            icon: Icons.point_of_sale_outlined,
+            color: Colors.deepOrange,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PosPrintingSettingsScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
