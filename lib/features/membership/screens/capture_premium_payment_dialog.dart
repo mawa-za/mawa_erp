@@ -7,6 +7,7 @@ import '../services/membership_service.dart';
 import '../models/payment_batch_response.dart';
 import '../models/receipt_response.dart';
 import '../../../core/services/bluetooth_print_service.dart';
+import '../../settings/services/pos_printing_service.dart';
 
 class CapturePremiumPaymentDialog extends StatefulWidget {
   final MembershipDetail membership;
@@ -126,17 +127,40 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
 
   Future<void> _printReceipt(ReceiptResponse receipt) async {
     try {
-      if (_selectedDevice == null) {
-        final devices = await _printService.getDevices();
-        if (devices.isEmpty) {
-          throw Exception('No bluetooth printers found. Please pair a printer in settings.');
-        }
-        
-        if (mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt queued for printing...'), duration: Duration(seconds: 1)),
+        );
+      }
+      await PosPrintingService().queueReceipt(receipt.id, reprint: receipt.printCount > 0);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt queued for the configured Windows printer'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (cloudError) {
+      if (!mounted) return;
+      final useBluetooth = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Windows printing unavailable'),
+          content: Text('$cloudError\n\nPrint directly to a paired Bluetooth printer instead?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Use Bluetooth')),
+          ],
+        ),
+      );
+      if (useBluetooth != true) return;
+      try {
+        if (_selectedDevice == null) {
+          final devices = await _printService.getDevices();
+          if (devices.isEmpty) throw Exception('No Bluetooth printers found. Pair a printer in device settings.');
+          if (!mounted) return;
           final device = await showDialog<BluetoothDevice>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Select Printer'),
+              title: const Text('Select Bluetooth printer'),
               content: SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
@@ -151,36 +175,37 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
               ),
             ),
           );
-          if (device != null) {
-            setState(() => _selectedDevice = device);
-          } else {
-            return;
+          if (device == null) return;
+          setState(() => _selectedDevice = device);
+        }
+        await _printService.printMembershipReceipt(
+          receipt,
+          widget.member.fullName,
+          device: _selectedDevice,
+        );
+        try {
+          await PosPrintingService().confirmDirectPrint(receipt.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Receipt printed over Bluetooth')),
+            );
+          }
+        } catch (acknowledgementError) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Receipt printed, but MAWA could not record the print: $acknowledgementError'),
+                backgroundColor: Colors.orange,
+              ),
+            );
           }
         }
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Printing...'), duration: Duration(seconds: 1)),
-        );
-      }
-
-      await _printService.printMembershipReceipt(
-        receipt, 
-        widget.member.fullName, 
-        device: _selectedDevice
-      );
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Receipt printed successfully'), behavior: SnackBarBehavior.floating),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Print failed: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
-        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Bluetooth print failed: $e'), backgroundColor: Colors.red),
+          );
+        }
       }
     }
   }
