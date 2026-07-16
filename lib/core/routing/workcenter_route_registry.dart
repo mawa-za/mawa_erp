@@ -105,6 +105,31 @@ class WorkcenterRouteRegistry {
     'INVENTORY_SETUP': AppRoutes.inventorySetup,
     'WAREHOUSE_SETUP': AppRoutes.inventorySetup,
 
+    // Tombstone Management
+    'TOMBSTONE': AppRoutes.tombstones,
+    'TOMBSTONES': AppRoutes.tombstones,
+    'TOMBSTONE_MANAGEMENT': AppRoutes.tombstones,
+    'TOMBSTONE_ORDER': AppRoutes.tombstoneOrders,
+    'TOMBSTONE_ORDERS': AppRoutes.tombstoneOrders,
+    'TOMBSTONE_LAYBY': AppRoutes.tombstoneLaybys,
+    'TOMBSTONE_LAYBYS': AppRoutes.tombstoneLaybys,
+    'TOMBSTONE_SITE_ASSESSMENT': AppRoutes.tombstoneSiteAssessments,
+    'TOMBSTONE_SITE_ASSESSMENTS': AppRoutes.tombstoneSiteAssessments,
+    'TOMBSTONE_DESIGN_APPROVAL': AppRoutes.tombstoneDesignApprovals,
+    'TOMBSTONE_DESIGN_APPROVALS': AppRoutes.tombstoneDesignApprovals,
+    'TOMBSTONE_PRODUCTION_JOB': AppRoutes.tombstoneProductionJobs,
+    'TOMBSTONE_PRODUCTION_JOBS': AppRoutes.tombstoneProductionJobs,
+    'TOMBSTONE_INSTALLATION': AppRoutes.tombstoneInstallations,
+    'TOMBSTONE_INSTALLATIONS': AppRoutes.tombstoneInstallations,
+    'TOMBSTONE_INSTALLATION_PLANNING': AppRoutes.tombstoneInstallations,
+    'TOMBSTONE_INSTALLATION_CALENDAR': AppRoutes.tombstoneInstallationCalendar,
+    'TOMBSTONE_INSTALLATION_TEAM': AppRoutes.tombstoneInstallationTeams,
+    'TOMBSTONE_INSTALLATION_TEAMS': AppRoutes.tombstoneInstallationTeams,
+    'TOMBSTONE_REWORK_JOB': AppRoutes.tombstoneReworkJobs,
+    'TOMBSTONE_REWORK_JOBS': AppRoutes.tombstoneReworkJobs,
+    'TOMBSTONE_REPORT': AppRoutes.tombstoneReports,
+    'TOMBSTONE_REPORTS': AppRoutes.tombstoneReports,
+
     // Funeral Management
     'FUNERAL': AppRoutes.funeralDashboard,
     'FUNERAL_MANAGEMENT': AppRoutes.funeralDashboard,
@@ -171,6 +196,19 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('FUNERAL') && normalized.contains('SERVICE') && normalized.contains('REQUEST')) {
       return AppRoutes.funeralServiceRequests;
+    }
+    if (normalized.contains('TOMBSTONE')) {
+      if (normalized.contains('LAYBY')) return AppRoutes.tombstoneLaybys;
+      if (normalized.contains('ASSESS')) return AppRoutes.tombstoneSiteAssessments;
+      if (normalized.contains('DESIGN')) return AppRoutes.tombstoneDesignApprovals;
+      if (normalized.contains('PRODUCTION')) return AppRoutes.tombstoneProductionJobs;
+      if (normalized.contains('CALENDAR')) return AppRoutes.tombstoneInstallationCalendar;
+      if (normalized.contains('TEAM')) return AppRoutes.tombstoneInstallationTeams;
+      if (normalized.contains('REWORK')) return AppRoutes.tombstoneReworkJobs;
+      if (normalized.contains('REPORT')) return AppRoutes.tombstoneReports;
+      if (normalized.contains('INSTALL')) return AppRoutes.tombstoneInstallations;
+      if (normalized.contains('ORDER')) return AppRoutes.tombstoneOrders;
+      return AppRoutes.tombstones;
     }
     if (normalized.contains('PRODUCT')) {
       return AppRoutes.products;

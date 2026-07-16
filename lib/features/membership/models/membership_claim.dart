@@ -20,6 +20,10 @@ class MembershipClaim {
   final String status;
   final String? payoutMethod;
   final String? paymentRequestId;
+  final String? tombstoneOrderId;
+  final String? settlementMethod;
+  final String? settlementReference;
+  final String? settledAt;
   final String? approvedAt;
   final String? rejectionReason;
   final String? notes;
@@ -53,6 +57,10 @@ class MembershipClaim {
     required this.status,
     this.payoutMethod,
     this.paymentRequestId,
+    this.tombstoneOrderId,
+    this.settlementMethod,
+    this.settlementReference,
+    this.settledAt,
     this.approvedAt,
     this.rejectionReason,
     this.notes,
@@ -120,6 +128,10 @@ class MembershipClaim {
       status: (json['status'] ?? '').toString(),
       payoutMethod: json['payoutMethod']?.toString(),
       paymentRequestId: json['paymentRequestId']?.toString(),
+      tombstoneOrderId: json['tombstoneOrderId']?.toString(),
+      settlementMethod: json['settlementMethod']?.toString(),
+      settlementReference: json['settlementReference']?.toString(),
+      settledAt: json['settledAt'] == null ? null : parseDate(json['settledAt']),
       approvedAt: json['approvedAt'] == null ? null : parseDate(json['approvedAt']),
       rejectionReason: json['rejectionReason']?.toString(),
       notes: json['notes']?.toString(),
@@ -159,6 +171,10 @@ class MembershipClaim {
       'status': status,
       'payoutMethod': payoutMethod,
       'paymentRequestId': paymentRequestId,
+      'tombstoneOrderId': tombstoneOrderId,
+      'settlementMethod': settlementMethod,
+      'settlementReference': settlementReference,
+      'settledAt': settledAt,
       'approvedAt': approvedAt,
       'rejectionReason': rejectionReason,
       'notes': notes,
