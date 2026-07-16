@@ -21,6 +21,11 @@ class PaymentRequestResponse {
   final String? requestedPaymentDate;
   final String status;
   final String? approvalRequestId;
+  final String? approvalSource;
+  final String? approvalReference;
+  final bool approvalInherited;
+  final String? paymentPurpose;
+  final String? fnbInstructionId;
   final String? paidDate;
   final String? paidReference;
   final String? paidBy;
@@ -52,6 +57,11 @@ class PaymentRequestResponse {
     this.requestedPaymentDate,
     required this.status,
     this.approvalRequestId,
+    this.approvalSource,
+    this.approvalReference,
+    this.approvalInherited = false,
+    this.paymentPurpose,
+    this.fnbInstructionId,
     this.paidDate,
     this.paidReference,
     this.paidBy,
@@ -67,7 +77,7 @@ class PaymentRequestResponse {
   String get dueDate => requestedPaymentDate ?? '';
   String get number => requestNo;
   String get createdDate => createdAt;
-  String get instructionId => requestNo;
+  String get instructionId => fnbInstructionId ?? '';
 
   factory PaymentRequestResponse.fromJson(Map<String, dynamic> json) {
     return PaymentRequestResponse(
@@ -93,6 +103,11 @@ class PaymentRequestResponse {
       requestedPaymentDate: json['requestedPaymentDate']?.toString(),
       status: (json['status'] ?? 'DRAFT').toString(),
       approvalRequestId: json['approvalRequestId']?.toString(),
+      approvalSource: json['approvalSource']?.toString(),
+      approvalReference: json['approvalReference']?.toString(),
+      approvalInherited: json['approvalInherited'] == true,
+      paymentPurpose: json['paymentPurpose']?.toString(),
+      fnbInstructionId: json['fnbInstructionId']?.toString(),
       paidDate: json['paidDate']?.toString(),
       paidReference: json['paidReference']?.toString(),
       paidBy: json['paidBy']?.toString(),
@@ -127,6 +142,11 @@ class PaymentRequestResponse {
       'requestedPaymentDate': requestedPaymentDate,
       'status': status,
       'approvalRequestId': approvalRequestId,
+      'approvalSource': approvalSource,
+      'approvalReference': approvalReference,
+      'approvalInherited': approvalInherited,
+      'paymentPurpose': paymentPurpose,
+      'fnbInstructionId': fnbInstructionId,
       'paidDate': paidDate,
       'paidReference': paidReference,
       'paidBy': paidBy,
@@ -135,6 +155,53 @@ class PaymentRequestResponse {
       'updatedAt': updatedAt,
       'updatedBy': updatedBy,
     };
+  }
+}
+
+class PaymentDisbursementAttempt {
+  final String id;
+  final String paymentRequestId;
+  final int attemptNo;
+  final String provider;
+  final String status;
+  final String? instructionId;
+  final String? providerStatus;
+  final String? failureCode;
+  final String? failureMessage;
+  final String? submittedAt;
+  final String? lastCheckedAt;
+  final String? completedAt;
+
+  const PaymentDisbursementAttempt({
+    required this.id,
+    required this.paymentRequestId,
+    required this.attemptNo,
+    required this.provider,
+    required this.status,
+    this.instructionId,
+    this.providerStatus,
+    this.failureCode,
+    this.failureMessage,
+    this.submittedAt,
+    this.lastCheckedAt,
+    this.completedAt,
+  });
+
+  factory PaymentDisbursementAttempt.fromJson(Map<String, dynamic> json) {
+    return PaymentDisbursementAttempt(
+      id: (json['id'] ?? '').toString(),
+      paymentRequestId: (json['paymentRequestId'] ?? '').toString(),
+      attemptNo: (json['attemptNo'] as num?)?.toInt() ?? 0,
+      provider: (json['provider'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      instructionId: json['instructionId']?.toString(),
+      providerStatus: json['providerStatus']?.toString(),
+      failureCode: json['failureCode']?.toString(),
+      failureMessage: json['failureMessage']?.toString(),
+      submittedAt: json['submittedAt']?.toString(),
+      lastCheckedAt: json['lastCheckedAt']?.toString(),
+      completedAt: json['completedAt']?.toString(),
+    );
   }
 }
 

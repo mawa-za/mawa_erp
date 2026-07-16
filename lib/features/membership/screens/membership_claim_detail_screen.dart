@@ -12,6 +12,7 @@ import '../screens/membership_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
+import '../../payments/screens/payment_request_detail_screen.dart';
 
 class MembershipClaimDetailScreen extends StatefulWidget {
   final String claimId;
@@ -237,6 +238,11 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildStatusBanner(claim, colorScheme),
           const SizedBox(height: 24),
           _buildAmountCard(claim, colorScheme),
+          if (claim.claimType.toUpperCase() == 'CASH' &&
+              (claim.paymentRequestId?.isNotEmpty ?? false)) ...[
+            const SizedBox(height: 20),
+            _buildDisbursementCard(claim, colorScheme),
+          ],
           
           if (_membershipDetail != null) ...[
             const SizedBox(height: 32),
@@ -278,6 +284,9 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     Color color; 
     switch (claim.status.toUpperCase()) {
       case 'APPROVED': color = Colors.green; break;
+      case 'PAYMENT_PENDING': color = Colors.orange; break;
+      case 'PAYMENT_PROCESSING': color = Colors.blue; break;
+      case 'PAYMENT_FAILED':
       case 'REJECTED': color = Colors.red; break;
       case 'SUBMITTED': 
       case 'AWAITING-APPROVAL': color = Colors.orange; break;
@@ -319,6 +328,59 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           Text(
             '#${claim.claimNo}',
             style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisbursementCard(MembershipClaim claim, ColorScheme colorScheme) {
+    final status = claim.status.toUpperCase();
+    final message = switch (status) {
+      'PAYMENT_PENDING' => 'The claim is approved and the payment instruction is queued for processing.',
+      'PAYMENT_PROCESSING' => 'FNB accepted the payment instruction. Bank confirmation is being monitored.',
+      'PAYMENT_FAILED' => 'The bank could not complete the payment. Review the linked payment request before retrying.',
+      'PAID' => 'The bank confirmed that the claim payment was completed.',
+      _ => 'A payment request was created from the approved claim.',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.account_balance_outlined, color: colorScheme.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('CLAIM DISBURSEMENT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.8)),
+                const SizedBox(height: 6),
+                Text(message),
+                const SizedBox(height: 8),
+                Text(
+                  'Payment request: ${claim.paymentRequestId}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PaymentRequestDetailScreen(paymentId: claim.paymentRequestId!),
+                    ),
+                  ),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: const Text('VIEW PAYMENT REQUEST'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
