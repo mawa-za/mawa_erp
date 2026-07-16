@@ -20,13 +20,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (widget.token.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This password reset link is invalid or expired.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // Calling /v2/change-password (assuming v2 based on previous patterns)
-      // Passing token and new password in the body
-      final response = await ApiClient().post(
-        '/v2/change-password',
+      final response = await ApiClient().postPublic(
+        '/v2/reset-password',
         body: {
           'token': widget.token,
           'password': _passwordController.text,
@@ -42,10 +47,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         }
       } else {
-        final error = jsonDecode(response.body);
+        var message = 'This password reset link is invalid or expired.';
+        try {
+          final error = jsonDecode(response.body);
+          if (error is Map<String, dynamic> && error['message'] != null) {
+            message = error['message'].toString();
+          }
+        } catch (_) {
+          // Keep the safe fallback for non-JSON server responses.
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${error['message'] ?? response.statusCode}')),
+            SnackBar(content: Text(message)),
           );
         }
       }
@@ -109,7 +122,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   obscureText: _obscurePassword,
                   validator: (value) {
                     if (value == null || value.isEmpty) return 'Required';
-                    if (value.length < 6) return 'Password must be at least 6 characters';
+                    if (value.length < 8) return 'Password must be at least 8 characters';
                     return null;
                   },
                 ),
