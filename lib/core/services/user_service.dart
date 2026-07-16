@@ -62,13 +62,23 @@ class UserService {
     }
   }
 
-  Future<void> createUser({
+  Future<User> createUser({
     required String username,
     required String password,
     required String email,
     required String cellphone,
     required String userType,
     required String partnerId,
+    String accountType = 'STANDARD',
+    bool testUser = false,
+    bool protectedUser = false,
+    bool systemManaged = false,
+    String accessScope = 'STANDARD',
+    String environmentScope = '',
+    bool externalTransactionsBlocked = false,
+    DateTime? expiresAt,
+    String protectedReason = '',
+    bool mfaRequired = false,
   }) async {
     try {
       final response = await ApiClient().post(
@@ -80,13 +90,38 @@ class UserService {
           'cellphone': cellphone,
           'userType': userType,
           'partnerId': partnerId,
+          'accountType': accountType,
+          'testUser': testUser,
+          'protectedUser': protectedUser,
+          'systemManaged': systemManaged,
+          'accessScope': accessScope,
+          'environmentScope': environmentScope,
+          'externalTransactionsBlocked': externalTransactionsBlocked,
+          'expiresAt': expiresAt?.toIso8601String(),
+          'protectedReason': protectedReason,
+          'mfaRequired': mfaRequired,
         },
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Failed to create user: ${response.body}');
       }
+      return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> updateUser(String userId, Map<String, dynamic> body) async {
+    final response = await ApiClient().put('/v2/user/$userId', body: body);
+    if (response.statusCode != 200) {
+      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to update user');
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    final response = await ApiClient().delete('/v2/user/$userId');
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to delete user');
     }
   }
 

@@ -101,12 +101,31 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
             const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator(strokeWidth: 2)))
           else
             TextButton(
-              onPressed: _saveAssignments,
+              onPressed: widget.role.accessAllWorkcentres ? null : _saveAssignments,
               child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
         ],
       ),
-      body: _isLoading
+      body: widget.role.accessAllWorkcentres
+          ? Center(
+              child: Card(
+                margin: const EdgeInsets.all(24),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.all_inclusive_rounded, size: 56),
+                      SizedBox(height: 16),
+                      Text('All workcentres are granted automatically', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      SizedBox(height: 8),
+                      Text('This protected role automatically includes current and future workcentres. Individual assignments cannot be changed.'),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))

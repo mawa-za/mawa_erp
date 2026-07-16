@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/config.dart';
 import '../../core/services/field_service.dart';
+import '../../core/services/access_profile_service.dart';
 import '../settings/models/role.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
@@ -71,6 +72,14 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('displayName', displayName);
         await prefs.setString('accessToken', accessToken);
         await prefs.setString('refreshToken', refreshToken);
+        await AccessProfileService().persistAuthentication(
+          Map<String, dynamic>.from(data as Map),
+        );
+        try {
+          await AccessProfileService().getProfile();
+        } catch (e) {
+          debugPrint('Failed to load access profile after login: $e');
+        }
 
         _prefetchFieldOptions();
 

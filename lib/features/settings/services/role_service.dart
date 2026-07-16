@@ -27,15 +27,24 @@ class RoleService {
       final data = jsonDecode(response.body);
       return Role.fromJson(data);
     } else {
-      throw Exception('Failed to create role: ${response.statusCode}');
+      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to create role: ${response.statusCode}');
     }
+  }
+
+  Future<Role> updateRole(Role role) async {
+    final response = await _apiClient.put('/v2/role/${role.id}', body: role.toJson());
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Role.fromJson(Map<String, dynamic>.from(data as Map));
+    }
+    throw Exception(response.body.isNotEmpty ? response.body : 'Failed to update role');
   }
 
   Future<void> deleteRole(String roleId) async {
     final response = await _apiClient.delete('/v2/role/$roleId');
 
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to delete role: ${response.statusCode}');
+      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to delete role: ${response.statusCode}');
     }
   }
 
@@ -68,7 +77,7 @@ class RoleService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to assign workcenters to role: ${response.statusCode}');
+      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to assign workcenters to role: ${response.statusCode}');
     }
   }
 
