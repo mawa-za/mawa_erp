@@ -46,7 +46,22 @@ class AppRoutes {
   static const String inventorySalesOrders = '/inventory/sales-orders';
   static const String inventoryAudit = '/inventory/audit';
   static const String inventorySetup = '/inventory/setup';
-  
+
+  // Tombstone Management
+  static const String tombstones = '/tombstones';
+  static const String tombstoneOrders = '/tombstones/orders';
+  static const String tombstoneOrderDetail = '/tombstones/orders/:id';
+  static const String tombstoneNewOrder = '/tombstones/orders/new';
+  static const String tombstoneLaybys = '/tombstones/laybys';
+  static const String tombstoneSiteAssessments = '/tombstones/site-assessments';
+  static const String tombstoneDesignApprovals = '/tombstones/designs';
+  static const String tombstoneProductionJobs = '/tombstones/production';
+  static const String tombstoneInstallations = '/tombstones/installations';
+  static const String tombstoneInstallationCalendar = '/tombstones/calendar';
+  static const String tombstoneInstallationTeams = '/tombstones/teams';
+  static const String tombstoneReworkJobs = '/tombstones/rework';
+  static const String tombstoneReports = '/tombstones/reports';
+
   // Funeral Management
   static const String funeralDashboard = '/funeral';
   static const String funeralPickups = '/funeral/pickups';

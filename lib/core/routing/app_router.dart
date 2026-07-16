@@ -33,6 +33,9 @@ import '../../features/membership/screens/membership_claim_list_screen.dart';
 import '../../features/membership/screens/membership_plan_list_screen.dart';
 import '../../features/membership/screens/group_society_list_screen.dart';
 import '../../features/stock/screens/stock_management_screen.dart';
+import '../../features/tombstones/screens/tombstone_management_screen.dart';
+import '../../features/tombstones/screens/tombstone_order_detail_screen.dart';
+import '../../features/tombstones/screens/tombstone_order_form_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -79,18 +82,18 @@ class AppRouter {
     redirect: (context, state) async {
       final isConfigured = await RouteGuards.isConfigured();
       final isAuthenticated = await RouteGuards.isAuthenticated();
-      
-      final bool isPublicRoute = state.matchedLocation == AppRoutes.login || 
+
+      final bool isPublicRoute = state.matchedLocation == AppRoutes.login ||
                                  state.matchedLocation == AppRoutes.setup ||
                                  state.matchedLocation == AppRoutes.resetPassword ||
                                  state.matchedLocation == AppRoutes.adminHandoff ||
                                  state.matchedLocation.endsWith('/preview') ||
-                                 state.matchedLocation == AppRoutes.legacyInvoicePreview; 
+                                 state.matchedLocation == AppRoutes.legacyInvoicePreview;
 
       if (!isConfigured && state.matchedLocation != AppRoutes.setup && !state.matchedLocation.endsWith('/preview')) {
         return AppRoutes.setup;
       }
-      
+
       if (isConfigured && state.matchedLocation == AppRoutes.setup) {
         return AppRoutes.home;
       }
@@ -331,6 +334,64 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.inventorySetup,
         builder: (context, state) => const InventoryManagementScreen(initialSection: 'inventory-setup'),
+      ),
+
+      // Tombstone Management
+      GoRoute(
+        path: AppRoutes.tombstones,
+        builder: (context, state) => const TombstoneManagementScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneOrders,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'orders'),
+        routes: [
+          GoRoute(
+            path: 'new',
+            builder: (context, state) => const TombstoneOrderFormScreen(),
+          ),
+          GoRoute(
+            path: ':id',
+            builder: (context, state) => TombstoneOrderDetailScreen(
+              orderId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneLaybys,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'laybys'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneSiteAssessments,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'assessments'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneDesignApprovals,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'designs'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneProductionJobs,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'production'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneInstallations,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'installations'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneInstallationCalendar,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'calendar'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneInstallationTeams,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'teams'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneReworkJobs,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'rework'),
+      ),
+      GoRoute(
+        path: AppRoutes.tombstoneReports,
+        builder: (context, state) => const TombstoneManagementScreen(initialSection: 'reports'),
       ),
 
       // Funeral Routes
