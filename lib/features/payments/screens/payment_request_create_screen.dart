@@ -72,8 +72,8 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         _isLoadingOptions = false;
 
         if (_reasonOptions.isNotEmpty) _selectedPaymentReason = _reasonOptions.first.code;
-        if (_methodOptions.isNotEmpty) _selectedPaymentMethod = _methodOptions.first.code;
-        if (_typeOptions.isNotEmpty) _selectedType = _typeOptions.first.code;
+        _selectedPaymentMethod = null;
+        _selectedType = null;
         if (_bankOptions.isNotEmpty) _selectedBankCode = _bankOptions.first.code;
       });
     } catch (e) {
@@ -83,12 +83,12 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   }
 
   Future<List<Partner>> _searchPartners(String query) async {
-    if (query.length < 2) return [];
+    if (_selectedType == null) return [];
     try {
-      final response = await ApiClient().get('/v2/partner?query=$query');
+      final response = await ApiClient().get('/v2/payment-request/recipient-options?type=$_selectedType&query=${Uri.encodeQueryComponent(query)}');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Partner.fromJson(json)).toList();
+        return data.map((row) => Partner.fromJson({'id': row['id'], 'number': '', 'type': 'INDIVIDUAL', 'name1': '', 'name2': row['name'] ?? '', 'name3': '', 'identityNumber': '', 'status': 'ACTIVE'})).toList();
       }
     } catch (e) {
       debugPrint('Error searching partners: $e');
@@ -97,6 +97,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   }
 
   Future<void> _submit() async {
+    if (_selectedType == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select payment request type before proceeding'))); return; }
     if (!_formKey.currentState!.validate() || _selectedRecipient == null) {
       if (_selectedRecipient == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -181,11 +182,16 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildSectionHeader(Icons.category_outlined, 'Payment Request Type'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(value: _selectedType, decoration: const InputDecoration(labelText: 'Select type first', border: OutlineInputBorder()), items: _typeOptions.map((o)=>DropdownMenuItem(value:o.code,child:Text(o.description))).toList(), onChanged:(v)=>setState((){_selectedType=v;_selectedRecipient=null;}), validator:(v)=>v==null?'Payment request type is required':null),
+                    const SizedBox(height: 24),
+                    if (_selectedType != null) ...[
                     _buildSectionHeader(Icons.person_outline, 'Recipient'),
                     const SizedBox(height: 8),
                     _buildRecipientSearch(),
                     if (_selectedRecipient != null) _buildSelectedRecipientCard(colorScheme),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 24),],
 
                     _buildSectionHeader(Icons.payment_outlined, 'Payment Details'),
                     const SizedBox(height: 8),

@@ -46,6 +46,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   // Step 4: Membership Cover
   List<FuneralMembershipCoverDto> availableCovers = [];
   List<FuneralMembershipCoverDto> selectedCovers = [];
+  String? groceryCoverSelectionId;
 
   // Step 5: Claims
   String? serviceRequestId;
@@ -154,6 +155,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           InitiateFuneralClaimsRequestDto(
             membershipIds: membershipIds,
             sourceReferences: sourceRefs.isEmpty ? null : sourceRefs,
+            claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
+            groceryCoverSelectionId: groceryCoverSelectionId,
           ),
         );
       }

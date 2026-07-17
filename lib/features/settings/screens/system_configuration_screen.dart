@@ -14,6 +14,9 @@ import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.d
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import 'pos_printing_settings_screen.dart';
 import 'manual_receipt_cutover_settings_screen.dart';
+import '../../funeral/presentation/pages/third_party_funeral_cover_underwriting_page.dart';
+import 'premium_generation_settings_screen.dart';
+import '../../payments/screens/payment_account_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -71,6 +74,12 @@ class SystemConfigurationScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          _buildConfigTile(context,title:'Payment Accounts',subtitle:'Configure debtor accounts by payment type and petty-cash/cash-claim creditor accounts',icon:Icons.account_balance_wallet_outlined,color:Colors.teal,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PaymentAccountConfigurationScreen()))),
+          const SizedBox(height:12),
+          _buildConfigTile(context,title:'Automatic Premium Generation',subtitle:'Choose monthly generation mode and backfill six missing periods',icon:Icons.calendar_month_outlined,color:Colors.indigo,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PremiumGenerationSettingsScreen()))),
+          const SizedBox(height:12),
+          _buildConfigTile(context,title:'Third Party Funeral Underwriting',subtitle:'Manage external funeral covers and underwriting decisions',icon:Icons.fact_check_outlined,color:Colors.deepPurple,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const ThirdPartyFuneralCoverUnderwritingPage()))),
+          const SizedBox(height:12),
           _buildConfigTile(
             context,
             title: 'Manual Receipt Cutover',
