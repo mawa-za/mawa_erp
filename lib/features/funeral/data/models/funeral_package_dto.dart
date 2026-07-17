@@ -1,5 +1,14 @@
 import 'dart:convert';
 
+class FuneralPackageProductDto {
+  final String productId; final String productCode; final String productDescription; final int quantity; final int unitPriceCents;
+  const FuneralPackageProductDto({required this.productId,this.productCode="",this.productDescription="",required this.quantity,required this.unitPriceCents});
+  int get lineTotalCents => quantity * unitPriceCents;
+  Map<String,dynamic> toJson()=>{"productId":productId,"quantity":quantity,"unitPriceCents":unitPriceCents};
+  factory FuneralPackageProductDto.fromJson(Map<String,dynamic> j)=>FuneralPackageProductDto(productId:(j["productId"]??"").toString(),productCode:(j["productCode"]??"").toString(),productDescription:(j["productDescription"]??"").toString(),quantity:_toInt(j["quantity"]),unitPriceCents:_toInt(j["unitPriceCents"]));
+  static int _toInt(dynamic v)=>v is num?v.toInt():int.tryParse(v?.toString()??"")??0;
+}
+
 class FuneralPackageDto {
   final String id;
   final String name;
@@ -7,6 +16,7 @@ class FuneralPackageDto {
   final List<String> inclusions;
   final String inclusionsJson;
   final bool active;
+  final List<FuneralPackageProductDto> products;
 
   FuneralPackageDto({
     required this.id,
@@ -15,6 +25,7 @@ class FuneralPackageDto {
     required this.inclusions,
     this.inclusionsJson = '[]',
     this.active = true,
+    this.products = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +37,7 @@ class FuneralPackageDto {
       'inclusions': inclusions,
       'inclusionsJson': encodedInclusions,
       'active': active,
+      'products': products.map((e)=>e.toJson()).toList(),
     };
   }
 
@@ -41,6 +53,7 @@ class FuneralPackageDto {
       inclusions: parsedInclusions,
       inclusionsJson: rawInclusionsJson.isNotEmpty ? rawInclusionsJson : jsonEncode(parsedInclusions),
       active: json['active'] is bool ? json['active'] as bool : json['active']?.toString().toLowerCase() != 'false',
+      products: (json['products'] is List ? json['products'] as List : const []).whereType<Map>().map((e)=>FuneralPackageProductDto.fromJson(Map<String,dynamic>.from(e))).toList(),
     );
   }
 
