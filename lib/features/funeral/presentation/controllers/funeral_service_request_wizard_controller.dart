@@ -96,6 +96,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     notifyListeners();
     try {
       availableCovers = await _api.checkMembership(deceasedIdentityNumber);
+      selectedCovers = [];
+      groceryCoverSelectionId = null;
       if (availableCovers.isEmpty) {
         errorMessage = 'No memberships found for this identity number.';
       }
@@ -139,7 +141,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
 
       final result = await _api.createServiceRequest(request);
       serviceRequestId = result.id;
-      
+
       if (selectedCovers.isNotEmpty) {
         // Send each selected cover exactly once using the stable selection id
         // returned by membership lookup.
@@ -151,16 +153,30 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
             .toSet()
             .toList();
 
+        final groceryEligibleCovers = selectedCovers
+            .where((cover) => cover.groceryAmountCents > 0)
+            .toList();
+        final selectedGroceryCoverId = groceryEligibleCovers.any(
+          (cover) =>
+              (cover.sourceReference ?? cover.membershipId) ==
+              groceryCoverSelectionId,
+        )
+            ? groceryCoverSelectionId
+            : (groceryEligibleCovers.isEmpty
+                ? null
+                : groceryEligibleCovers.first.sourceReference ??
+                    groceryEligibleCovers.first.membershipId);
+
         await _api.initiateClaims(
           serviceRequestId!,
           InitiateFuneralClaimsRequestDto(
             membershipIds: selectionIds,
             claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
-            groceryCoverSelectionId: groceryCoverSelectionId,
+            groceryCoverSelectionId: selectedGroceryCoverId,
           ),
         );
       }
-      
+
       await loadClaims();
       return true;
     } catch (e) {
