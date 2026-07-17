@@ -44,7 +44,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             const SnackBar(content: Text('Password reset successfully. Please login with your new password.')),
           );
           // Navigate to login (or let the Initializer handle it by clearing URL/state)
-          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
         }
       } else {
         var message = 'This password reset link is invalid or expired.';

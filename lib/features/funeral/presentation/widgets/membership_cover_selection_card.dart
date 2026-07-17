@@ -73,10 +73,10 @@ class MembershipCoverSelectionCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  FuneralMoneyText(
-                    cents: cover.coverAmountCents,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
-                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end,children:[
+                    const Text('Funeral benefit',style:TextStyle(fontSize:10,color:Colors.grey)),FuneralMoneyText(cents:cover.funeralAmountCents>0?cover.funeralAmountCents:cover.coverAmountCents,style:const TextStyle(fontWeight:FontWeight.bold,color:Colors.green)),
+                    const SizedBox(height:4),const Text('Combination benefit',style:TextStyle(fontSize:10,color:Colors.grey)),FuneralMoneyText(cents:cover.combinationAmountCents,style:const TextStyle(fontWeight:FontWeight.bold,color:Colors.blue)),
+                  ]),
                 ],
               ),
               if (!isLocal && cover.sourceTenantName != null) ...[

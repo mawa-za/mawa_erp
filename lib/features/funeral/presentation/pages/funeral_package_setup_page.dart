@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_package_dto.dart';
 import '../widgets/funeral_money_text.dart';
+import '../../../../core/models/product_lookup.dart';
+import '../../../../core/services/product_lookup_service.dart';
 
 class FuneralPackageSetupPage extends StatefulWidget {
   const FuneralPackageSetupPage({super.key});
@@ -216,8 +218,9 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
   final _formKey = GlobalKey<FormState>();
   final _api = FuneralApi();
   late final TextEditingController _nameController;
-  late final TextEditingController _priceController;
-  late final TextEditingController _inclusionsController;
+  List<ProductLookup> _catalog = [];
+  late List<FuneralPackageProductDto> _products;
+  bool _loadingProducts = true;
   bool _active = true;
   bool _saving = false;
 
@@ -226,18 +229,14 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     super.initState();
     final package = widget.package;
     _nameController = TextEditingController(text: package?.name ?? '');
-    _priceController = TextEditingController(
-      text: package == null ? '' : (package.basePriceCents / 100).toStringAsFixed(2),
-    );
-    _inclusionsController = TextEditingController(text: package?.inclusions.join('\n') ?? '');
+    _products = List.of(package?.products ?? const []);
+    ProductLookupService().getProducts().then((value) { if (mounted) setState(() { _catalog = value; _loadingProducts = false; }); });
     _active = package?.active ?? true;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _priceController.dispose();
-    _inclusionsController.dispose();
     super.dispose();
   }
 
@@ -245,19 +244,15 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);
-    final price = double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0;
-    final inclusions = _inclusionsController.text
-        .split(RegExp(r'[\n;]'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    if (_products.isEmpty) { setState(() => _saving = false); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least one product'))); return; }
 
     final package = FuneralPackageDto(
       id: widget.package?.id ?? '',
       name: _nameController.text.trim(),
-      basePriceCents: (price * 100).round(),
-      inclusions: inclusions,
-      inclusionsJson: jsonEncode(inclusions),
+      basePriceCents: _products.fold(0, (sum, item) => sum + item.lineTotalCents),
+      inclusions: _products.map((e) => '${e.quantity} x ${e.productDescription}').toList(),
+      inclusionsJson: jsonEncode(_products.map((e) => e.toJson()).toList()),
+      products: _products,
       active: _active,
     );
 
@@ -294,29 +289,18 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                   validator: (value) => value == null || value.trim().isEmpty ? 'Package name is required' : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Base price',
-                    prefixText: 'R ',
-                  ),
-                  validator: (value) {
-                    final amount = double.tryParse((value ?? '').replaceAll(',', '.'));
-                    if (amount == null || amount < 0) return 'Enter a valid amount';
-                    return null;
-                  },
+                if (_loadingProducts) const LinearProgressIndicator() else DropdownButtonFormField<ProductLookup>(
+                  decoration: const InputDecoration(labelText: 'Add product'),
+                  items: _catalog.map((p)=>DropdownMenuItem(value:p,child:Text('${p.code} - ${p.description}'))).toList(),
+                  onChanged: (p) { if (p == null || _products.any((e)=>e.productId==p.id)) return; setState(()=>_products.add(FuneralPackageProductDto(productId:p.id,productCode:p.code,productDescription:p.description,quantity:1,unitPriceCents:p.priceCents))); },
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _inclusionsController,
-                  maxLines: 6,
-                  decoration: const InputDecoration(
-                    labelText: 'Inclusions',
-                    helperText: 'Enter one inclusion per line',
-                    alignLabelWithHint: true,
-                  ),
-                ),
+                ..._products.asMap().entries.map((entry) { final i=entry.key; final item=entry.value; return ListTile(
+                  contentPadding: EdgeInsets.zero, title: Text(item.productDescription), subtitle: Text('R ${(item.unitPriceCents/100).toStringAsFixed(2)} each'),
+                  leading: SizedBox(width:70,child:TextFormField(initialValue:item.quantity.toString(),keyboardType:TextInputType.number,onChanged:(v){final q=int.tryParse(v)??0;_products[i]=FuneralPackageProductDto(productId:item.productId,productCode:item.productCode,productDescription:item.productDescription,quantity:q,unitPriceCents:item.unitPriceCents);})),
+                  trailing: IconButton(icon:const Icon(Icons.delete_outline),onPressed:()=>setState(()=>_products.removeAt(i))),
+                );}),
+                Align(alignment:Alignment.centerRight,child:Text('Package total: R ${(_products.fold(0,(s,e)=>s+e.lineTotalCents)/100).toStringAsFixed(2)}',style:const TextStyle(fontWeight:FontWeight.bold))),
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,

@@ -137,7 +137,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Mark as Paid'),
-          content: Column(
+          content: SizedBox(width: 520, child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
@@ -145,6 +145,8 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                 decoration: const InputDecoration(labelText: 'Payment Reference', hintText: 'E.g. Bank Ref #'),
               ),
               const SizedBox(height: 16),
+              AttachmentSection(objectId: widget.paymentId, documentTypeField: 'PAYMENT-PROOF-DOCUMENT-TYPE'),
+              const SizedBox(height: 12),
               ListTile(
                 title: const Text('Payment Date', style: TextStyle(fontSize: 14)),
                 subtitle: Text(DateFormat('yyyy-MM-dd').format(selectedDate)),
@@ -160,7 +162,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                 },
               ),
             ],
-          ),
+          )),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             ElevatedButton(
@@ -202,7 +204,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           if (_detail != null) ...[
             if (_detail!.status == 'DRAFT')
               IconButton(onPressed: _isActionLoading ? null : _submitForApproval, icon: const Icon(Icons.send_rounded), tooltip: 'Submit'),
-            if (_detail!.status == 'APPROVED')
+            if (_detail!.status == 'APPROVED' && _detail!.paymentMethod == 'MANUAL')
               IconButton(onPressed: _isActionLoading ? null : _markAsPaid, icon: const Icon(Icons.paid_outlined), tooltip: 'Mark Paid'),
             if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL' || _detail!.status == 'PENDING')
               IconButton(onPressed: _isActionLoading ? null : _cancelRequest, icon: const Icon(Icons.cancel_outlined, color: Colors.red), tooltip: 'Cancel'),

@@ -942,6 +942,45 @@ class MembershipService {
     }
   }
 
+  Future<PaymentBatchResponse> captureManualPremiumReceipt({
+    required String membershipId,
+    required int amountCents,
+    required String paymentMethod,
+    required DateTime originalReceiptDate,
+    required String receiptBookNo,
+    required String manualReceiptNo,
+    required String captureMode,
+    required String createdBy,
+    String? originalCollector,
+    String? location,
+    String? workcentreId,
+    String? lateCaptureReason,
+    String? proofAttachmentId,
+    String? notes,
+  }) async {
+    final payload = {
+      'membershipId': membershipId,
+      'amountCents': amountCents,
+      'paymentMethod': paymentMethod,
+      'originalReceiptDate': originalReceiptDate.toIso8601String().substring(0, 10),
+      'receiptBookNo': receiptBookNo,
+      'manualReceiptNo': manualReceiptNo,
+      'captureMode': captureMode,
+      'createdBy': createdBy,
+      'originalCollector': originalCollector,
+      'location': location,
+      'workcentreId': workcentreId,
+      'lateCaptureReason': lateCaptureReason,
+      'proofAttachmentId': proofAttachmentId,
+      'notes': notes,
+    };
+    final response = await ApiClient().post('/v2/payment-batches/membership-premiums/manual-receipts', body: payload);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return PaymentBatchResponse.fromJson(jsonDecode(response.body));
+    }
+    throw Exception(_extractErrorMessage(response.body, 'Failed to capture manual receipt (${response.statusCode})'));
+  }
+
   Future<void> printReceipt(String receiptId) async {
     try {
       final response = await ApiClient().get('/v2/receipts/$receiptId/print');

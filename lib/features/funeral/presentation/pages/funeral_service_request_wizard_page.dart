@@ -358,6 +358,15 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                 });
               },
             )),
+        if (_controller.selectedCovers.isNotEmpty) ...[
+          const SizedBox(height:12),
+          DropdownButtonFormField<String>(
+            value:_controller.groceryCoverSelectionId,
+            decoration:const InputDecoration(labelText:'Cover to use for grocery claim',border:OutlineInputBorder()),
+            items:_controller.selectedCovers.map((c){final id=c.membershipId??c.sourceReference??'';return DropdownMenuItem(value:id,child:Text('${c.membershipNumber} • ${c.burialSocietyName}'));}).toList(),
+            onChanged:(v)=>setState(()=>_controller.groceryCoverSelectionId=v),
+          ),
+        ],
         if (_controller.availableCovers.isNotEmpty)
           const Padding(
             padding: EdgeInsets.all(8.0),

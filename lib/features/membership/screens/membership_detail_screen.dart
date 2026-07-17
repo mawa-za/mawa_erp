@@ -16,6 +16,7 @@ import 'edit_dependent_screen.dart';
 import 'membership_claim_create_screen.dart';
 import 'membership_claim_detail_screen.dart';
 import 'capture_premium_payment_dialog.dart';
+import 'capture_manual_premium_receipt_dialog.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -235,6 +236,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildStatusBanner(detail, colorScheme),
           const SizedBox(height: 16),
           _buildCapturePaymentButton(colorScheme),
+          const SizedBox(height: 10),
+          _buildCaptureManualReceiptButton(colorScheme),
           const SizedBox(height: 24),
           if (_member != null) _buildMemberCard(_member!, colorScheme),
           const SizedBox(height: 32),
@@ -329,6 +332,23 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCaptureManualReceiptButton(ColorScheme colorScheme) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _detail == null || _member == null ? null : () async {
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => CaptureManualPremiumReceiptDialog(membership: _detail!, member: _member!),
+          );
+          if (result == true) _fetchData();
+        },
+        icon: const Icon(Icons.receipt_long_outlined),
+        label: const Text('CAPTURE OUTSTANDING MANUAL RECEIPT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.4)),
       ),
     );
   }
