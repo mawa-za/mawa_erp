@@ -4,6 +4,8 @@ class FuneralMembershipCoverDto {
   final String? membershipId;
   final String burialSocietyName;
   final int coverAmountCents;
+  final int funeralAmountCents;
+  final int combinationAmountCents;
   final String membershipNumber;
   final CoverSource coverSource;
   final String? sourceTenantId;
@@ -16,6 +18,8 @@ class FuneralMembershipCoverDto {
     this.membershipId,
     required this.burialSocietyName,
     required this.coverAmountCents,
+    this.funeralAmountCents = 0,
+    this.combinationAmountCents = 0,
     required this.membershipNumber,
     required this.coverSource,
     this.sourceTenantId,
@@ -30,6 +34,8 @@ class FuneralMembershipCoverDto {
       if (membershipId != null) 'membershipId': membershipId,
       'burialSocietyName': burialSocietyName,
       'coverAmountCents': coverAmountCents,
+      'funeralAmountCents': funeralAmountCents,
+      'combinationAmountCents': combinationAmountCents,
       'membershipNumber': membershipNumber,
       'coverSource': coverSource.name,
       if (sourceTenantId != null) 'sourceTenantId': sourceTenantId,
@@ -44,7 +50,9 @@ class FuneralMembershipCoverDto {
     return FuneralMembershipCoverDto(
       membershipId: json['membershipId']?.toString(),
       burialSocietyName: json['burialSocietyName']?.toString() ?? '',
-      coverAmountCents: json['coverAmountCents'] as int? ?? 0,
+      coverAmountCents: (json['coverAmountCents'] as num?)?.toInt() ?? 0,
+      funeralAmountCents: (json['funeralAmountCents'] as num?)?.toInt() ?? 0,
+      combinationAmountCents: (json['combinationAmountCents'] as num?)?.toInt() ?? 0,
       membershipNumber: json['membershipNumber']?.toString() ?? '',
       coverSource: CoverSource.parse(json['coverSource']),
       sourceTenantId: json['sourceTenantId']?.toString(),
