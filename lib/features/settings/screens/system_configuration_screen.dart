@@ -13,6 +13,7 @@ import 'xero_integration_screen.dart';
 import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import 'pos_printing_settings_screen.dart';
+import 'manual_receipt_cutover_settings_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -68,6 +69,15 @@ class SystemConfigurationScreen extends StatelessWidget {
                 builder: (context) => const MessageQueueAdminScreen(),
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Manual Receipt Cutover',
+            subtitle: 'Configure MAWAPay go-live, legacy catch-up and emergency receipt rules',
+            icon: Icons.receipt_long_outlined,
+            color: Colors.purple,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManualReceiptCutoverSettingsScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
