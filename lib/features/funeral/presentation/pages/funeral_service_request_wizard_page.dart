@@ -322,13 +322,25 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   Widget _buildCoverStep() {
+    final groceryEligibleCovers = _controller.selectedCovers
+        .where((cover) => cover.groceryAmountCents > 0)
+        .toList();
+    final currentGrocerySelectionIsValid = groceryEligibleCovers.any(
+      (cover) =>
+          (cover.sourceReference ?? cover.membershipId) ==
+          _controller.groceryCoverSelectionId,
+    );
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Membership Cover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Membership Cover',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             ElevatedButton.icon(
               onPressed: _controller.checkMembership,
               icon: const Icon(Icons.search),
@@ -346,31 +358,72 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           ),
         ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
               cover: cover,
-              isSelected: _controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == (cover.membershipId ?? cover.sourceReference)),
+              isSelected: _controller.selectedCovers.any(
+                (c) =>
+                    (c.sourceReference ?? c.membershipId) ==
+                    (cover.sourceReference ?? cover.membershipId),
+              ),
               onTap: () {
                 setState(() {
-                  final id = cover.membershipId ?? cover.sourceReference;
-                  if (_controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == id)) {
-                    _controller.selectedCovers.removeWhere((c) => (c.membershipId ?? c.sourceReference) == id);
+                  final id = cover.sourceReference ?? cover.membershipId;
+                  if (_controller.selectedCovers.any(
+                    (c) => (c.sourceReference ?? c.membershipId) == id,
+                  )) {
+                    _controller.selectedCovers.removeWhere(
+                      (c) => (c.sourceReference ?? c.membershipId) == id,
+                    );
+                    if (_controller.groceryCoverSelectionId == id) {
+                      _controller.groceryCoverSelectionId = null;
+                    }
                   } else {
                     _controller.selectedCovers.add(cover);
+                    if (cover.groceryAmountCents > 0 &&
+                        _controller.groceryCoverSelectionId == null) {
+                      _controller.groceryCoverSelectionId = id;
+                    }
                   }
                 });
               },
             )),
-        if (_controller.selectedCovers.isNotEmpty) ...[
-          const SizedBox(height:12),
+        if (groceryEligibleCovers.isNotEmpty) ...[
+          const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value:_controller.groceryCoverSelectionId,
-            decoration:const InputDecoration(labelText:'Cover to use for grocery claim',border:OutlineInputBorder()),
-            items:_controller.selectedCovers.map((c){final id=c.membershipId??c.sourceReference??'';return DropdownMenuItem(value:id,child:Text('${c.membershipNumber} • ${c.burialSocietyName}'));}).toList(),
-            onChanged:(v)=>setState(()=>_controller.groceryCoverSelectionId=v),
+            value: currentGrocerySelectionIsValid
+                ? _controller.groceryCoverSelectionId
+                : null,
+            decoration: const InputDecoration(
+              labelText: 'Cover to use for grocery claim',
+              helperText:
+                  'Only covers with an active GROCERY plan benefit are listed.',
+              border: OutlineInputBorder(),
+            ),
+            items: groceryEligibleCovers.map((cover) {
+              final id = cover.sourceReference ?? cover.membershipId ?? '';
+              return DropdownMenuItem<String>(
+                value: id,
+                child: Text(
+                  '${cover.membershipNumber} • ${cover.burialSocietyName}',
+                ),
+              );
+            }).toList(),
+            onChanged: (value) => setState(
+              () => _controller.groceryCoverSelectionId = value,
+            ),
+          ),
+        ] else if (_controller.selectedCovers.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'None of the selected membership plans has an active GROCERY benefit. No grocery claim will be created.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],
         if (_controller.availableCovers.isNotEmpty)
           const Padding(
             padding: EdgeInsets.all(8.0),
-            child: Text('Select one or more memberships to use for claim initiation.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text(
+              'Select one or more memberships to use for claim initiation.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
       ],
     );
