@@ -141,20 +141,20 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       serviceRequestId = result.id;
       
       if (selectedCovers.isNotEmpty) {
-        final membershipIds = selectedCovers
-            .where((c) => c.membershipId != null)
-            .map((c) => c.membershipId!)
+        // Send each selected cover exactly once using the stable selection id
+        // returned by membership lookup.
+        final selectionIds = selectedCovers
+            .map((cover) => cover.sourceReference ?? cover.membershipId)
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toSet()
             .toList();
-        final sourceRefs = selectedCovers
-            .where((c) => c.sourceReference != null)
-            .map((c) => c.sourceReference!)
-            .toList();
-        
+
         await _api.initiateClaims(
           serviceRequestId!,
           InitiateFuneralClaimsRequestDto(
-            membershipIds: membershipIds,
-            sourceReferences: sourceRefs.isEmpty ? null : sourceRefs,
+            membershipIds: selectionIds,
             claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
             groceryCoverSelectionId: groceryCoverSelectionId,
           ),
