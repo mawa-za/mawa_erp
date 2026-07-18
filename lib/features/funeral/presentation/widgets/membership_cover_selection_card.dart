@@ -53,10 +53,7 @@ class MembershipCoverSelectionCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                'Membership: ${cover.membershipNumber}',
-                style: const TextStyle(fontSize: 13, color: Colors.grey),
-              ),
+              Text('Membership: ${cover.membershipNumber}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -76,58 +73,15 @@ class MembershipCoverSelectionCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text(
-                        'Funeral benefit',
-                        style: TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
-                      FuneralMoneyText(
-                        cents: cover.funeralAmountCents > 0
-                            ? cover.funeralAmountCents
-                            : cover.coverAmountCents,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Combination benefit',
-                        style: TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
-                      FuneralMoneyText(
-                        cents: cover.combinationAmountCents,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      if (cover.groceryAmountCents > 0) ...[
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Grocery benefit',
-                          style: TextStyle(fontSize: 10, color: Colors.grey),
-                        ),
-                        FuneralMoneyText(
-                          cents: cover.groceryAmountCents,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end,children:[
+                    const Text('Funeral benefit',style:TextStyle(fontSize:10,color:Colors.grey)),FuneralMoneyText(cents:cover.funeralAmountCents>0?cover.funeralAmountCents:cover.coverAmountCents,style:const TextStyle(fontWeight:FontWeight.bold,color:Colors.green)),
+                    const SizedBox(height:4),const Text('Combination benefit',style:TextStyle(fontSize:10,color:Colors.grey)),FuneralMoneyText(cents:cover.combinationAmountCents,style:const TextStyle(fontWeight:FontWeight.bold,color:Colors.blue)),
+                  ]),
                 ],
               ),
               if (!isLocal && cover.sourceTenantName != null) ...[
                 const SizedBox(height: 8),
-                Text(
-                  'Source: ${cover.sourceTenantName}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
+                Text('Source: ${cover.sourceTenantName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ],
           ),
