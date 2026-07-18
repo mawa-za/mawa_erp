@@ -140,31 +140,45 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       final result = await _api.createServiceRequest(request);
       serviceRequestId = result.id;
       
-      if (selectedCovers.isNotEmpty) {
-        // Send each selected cover exactly once using the stable selection id
-        // returned by membership lookup.
-        final selectionIds = selectedCovers
-            .map((cover) => cover.sourceReference ?? cover.membershipId)
-            .whereType<String>()
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .toSet()
-            .toList();
-
-        await _api.initiateClaims(
-          serviceRequestId!,
-          InitiateFuneralClaimsRequestDto(
-            membershipIds: selectionIds,
-            claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
-            groceryCoverSelectionId: groceryCoverSelectionId,
-          ),
-        );
-      }
-      
-      await loadClaims();
       return true;
     } catch (e) {
       errorMessage = 'Failed to create service request: $e';
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> continueAfterDocuments() async {
+    if (serviceRequestId == null) return false;
+    if (selectedCovers.isEmpty) {
+      await loadClaims();
+      return true;
+    }
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final selectionIds = selectedCovers
+          .map((cover) => cover.sourceReference ?? cover.membershipId)
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList();
+      await _api.initiateClaims(
+        serviceRequestId!,
+        InitiateFuneralClaimsRequestDto(
+          membershipIds: selectionIds,
+          claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
+          groceryCoverSelectionId: groceryCoverSelectionId,
+        ),
+      );
+      await loadClaims();
+      return true;
+    } catch (e) {
+      errorMessage = 'Failed to submit funeral claims: $e';
       return false;
     } finally {
       isLoading = false;
@@ -237,7 +251,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   void nextStep() {
-    if (currentStep < 6) {
+    if (currentStep < 7) {
       currentStep++;
       notifyListeners();
     }
