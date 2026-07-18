@@ -250,5 +250,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
-  bool get hasPendingClaims => claims.any((c) => c.status.name == 'PENDING');
+  bool get hasPendingClaims => claims.any((c) {
+        final status = c.status.name.toUpperCase();
+        return status == 'PENDING' || status == 'DRAFT' || status == 'SUBMITTED';
+      });
 }
