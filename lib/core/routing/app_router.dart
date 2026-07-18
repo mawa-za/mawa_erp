@@ -36,6 +36,7 @@ import '../../features/stock/screens/stock_management_screen.dart';
 import '../../features/tombstones/screens/tombstone_management_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_detail_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_form_screen.dart';
+import '../../features/reports/screens/reports_dashboard_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -294,6 +295,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.groupSocieties,
         builder: (context, state) => const GroupSocietyListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.reports,
+        builder: (context, state) => const ReportsDashboardScreen(),
       ),
       GoRoute(
         path: AppRoutes.inventory,

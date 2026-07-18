@@ -20,6 +20,35 @@ class Config {
     return '';
   }
 
+  static String get reportingApiHost {
+    switch (env) {
+      case 'prod':
+        return 'reports.api.app.mawa.co.za';
+      case 'beta':
+        return 'beta.reports.api.app.mawa.co.za';
+      case 'alpha':
+        return 'alpha.reports.api.app.mawa.co.za';
+      case 'prep':
+        return 'prep.reports.api.app.mawa.co.za';
+      case 'dev':
+      default:
+        return 'dev.reports.api.app.mawa.co.za';
+    }
+  }
+
+  static String reportingHostFromApiHost(String apiHost) {
+    final host = apiHost.trim().toLowerCase();
+    if (host.isEmpty) return reportingApiHost;
+    if (host == 'api.app.mawa.co.za') return 'reports.api.app.mawa.co.za';
+    if (host.endsWith('.api.app.mawa.co.za')) {
+      return host.replaceFirst('.api.app.mawa.co.za', '.reports.api.app.mawa.co.za');
+    }
+    if (host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('10.0.2.2')) {
+      return host;
+    }
+    return reportingApiHost;
+  }
+
   static String get webTenant {
     if (!kIsWeb) return '';
     return normalizeTenantReference(Uri.base.toString());
