@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/models/field_option.dart';
 import '../../../../core/services/field_service.dart';
+import '../../../../core/services/product_lookup_service.dart';
+import '../../../../core/models/product_lookup.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/mortuary_inventory_dto.dart';
 import '../../data/models/funeral_package_dto.dart';
@@ -12,10 +14,12 @@ import '../../data/models/funeral_invoice_preview_line_dto.dart';
 import '../../data/models/funeral_invoice_preview_request_dto.dart';
 import '../../data/models/generate_funeral_invoices_response_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
+import '../../data/models/funeral_enums.dart';
 
 class FuneralServiceRequestWizardController extends ChangeNotifier {
   final FuneralApi _api = FuneralApi();
   final FieldService _fieldService = FieldService();
+  final ProductLookupService _productService = ProductLookupService();
 
   int currentStep = 0;
   bool isLoading = false;
@@ -42,6 +46,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<FuneralPackageDto> packages = [];
   FuneralPackageDto? selectedPackage;
   List<FuneralExtraDto> extras = [];
+  List<ProductLookup> products = [];
 
   // Step 4: Membership Cover
   List<FuneralMembershipCoverDto> availableCovers = [];
@@ -68,11 +73,13 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         _api.getFuneralPackages(),
         _fieldService.getOptionsByField('CAUSE-OF-DEATH'),
         _fieldService.getOptionsByField('SALES-AREA'),
+        _productService.getProducts(),
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
       causeOfDeathOptions = results[2] as List<FieldOption>;
       salesAreaOptions = results[3] as List<FieldOption>;
+      products = results[4] as List<ProductLookup>;
     } catch (e) {
       errorMessage = 'Failed to load initial data: $e';
     } finally {
@@ -150,41 +157,42 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
-  Future<bool> continueAfterDocuments() async {
-    if (serviceRequestId == null) return false;
+  Future<bool> initiateArrangementAndClaims() async {
+    final created = await createServiceRequest();
+    if (!created) return false;
     if (selectedCovers.isEmpty) {
       await loadClaims();
       return true;
     }
-    isLoading = true;
-    errorMessage = null;
-    notifyListeners();
+    isLoading = true; errorMessage = null; notifyListeners();
     try {
-      final selectionIds = selectedCovers
-          .map((cover) => cover.sourceReference ?? cover.membershipId)
-          .whereType<String>()
-          .map((value) => value.trim())
-          .where((value) => value.isNotEmpty)
-          .toSet()
-          .toList();
-      await _api.initiateClaims(
-        serviceRequestId!,
-        InitiateFuneralClaimsRequestDto(
-          membershipIds: selectionIds,
-          claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
-          groceryCoverSelectionId: groceryCoverSelectionId,
-        ),
-      );
+      final selectionIds = selectedCovers.map((c) => c.sourceReference ?? c.membershipId)
+          .whereType<String>().map((v) => v.trim()).where((v) => v.isNotEmpty).toSet().toList();
+      claims = await _api.initiateClaimsAndReturn(serviceRequestId!, InitiateFuneralClaimsRequestDto(
+        membershipIds: selectionIds,
+        claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
+        groceryCoverSelectionId: groceryCoverSelectionId,
+      ));
       await loadClaims();
       return true;
-    } catch (e) {
-      errorMessage = 'Failed to submit funeral claims: $e';
-      return false;
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
+    } catch (e) { errorMessage = 'Failed to initiate funeral claims: $e'; return false; }
+    finally { isLoading = false; notifyListeners(); }
   }
+
+  Future<bool> submitClaimsForApproval() async {
+    if (claims.isEmpty) return true;
+    isLoading = true; errorMessage = null; notifyListeners();
+    try {
+      for (final claim in claims.where((c) => c.status == ClaimStatus.DRAFT)) {
+        await _api.submitClaimForApproval(claim.id);
+      }
+      await loadClaims();
+      return true;
+    } catch (e) { errorMessage = 'Attach the signed claim form and supporting documents to every claim before continuing: $e'; return false; }
+    finally { isLoading = false; notifyListeners(); }
+  }
+
+  Future<List<int>> downloadClaimForm(String claimId) => _api.downloadClaimForm(claimId);
 
   Future<void> loadClaims() async {
     if (serviceRequestId == null) return;
@@ -250,8 +258,14 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
+  int get packageAmountCents => selectedPackage?.basePriceCents ?? 0;
+  int get extrasTotalCents => extras.fold(0, (sum, e) => sum + e.amountCents);
+  int get arrangementTotalCents => packageAmountCents + extrasTotalCents;
+  int get selectedCoverTotalCents => selectedCovers.fold(0, (sum, c) => sum + (c.combinationAmountCents > 0 ? c.combinationAmountCents : c.funeralAmountCents));
+  int get shortfallCents => (arrangementTotalCents - selectedCoverTotalCents).clamp(0, 1 << 62).toInt();
+
   void nextStep() {
-    if (currentStep < 7) {
+    if (currentStep < 6) {
       currentStep++;
       notifyListeners();
     }
