@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 import '../controllers/funeral_service_request_wizard_controller.dart';
 import '../widgets/funeral_wizard_stepper.dart';
 import '../widgets/funeral_package_card.dart';
@@ -14,6 +16,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
+import '../../../../core/models/product_lookup.dart';
 
 class FuneralServiceRequestWizardPage extends StatefulWidget {
   const FuneralServiceRequestWizardPage({super.key});
@@ -30,14 +33,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   final _deathCertificateController = TextEditingController();
 
   final List<String> _stepTitles = [
-    'Deceased',
-    'Cover',
-    'Representative',
-    'Package',
-    'Documents',
-    'Claims',
-    'Preview',
-    'Generate'
+    'Deceased', 'Cover', 'Representative', 'Package', 'Claims', 'Preview', 'Generate'
   ];
 
   @override
@@ -130,12 +126,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       case 3:
         return _buildPackageStep();
       case 4:
-        return _buildDocumentsStep();
-      case 5:
         return _buildClaimsStep();
-      case 6:
+      case 5:
         return _buildPreviewStep();
-      case 7:
+      case 6:
         return _buildGenerateStep();
       default:
         return const SizedBox.shrink();
@@ -321,9 +315,31 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                 ),
               ),
         )),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: [
+              _moneySummaryRow('Package', _controller.packageAmountCents),
+              _moneySummaryRow('Extras', _controller.extrasTotalCents),
+              const Divider(),
+              _moneySummaryRow('Total funeral cost', _controller.arrangementTotalCents, bold: true),
+              _moneySummaryRow('Selected cover total', _controller.selectedCoverTotalCents, bold: true),
+              _moneySummaryRow('Family shortfall', _controller.shortfallCents, bold: true),
+            ]),
+          ),
+        ),
       ],
     );
   }
+
+  Widget _moneySummaryRow(String label, int cents, {bool bold = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label, style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null),
+      FuneralMoneyText(cents: cents, style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null),
+    ]),
+  );
 
   Widget _buildCoverStep() {
     return ListView(
@@ -442,6 +458,17 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       ),
                       trailing: FuneralStatusChip(status: claim.status),
                     ),
+                    Row(children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          final bytes = await _controller.downloadClaimForm(claim.id);
+                          await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: 'claim-form-${claim.claimNumber ?? claim.id}.pdf');
+                        },
+                        icon: const Icon(Icons.download),
+                        label: const Text('Download Claim Form'),
+                      ),
+                    ]),
+                    AttachmentSection(objectId: claim.id, documentTypeField: 'CLAIM-DOCUMENT-TYPE'),
                     if (claim.status == ClaimStatus.PENDING &&
                         !claim.managedExternally)
                       Row(
@@ -593,7 +620,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   Widget _buildBottomBar() {
-    if (_controller.currentStep == 7 && _controller.generationResponse != null) {
+    if (_controller.currentStep == 6 && _controller.generationResponse != null) {
       return const SizedBox.shrink();
     }
 
@@ -630,12 +657,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       case 3:
         return 'Initiate Request';
       case 4:
-        return 'Submit Claims';
+        return 'Submit Claims for Approval';
       case 5:
-        return 'Continue to Preview';
-      case 6:
         return 'Proceed to Generation';
-      case 7:
+      case 6:
         return 'Done';
       default:
         return 'Continue';
@@ -684,15 +709,21 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         _controller.errorMessage = 'Please select a funeral package.';
         return;
       }
-      final success = await _controller.createServiceRequest();
-      if (success) _controller.nextStep();
+      final success = await _controller.initiateArrangementAndClaims();
+      if (success) {
+        for (final claim in _controller.claims) {
+          final bytes = await _controller.downloadClaimForm(claim.id);
+          await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: 'claim-form-${claim.claimNumber ?? claim.id}.pdf');
+        }
+        _controller.nextStep();
+      }
     } else if (_controller.currentStep == 4) {
-      final success = await _controller.continueAfterDocuments();
-      if (success) _controller.nextStep();
+      final submitted = await _controller.submitClaimsForApproval();
+      if (submitted) {
+        await _controller.loadInvoicePreview();
+        _controller.nextStep();
+      }
     } else if (_controller.currentStep == 5) {
-      await _controller.loadInvoicePreview();
-      _controller.nextStep();
-    } else if (_controller.currentStep == 6) {
       if (_controller.hasPendingClaims) {
         final confirm = await showDialog<bool>(
           context: context,
@@ -708,45 +739,47 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         if (confirm != true) return;
       }
       _controller.nextStep();
-    } else if (_controller.currentStep == 7) {
+    } else if (_controller.currentStep == 6) {
       context.pop();
     }
   }
 
   void _showAddExtraDialog() {
-    final descController = TextEditingController();
-    final amountController = TextEditingController();
+    ProductLookup? selected;
+    int quantity = 1;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Funeral Extra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description', hintText: 'e.g. Flowers, Transport')),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController, 
-              decoration: const InputDecoration(labelText: 'Amount (Rand)', prefixText: 'R '), 
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ],
-        ),
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Add Product Extra'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButtonFormField<ProductLookup>(
+            value: selected,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Product', border: OutlineInputBorder()),
+            items: _controller.products.map((p) => DropdownMenuItem(value: p, child: Text('${p.code} • ${p.description}'))).toList(),
+            onChanged: (v) => setDialogState(() => selected = v),
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            initialValue: '1',
+            decoration: const InputDecoration(labelText: 'Quantity', border: OutlineInputBorder()),
+            keyboardType: TextInputType.number,
+            onChanged: (v) => quantity = int.tryParse(v) ?? 1,
+          ),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final val = double.tryParse(amountController.text);
-              if (val != null && descController.text.isNotEmpty) {
-                final cents = (val * 100).toInt();
-                setState(() => _controller.extras.add(FuneralExtraDto(description: descController.text, amountCents: cents)));
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Add'),
-          ),
+          ElevatedButton(onPressed: selected == null ? null : () {
+            final p = selected!;
+            final qty = quantity < 1 ? 1 : quantity;
+            setState(() => _controller.extras.add(FuneralExtraDto(
+              description: '${p.code} - ${p.description} x $qty',
+              amountCents: p.priceCents * qty,
+            )));
+            Navigator.pop(context);
+          }, child: const Text('Add')),
         ],
-      ),
+      )),
     );
   }
 
