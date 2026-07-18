@@ -235,6 +235,19 @@ class FuneralApi {
     }
   }
 
+
+  Future<List<int>> downloadClaimForm(String claimId) async {
+    final response = await _apiClient.get('/v2/membership-claim/$claimId/claim-form');
+    if (response.statusCode == 200) return response.bodyBytes;
+    throw Exception('Failed to download claim form: ${response.body}');
+  }
+
+  Future<void> submitClaimForApproval(String claimId) async {
+    final response = await _apiClient.post('/v2/funeral/claims/$claimId/submit-for-approval');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to submit claim: ${response.body}');
+    }
+  }
   Future<List<FuneralClaimDto>> getClaims(String serviceRequestId) async {
     final response = await _apiClient.get('/v2/funeral/service-request/$serviceRequestId/claims');
     if (response.statusCode == 200) {
