@@ -96,8 +96,6 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     notifyListeners();
     try {
       availableCovers = await _api.checkMembership(deceasedIdentityNumber);
-      selectedCovers = [];
-      groceryCoverSelectionId = null;
       if (availableCovers.isEmpty) {
         errorMessage = 'No memberships found for this identity number.';
       }
@@ -141,46 +139,46 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
 
       final result = await _api.createServiceRequest(request);
       serviceRequestId = result.id;
-
-      if (selectedCovers.isNotEmpty) {
-        // Send each selected cover exactly once using the stable selection id
-        // returned by membership lookup.
-        final selectionIds = selectedCovers
-            .map((cover) => cover.sourceReference ?? cover.membershipId)
-            .whereType<String>()
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .toSet()
-            .toList();
-
-        final groceryEligibleCovers = selectedCovers
-            .where((cover) => cover.groceryAmountCents > 0)
-            .toList();
-        final selectedGroceryCoverId = groceryEligibleCovers.any(
-          (cover) =>
-              (cover.sourceReference ?? cover.membershipId) ==
-              groceryCoverSelectionId,
-        )
-            ? groceryCoverSelectionId
-            : (groceryEligibleCovers.isEmpty
-                ? null
-                : groceryEligibleCovers.first.sourceReference ??
-                    groceryEligibleCovers.first.membershipId);
-
-        await _api.initiateClaims(
-          serviceRequestId!,
-          InitiateFuneralClaimsRequestDto(
-            membershipIds: selectionIds,
-            claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
-            groceryCoverSelectionId: selectedGroceryCoverId,
-          ),
-        );
-      }
-
-      await loadClaims();
+      
       return true;
     } catch (e) {
       errorMessage = 'Failed to create service request: $e';
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> continueAfterDocuments() async {
+    if (serviceRequestId == null) return false;
+    if (selectedCovers.isEmpty) {
+      await loadClaims();
+      return true;
+    }
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final selectionIds = selectedCovers
+          .map((cover) => cover.sourceReference ?? cover.membershipId)
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList();
+      await _api.initiateClaims(
+        serviceRequestId!,
+        InitiateFuneralClaimsRequestDto(
+          membershipIds: selectionIds,
+          claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
+          groceryCoverSelectionId: groceryCoverSelectionId,
+        ),
+      );
+      await loadClaims();
+      return true;
+    } catch (e) {
+      errorMessage = 'Failed to submit funeral claims: $e';
       return false;
     } finally {
       isLoading = false;
@@ -253,7 +251,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   void nextStep() {
-    if (currentStep < 6) {
+    if (currentStep < 7) {
       currentStep++;
       notifyListeners();
     }
@@ -266,5 +264,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
-  bool get hasPendingClaims => claims.any((c) => c.status.name == 'PENDING');
+  bool get hasPendingClaims => claims.any((c) {
+        final status = c.status.name.toUpperCase();
+        return status == 'PENDING' || status == 'DRAFT' || status == 'SUBMITTED';
+      });
 }

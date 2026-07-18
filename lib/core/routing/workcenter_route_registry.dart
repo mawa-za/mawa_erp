@@ -15,6 +15,8 @@ class WorkcenterRouteRegistry {
     'LEGAL_CASE_MANAGEMENT': AppRoutes.cases,
     'APPROVALS': AppRoutes.approvals,
     'APPROVAL': AppRoutes.approvals,
+    'REPORT': AppRoutes.reports,
+    'REPORTS': AppRoutes.reports,
     'SETTINGS': AppRoutes.settings,
     'SYSTEM_SETTINGS': AppRoutes.settings,
     'SYSTEM_CONFIGURATION': AppRoutes.systemConfiguration,
@@ -161,6 +163,9 @@ class WorkcenterRouteRegistry {
     // common descriptive variants here so configured cards never fall back to
     // the old "feature coming soon" placeholder merely because a suffix such
     // as LIST, MANAGEMENT or DISPLAY was added.
+    if (normalized.contains('REPORT') && !normalized.contains('TOMBSTONE')) {
+      return AppRoutes.reports;
+    }
     if (normalized.contains('FNB') && normalized.contains('INTEGRATION')) {
       return AppRoutes.fnbIntegration;
     }

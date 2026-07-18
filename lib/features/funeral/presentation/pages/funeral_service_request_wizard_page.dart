@@ -9,6 +9,7 @@ import '../widgets/invoice_preview_summary_card.dart';
 import '../widgets/funeral_money_text.dart';
 import '../widgets/funeral_status_chip.dart';
 import '../../../../core/widgets/partner_search_dropdown.dart';
+import '../../../../core/widgets/attachment_section.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
@@ -33,6 +34,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     'Cover',
     'Representative',
     'Package',
+    'Documents',
     'Claims',
     'Preview',
     'Generate'
@@ -128,10 +130,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       case 3:
         return _buildPackageStep();
       case 4:
-        return _buildClaimsStep();
+        return _buildDocumentsStep();
       case 5:
-        return _buildPreviewStep();
+        return _buildClaimsStep();
       case 6:
+        return _buildPreviewStep();
+      case 7:
         return _buildGenerateStep();
       default:
         return const SizedBox.shrink();
@@ -322,25 +326,13 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   Widget _buildCoverStep() {
-    final groceryEligibleCovers = _controller.selectedCovers
-        .where((cover) => cover.groceryAmountCents > 0)
-        .toList();
-    final currentGrocerySelectionIsValid = groceryEligibleCovers.any(
-      (cover) =>
-          (cover.sourceReference ?? cover.membershipId) ==
-          _controller.groceryCoverSelectionId,
-    );
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Membership Cover',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('Membership Cover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ElevatedButton.icon(
               onPressed: _controller.checkMembership,
               icon: const Icon(Icons.search),
@@ -358,73 +350,49 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           ),
         ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
               cover: cover,
-              isSelected: _controller.selectedCovers.any(
-                (c) =>
-                    (c.sourceReference ?? c.membershipId) ==
-                    (cover.sourceReference ?? cover.membershipId),
-              ),
+              isSelected: _controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == (cover.membershipId ?? cover.sourceReference)),
               onTap: () {
                 setState(() {
-                  final id = cover.sourceReference ?? cover.membershipId;
-                  if (_controller.selectedCovers.any(
-                    (c) => (c.sourceReference ?? c.membershipId) == id,
-                  )) {
-                    _controller.selectedCovers.removeWhere(
-                      (c) => (c.sourceReference ?? c.membershipId) == id,
-                    );
-                    if (_controller.groceryCoverSelectionId == id) {
-                      _controller.groceryCoverSelectionId = null;
-                    }
+                  final id = cover.membershipId ?? cover.sourceReference;
+                  if (_controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == id)) {
+                    _controller.selectedCovers.removeWhere((c) => (c.membershipId ?? c.sourceReference) == id);
                   } else {
                     _controller.selectedCovers.add(cover);
-                    if (cover.groceryAmountCents > 0 &&
-                        _controller.groceryCoverSelectionId == null) {
-                      _controller.groceryCoverSelectionId = id;
-                    }
                   }
                 });
               },
             )),
-        if (groceryEligibleCovers.isNotEmpty) ...[
-          const SizedBox(height: 12),
+        if (_controller.selectedCovers.isNotEmpty) ...[
+          const SizedBox(height:12),
           DropdownButtonFormField<String>(
-            value: currentGrocerySelectionIsValid
-                ? _controller.groceryCoverSelectionId
-                : null,
-            decoration: const InputDecoration(
-              labelText: 'Cover to use for grocery claim',
-              helperText:
-                  'Only covers with an active GROCERY plan benefit are listed.',
-              border: OutlineInputBorder(),
-            ),
-            items: groceryEligibleCovers.map((cover) {
-              final id = cover.sourceReference ?? cover.membershipId ?? '';
-              return DropdownMenuItem<String>(
-                value: id,
-                child: Text(
-                  '${cover.membershipNumber} • ${cover.burialSocietyName}',
-                ),
-              );
-            }).toList(),
-            onChanged: (value) => setState(
-              () => _controller.groceryCoverSelectionId = value,
-            ),
-          ),
-        ] else if (_controller.selectedCovers.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          const Text(
-            'None of the selected membership plans has an active GROCERY benefit. No grocery claim will be created.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            value:_controller.groceryCoverSelectionId,
+            decoration:const InputDecoration(labelText:'Cover to use for grocery claim',border:OutlineInputBorder()),
+            items:_controller.selectedCovers.map((c){final id=c.membershipId??c.sourceReference??'';return DropdownMenuItem(value:id,child:Text('${c.membershipNumber} • ${c.burialSocietyName}'));}).toList(),
+            onChanged:(v)=>setState(()=>_controller.groceryCoverSelectionId=v),
           ),
         ],
         if (_controller.availableCovers.isNotEmpty)
           const Padding(
             padding: EdgeInsets.all(8.0),
-            child: Text(
-              'Select one or more memberships to use for claim initiation.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            child: Text('Select one or more memberships to use for claim initiation.', style: TextStyle(fontSize: 12, color: Colors.grey)),
           ),
+      ],
+    );
+  }
+
+  Widget _buildDocumentsStep() {
+    final serviceId = _controller.serviceRequestId;
+    if (serviceId == null) {
+      return const Center(child: Text('Create the funeral arrangement before uploading documents.'));
+    }
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text('Claim Documentation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        const Text('Upload the signed claim form and supporting documents once. They will be attached to every generated claim and the claims will then be submitted for approval.'),
+        const SizedBox(height: 16),
+        AttachmentSection(objectId: serviceId, documentTypeField: 'CLAIM-DOCUMENT-TYPE'),
       ],
     );
   }
@@ -625,7 +593,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   Widget _buildBottomBar() {
-    if (_controller.currentStep == 6 && _controller.generationResponse != null) {
+    if (_controller.currentStep == 7 && _controller.generationResponse != null) {
       return const SizedBox.shrink();
     }
 
@@ -662,10 +630,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       case 3:
         return 'Initiate Request';
       case 4:
-        return 'Continue to Preview';
+        return 'Submit Claims';
       case 5:
-        return 'Proceed to Generation';
+        return 'Continue to Preview';
       case 6:
+        return 'Proceed to Generation';
+      case 7:
         return 'Done';
       default:
         return 'Continue';
@@ -717,9 +687,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       final success = await _controller.createServiceRequest();
       if (success) _controller.nextStep();
     } else if (_controller.currentStep == 4) {
+      final success = await _controller.continueAfterDocuments();
+      if (success) _controller.nextStep();
+    } else if (_controller.currentStep == 5) {
       await _controller.loadInvoicePreview();
       _controller.nextStep();
-    } else if (_controller.currentStep == 5) {
+    } else if (_controller.currentStep == 6) {
       if (_controller.hasPendingClaims) {
         final confirm = await showDialog<bool>(
           context: context,
@@ -735,7 +708,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         if (confirm != true) return;
       }
       _controller.nextStep();
-    } else if (_controller.currentStep == 6) {
+    } else if (_controller.currentStep == 7) {
       context.pop();
     }
   }
