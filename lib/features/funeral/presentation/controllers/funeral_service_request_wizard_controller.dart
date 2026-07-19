@@ -183,7 +183,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     if (claims.isEmpty) return true;
     isLoading = true; errorMessage = null; notifyListeners();
     try {
-      for (final claim in claims.where((c) => c.status == ClaimStatus.DRAFT)) {
+      for (final claim in claims.where((c) => c.rawStatus == 'DRAFT')) {
         await _api.submitClaimForApproval(claim.id);
       }
       await loadClaims();
