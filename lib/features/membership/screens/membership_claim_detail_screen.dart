@@ -150,7 +150,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: Text(_claim != null ? 'Claim Detail' : 'Claim Details'),
+        title: Text(_claim == null || _claim!.claimNo.isEmpty ? 'Membership Claim' : 'Membership Claim ${_claim!.claimNo}'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -264,13 +264,36 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
               ]
             ),
             const SizedBox(height: 12),
-            _buildMembershipCard(_membershipDetail!, colorScheme),
+            _buildMembershipCard(_membershipDetail!, claim, colorScheme),
           ],
 
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.people_outline, 'PEOPLE INVOLVED'),
           const SizedBox(height: 12),
-          if (_deceasedPartner != null) _buildPartnerCard('Deceased Person', _deceasedPartner!, colorScheme, isDeceased: true),
+          _buildClaimPersonReferenceCard(
+            role: 'Membership Holder',
+            name: claim.memberName,
+            partnerNumber: claim.memberNumber,
+            identityNumber: claim.memberIdentityNumber,
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: 12),
+          if (_deceasedPartner != null)
+            _buildPartnerCard(
+              'Deceased Person',
+              _deceasedPartner!,
+              colorScheme,
+              isDeceased: true,
+            )
+          else
+            _buildClaimPersonReferenceCard(
+              role: 'Deceased Person',
+              name: claim.deceasedName,
+              partnerNumber: claim.deceasedNumber,
+              identityNumber: claim.deceasedIdentityNumber,
+              colorScheme: colorScheme,
+              isDeceased: true,
+            ),
           if (_claimantPartner != null) ...[
             const SizedBox(height: 12),
             _buildPartnerCard('Claimant (Beneficiary)', _claimantPartner!, colorScheme),
@@ -372,7 +395,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
                 Text(message),
                 const SizedBox(height: 8),
                 Text(
-                  'Payment request: ${claim.paymentRequestId}',
+                  'A linked payment request is available for review.',
                   style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
                 const SizedBox(height: 8),
@@ -415,7 +438,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
                 const SizedBox(height: 6),
                 const Text('The approved funeral-cover benefit was settled internally against a tombstone order. No cash payment is sent to the family for this allocation.'),
                 const SizedBox(height: 8),
-                Text('Order: ${claim.tombstoneOrderId}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                Text('A linked tombstone order is available for review.', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 if (claim.settledAt?.isNotEmpty ?? false)
                   Text('Settled: ${claim.settledAt}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 const SizedBox(height: 8),
@@ -466,7 +489,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     );
   }
 
-  Widget _buildMembershipCard(MembershipDetail detail, ColorScheme colorScheme) {
+  Widget _buildMembershipCard(MembershipDetail detail, MembershipClaim claim, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -476,12 +499,56 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       ),
       child: Column(
         children: [
-          _buildInfoRow('Plan Type', detail.planId, icon: Icons.shield_outlined),
+          _buildInfoRow(
+            'Coverage Plan',
+            claim.coveragePlanName.isNotEmpty ? claim.coveragePlanName : 'Not available',
+            icon: Icons.shield_outlined,
+          ),
           const Divider(height: 32),
           _buildInfoRow('Membership No', detail.membershipNo, icon: Icons.numbers_rounded),
           const Divider(height: 32),
           _buildInfoRow('Policy Status', detail.status.toUpperCase(), icon: Icons.toggle_on_outlined, valueColor: detail.status.toUpperCase() == 'ACTIVE' ? Colors.green : Colors.orange),
         ],
+      ),
+    );
+  }
+
+  Widget _buildClaimPersonReferenceCard({
+    required String role,
+    required String name,
+    required String partnerNumber,
+    required String identityNumber,
+    required ColorScheme colorScheme,
+    bool isDeceased = false,
+  }) {
+    final themeColor = isDeceased ? Colors.purple : colorScheme.primary;
+    final references = <String>[
+      if (identityNumber.trim().isNotEmpty)
+        'ID / Registration: ${identityNumber.trim()}',
+      if (partnerNumber.trim().isNotEmpty)
+        'Partner No: ${partnerNumber.trim()}',
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: themeColor.withOpacity(0.1),
+          child: Icon(Icons.person_outline, color: themeColor, size: 20),
+        ),
+        title: Text(
+          name.trim().isEmpty ? 'Not available' : name.trim(),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        subtitle: Text(
+          [role, ...references].join(' • '),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
       ),
     );
   }
@@ -508,7 +575,14 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           partner.fullName,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
-        subtitle: Text(role, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        subtitle: Text(
+          [
+            role,
+            if (partner.number.isNotEmpty) 'Partner No: ${partner.number}',
+            if (partner.identityNumber.isNotEmpty) '${partner.idType?.isNotEmpty == true ? partner.idType : 'ID / Registration'}: ${partner.identityNumber}',
+          ].join(' • '),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
         trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
       ),
     );

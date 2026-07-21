@@ -4,7 +4,11 @@ class MembershipClaim {
   final String membershipId;
   final String membershipNo;
   final String memberName;
+  final String memberNumber;
+  final String memberIdentityNumber;
   final String deceasedName;
+  final String deceasedNumber;
+  final String deceasedIdentityNumber;
   final String claimantName;
   final String claimType;
   final String coveragePlanId;
@@ -44,7 +48,11 @@ class MembershipClaim {
     required this.membershipId,
     required this.membershipNo,
     required this.memberName,
+    required this.memberNumber,
+    required this.memberIdentityNumber,
     required this.deceasedName,
+    required this.deceasedNumber,
+    required this.deceasedIdentityNumber,
     required this.claimantName,
     required this.claimType,
     required this.coveragePlanId,
@@ -118,7 +126,11 @@ class MembershipClaim {
       membershipId: (json['membershipId'] ?? '').toString(),
       membershipNo: (json['membershipNo'] ?? '').toString(),
       memberName: (json['memberName'] ?? '').toString(),
+      memberNumber: (json['memberNumber'] ?? '').toString(),
+      memberIdentityNumber: (json['memberIdentityNumber'] ?? '').toString(),
       deceasedName: (json['deceasedName'] ?? '').toString(),
+      deceasedNumber: (json['deceasedNumber'] ?? '').toString(),
+      deceasedIdentityNumber: (json['deceasedIdentityNumber'] ?? '').toString(),
       claimantName: (json['claimantName'] ?? '').toString(),
       claimType: (json['claimType'] ?? '').toString(),
       coveragePlanId: (json['coveragePlanId'] ?? '').toString(),
@@ -164,7 +176,11 @@ class MembershipClaim {
       'membershipId': membershipId,
       'membershipNo': membershipNo,
       'memberName': memberName,
+      'memberNumber': memberNumber,
+      'memberIdentityNumber': memberIdentityNumber,
       'deceasedName': deceasedName,
+      'deceasedNumber': deceasedNumber,
+      'deceasedIdentityNumber': deceasedIdentityNumber,
       'claimantName': claimantName,
       'claimType': claimType,
       'coveragePlanId': coveragePlanId,
