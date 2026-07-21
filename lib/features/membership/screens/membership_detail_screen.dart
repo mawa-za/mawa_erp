@@ -17,6 +17,7 @@ import 'membership_claim_create_screen.dart';
 import 'membership_claim_detail_screen.dart';
 import 'capture_premium_payment_dialog.dart';
 import 'capture_manual_premium_receipt_dialog.dart';
+import '../widgets/membership_change_section.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -244,6 +245,10 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION'),
           const SizedBox(height: 12),
           _buildMembershipInfoCard(detail, colorScheme),
+          const SizedBox(height: 32),
+          _buildSectionHeader(Icons.swap_horiz, 'MEMBERSHIP CHANGES'),
+          const SizedBox(height: 12),
+          MembershipChangeSection(membership: detail, onChanged: _fetchData),
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.payments_outlined, 'PAYMENT HISTORY'),
           const SizedBox(height: 12),

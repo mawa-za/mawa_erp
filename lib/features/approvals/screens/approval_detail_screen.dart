@@ -7,6 +7,7 @@ import '../../../core/services/user_service.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../invoicing/screens/invoice_detail_screen.dart';
 import '../../membership/screens/membership_claim_detail_screen.dart';
+import '../../membership/screens/membership_detail_screen.dart';
 import '../../payments/screens/payment_request_detail_screen.dart';
 import '../../cashup/screens/cashup_detail_screen.dart';
 import '../../leave_requests/screens/leave_request_detail_screen.dart';
@@ -120,6 +121,13 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       case 'CASHUP':
         screen = CashupDetailScreen(cashupId: id);
         break;
+      case 'MEMBERSHIP_TRANSFER':
+      case 'MEMBERSHIP_PLAN_CHANGE':
+        final membershipId = _membershipIdFromPayload();
+        if (membershipId != null) {
+          screen = MembershipDetailScreen(membershipId: membershipId);
+        }
+        break;
       case 'LEAVE':
         screen = LeaveRequestDetailScreen(requestId: id);
         break;
@@ -132,6 +140,19 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         const SnackBar(content: Text('Detail screen for this type is not yet implemented')),
       );
     }
+  }
+
+  String? _membershipIdFromPayload() {
+    final payload = _approval.payloadJson;
+    if (payload == null || payload.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map && decoded['membershipId'] != null) {
+        final value = decoded['membershipId'].toString().trim();
+        return value.isEmpty ? null : value;
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _takeAction(String action) async {

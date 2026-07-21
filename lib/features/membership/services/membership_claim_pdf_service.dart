@@ -27,6 +27,8 @@ class MembershipClaimPdfService {
             _row('Claim Type', claim.claimType),
             _row('Status', claim.status),
             _row('Date of Death', claim.dateOfDeath),
+            _row('Coverage Plan', claim.coveragePlanName),
+            _row('Coverage Effective Date', claim.coverageEventDate),
             _row('Claim Date', claim.claimDate),
             _row('Death Certificate No', claim.deathCertificateNo ?? ''),
             _row('Cause of Death', claim.causeOfDeath ?? ''),

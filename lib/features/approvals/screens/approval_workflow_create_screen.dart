@@ -24,6 +24,8 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'PAYMENT',
     'LEAVE',
     'CASHUP',
+    'MEMBERSHIP_TRANSFER',
+    'MEMBERSHIP_PLAN_CHANGE',
     'INVOICE',
     'PURCHASE_ORDER',
     'JOURNAL',
