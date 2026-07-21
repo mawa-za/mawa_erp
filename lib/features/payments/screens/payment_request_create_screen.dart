@@ -66,7 +66,32 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
       setState(() {
         _reasonOptions = results[0];
         _methodOptions = results[1];
-        _typeOptions = results[2];
+        final configuredManualTypes = <String, FieldOption>{
+          for (final option in results[2])
+            if (option.code.toUpperCase() == 'SUPPLIER_INVOICE' ||
+                option.code.toUpperCase() == 'PETTY_CASH_REPLENISHMENT')
+              option.code.toUpperCase(): option,
+        };
+        _typeOptions = [
+          configuredManualTypes['SUPPLIER_INVOICE'] ??
+              FieldOption(
+                field: 'PAYMENT-REQUEST-TYPE',
+                code: 'SUPPLIER_INVOICE',
+                type: 'STRING',
+                description: 'Supplier Invoice',
+                validFrom: '',
+                validTo: '',
+              ),
+          configuredManualTypes['PETTY_CASH_REPLENISHMENT'] ??
+              FieldOption(
+                field: 'PAYMENT-REQUEST-TYPE',
+                code: 'PETTY_CASH_REPLENISHMENT',
+                type: 'STRING',
+                description: 'Petty Cash Replenishment',
+                validFrom: '',
+                validTo: '',
+              ),
+        ];
         _accountTypeOptions = results[3];
         _bankOptions = results[4];
         _isLoadingOptions = false;
@@ -88,7 +113,17 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
       final response = await ApiClient().get('/v2/payment-request/recipient-options?type=$_selectedType&query=${Uri.encodeQueryComponent(query)}');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((row) => Partner.fromJson({'id': row['id'], 'number': '', 'type': 'INDIVIDUAL', 'name1': '', 'name2': row['name'] ?? '', 'name3': '', 'identityNumber': '', 'status': 'ACTIVE'})).toList();
+        return data.map((row) => Partner.fromJson({
+          'id': row['id'],
+          'number': row['number'] ?? row['partner_no'] ?? '',
+          'type': row['partnerType'] ?? row['partner_type'] ?? 'ORGANISATION',
+          'name1': row['name'] ?? '',
+          'name2': '',
+          'name3': '',
+          'identityNumber': row['identityNumber'] ?? row['identity_number'] ?? '',
+          'identityType': row['identityType'] ?? row['identity_type'] ?? 'REGISTRATION',
+          'status': 'ACTIVE',
+        })).toList();
       }
     } catch (e) {
       debugPrint('Error searching partners: $e');
@@ -184,7 +219,26 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
                   children: [
                     _buildSectionHeader(Icons.category_outlined, 'Payment Request Type'),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(value: _selectedType, decoration: const InputDecoration(labelText: 'Select type first', border: OutlineInputBorder()), items: _typeOptions.map((o)=>DropdownMenuItem(value:o.code,child:Text(o.description))).toList(), onChanged:(v)=>setState((){_selectedType=v;_selectedRecipient=null;}), validator:(v)=>v==null?'Payment request type is required':null),
+                    DropdownButtonFormField<String>(
+                      value: _selectedType,
+                      decoration: const InputDecoration(
+                        labelText: 'Request type',
+                        helperText: 'Only user-created payment request types are shown.',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _typeOptions
+                          .map((option) => DropdownMenuItem(
+                                value: option.code,
+                                child: Text(option.description),
+                              ))
+                          .toList(),
+                      onChanged: (value) => setState(() {
+                        _selectedType = value;
+                        _selectedRecipient = null;
+                      }),
+                      validator: (value) =>
+                          value == null ? 'Payment request type is required' : null,
+                    ),
                     const SizedBox(height: 24),
                     if (_selectedType != null) ...[
                     _buildSectionHeader(Icons.person_outline, 'Recipient'),
@@ -252,7 +306,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
           onTap: () => controller.openView(),
           onChanged: (_) => controller.openView(),
           leading: const Icon(Icons.search, size: 20),
-          hintText: 'Search for a recipient (Partner)...',
+          hintText: _selectedType == 'SUPPLIER_INVOICE' ? 'Search approved suppliers...' : 'Select the petty cash recipient...',
           elevation: const WidgetStatePropertyAll(0),
           side: WidgetStatePropertyAll(BorderSide(color: Colors.grey.shade300)),
           shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -317,8 +371,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildDropdown('Request Type', _selectedType, _typeOptions, (val) => setState(() => _selectedType = val)),
-            const SizedBox(height: 16),
             _buildDropdown('Payment Reason', _selectedPaymentReason, _reasonOptions, (val) => setState(() => _selectedPaymentReason = val)),
             const SizedBox(height: 16),
             _buildTextField(_referenceController, 'External Reference', Icons.tag),

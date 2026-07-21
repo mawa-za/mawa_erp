@@ -10,7 +10,6 @@ import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
-import 'edit_membership_screen.dart';
 import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
 import 'membership_claim_create_screen.dart';
@@ -153,22 +152,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: Text(_detail != null ? 'Member Profile' : 'Membership Details'),
+        title: const Text('Membership Details'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         actions: [
           if (_detail != null) ...[
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () async {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => EditMembershipScreen(membership: _detail!)),
-                );
-                if (result == true) _fetchData();
-              },
-            ),
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'delete') _showDeleteConfirmation();

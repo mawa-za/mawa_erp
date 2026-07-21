@@ -475,12 +475,16 @@ class MembershipService {
 
   Future<MembershipClaimPage> getMembershipClaimPage({
     String? status,
+    String? query,
     int page = 0,
     int size = 50,
   }) async {
     var path = '/v2/membership-claim/page?page=$page&size=$size';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       path += '&status=${Uri.encodeComponent(status.toUpperCase())}';
+    }
+    if (query != null && query.trim().isNotEmpty) {
+      path += '&query=${Uri.encodeQueryComponent(query.trim())}';
     }
 
     final response = await ApiClient().get(path);

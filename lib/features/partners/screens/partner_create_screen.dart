@@ -11,7 +11,15 @@ import 'partner_detail_screen.dart';
 class PartnerCreateScreen extends StatefulWidget {
   final Partner? existingPartner;
   final bool isMemberContext;
-  const PartnerCreateScreen({super.key, this.existingPartner, this.isMemberContext = false});
+  final String? initialRole;
+  final bool lockInitialRole;
+  const PartnerCreateScreen({
+    super.key,
+    this.existingPartner,
+    this.isMemberContext = false,
+    this.initialRole,
+    this.lockInitialRole = false,
+  });
 
   @override
   State<PartnerCreateScreen> createState() => _PartnerCreateScreenState();
@@ -72,6 +80,8 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       _addresses.add(PartnerAddress(type: 'RESIDENTIAL', line1: '', city: '', state: '', postalCode: ''));
       if (widget.isMemberContext) {
         _selectedRoles.add('MEMBER');
+      } else if (widget.initialRole != null && widget.initialRole!.trim().isNotEmpty) {
+        _selectedRoles.add(widget.initialRole!.trim().toUpperCase());
       }
     }
   }
@@ -109,7 +119,8 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     setState(() => _isSubmitting = true);
 
     final isNewSupplier = widget.existingPartner == null &&
-        _selectedRoles.any((role) => role.toUpperCase() == 'SUPPLIER');
+        ((widget.initialRole ?? '').toUpperCase() == 'SUPPLIER' ||
+            _selectedRoles.any((role) => role.toUpperCase() == 'SUPPLIER'));
     final primaryRole = isNewSupplier
         ? 'SUPPLIER'
         : (_selectedRoles.isEmpty ? null : _selectedRoles.first);
@@ -146,7 +157,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         final String? createdId = (responseData['partnerId'] ?? responseData['id'])?.toString();
 
         if (mounted) {
-          final entityName = widget.isMemberContext ? 'Member' : 'Partner';
+          final entityName = widget.isMemberContext
+              ? 'Member'
+              : isNewSupplier
+                  ? 'Supplier'
+                  : 'Partner';
           final message = isNewSupplier
               ? 'Supplier submitted for approval. It will become available after final approval.'
               : '$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully';
@@ -194,13 +209,22 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final entityName = widget.isMemberContext ? 'Member' : 'Partner';
+    final isSupplierContext = (widget.initialRole ?? '').toUpperCase() == 'SUPPLIER';
+    final entityName = widget.isMemberContext
+        ? 'Member'
+        : isSupplierContext
+            ? 'Supplier'
+            : 'Partner';
     final isEditingMember = widget.existingPartner != null && widget.isMemberContext;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.existingPartner == null ? 'Create $entityName' : 'Edit $entityName'),
+        title: Text(
+          widget.existingPartner == null
+              ? (isSupplierContext ? 'Onboard Supplier' : 'Create $entityName')
+              : 'Edit $entityName',
+        ),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
@@ -234,7 +258,28 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               const SizedBox(height: 12),
               _buildContactFields(),
               const SizedBox(height: 24),
-              if (!widget.isMemberContext) ...[
+              if (isSupplierContext) ...[
+                Card(
+                  elevation: 0,
+                  color: colorScheme.primaryContainer.withOpacity(0.35),
+                  child: const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.verified_user_outlined),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'The Supplier role is assigned automatically. The supplier will only become available for procurement after the onboarding approval is completed.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ] else if (!widget.isMemberContext) ...[
                 _buildSectionHeader(Icons.work_outline, '$entityName Roles'),
                 const SizedBox(height: 12),
                 _buildRolesFields(),
@@ -260,7 +305,14 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   onPressed: _isSubmitting ? null : _savePartner,
                   child: _isSubmitting
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(widget.existingPartner == null ? 'CREATE ${entityName.toUpperCase()}' : 'SAVE CHANGES', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      : Text(
+                          widget.existingPartner == null
+                              ? (isSupplierContext
+                                  ? 'SUBMIT SUPPLIER FOR APPROVAL'
+                                  : 'CREATE ${entityName.toUpperCase()}')
+                              : 'SAVE CHANGES',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                 ),
               ),
               const SizedBox(height: 32),
