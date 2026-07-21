@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/membership_claim.dart';
 import '../services/membership_service.dart';
@@ -27,8 +29,10 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
 
   final MembershipService _membershipService = MembershipService();
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   final List<MembershipClaim> _claims = [];
 
+  Timer? _searchDebounce;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _lastPage = false;
@@ -46,6 +50,8 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -58,6 +64,15 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
         !_lastPage) {
       _fetchClaims(reset: false);
     }
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _fetchClaims(reset: true),
+    );
+    setState(() {});
   }
 
   Future<void> _fetchClaims({required bool reset}) async {
@@ -77,6 +92,7 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
     try {
       final result = await _membershipService.getMembershipClaimPage(
         status: _selectedStatus == 'ALL' ? null : _selectedStatus,
+        query: _searchController.text,
         page: _page,
         size: 50,
       );
@@ -135,9 +151,45 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
       ),
       body: Column(
         children: [
+          _buildSearchBar(),
           _buildStatusFilters(),
           Expanded(child: _buildBody()),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Material(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: TextField(
+          controller: _searchController,
+          onChanged: _onSearchChanged,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _fetchClaims(reset: true),
+          decoration: InputDecoration(
+            hintText: 'Search claim, membership, member or deceased ID',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      _fetchClaims(reset: true);
+                    },
+                  ),
+            filled: true,
+            fillColor: Colors.grey[100],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -189,18 +241,22 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
       );
     }
     if (_claims.isEmpty) {
+      final search = _searchController.text.trim();
       return Center(
-        child: Text('No ${_statuses[_selectedStatus]!.toLowerCase()} claims'),
+        child: Text(
+          search.isEmpty
+              ? 'No ${_statuses[_selectedStatus]!.toLowerCase()} claims'
+              : 'No claims match “$search”',
+        ),
       );
     }
 
     return RefreshIndicator(
       onRefresh: () => _fetchClaims(reset: true),
-      child: ListView.separated(
+      child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
         itemCount: _claims.length + (_isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {
           if (index == _claims.length) {
             return const Padding(
@@ -208,49 +264,135 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          final claim = _claims[index];
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-            leading: CircleAvatar(
-              child: Text(claim.claimType.isEmpty ? '?' : claim.claimType[0]),
-            ),
-            title: Text(
-              claim.claimNo.isEmpty ? 'Membership claim' : claim.claimNo,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                [
-                  if (claim.memberName.isNotEmpty) 'Member: ${claim.memberName}',
-                  'Membership: ${claim.membershipNo.isNotEmpty ? claim.membershipNo : claim.membershipId}',
-                  if (claim.deceasedName.isNotEmpty) 'Deceased: ${claim.deceasedName}',
-                  '${claim.claimType.replaceAll('_', ' ')} • ${claim.claimDate}',
-                ].join('\n'),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            isThreeLine: true,
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _statusChip(claim.status),
-                const SizedBox(height: 4),
-                Text('R ${claim.claimAmount.toStringAsFixed(2)}'),
-              ],
-            ),
-            onTap: () => _openClaim(claim),
-          );
+          return _buildClaimCard(_claims[index]);
         },
       ),
     );
   }
 
+  Widget _buildClaimCard(MembershipClaim claim) {
+    final memberReference = _firstNonEmpty(
+      claim.memberIdentityNumber,
+      claim.memberNumber,
+    );
+    final deceasedReference = _firstNonEmpty(
+      claim.deceasedIdentityNumber,
+      claim.deceasedNumber,
+    );
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openClaim(claim),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    child: Text(claim.claimType.isEmpty ? '?' : claim.claimType[0]),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          claim.claimNo.isEmpty ? 'Membership claim' : claim.claimNo,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${claim.claimType.replaceAll('_', ' ')} • ${claim.claimDate}',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _statusChip(claim.status),
+                ],
+              ),
+              const Divider(height: 24),
+              _referenceLine(
+                Icons.person_outline,
+                'Member',
+                claim.memberName,
+                memberReference.isEmpty ? null : 'ID / Reg: $memberReference',
+              ),
+              const SizedBox(height: 10),
+              _referenceLine(
+                Icons.card_membership_outlined,
+                'Membership',
+                claim.membershipNo.isEmpty ? 'Not available' : claim.membershipNo,
+                null,
+              ),
+              const SizedBox(height: 10),
+              _referenceLine(
+                Icons.person_off_outlined,
+                'Deceased',
+                claim.deceasedName,
+                deceasedReference.isEmpty ? null : 'ID / Reg: $deceasedReference',
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'R ${claim.claimAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _referenceLine(
+    IconData icon,
+    String label,
+    String value,
+    String? supporting,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Colors.grey[500]),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+              Text(
+                value.isEmpty ? 'Not available' : value,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              if (supporting != null)
+                Text(supporting, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _firstNonEmpty(String first, String second) {
+    if (first.trim().isNotEmpty) return first.trim();
+    return second.trim();
+  }
+
   Widget _statusChip(String status) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(12),

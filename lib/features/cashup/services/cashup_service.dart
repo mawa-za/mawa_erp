@@ -175,6 +175,20 @@ class CashupService {
     return submitCashupAndReturn(request);
   }
 
+  Future<Cashup> createManualCashup(Map<String, dynamic> request) async {
+    final response = await ApiClient().post('/v2/cashup/manual', body: request);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final dynamic decoded = response.body.isEmpty ? request : jsonDecode(response.body);
+      if (decoded is Map) {
+        return Cashup.fromJson(Map<String, dynamic>.from(decoded));
+      }
+    }
+    throw Exception(_extractErrorMessage(
+      response.body,
+      'Failed to create manual cashup: ${response.statusCode}',
+    ));
+  }
+
   Future<List<Cashup>> searchCashups({
     String? userId,
     String? fromDate,

@@ -242,6 +242,8 @@ class FeatureGroupRegistry {
 
   static const Map<String, String> approvalTypeGroups = {
     'CLAIM': 'membership-management',
+    'MEMBERSHIP_TRANSFER': 'membership-management',
+    'MEMBERSHIP_PLAN_CHANGE': 'membership-management',
     'PAYMENT': 'finance-management',
     'PAYMENT_REQUEST': 'finance-management',
     'INVOICE': 'finance-management',

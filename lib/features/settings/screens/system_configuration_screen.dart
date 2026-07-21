@@ -17,6 +17,7 @@ import 'manual_receipt_cutover_settings_screen.dart';
 import '../../funeral/presentation/pages/third_party_funeral_cover_underwriting_page.dart';
 import 'premium_generation_settings_screen.dart';
 import '../../payments/screens/payment_account_configuration_screen.dart';
+import 'number_range_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -96,6 +97,18 @@ class SystemConfigurationScreen extends StatelessWidget {
             icon: Icons.point_of_sale_outlined,
             color: Colors.deepOrange,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PosPrintingSettingsScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Number Range Configuration',
+            subtitle: 'Manage operational sequences, document ranges and device allocations',
+            icon: Icons.format_list_numbered_rounded,
+            color: Colors.cyan,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const NumberRangeConfigurationScreen()),
+            ),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
