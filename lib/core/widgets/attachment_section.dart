@@ -17,12 +17,14 @@ class AttachmentSection extends StatefulWidget {
   final String objectId;
   final bool readOnly;
   final String documentTypeField;
+  final ValueChanged<int>? onAttachmentCountChanged;
   
   const AttachmentSection({
     super.key, 
     required this.objectId,
     this.readOnly = false,
     this.documentTypeField = 'DOCUMENT-TYPE',
+    this.onAttachmentCountChanged,
   });
 
   @override
@@ -59,9 +61,13 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         }
 
         if (mounted) {
+          final loaded = data
+              .map((json) => Attachment.fromJson(Map<String, dynamic>.from(json)))
+              .toList();
           setState(() {
-            _attachments = data.map((json) => Attachment.fromJson(Map<String, dynamic>.from(json))).toList();
+            _attachments = loaded;
           });
+          widget.onAttachmentCountChanged?.call(loaded.length);
         }
       }
     } catch (e) {

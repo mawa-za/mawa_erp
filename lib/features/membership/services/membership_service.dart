@@ -166,40 +166,55 @@ class MembershipService {
     }
   }
 
-  Future<void> addDependent(String membershipId, Map<String, dynamic> payload) async {
-    try {
-      final response = await ApiClient().post('/v2/membership/$membershipId/dependents', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to add dependent: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
+  Future<MembershipChange> addDependent(String membershipId, Map<String, dynamic> payload) async {
+    final response = await ApiClient().post('/v2/membership/$membershipId/dependents', body: payload);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
+    throw Exception(_errorMessage(response.body, 'Failed to add dependent: ${response.statusCode}'));
   }
 
-  Future<void> updateDependent(String membershipId, String dependentId, Map<String, dynamic> payload) async {
-    try {
-      final response = await ApiClient().put('/v2/membership/$membershipId/dependents/$dependentId', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update dependent: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
+  Future<MembershipChange> replaceDependent(
+      String membershipId, String dependentId, Map<String, dynamic> payload) async {
+    final response = await ApiClient().put(
+      '/v2/membership/$membershipId/dependents/$dependentId',
+      body: payload,
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
+    throw Exception(_errorMessage(response.body, 'Failed to replace dependent: ${response.statusCode}'));
   }
 
-  Future<void> deleteDependent(String membershipId, String dependentId) async {
-    try {
-      final response = await ApiClient().delete('/v2/membership/$membershipId/dependents/$dependentId');
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete dependent: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
+  @Deprecated('Use replaceDependent')
+  Future<MembershipChange> updateDependent(
+      String membershipId, String dependentId, Map<String, dynamic> payload) {
+    return replaceDependent(membershipId, dependentId, payload);
+  }
+
+  Future<MembershipChange> removeDependent(
+      String membershipId, String dependentId, String reason) async {
+    final response = await ApiClient().post(
+      '/v2/membership/$membershipId/dependents/$dependentId/remove',
+      body: {'reason': reason},
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
+    throw Exception(_errorMessage(response.body, 'Failed to remove dependent: ${response.statusCode}'));
+  }
+
+  @Deprecated('Use removeDependent with a reason')
+  Future<MembershipChange> deleteDependent(String membershipId, String dependentId) {
+    return removeDependent(membershipId, dependentId, 'Dependent removed');
+  }
+
+  String _errorMessage(String body, String fallback) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) return '${decoded['message'] ?? decoded['error'] ?? fallback}';
+    } catch (_) {}
+    return fallback;
   }
 
   Future<List<Premium>> getMembershipPremiums(String membershipId, {String? oldId}) async {

@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/attachment_section.dart';
 import '../models/partner.dart';
 import 'partner_detail_screen.dart';
 
@@ -37,6 +39,15 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   final _identityController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _bankAccountHolderController = TextEditingController();
+  final _bankNameController = TextEditingController();
+  final _bankAccountNumberController = TextEditingController();
+  final _bankBranchCodeController = TextEditingController();
+  final _bankBranchNameController = TextEditingController();
+  String _bankAccountType = 'CURRENT';
+  late final String _supplierOnboardingRequestId;
+  int _supportingDocumentCount = 0;
+  bool _supportingDocumentsComplete = false;
 
   String? _selectedTitle;
   String? _selectedMaritalStatus;
@@ -52,6 +63,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   @override
   void initState() {
     super.initState();
+    _supplierOnboardingRequestId = _newOnboardingRequestId();
     _loadRoles();
     if (widget.existingPartner != null) {
       final p = widget.existingPartner!;
@@ -86,6 +98,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     }
   }
 
+  String _newOnboardingRequestId() {
+    final random = Random.secure().nextInt(0x7fffffff).toRadixString(16);
+    return 'supplier-onboarding-${DateTime.now().microsecondsSinceEpoch}-$random';
+  }
+
   Future<void> _loadRoles() async {
     try {
       final roles = await FieldService().getOptionsByField('PARTNER-ROLE');
@@ -116,11 +133,33 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   Future<void> _savePartner() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSubmitting = true);
-
     final isNewSupplier = widget.existingPartner == null &&
         ((widget.initialRole ?? '').toUpperCase() == 'SUPPLIER' ||
             _selectedRoles.any((role) => role.toUpperCase() == 'SUPPLIER'));
+
+    if (isNewSupplier && _supportingDocumentCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Attach at least one supporting document before submission.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (isNewSupplier && !_supportingDocumentsComplete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Confirm that all required supporting documents are attached.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
     final primaryRole = isNewSupplier
         ? 'SUPPLIER'
         : (_selectedRoles.isEmpty ? null : _selectedRoles.first);
@@ -135,12 +174,29 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       'name4': _name4Controller.text.trim(),
       'email': _emailController.text.trim(),
       'contactNumber': _phoneController.text.trim(),
-      'title': _selectedTitle,
-      'birthDate': _birthDate?.toIso8601String(),
-      'maritalStatus': _selectedMaritalStatus,
-      'gender': _selectedGender,
-      'language': _selectedLanguage,
+      'title': _selectedType == 'INDIVIDUAL' ? _selectedTitle : null,
+      'birthDate': _selectedType == 'INDIVIDUAL' ? _birthDate?.toIso8601String() : null,
+      'maritalStatus': _selectedType == 'INDIVIDUAL' ? _selectedMaritalStatus : null,
+      'gender': _selectedType == 'INDIVIDUAL' ? _selectedGender : null,
+      'language': _selectedType == 'INDIVIDUAL' ? _selectedLanguage : null,
     };
+
+    final requestPayload = isNewSupplier
+        ? <String, dynamic>{
+            'onboardingRequestId': _supplierOnboardingRequestId,
+            'supplier': payload,
+            'supportingDocumentsComplete': _supportingDocumentsComplete,
+            'bankingDetails': {
+              'accountHolder': _bankAccountHolderController.text.trim(),
+              'bankName': _bankNameController.text.trim(),
+              'accountNumber': _bankAccountNumberController.text.trim(),
+              'branchCode': _bankBranchCodeController.text.trim(),
+              'branchName': _bankBranchNameController.text.trim(),
+              'accountType': _bankAccountType,
+              'status': 'PENDING_APPROVAL',
+            },
+          }
+        : payload;
 
     try {
       final response = widget.existingPartner == null
@@ -148,7 +204,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               isNewSupplier
                   ? '/v2/partner/supplier/submit-for-approval'
                   : '/v2/partner',
-              body: payload,
+              body: requestPayload,
             )
           : await ApiClient().put('/v2/partner/${widget.existingPartner!.id}', body: payload);
 
@@ -163,7 +219,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   ? 'Supplier'
                   : 'Partner';
           final message = isNewSupplier
-              ? 'Supplier submitted for approval. It will become available after final approval.'
+              ? 'Supplier submitted for approval. Banking approval will be created only after supplier approval.'
               : '$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
@@ -250,10 +306,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               const SizedBox(height: 12),
               _buildBasicDetailsFields(isEditingMember),
               const SizedBox(height: 24),
-              _buildSectionHeader(Icons.info_outline, 'Demographics & Language'),
-              const SizedBox(height: 12),
-              _buildDemographicsFields(),
-              const SizedBox(height: 24),
+              if (_selectedType == 'INDIVIDUAL') ...[
+                _buildSectionHeader(Icons.info_outline, 'Demographics & Language'),
+                const SizedBox(height: 12),
+                _buildDemographicsFields(),
+                const SizedBox(height: 24),
+              ],
               _buildSectionHeader(Icons.contact_mail_outlined, 'Contact Information'),
               const SizedBox(height: 12),
               _buildContactFields(),
@@ -273,6 +331,63 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                           child: Text(
                             'The Supplier role is assigned automatically. The supplier will only become available for procurement after the onboarding approval is completed.',
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildSectionHeader(Icons.account_balance_outlined, 'Banking Details'),
+                const SizedBox(height: 12),
+                _buildSupplierBankingFields(),
+                const SizedBox(height: 24),
+                _buildSectionHeader(Icons.attach_file, 'Supporting Documents'),
+                const SizedBox(height: 12),
+                Card(
+                  elevation: 0,
+                  margin: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Attach all supplier registration, tax, bank confirmation, and other supporting documents before submission. At least one document is required.',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        const SizedBox(height: 12),
+                        AttachmentSection(
+                          objectId: _supplierOnboardingRequestId,
+                          onAttachmentCountChanged: (count) {
+                            if (mounted) {
+                              setState(() => _supportingDocumentCount = count);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _supportingDocumentsComplete,
+                          onChanged: _supportingDocumentCount == 0
+                              ? null
+                              : (value) => setState(
+                                    () => _supportingDocumentsComplete = value ?? false,
+                                  ),
+                          title: const Text(
+                            'I confirm that all required supporting documents are attached.',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            _supportingDocumentCount == 0
+                                ? 'Upload supporting documents to enable confirmation.'
+                                : '$_supportingDocumentCount document(s) attached.',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
                         ),
                       ],
                     ),
@@ -483,6 +598,71 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     );
   }
 
+  Widget _buildSupplierBankingFields() {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildTextField(
+              _bankAccountHolderController,
+              'Account Holder',
+              Icons.person_outline,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              _bankNameController,
+              'Bank Name',
+              Icons.account_balance_outlined,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              _bankAccountNumberController,
+              'Account Number',
+              Icons.numbers_outlined,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              _bankBranchCodeController,
+              'Branch Code',
+              Icons.pin_outlined,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              _bankBranchNameController,
+              'Branch Name (Optional)',
+              Icons.location_city_outlined,
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _bankAccountType,
+              decoration: _inputDecoration(
+                'Account Type',
+                Icons.account_balance_wallet_outlined,
+              ),
+              items: const [
+                DropdownMenuItem(value: 'CURRENT', child: Text('Current / Cheque')),
+                DropdownMenuItem(value: 'SAVINGS', child: Text('Savings')),
+                DropdownMenuItem(value: 'TRANSMISSION', child: Text('Transmission')),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _bankAccountType = value);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRolesFields() {
     return Card(
       elevation: 0,
@@ -640,6 +820,11 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     _identityController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _bankAccountHolderController.dispose();
+    _bankNameController.dispose();
+    _bankAccountNumberController.dispose();
+    _bankBranchCodeController.dispose();
+    _bankBranchNameController.dispose();
     super.dispose();
   }
 }

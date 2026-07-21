@@ -11,6 +11,13 @@ class MembershipChange {
   final String oldPlanName;
   final String newPlanId;
   final String newPlanName;
+  final String oldDependentId;
+  final String oldDependentPartnerId;
+  final String oldDependentName;
+  final String newDependentPartnerId;
+  final String newDependentName;
+  final String oldDependentType;
+  final String newDependentType;
   final int waitingPeriodMonths;
   final String? effectiveDate;
   final String reason;
@@ -35,6 +42,13 @@ class MembershipChange {
     required this.oldPlanName,
     required this.newPlanId,
     required this.newPlanName,
+    required this.oldDependentId,
+    required this.oldDependentPartnerId,
+    required this.oldDependentName,
+    required this.newDependentPartnerId,
+    required this.newDependentName,
+    required this.oldDependentType,
+    required this.newDependentType,
     required this.waitingPeriodMonths,
     required this.effectiveDate,
     required this.reason,
@@ -60,6 +74,13 @@ class MembershipChange {
     oldPlanName: '${json['oldPlanName'] ?? json['oldPlanId'] ?? ''}',
     newPlanId: '${json['newPlanId'] ?? ''}',
     newPlanName: '${json['newPlanName'] ?? json['newPlanId'] ?? ''}',
+    oldDependentId: '${json['oldDependentId'] ?? ''}',
+    oldDependentPartnerId: '${json['oldDependentPartnerId'] ?? ''}',
+    oldDependentName: '${json['oldDependentName'] ?? json['oldDependentPartnerId'] ?? ''}',
+    newDependentPartnerId: '${json['newDependentPartnerId'] ?? ''}',
+    newDependentName: '${json['newDependentName'] ?? json['newDependentPartnerId'] ?? ''}',
+    oldDependentType: '${json['oldDependentType'] ?? ''}',
+    newDependentType: '${json['newDependentType'] ?? ''}',
     waitingPeriodMonths: _asInt(json['waitingPeriodMonths']),
     effectiveDate: _date(json['effectiveDate']),
     reason: '${json['reason'] ?? ''}',
@@ -74,6 +95,32 @@ class MembershipChange {
 
   bool get isOpen => status == 'PENDING_APPROVAL' || status == 'APPROVED_SCHEDULED';
   bool get isTransfer => changeType == 'TRANSFER';
+  bool get isPlanChange => changeType == 'PLAN_CHANGE';
+  bool get isDependentChange => const {
+    'ADD_DEPENDENT', 'REMOVE_DEPENDENT', 'REPLACE_DEPENDENT'
+  }.contains(changeType);
+
+  String get displayTitle {
+    switch (changeType) {
+      case 'TRANSFER': return 'Membership Transfer';
+      case 'PLAN_CHANGE': return 'Plan Change';
+      case 'ADD_DEPENDENT': return 'Add Dependent';
+      case 'REMOVE_DEPENDENT': return 'Remove Dependent';
+      case 'REPLACE_DEPENDENT': return 'Replace Dependent';
+      default: return changeType.replaceAll('_', ' ');
+    }
+  }
+
+  String get displayChange {
+    switch (changeType) {
+      case 'TRANSFER': return '$oldMemberName → $newMemberName';
+      case 'PLAN_CHANGE': return '$oldPlanName → $newPlanName';
+      case 'ADD_DEPENDENT': return '$newDependentName (${newDependentType.replaceAll('_', ' ')})';
+      case 'REMOVE_DEPENDENT': return oldDependentName;
+      case 'REPLACE_DEPENDENT': return '$oldDependentName → $newDependentName';
+      default: return '';
+    }
+  }
 
   static int _asInt(dynamic value) => value is num ? value.toInt() : int.tryParse('$value') ?? 0;
   static String? _date(dynamic value) {
