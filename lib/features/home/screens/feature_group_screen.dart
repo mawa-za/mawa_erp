@@ -8,6 +8,7 @@ import '../../../core/api_client.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/routing/feature_group_registry.dart';
 import '../../../core/routing/workcenter_route_registry.dart';
+import '../../../core/routing/workcenter_card_descriptions.dart';
 import '../../../core/services/module_usage_service.dart';
 import '../../approvals/services/approval_workflow_service.dart';
 import '../models/workcenter.dart';
@@ -324,24 +325,6 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
                   ? const Center(child: Text('No features are available for your current role.'))
                   : LayoutBuilder(
                       builder: (context, constraints) {
-                        final isFuneral = FeatureGroupRegistry.normalize(
-                              widget.groupId,
-                            ) ==
-                            FeatureGroupRegistry.normalize(
-                              'funeral-management',
-                            );
-
-                        if (isFuneral) {
-                          return ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                            itemCount: _children.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, index) =>
-                                _workcenterCard(_children[index], compact: true),
-                          );
-                        }
-
                         final crossAxisCount =
                             (constraints.maxWidth / 210).floor().clamp(1, 5);
                         return GridView.builder(
@@ -349,7 +332,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: crossAxisCount,
-                            childAspectRatio: 1.25,
+                            childAspectRatio: 1.0,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
                           ),
@@ -424,9 +407,15 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      workcenter.id,
+                      WorkcenterCardDescriptions.forWorkcenter(
+                        workcenter.id,
+                        workcenter.description,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
+                        height: 1.3,
                       ),
                     ),
                   ],

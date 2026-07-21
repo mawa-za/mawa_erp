@@ -36,6 +36,11 @@ class Dependent {
   final String dependentPartnerId;
   final String dependentType;
   final bool active;
+  final String membershipStatus;
+  final String? deceasedDate;
+  final String? effectiveFrom;
+  final String? effectiveTo;
+  final String? statusReason;
   
   // Enriched fields for UI
   final String firstName;
@@ -59,6 +64,11 @@ class Dependent {
     required this.dependentPartnerId,
     required this.dependentType,
     required this.active,
+    this.membershipStatus = 'ACTIVE',
+    this.deceasedDate,
+    this.effectiveFrom,
+    this.effectiveTo,
+    this.statusReason,
     this.firstName = '',
     this.lastName = '',
     this.number = '',
@@ -161,6 +171,11 @@ class Dependent {
       dependentPartnerId: depPartnerId,
       dependentType: (json['dependentType'] ?? json['relationship'] ?? '').toString(),
       active: json['active'] ?? true,
+      membershipStatus: (json['status'] ?? (json['active'] == false ? 'REMOVED' : 'ACTIVE')).toString().toUpperCase(),
+      deceasedDate: parseDate(json['deceasedDate']),
+      effectiveFrom: parseDate(json['effectiveFrom']),
+      effectiveTo: parseDate(json['effectiveTo']),
+      statusReason: json['statusReason']?.toString(),
       firstName: fName,
       lastName: lName,
       number: (json['number'] ?? json['partnerNo'] ?? json['partnerNumber'] ?? 
@@ -185,6 +200,11 @@ class Dependent {
       'dependentPartnerId': dependentPartnerId,
       'dependentType': dependentType,
       'active': active,
+      'status': membershipStatus,
+      'deceasedDate': deceasedDate,
+      'effectiveFrom': effectiveFrom,
+      'effectiveTo': effectiveTo,
+      'statusReason': statusReason,
       'firstName': firstName,
       'lastName': lastName,
       'number': number,

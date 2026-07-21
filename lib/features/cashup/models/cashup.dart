@@ -3,10 +3,22 @@ class Cashup {
   final int cashupNo;
   final String deviceId;
   final String userId;
+  final String cashierName;
   final String cashupDate;
   final int totalCents;
   final int receiptCount;
   final String status;
+  final String source;
+  final String receiptBookNo;
+  final String receiptFromNo;
+  final String receiptToNo;
+  final int manualAmountCents;
+  final int receiptTotalCents;
+  final int varianceCents;
+  final String employeeResponsibleId;
+  final String employeeResponsibleName;
+  final String areaCode;
+  final String areaName;
   final int depositTotalCents;
   final int depositCount;
   final String? approvalRequestId;
@@ -18,10 +30,22 @@ class Cashup {
     required this.cashupNo,
     required this.deviceId,
     required this.userId,
+    required this.cashierName,
     required this.cashupDate,
     required this.totalCents,
     required this.receiptCount,
     required this.status,
+    required this.source,
+    required this.receiptBookNo,
+    required this.receiptFromNo,
+    required this.receiptToNo,
+    required this.manualAmountCents,
+    required this.receiptTotalCents,
+    required this.varianceCents,
+    required this.employeeResponsibleId,
+    required this.employeeResponsibleName,
+    required this.areaCode,
+    required this.areaName,
     required this.depositTotalCents,
     required this.depositCount,
     required this.approvalRequestId,
@@ -33,6 +57,8 @@ class Cashup {
   double get depositTotalAmount => depositTotalCents / 100;
   int get depositBalanceCents => totalCents - depositTotalCents;
   double get depositBalanceAmount => depositBalanceCents / 100;
+  bool get isManualReceiptBook => source.toUpperCase() == 'MANUAL_RECEIPT_BOOK';
+  String get cashierDisplayName => cashierName.trim().isNotEmpty ? cashierName : 'Unknown cashier';
 
   factory Cashup.fromJson(Map<String, dynamic> json) {
     return Cashup(
@@ -40,10 +66,22 @@ class Cashup {
       cashupNo: _asInt(json['cashupNo']),
       deviceId: json['deviceId']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
+      cashierName: json['cashierName']?.toString() ?? '',
       cashupDate: _formatDate(json['cashupDate'] ?? json['date']),
       totalCents: _asInt(json['totalCents'] ?? json['totalAmountCents']),
       receiptCount: _asInt(json['receiptCount']),
       status: json['status']?.toString() ?? '',
+      source: json['source']?.toString() ?? '',
+      receiptBookNo: json['receiptBookNo']?.toString() ?? '',
+      receiptFromNo: json['receiptFromNo']?.toString() ?? '',
+      receiptToNo: json['receiptToNo']?.toString() ?? '',
+      manualAmountCents: _asInt(json['manualAmountCents']),
+      receiptTotalCents: _asInt(json['receiptTotalCents']),
+      varianceCents: _asInt(json['varianceCents']),
+      employeeResponsibleId: json['employeeResponsibleId']?.toString() ?? '',
+      employeeResponsibleName: json['employeeResponsibleName']?.toString() ?? '',
+      areaCode: json['areaCode']?.toString() ?? '',
+      areaName: json['areaName']?.toString() ?? '',
       depositTotalCents: _asInt(json['depositTotalCents'] ?? json['amountDepositedCents']),
       depositCount: _asInt(json['depositCount']),
       approvalRequestId: json['approvalRequestId']?.toString(),
@@ -64,10 +102,22 @@ class Cashup {
       'cashupNo': cashupNo,
       'deviceId': deviceId,
       'userId': userId,
+      'cashierName': cashierName,
       'cashupDate': cashupDate,
       'totalCents': totalCents,
       'receiptCount': receiptCount,
       'status': status,
+      'source': source,
+      'receiptBookNo': receiptBookNo,
+      'receiptFromNo': receiptFromNo,
+      'receiptToNo': receiptToNo,
+      'manualAmountCents': manualAmountCents,
+      'receiptTotalCents': receiptTotalCents,
+      'varianceCents': varianceCents,
+      'employeeResponsibleId': employeeResponsibleId,
+      'employeeResponsibleName': employeeResponsibleName,
+      'areaCode': areaCode,
+      'areaName': areaName,
       'depositTotalCents': depositTotalCents,
       'depositCount': depositCount,
       'approvalRequestId': approvalRequestId,
@@ -137,6 +187,7 @@ class CashupDeposit {
   final String referenceNo;
   final String notes;
   final String createdBy;
+  final String proofAttachmentId;
 
   CashupDeposit({
     required this.id,
@@ -148,6 +199,7 @@ class CashupDeposit {
     required this.referenceNo,
     required this.notes,
     required this.createdBy,
+    required this.proofAttachmentId,
   });
 
   double get amount => amountCents / 100;
@@ -163,6 +215,7 @@ class CashupDeposit {
       referenceNo: json['referenceNo']?.toString() ?? '',
       notes: json['notes']?.toString() ?? '',
       createdBy: json['createdBy']?.toString() ?? '',
+      proofAttachmentId: json['proofAttachmentId']?.toString() ?? '',
     );
   }
 
@@ -177,6 +230,7 @@ class CashupDeposit {
       'referenceNo': referenceNo,
       'notes': notes,
       'createdBy': createdBy,
+      'proofAttachmentId': proofAttachmentId,
     };
   }
 }

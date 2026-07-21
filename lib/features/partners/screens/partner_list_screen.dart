@@ -86,12 +86,17 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final entityName = widget.role == 'MEMBER' ? 'Member' : 'Partner';
+    final normalizedRole = widget.role?.toUpperCase();
+    final entityName = normalizedRole == 'MEMBER'
+        ? 'Member'
+        : normalizedRole == 'SUPPLIER'
+            ? 'Supplier'
+            : 'Partner';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.title ?? 'Business Partners'),
+        title: Text(widget.title ?? (normalizedRole == null ? 'Business Partners' : '${entityName}s')),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
@@ -118,18 +123,21 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
           Expanded(child: _buildBody(colorScheme, entityName)),
         ],
       ),
-      floatingActionButton: widget.allowCreate ? FloatingActionButton(
+      floatingActionButton: widget.allowCreate ? FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => PartnerCreateScreen(
-                isMemberContext: widget.role == 'MEMBER',
+                isMemberContext: normalizedRole == 'MEMBER',
+                initialRole: normalizedRole == 'SUPPLIER' ? 'SUPPLIER' : null,
+                lockInitialRole: normalizedRole == 'SUPPLIER',
               ),
             ),
           );
           _fetchPartners();
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: Text(normalizedRole == 'SUPPLIER' ? 'ONBOARD SUPPLIER' : 'ADD ${entityName.toUpperCase()}'),
       ) : null,
     );
   }

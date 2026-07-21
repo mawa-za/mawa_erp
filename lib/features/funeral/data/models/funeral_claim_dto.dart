@@ -8,6 +8,7 @@ class FuneralClaimDto {
   final int claimedAmountCents;
   final int approvedAmountCents;
   final ClaimStatus status;
+  final String rawStatus;
   final CoverSource coverSource;
   final String claimStorageScope;
   final String? sourceTenantName;
@@ -20,6 +21,7 @@ class FuneralClaimDto {
     required this.claimedAmountCents,
     required this.approvedAmountCents,
     required this.status,
+    required this.rawStatus,
     required this.coverSource,
     this.claimStorageScope = 'LOCAL',
     this.sourceTenantName,
@@ -35,7 +37,7 @@ class FuneralClaimDto {
       'burialSocietyName': burialSocietyName,
       'claimedAmountCents': claimedAmountCents,
       'approvedAmountCents': approvedAmountCents,
-      'status': status.name,
+      'status': rawStatus,
       'coverSource': coverSource.name,
       'claimStorageScope': claimStorageScope,
       if (sourceTenantName != null) 'sourceTenantName': sourceTenantName,
@@ -53,6 +55,7 @@ class FuneralClaimDto {
       claimedAmountCents: json['claimedAmountCents'] as int? ?? 0,
       approvedAmountCents: json['approvedAmountCents'] as int? ?? 0,
       status: ClaimStatus.parse(json['status']),
+      rawStatus: json['status']?.toString().trim().toUpperCase() ?? 'PENDING',
       coverSource: CoverSource.parse(json['coverSource']),
       claimStorageScope:
           json['claimStorageScope']?.toString().toUpperCase() ?? 'LOCAL',

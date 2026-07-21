@@ -10,13 +10,13 @@ import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
-import 'edit_membership_screen.dart';
 import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
 import 'membership_claim_create_screen.dart';
 import 'membership_claim_detail_screen.dart';
 import 'capture_premium_payment_dialog.dart';
 import 'capture_manual_premium_receipt_dialog.dart';
+import '../widgets/membership_change_section.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -103,46 +103,86 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
-  Future<void> _deleteMembership() async {
-    setState(() => _isLoading = true);
-    try {
-      await MembershipService().deleteMembership(widget.membershipId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Membership deleted successfully'), behavior: SnackBarBehavior.floating),
-        );
-        Navigator.of(context).pop(true);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
-        );
-      }
-    }
-  }
-
-  Future<void> _showDeleteConfirmation() async {
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Membership'),
-        content: const Text('Are you sure you want to delete this membership? This action cannot be undone.'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteMembership();
-            },
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('DELETE'),
-          ),
-        ],
+  Future<void> _replaceDependent(Dependent dependent) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditDependentScreen(
+          membershipId: widget.membershipId,
+          dependent: dependent,
+        ),
       ),
     );
+    if (result == true) _fetchData();
+  }
+
+  Future<void> _removeDependent(Dependent dependent) async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Remove Dependent'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Remove ${dependent.fullName} from active membership cover? The history will be retained.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Reason *',
+                  helperText: 'Approval is required when the membership is at least one month old.',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: reasonController.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('REMOVE'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) {
+      reasonController.dispose();
+      return;
+    }
+    try {
+      final change = await MembershipService().removeDependent(
+        widget.membershipId,
+        dependent.id,
+        reasonController.text.trim(),
+      );
+      if (!mounted) return;
+      final pending = change.status == 'PENDING_APPROVAL';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(pending
+              ? 'Dependent removal submitted for approval'
+              : 'Dependent removed successfully'),
+          backgroundColor: pending ? Colors.orange[800] : Colors.green[700],
+        ),
+      );
+      _fetchData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      reasonController.dispose();
+    }
   }
 
   @override
@@ -152,38 +192,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        title: Text(_detail != null ? 'Member Profile' : 'Membership Details'),
+        title: const Text('Membership Details'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         actions: [
-          if (_detail != null) ...[
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () async {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => EditMembershipScreen(membership: _detail!)),
-                );
-                if (result == true) _fetchData();
-              },
-            ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'delete') _showDeleteConfirmation();
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: ListTile(
-                    leading: Icon(Icons.delete_outline, color: Colors.red),
-                    title: Text('Delete Membership', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
-          ],
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchData),
           const SizedBox(width: 8),
         ],
@@ -244,6 +258,10 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION'),
           const SizedBox(height: 12),
           _buildMembershipInfoCard(detail, colorScheme),
+          const SizedBox(height: 32),
+          _buildSectionHeader(Icons.swap_horiz, 'MEMBERSHIP CHANGES'),
+          const SizedBox(height: 12),
+          MembershipChangeSection(membership: detail, onChanged: _fetchData),
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.payments_outlined, 'PAYMENT HISTORY'),
           const SizedBox(height: 12),
@@ -586,7 +604,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         String displayName = partner?.fullName ?? dependent.fullName;
         String displayId = partner?.identityNumber ?? dependent.identity?.number ?? 'N/A';
         String displayIdType = partner?.idType ?? dependent.identity?.type.description ?? 'ID';
-        final isDeceased = partner?.status == 'DECEASED';
+        final isDeceased = dependent.membershipStatus == 'DECEASED' || partner?.status == 'DECEASED';
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -601,7 +619,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ),
               title: Text(displayName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: isDeceased ? TextDecoration.lineThrough : null)),
               subtitle: Text(DependentType.fromString(dependent.dependentType).label, style: const TextStyle(fontSize: 12)),
-              trailing: _buildStatusChip(partner?.status ?? 'ACTIVE', isCompact: true),
+              trailing: _buildStatusChip(isDeceased ? 'DECEASED' : dependent.membershipStatus, isCompact: true),
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -611,11 +629,28 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                       const SizedBox(height: 12),
                       _buildProfileRow(Icons.badge_outlined, 'Identity', '$displayIdType: $displayId'),
                       _buildProfileRow(Icons.cake_outlined, 'Birth Date', partner?.birthDate ?? dependent.birthDate ?? 'N/A'),
+                      if (isDeceased)
+                        _buildProfileRow(Icons.event_busy_outlined, 'Deceased Date', dependent.deceasedDate ?? 'Recorded from claim'),
+                      if (dependent.statusReason != null && dependent.statusReason!.isNotEmpty)
+                        _buildProfileRow(Icons.info_outline, 'Status Reason', dependent.statusReason!),
                       const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          if (!isDeceased)
+                          if (!isDeceased) ...[
+                            TextButton.icon(
+                              onPressed: () => _replaceDependent(dependent),
+                              icon: const Icon(Icons.find_replace_outlined, size: 16),
+                              label: const Text('REPLACE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _removeDependent(dependent),
+                              icon: const Icon(Icons.person_remove_outlined, size: 16),
+                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                              label: const Text('REMOVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            ),
                             TextButton(
                               onPressed: () async {
                                 final result = await Navigator.of(context).push(
@@ -623,9 +658,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                                 );
                                 if (result == true) _fetchData();
                               },
-                              child: const Text('PROCESS CLAIM', style: TextStyle(color: const Color(0xFFF20D1A), fontWeight: FontWeight.bold, fontSize: 11)),
+                              child: const Text('PROCESS CLAIM', style: TextStyle(color: Color(0xFFF20D1A), fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
-                          const SizedBox(width: 8),
+                          ],
                           FilledButton.tonal(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: dependent.dependentPartnerId, title: 'Dependent Details', isMemberContext: true)),

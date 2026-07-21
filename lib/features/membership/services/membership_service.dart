@@ -12,6 +12,7 @@ import '../models/group_society.dart';
 import '../models/group_society_contact.dart';
 import '../models/group_society_payment.dart';
 import '../models/payment_batch_response.dart';
+import '../models/membership_change.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
@@ -165,40 +166,55 @@ class MembershipService {
     }
   }
 
-  Future<void> addDependent(String membershipId, Map<String, dynamic> payload) async {
-    try {
-      final response = await ApiClient().post('/v2/membership/$membershipId/dependents', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to add dependent: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
+  Future<MembershipChange> addDependent(String membershipId, Map<String, dynamic> payload) async {
+    final response = await ApiClient().post('/v2/membership/$membershipId/dependents', body: payload);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
+    throw Exception(_errorMessage(response.body, 'Failed to add dependent: ${response.statusCode}'));
   }
 
-  Future<void> updateDependent(String membershipId, String dependentId, Map<String, dynamic> payload) async {
-    try {
-      final response = await ApiClient().put('/v2/membership/$membershipId/dependents/$dependentId', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update dependent: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
+  Future<MembershipChange> replaceDependent(
+      String membershipId, String dependentId, Map<String, dynamic> payload) async {
+    final response = await ApiClient().put(
+      '/v2/membership/$membershipId/dependents/$dependentId',
+      body: payload,
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
+    throw Exception(_errorMessage(response.body, 'Failed to replace dependent: ${response.statusCode}'));
   }
 
-  Future<void> deleteDependent(String membershipId, String dependentId) async {
-    try {
-      final response = await ApiClient().delete('/v2/membership/$membershipId/dependents/$dependentId');
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete dependent: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
+  @Deprecated('Use replaceDependent')
+  Future<MembershipChange> updateDependent(
+      String membershipId, String dependentId, Map<String, dynamic> payload) {
+    return replaceDependent(membershipId, dependentId, payload);
+  }
+
+  Future<MembershipChange> removeDependent(
+      String membershipId, String dependentId, String reason) async {
+    final response = await ApiClient().post(
+      '/v2/membership/$membershipId/dependents/$dependentId/remove',
+      body: {'reason': reason},
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
+    throw Exception(_errorMessage(response.body, 'Failed to remove dependent: ${response.statusCode}'));
+  }
+
+  @Deprecated('Use removeDependent with a reason')
+  Future<MembershipChange> deleteDependent(String membershipId, String dependentId) {
+    return removeDependent(membershipId, dependentId, 'Dependent removed');
+  }
+
+  String _errorMessage(String body, String fallback) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) return '${decoded['message'] ?? decoded['error'] ?? fallback}';
+    } catch (_) {}
+    return fallback;
   }
 
   Future<List<Premium>> getMembershipPremiums(String membershipId, {String? oldId}) async {
@@ -474,12 +490,16 @@ class MembershipService {
 
   Future<MembershipClaimPage> getMembershipClaimPage({
     String? status,
+    String? query,
     int page = 0,
     int size = 50,
   }) async {
     var path = '/v2/membership-claim/page?page=$page&size=$size';
     if (status != null && status.isNotEmpty && status.toUpperCase() != 'ALL') {
       path += '&status=${Uri.encodeComponent(status.toUpperCase())}';
+    }
+    if (query != null && query.trim().isNotEmpty) {
+      path += '&query=${Uri.encodeQueryComponent(query.trim())}';
     }
 
     final response = await ApiClient().get(path);
@@ -1077,6 +1097,73 @@ class MembershipService {
     } catch (_) {}
     return fallback;
   }
+  Future<List<MembershipChange>> getMembershipChanges(String membershipId) async {
+    final response = await ApiClient().get('/v2/membership-changes/$membershipId');
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      final rows = decoded is List ? decoded : <dynamic>[];
+      return rows.map((item) => MembershipChange.fromJson(Map<String, dynamic>.from(item))).toList();
+    }
+    throw Exception(_extractMessage(response.body, 'Failed to load membership changes'));
+  }
+
+  Future<List<MembershipChangeAudit>> getMembershipChangeAudit(String membershipId) async {
+    final response = await ApiClient().get('/v2/membership-changes/$membershipId/audit');
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      final rows = decoded is List ? decoded : <dynamic>[];
+      return rows.map((item) => MembershipChangeAudit.fromJson(Map<String, dynamic>.from(item))).toList();
+    }
+    throw Exception(_extractMessage(response.body, 'Failed to load membership audit trail'));
+  }
+
+  Future<MembershipChangeConfiguration> getMembershipChangeConfiguration() async {
+    final response = await ApiClient().get('/v2/membership-changes/configuration');
+    if (response.statusCode == 200) {
+      return MembershipChangeConfiguration.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw Exception(_extractMessage(response.body, 'Failed to load membership change configuration'));
+  }
+
+  Future<void> updateMembershipChangeConfiguration(int months) async {
+    final response = await ApiClient().put('/v2/membership-changes/configuration', body: {
+      'planChangeWaitingPeriodMonths': months,
+    });
+    if (response.statusCode != 200) {
+      throw Exception(_extractMessage(response.body, 'Failed to update membership change configuration'));
+    }
+  }
+
+  Future<MembershipChange> requestMembershipTransfer(String membershipId, String newMemberId, String reason) async {
+    final response = await ApiClient().post('/v2/membership-changes/$membershipId/transfer', body: {
+      'newMemberId': newMemberId,
+      'reason': reason,
+    });
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw Exception(_extractMessage(response.body, 'Failed to submit membership transfer'));
+  }
+
+  Future<MembershipChange> requestMembershipPlanChange(String membershipId, String newPlanId, String reason) async {
+    final response = await ApiClient().post('/v2/membership-changes/$membershipId/plan', body: {
+      'newPlanId': newPlanId,
+      'reason': reason,
+    });
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw Exception(_extractMessage(response.body, 'Failed to submit membership plan change'));
+  }
+
+  String _extractMessage(String body, String fallback) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) return '${decoded['message'] ?? decoded['error'] ?? fallback}';
+    } catch (_) {}
+    return fallback;
+  }
+
 
 }
 
@@ -1090,4 +1177,6 @@ class MembershipClaimPage {
     required this.page,
     required this.last,
   });
+
+
 }

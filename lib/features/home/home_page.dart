@@ -8,6 +8,7 @@ import '../../core/services/module_usage_service.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/routing/workcenter_route_registry.dart';
 import '../../core/routing/feature_group_registry.dart';
+import '../../core/routing/workcenter_card_descriptions.dart';
 import '../../core/routing/app_routes.dart';
 import '../../core/models/access_profile.dart';
 import '../../core/services/access_profile_service.dart';
@@ -928,7 +929,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 20,
         mainAxisSpacing: 20,
-        childAspectRatio: 1.1,
+        childAspectRatio: 0.95,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -992,12 +993,25 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 Text(
                   wc.description,
                   style: const TextStyle(
-                    fontSize: 14, 
-                    fontWeight: FontWeight.w700, 
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF1A1C1E),
                     height: 1.2,
                   ),
                   maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  FeatureGroupRegistry.isGroupId(wc.id)
+                      ? WorkcenterCardDescriptions.forGroup(wc.id, wc.description)
+                      : WorkcenterCardDescriptions.forWorkcenter(wc.id, wc.description),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                    height: 1.3,
+                  ),
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],

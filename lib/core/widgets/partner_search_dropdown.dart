@@ -23,8 +23,13 @@ class PartnerSearchDropdown extends StatefulWidget {
 }
 
 class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
+  static const Duration _searchDebounce = Duration(milliseconds: 450);
+  static const int _minimumQueryLength = 2;
+
   Partner? _selectedPartner;
   final SearchController _searchController = SearchController();
+  final PartnerService _partnerService = PartnerService();
+  int _searchGeneration = 0;
 
   @override
   void initState() {
@@ -86,23 +91,57 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
                 );
               },
               suggestionsBuilder: (context, controller) async {
-                final query = controller.text;
+                final query = controller.text.trim();
+                final generation = ++_searchGeneration;
+
+                if (query.length < _minimumQueryLength) {
+                  return const [
+                    ListTile(
+                      leading: Icon(Icons.search),
+                      title: Text('Enter at least 2 characters to search'),
+                    ),
+                  ];
+                }
+
+                await Future<void>.delayed(_searchDebounce);
+                if (!mounted ||
+                    generation != _searchGeneration ||
+                    controller.text.trim() != query) {
+                  return const <Widget>[];
+                }
+
                 try {
-                  final partners = await PartnerService().getPartnersByRole(widget.role, query: query);
-                  
+                  final partners = await _partnerService.getPartnersByRole(
+                    widget.role,
+                    query: query,
+                  );
+
+                  if (!mounted ||
+                      generation != _searchGeneration ||
+                      controller.text.trim() != query) {
+                    return const <Widget>[];
+                  }
+
                   if (partners.isEmpty) {
                     return [
                       ListTile(
                         title: Text('No ${widget.label.toLowerCase()} found'),
-                      )
+                      ),
                     ];
                   }
 
                   return partners.map((partner) {
                     return ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.person, size: 20)),
-                      title: Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('No: ${partner.number} • ${partner.identityNumber}'),
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.person, size: 20),
+                      ),
+                      title: Text(
+                        partner.fullName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        'No: ${partner.number} • ${partner.identityNumber}',
+                      ),
                       onTap: () {
                         setState(() {
                           _selectedPartner = partner;
@@ -115,10 +154,18 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
                     );
                   }).toList();
                 } catch (e) {
+                  if (!mounted ||
+                      generation != _searchGeneration ||
+                      controller.text.trim() != query) {
+                    return const <Widget>[];
+                  }
                   return [
                     ListTile(
-                      title: Text('Error loading partners: $e', style: const TextStyle(color: Colors.red)),
-                    )
+                      title: Text(
+                        'Error loading partners: $e',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
                   ];
                 }
               },

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 import 'cashup_detail_screen.dart';
+import '../../partners/models/partner.dart';
+import '../../../core/widgets/partner_search_dropdown.dart';
+import '../../../core/widgets/app_dropdown.dart';
 
 class CashupListScreen extends StatefulWidget {
   const CashupListScreen({super.key});
@@ -109,6 +113,225 @@ class _CashupListScreenState extends State<CashupListScreen> {
     _loadCashups(reset: true);
   }
 
+
+  Future<void> _showManualCashupDialog() async {
+    final bookController = TextEditingController();
+    final fromController = TextEditingController();
+    final toController = TextEditingController();
+    final notesController = TextEditingController();
+    final amountController = TextEditingController();
+    Partner? employeeResponsible;
+    String? areaCode;
+    DateTime cashupDate = DateTime.now();
+    String? validationError;
+
+    final request = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create Manual Receipt Cashup'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select the captured receipts by receipt book and inclusive receipt number range.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Manual Cashup Amount *',
+                      prefixText: 'R ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  PartnerSearchDropdown(
+                    role: 'EMPLOYEE',
+                    label: 'Employee Responsible *',
+                    onPartnerSelected: (partner) => setDialogState(() => employeeResponsible = partner),
+                  ),
+                  const SizedBox(height: 12),
+                  AppDropdownField(
+                    field: 'SALES-AREA',
+                    label: 'Area *',
+                    value: areaCode,
+                    onChanged: (value) => setDialogState(() => areaCode = value),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: bookController,
+                    decoration: const InputDecoration(
+                      labelText: 'Receipt Book Number *',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: fromController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Receipt From *',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: toController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Receipt To *',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_outlined),
+                    title: const Text('Cashup Date'),
+                    subtitle: Text(DateFormat('yyyy-MM-dd').format(cashupDate)),
+                    trailing: TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: cashupDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 3650)),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => cashupDate = picked);
+                        }
+                      },
+                      child: const Text('CHANGE'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (validationError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      validationError!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final book = bookController.text.trim();
+                final from = fromController.text.trim();
+                final to = toController.text.trim();
+                final fromNumber = int.tryParse(from);
+                final toNumber = int.tryParse(to);
+
+                final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+                String? error;
+                if (amount == null || amount <= 0) {
+                  error = 'A valid manual cashup amount is required.';
+                } else if (employeeResponsible == null) {
+                  error = 'Employee responsible is required.';
+                } else if (areaCode == null || areaCode!.isEmpty) {
+                  error = 'Area is required.';
+                } else if (book.isEmpty) {
+                  error = 'Receipt book number is required.';
+                } else if (fromNumber == null || toNumber == null) {
+                  error = 'Receipt from and receipt to must be numeric.';
+                } else if (fromNumber > toNumber) {
+                  error = 'Receipt from cannot be greater than receipt to.';
+                }
+
+                if (error != null) {
+                  setDialogState(() => validationError = error);
+                  return;
+                }
+
+                Navigator.pop(context, {
+                  'amountCents': (amount! * 100).round(),
+                  'employeeResponsibleId': employeeResponsible!.id,
+                  'employeeResponsibleName': employeeResponsible!.fullName,
+                  'areaCode': areaCode,
+                  'areaName': areaCode,
+                  'receiptBookNo': book,
+                  'receiptFromNo': from,
+                  'receiptToNo': to,
+                  'cashupDate': DateFormat('yyyy-MM-dd').format(cashupDate),
+                  'notes': notesController.text.trim(),
+                });
+              },
+              child: const Text('CREATE'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    bookController.dispose();
+    fromController.dispose();
+    toController.dispose();
+    notesController.dispose();
+    amountController.dispose();
+
+    if (request == null || !mounted) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId') ?? '';
+      if (userId.isEmpty) {
+        throw Exception('The current user could not be identified. Please sign in again.');
+      }
+      request['userId'] = userId;
+      final cashup = await _cashupService.createManualCashup(request);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Manual cashup #${cashup.cashupNo} created successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CashupDetailScreen(cashupId: cashup.id),
+        ),
+      );
+      if (mounted) await _loadCashups(reset: true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create manual cashup: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,6 +339,11 @@ class _CashupListScreenState extends State<CashupListScreen> {
       appBar: AppBar(
         title: const Text('Cashups'),
         actions: [
+          TextButton.icon(
+            onPressed: _showManualCashupDialog,
+            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            label: const Text('MANUAL CASHUP'),
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: () => _loadCashups(reset: true),
@@ -297,8 +525,13 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _info('Receipts', '${cashup.receiptCount}'),
-                  _info('Cashier', cashup.userId),
+                  _info('Cashier', cashup.cashierDisplayName),
                   _info('Device', cashup.deviceId),
+                  if (cashup.isManualReceiptBook)
+                    _info(
+                      'Receipt Book Range',
+                      '${cashup.receiptBookNo}: ${cashup.receiptFromNo} - ${cashup.receiptToNo}',
+                    ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
