@@ -189,6 +189,24 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
     } finally { reason.dispose(); }
   }
 
+
+  IconData _changeIcon(String changeType) {
+    switch (changeType) {
+      case 'TRANSFER':
+        return Icons.swap_horiz;
+      case 'PLAN_CHANGE':
+        return Icons.upgrade;
+      case 'ADD_DEPENDENT':
+        return Icons.person_add_outlined;
+      case 'REMOVE_DEPENDENT':
+        return Icons.person_remove_outlined;
+      case 'REPLACE_DEPENDENT':
+        return Icons.find_replace_outlined;
+      default:
+        return Icons.edit_note_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
@@ -208,10 +226,10 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         ..._changes.map((item) => Card(
           elevation: 0,
           child: ListTile(
-            leading: Icon(item.isTransfer ? Icons.swap_horiz : Icons.upgrade),
-            title: Text(item.isTransfer ? 'Membership Transfer' : 'Plan Change'),
+            leading: Icon(_changeIcon(item.changeType)),
+            title: Text(item.displayTitle),
             subtitle: Text(
-              '${item.isTransfer ? '${item.oldMemberName} → ${item.newMemberName}' : '${item.oldPlanName} → ${item.newPlanName}'}\n'
+              '${item.displayChange}\n'
               '${item.status.replaceAll('_', ' ')}${item.effectiveDate == null ? '' : ' • Effective ${item.effectiveDate}'}\n'
               '${item.reason}',
             ),

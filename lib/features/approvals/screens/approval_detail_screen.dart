@@ -123,6 +123,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         break;
       case 'MEMBERSHIP_TRANSFER':
       case 'MEMBERSHIP_PLAN_CHANGE':
+      case 'MEMBERSHIP_DEPENDENT_CHANGE':
         final membershipId = _membershipIdFromPayload();
         if (membershipId != null) {
           screen = MembershipDetailScreen(membershipId: membershipId);
