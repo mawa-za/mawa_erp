@@ -7,6 +7,9 @@ class MembershipClaim {
   final String deceasedName;
   final String claimantName;
   final String claimType;
+  final String coveragePlanId;
+  final String coveragePlanName;
+  final String coverageEventDate;
   final String deceasedType;
   final String deceasedPartnerId;
   final String dateOfDeath;
@@ -44,6 +47,9 @@ class MembershipClaim {
     required this.deceasedName,
     required this.claimantName,
     required this.claimType,
+    required this.coveragePlanId,
+    required this.coveragePlanName,
+    required this.coverageEventDate,
     required this.deceasedType,
     required this.deceasedPartnerId,
     required this.dateOfDeath,
@@ -115,6 +121,9 @@ class MembershipClaim {
       deceasedName: (json['deceasedName'] ?? '').toString(),
       claimantName: (json['claimantName'] ?? '').toString(),
       claimType: (json['claimType'] ?? '').toString(),
+      coveragePlanId: (json['coveragePlanId'] ?? '').toString(),
+      coveragePlanName: (json['coveragePlanName'] ?? json['coveragePlanId'] ?? '').toString(),
+      coverageEventDate: parseDate(json['coverageEventDate']),
       deceasedType: (json['deceasedType'] ?? '').toString(),
       deceasedPartnerId: (json['deceasedPartnerId'] ?? '').toString(),
       dateOfDeath: parseDate(json['dateOfDeath']),
@@ -158,6 +167,9 @@ class MembershipClaim {
       'deceasedName': deceasedName,
       'claimantName': claimantName,
       'claimType': claimType,
+      'coveragePlanId': coveragePlanId,
+      'coveragePlanName': coveragePlanName,
+      'coverageEventDate': coverageEventDate,
       'deceasedType': deceasedType,
       'deceasedPartnerId': deceasedPartnerId,
       'dateOfDeath': dateOfDeath,

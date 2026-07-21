@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 import 'cashup_detail_screen.dart';
+import '../../partners/models/partner.dart';
+import '../../../core/widgets/partner_search_dropdown.dart';
+import '../../../core/widgets/app_dropdown.dart';
 
 class CashupListScreen extends StatefulWidget {
   const CashupListScreen({super.key});
@@ -116,6 +119,9 @@ class _CashupListScreenState extends State<CashupListScreen> {
     final fromController = TextEditingController();
     final toController = TextEditingController();
     final notesController = TextEditingController();
+    final amountController = TextEditingController();
+    Partner? employeeResponsible;
+    String? areaCode;
     DateTime cashupDate = DateTime.now();
     String? validationError;
 
@@ -135,6 +141,29 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     'Select the captured receipts by receipt book and inclusive receipt number range.',
                   ),
                   const SizedBox(height: 16),
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Manual Cashup Amount *',
+                      prefixText: 'R ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  PartnerSearchDropdown(
+                    role: 'EMPLOYEE',
+                    label: 'Employee Responsible *',
+                    onPartnerSelected: (partner) => setDialogState(() => employeeResponsible = partner),
+                  ),
+                  const SizedBox(height: 12),
+                  AppDropdownField(
+                    field: 'SALES-AREA',
+                    label: 'Area *',
+                    value: areaCode,
+                    onChanged: (value) => setDialogState(() => areaCode = value),
+                  ),
+                  const SizedBox(height: 12),
                   TextFormField(
                     controller: bookController,
                     decoration: const InputDecoration(
@@ -222,8 +251,15 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 final fromNumber = int.tryParse(from);
                 final toNumber = int.tryParse(to);
 
+                final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
                 String? error;
-                if (book.isEmpty) {
+                if (amount == null || amount <= 0) {
+                  error = 'A valid manual cashup amount is required.';
+                } else if (employeeResponsible == null) {
+                  error = 'Employee responsible is required.';
+                } else if (areaCode == null || areaCode!.isEmpty) {
+                  error = 'Area is required.';
+                } else if (book.isEmpty) {
                   error = 'Receipt book number is required.';
                 } else if (fromNumber == null || toNumber == null) {
                   error = 'Receipt from and receipt to must be numeric.';
@@ -237,6 +273,11 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 }
 
                 Navigator.pop(context, {
+                  'amountCents': (amount! * 100).round(),
+                  'employeeResponsibleId': employeeResponsible!.id,
+                  'employeeResponsibleName': employeeResponsible!.fullName,
+                  'areaCode': areaCode,
+                  'areaName': areaCode,
                   'receiptBookNo': book,
                   'receiptFromNo': from,
                   'receiptToNo': to,
@@ -255,6 +296,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
     fromController.dispose();
     toController.dispose();
     notesController.dispose();
+    amountController.dispose();
 
     if (request == null || !mounted) return;
 

@@ -12,6 +12,13 @@ class Cashup {
   final String receiptBookNo;
   final String receiptFromNo;
   final String receiptToNo;
+  final int manualAmountCents;
+  final int receiptTotalCents;
+  final int varianceCents;
+  final String employeeResponsibleId;
+  final String employeeResponsibleName;
+  final String areaCode;
+  final String areaName;
   final int depositTotalCents;
   final int depositCount;
   final String? approvalRequestId;
@@ -32,6 +39,13 @@ class Cashup {
     required this.receiptBookNo,
     required this.receiptFromNo,
     required this.receiptToNo,
+    required this.manualAmountCents,
+    required this.receiptTotalCents,
+    required this.varianceCents,
+    required this.employeeResponsibleId,
+    required this.employeeResponsibleName,
+    required this.areaCode,
+    required this.areaName,
     required this.depositTotalCents,
     required this.depositCount,
     required this.approvalRequestId,
@@ -61,6 +75,13 @@ class Cashup {
       receiptBookNo: json['receiptBookNo']?.toString() ?? '',
       receiptFromNo: json['receiptFromNo']?.toString() ?? '',
       receiptToNo: json['receiptToNo']?.toString() ?? '',
+      manualAmountCents: _asInt(json['manualAmountCents']),
+      receiptTotalCents: _asInt(json['receiptTotalCents']),
+      varianceCents: _asInt(json['varianceCents']),
+      employeeResponsibleId: json['employeeResponsibleId']?.toString() ?? '',
+      employeeResponsibleName: json['employeeResponsibleName']?.toString() ?? '',
+      areaCode: json['areaCode']?.toString() ?? '',
+      areaName: json['areaName']?.toString() ?? '',
       depositTotalCents: _asInt(json['depositTotalCents'] ?? json['amountDepositedCents']),
       depositCount: _asInt(json['depositCount']),
       approvalRequestId: json['approvalRequestId']?.toString(),
@@ -90,6 +111,13 @@ class Cashup {
       'receiptBookNo': receiptBookNo,
       'receiptFromNo': receiptFromNo,
       'receiptToNo': receiptToNo,
+      'manualAmountCents': manualAmountCents,
+      'receiptTotalCents': receiptTotalCents,
+      'varianceCents': varianceCents,
+      'employeeResponsibleId': employeeResponsibleId,
+      'employeeResponsibleName': employeeResponsibleName,
+      'areaCode': areaCode,
+      'areaName': areaName,
       'depositTotalCents': depositTotalCents,
       'depositCount': depositCount,
       'approvalRequestId': approvalRequestId,

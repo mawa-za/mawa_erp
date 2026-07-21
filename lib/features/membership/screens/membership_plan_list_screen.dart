@@ -3,6 +3,7 @@ import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import 'membership_plan_create_screen.dart';
 import 'membership_plan_detail_screen.dart';
+import '../widgets/membership_change_settings_dialog.dart';
 
 class MembershipPlanListScreen extends StatefulWidget {
   const MembershipPlanListScreen({super.key});
@@ -73,6 +74,11 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
         surfaceTintColor: Colors.white,
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => showMembershipChangeSettingsDialog(context),
+            tooltip: 'Membership change settings',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _fetchPlans,

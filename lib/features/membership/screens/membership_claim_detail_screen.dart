@@ -527,6 +527,12 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildInfoRow('Claim Type', claim.claimType, icon: Icons.category_outlined),
           const Divider(height: 32),
           _buildInfoRow('Date of Death', claim.dateOfDeath, icon: Icons.calendar_today_rounded),
+          if (claim.coveragePlanName.isNotEmpty) ...[
+            const Divider(height: 32),
+            _buildInfoRow('Coverage Plan', claim.coveragePlanName, icon: Icons.shield_outlined),
+            const Divider(height: 32),
+            _buildInfoRow('Coverage Effective Date', claim.coverageEventDate, icon: Icons.event_available_outlined),
+          ],
           const Divider(height: 32),
           _buildInfoRow('Certificate No', claim.deathCertificateNo ?? 'N/A', icon: Icons.badge_outlined),
           const Divider(height: 32),
