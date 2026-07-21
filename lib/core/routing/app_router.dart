@@ -217,11 +217,13 @@ class AppRouter {
       GoRoute(
         path: '/partners/:role',
         builder: (context, state) {
-          final role = state.pathParameters['role']!;
+          final role = state.pathParameters['role']!.toUpperCase();
           return PartnerListScreen(
             role: role,
             title: '${role[0]}${role.substring(1).toLowerCase()}s',
-            allowCreate: false,
+            // Partner creation remains restricted for role-specific lists,
+            // except for the explicit supplier onboarding workflow.
+            allowCreate: role == 'SUPPLIER',
           );
         },
       ),
