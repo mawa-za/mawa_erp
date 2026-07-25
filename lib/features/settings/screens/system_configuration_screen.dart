@@ -77,7 +77,7 @@ class SystemConfigurationScreen extends StatelessWidget {
           const SizedBox(height: 12),
           _buildConfigTile(context,title:'Payment Accounts',subtitle:'Configure debtor accounts by payment type and petty-cash/cash-claim creditor accounts',icon:Icons.account_balance_wallet_outlined,color:Colors.teal,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PaymentAccountConfigurationScreen()))),
           const SizedBox(height:12),
-          _buildConfigTile(context,title:'Automatic Premium Generation',subtitle:'Choose monthly generation mode and backfill six missing periods',icon:Icons.calendar_month_outlined,color:Colors.indigo,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PremiumGenerationSettingsScreen()))),
+          _buildConfigTile(context,title:'Automatic Premium Generation',subtitle:'Choose the monthly generation date and backfill six missing periods',icon:Icons.calendar_month_outlined,color:Colors.indigo,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PremiumGenerationSettingsScreen()))),
           const SizedBox(height:12),
           _buildConfigTile(context,title:'Third Party Funeral Underwriting',subtitle:'Manage external funeral covers and underwriting decisions',icon:Icons.fact_check_outlined,color:Colors.deepPurple,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const ThirdPartyFuneralCoverUnderwritingPage()))),
           const SizedBox(height:12),
