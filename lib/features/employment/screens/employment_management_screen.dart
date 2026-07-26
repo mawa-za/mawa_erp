@@ -368,11 +368,18 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
           child: SingleChildScrollView(
             child: Column(
               children: [
+                if (!editing) ...[
+                  const Text(
+                    'Hiring uses an existing Business Partner record. A person who is already a member or dependent must be selected here; MAWA adds the Employee role without creating a duplicate person.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const CircleAvatar(child: Icon(Icons.person)),
                   title: Text(_partner?.fullName ?? 'Select employee'),
-                  subtitle: Text(_partner?.number ?? 'Choose an existing partner record'),
+                  subtitle: Text(_partner?.number ?? 'Choose an existing member, dependent or business partner'),
                   trailing: editing
                       ? null
                       : OutlinedButton(
@@ -522,7 +529,7 @@ class _PartnerPickerDialogState extends State<_PartnerPickerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Select Employee Partner'),
+      title: const Text('Select existing person to hire'),
       content: SizedBox(
         width: 600,
         height: 460,
