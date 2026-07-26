@@ -64,7 +64,7 @@ class Product {
     return Product(
       id: json['id'] ?? '',
       code: json['code'] ?? '',
-      description: json['description'] ?? '',
+      description: json['name'] ?? json['description'] ?? '',
       price: price,
     );
   }
@@ -79,7 +79,7 @@ class ProductType {
   factory ProductType.fromJson(Map<String, dynamic> json) {
     return ProductType(
       code: json['code'] ?? '',
-      description: json['description'] ?? '',
+      description: json['name'] ?? json['description'] ?? '',
     );
   }
 }
@@ -166,7 +166,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
 
   Future<void> _fetchProductTypes() async {
     try {
-      final response = await ApiClient().get('/field/PRODUCT-TYPE/option');
+      final response = await ApiClient().get('/v2/product-types');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
@@ -208,7 +208,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
 
     setState(() => item.isLoadingProducts = true);
     try {
-      final response = await ApiClient().get('/product?type=$categoryCode');
+      final response = await ApiClient().get('/product?type=$categoryCode&availableForSale=true');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         final products = data.map((json) => Product.fromJson(json)).toList();
@@ -911,7 +911,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           isExpanded: true,
           value: item.selectedType,
           style: const TextStyle(fontSize: 9, color: Colors.black),
-          hint: const Text('Cat', style: TextStyle(fontSize: 9)),
+          hint: const Text('Type', style: TextStyle(fontSize: 9)),
           items: _productTypes.map((type) {
             return DropdownMenuItem(value: type, child: Text(type.description, overflow: TextOverflow.ellipsis));
           }).toList(),

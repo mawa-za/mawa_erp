@@ -71,6 +71,7 @@ class StockService {
   Future<List<Map<String, dynamic>>> searchProducts(String query) async {
     final response = await _apiClient.get('/product', queryParameters: {
       if (query.isNotEmpty) 'query': query,
+      'stockControlled': 'true',
     });
     return _decodeListResponse(response.body, response.statusCode, 'products');
   }
