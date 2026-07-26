@@ -16,6 +16,7 @@ import 'pos_printing_settings_screen.dart';
 import 'manual_receipt_cutover_settings_screen.dart';
 import '../../funeral/presentation/pages/third_party_funeral_cover_underwriting_page.dart';
 import 'premium_generation_settings_screen.dart';
+import 'membership_lapse_settings_screen.dart';
 import '../../payments/screens/payment_account_configuration_screen.dart';
 import 'number_range_configuration_screen.dart';
 
@@ -79,6 +80,20 @@ class SystemConfigurationScreen extends StatelessWidget {
           const SizedBox(height:12),
           _buildConfigTile(context,title:'Automatic Premium Generation',subtitle:'Choose the monthly generation date and backfill six missing periods',icon:Icons.calendar_month_outlined,color:Colors.indigo,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PremiumGenerationSettingsScreen()))),
           const SizedBox(height:12),
+          _buildConfigTile(
+            context,
+            title: 'Membership Lapse Configuration',
+            subtitle: 'Lapse active memberships after a configured number of consecutive missed premiums',
+            icon: Icons.event_busy_outlined,
+            color: Colors.deepOrange,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const MembershipLapseSettingsScreen(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           _buildConfigTile(context,title:'Third Party Funeral Underwriting',subtitle:'Manage external funeral covers and underwriting decisions',icon:Icons.fact_check_outlined,color:Colors.deepPurple,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const ThirdPartyFuneralCoverUnderwritingPage()))),
           const SizedBox(height:12),
           _buildConfigTile(
