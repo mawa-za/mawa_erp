@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/widgets/app_dropdown.dart';
+
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -114,6 +116,22 @@ class _EmploymentManagementScreenState
     }
   }
 
+  Future<void> _openBanking(Map<String, dynamic> record) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _EmployeeBankingDialog(
+        employmentId: (record['id'] ?? '').toString(),
+        service: _service,
+      ),
+    );
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Banking details submitted for approval.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -222,6 +240,7 @@ class _EmploymentManagementScreenState
                   if (value == 'edit') _openForm(record);
                   if (value == 'terminate') _terminate(record);
                   if (value == 'rehire') _rehire(record);
+                  if (value == 'banking') _openBanking(record);
                   if (value == 'partner' && employee['id'] != null) {
                     Navigator.push(
                       context,
@@ -237,6 +256,7 @@ class _EmploymentManagementScreenState
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'partner', child: Text('Employee details')),
                   const PopupMenuItem(value: 'edit', child: Text('Edit employment')),
+                  const PopupMenuItem(value: 'banking', child: Text('Banking details')),
                   if (status == 'TERMINATED')
                     const PopupMenuItem(value: 'rehire', child: Text('Rehire')),
                   if (status != 'TERMINATED')
@@ -279,8 +299,8 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
   final _key = GlobalKey<FormState>();
   late final TextEditingController _number;
   late final TextEditingController _position;
-  late final TextEditingController _branch;
-  late final TextEditingController _department;
+  String? _branch;
+  String? _department;
   DateTime _start = DateTime.now();
   DateTime? _end;
   Partner? _partner;
@@ -295,8 +315,8 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
     final r = widget.record ?? const <String, dynamic>{};
     _number = TextEditingController(text: (r['employeeNumber'] ?? '').toString());
     _position = TextEditingController(text: (r['position'] ?? '').toString());
-    _branch = TextEditingController(text: _optionCode(r['branch']));
-    _department = TextEditingController(text: _optionCode(r['department']));
+    _branch = _optionCode(r['branch']);
+    _department = _optionCode(r['department']);
     _type = _optionCode(r['type']).isEmpty ? 'PERMANENT' : _optionCode(r['type']);
     _start = DateTime.tryParse((r['startDate'] ?? '').toString()) ?? DateTime.now();
     _end = DateTime.tryParse((r['endDate'] ?? '').toString());
@@ -309,8 +329,6 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
   void dispose() {
     _number.dispose();
     _position.dispose();
-    _branch.dispose();
-    _department.dispose();
     super.dispose();
   }
 
@@ -336,8 +354,8 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
       'employeeNumber': _number.text.trim(),
       'position': _position.text.trim(),
       'type': _type,
-      'branch': _branch.text.trim().toUpperCase(),
-      'department': _department.text.trim().toUpperCase(),
+      'branch': _branch,
+      'department': _department,
       'startDate': DateFormat('yyyy-MM-dd').format(_start),
       if (_end != null) 'endDate': DateFormat('yyyy-MM-dd').format(_end!),
     };
@@ -415,16 +433,20 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextFormField(
-                        controller: _branch,
-                        decoration: const InputDecoration(labelText: 'Branch Code'),
+                      child: AppDropdownField(
+                        field: 'BRANCH',
+                        label: 'Branch',
+                        value: _branch,
+                        onChanged: (value) => setState(() => _branch = value),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextFormField(
-                        controller: _department,
-                        decoration: const InputDecoration(labelText: 'Department Code'),
+                      child: AppDropdownField(
+                        field: 'DEPARTMENT',
+                        label: 'Department',
+                        value: _department,
+                        onChanged: (value) => setState(() => _department = value),
                       ),
                     ),
                   ],
@@ -495,6 +517,185 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
   static String _optionCode(dynamic value) {
     if (value is Map) return (value['code'] ?? '').toString();
     return (value ?? '').toString();
+  }
+}
+
+
+class _EmployeeBankingDialog extends StatefulWidget {
+  final String employmentId;
+  final EmploymentService service;
+
+  const _EmployeeBankingDialog({required this.employmentId, required this.service});
+
+  @override
+  State<_EmployeeBankingDialog> createState() => _EmployeeBankingDialogState();
+}
+
+class _EmployeeBankingDialogState extends State<_EmployeeBankingDialog> {
+  final _key = GlobalKey<FormState>();
+  final _holder = TextEditingController();
+  final _account = TextEditingController();
+  List<Map<String, dynamic>> _accounts = const [];
+  String? _bankName;
+  String? _accountType;
+  String? _editingId;
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _holder.dispose();
+    _account.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final accounts = await widget.service.getBankDetails(widget.employmentId);
+      if (mounted) setState(() => _accounts = accounts);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _edit(Map<String, dynamic> bank) {
+    setState(() {
+      _editingId = bank['id']?.toString();
+      _holder.text = (bank['accountHolder'] ?? '').toString();
+      _account.text = (bank['accountNumber'] ?? '').toString();
+      _bankName = bank['bankName']?.toString();
+      _accountType = bank['accountType']?.toString();
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_key.currentState!.validate()) return;
+    if (_bankName == null || _accountType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select bank name and account type.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.service.submitBankDetails(widget.employmentId, {
+        if (_editingId != null) 'id': _editingId,
+        'accountHolder': _holder.text.trim(),
+        'accountNumber': _account.text.trim(),
+        'bankName': _bankName,
+        'accountType': _accountType,
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Employee Banking Details'),
+      content: SizedBox(
+        width: 620,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
+                key: _key,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Existing approved details remain active until the submitted change is approved. The universal branch code is assigned automatically from the selected bank.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 10),
+                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                      ],
+                      if (_accounts.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        const Text('CURRENT AND PREVIOUS DETAILS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                        ..._accounts.map((bank) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                (bank['status'] ?? '').toString().toUpperCase() == 'ACTIVE'
+                                    ? Icons.verified_rounded
+                                    : Icons.history_rounded,
+                              ),
+                              title: Text('${bank['bankName'] ?? '-'} • ${bank['accountNumber'] ?? '-'}'),
+                              subtitle: Text('${bank['accountHolder'] ?? '-'} • ${bank['accountType'] ?? '-'} • Universal branch ${bank['branchCode'] ?? '-'} • ${bank['status'] ?? '-'}'),
+                              trailing: (bank['status'] ?? '').toString().toUpperCase() == 'ACTIVE'
+                                  ? IconButton(
+                                      tooltip: 'Submit a change',
+                                      onPressed: () => _edit(bank),
+                                      icon: const Icon(Icons.edit_outlined),
+                                    )
+                                  : null,
+                            )),
+                      ],
+                      const Divider(height: 28),
+                      Text(_editingId == null ? 'NEW BANKING DETAILS' : 'CHANGE BANKING DETAILS',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _holder,
+                        decoration: const InputDecoration(labelText: 'Account Holder'),
+                        validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      AppDropdownField(
+                        field: 'BANK-NAME',
+                        label: 'Bank Name',
+                        value: _bankName,
+                        onChanged: (value) => setState(() => _bankName = value),
+                        validator: (value) => value == null ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _account,
+                        decoration: const InputDecoration(labelText: 'Account Number'),
+                        keyboardType: TextInputType.number,
+                        validator: (value) => value == null || !RegExp(r'^\d{5,20}$').hasMatch(value.trim())
+                            ? 'Enter 5 to 20 numeric digits'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      AppDropdownField(
+                        field: 'BANK-ACCOUNT-TYPE',
+                        label: 'Account Type',
+                        value: _accountType,
+                        onChanged: (value) => setState(() => _accountType = value),
+                        validator: (value) => value == null ? 'Required' : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+      actions: [
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton.icon(
+          onPressed: _saving ? null : _submit,
+          icon: _saving
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.approval_outlined),
+          label: const Text('Submit for Approval'),
+        ),
+      ],
+    );
   }
 }
 

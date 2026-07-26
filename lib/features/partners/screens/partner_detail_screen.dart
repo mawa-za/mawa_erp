@@ -490,7 +490,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
                 ),
                 Text('${account['accountHolder'] ?? ''} • $masked'),
                 Text(
-                  '${account['accountType'] ?? ''} • Branch ${account['branchCode'] ?? '-'}',
+                  '${account['accountType'] ?? ''} • Universal branch ${account['branchCode'] ?? '-'}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
@@ -526,7 +526,6 @@ class _SupplierBankingApprovalDialogState
   final _holder = TextEditingController();
   final _number = TextEditingController();
   String? _bankName;
-  final _branch = TextEditingController();
   String? _accountType;
   bool _saving = false;
 
@@ -534,7 +533,6 @@ class _SupplierBankingApprovalDialogState
   void dispose() {
     _holder.dispose();
     _number.dispose();
-    _branch.dispose();
     super.dispose();
   }
 
@@ -547,7 +545,6 @@ class _SupplierBankingApprovalDialogState
         'accountHolder': _holder.text.trim(),
         'accountNumber': _number.text.trim(),
         'bankName': _bankName,
-        'branchCode': _branch.text.trim(),
         'accountType': _accountType,
       });
       if (mounted) Navigator.pop(context, true);
@@ -610,17 +607,12 @@ class _SupplierBankingApprovalDialogState
                       : 'Account number must contain 5 to 20 digits',
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _branch,
-                  decoration: decoration('Branch code'),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
-                  ],
-                  validator: (value) => RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
-                      ? null
-                      : 'Branch code must contain 6 digits',
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'The universal branch code is assigned automatically from the selected bank.',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 AppDropdownField(

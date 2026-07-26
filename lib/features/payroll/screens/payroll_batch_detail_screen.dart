@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:printing/printing.dart';
 import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
 import '../../approvals/models/approval.dart';
@@ -59,7 +61,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
       final userId = prefs.getString('userId') ?? '';
 
       final submission = ApprovalSubmission(
-        approvalType: 'PAYMENT', // Payroll batches often map to PAYMENT approval type
+        approvalType: 'PAYROLL_BATCH',
         referenceId: _batch!.id,
         referenceNo: _batch!.batchNo,
         title: 'Payroll Batch Approval: ${_batch!.batchNo}',
@@ -86,6 +88,73 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
     }
   }
 
+  Future<void> _previewPrintout() async {
+    if (_batch == null) return;
+    try {
+      final bytes = Uint8List.fromList(await _service.getVerificationPrintout(_batch!.id));
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: Text('Payroll Verification ${_batch!.batchNo}')),
+            body: PdfPreview(
+              build: (_) async => bytes,
+              pdfFileName: 'payroll-verification-${_batch!.batchNo}.pdf',
+              canChangePageFormat: false,
+              canChangeOrientation: false,
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to generate verification printout: $e')),
+      );
+    }
+  }
+
+  Future<void> _refreshBankReport() async {
+    if (_batch == null || (_batch!.fnbInstructionId ?? '').isEmpty) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final refreshed = await _service.refreshBankReport(_batch!.id);
+      if (mounted) setState(() => _batch = refreshed);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to retrieve bank report: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+
+  Future<void> _viewBankReport() async {
+    final raw = _batch?.bankReportJson;
+    if (raw == null || raw.trim().isEmpty) return;
+    String display = raw;
+    try {
+      display = const JsonEncoder.withIndent('  ').convert(jsonDecode(raw));
+    } catch (_) {}
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Bank Report ${_batch!.batchNo}'),
+        content: SizedBox(
+          width: 760,
+          child: SingleChildScrollView(
+            child: SelectableText(display, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -99,6 +168,12 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         actions: [
+          if (_batch != null)
+            IconButton(
+              tooltip: 'Verification printout',
+              onPressed: _previewPrintout,
+              icon: const Icon(Icons.print_rounded),
+            ),
           if (_batch != null && (_batch!.status == 'NEW' || _batch!.status == 'DRAFT')) ...[
             TextButton.icon(
               onPressed: () async {
@@ -146,6 +221,8 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeaderCard(colorScheme),
+                const SizedBox(height: 16),
+                _buildBankSubmissionCard(colorScheme),
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -226,6 +303,59 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
     );
   }
 
+  Widget _buildBankSubmissionCard(ColorScheme colorScheme) {
+    final instruction = _batch!.fnbInstructionId;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_balance_rounded, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('BANK SUBMISSION', style: TextStyle(fontWeight: FontWeight.bold))),
+              if ((instruction ?? '').isNotEmpty)
+                TextButton.icon(
+                  onPressed: _isSubmitting ? null : _refreshBankReport,
+                  icon: const Icon(Icons.sync_rounded, size: 18),
+                  label: const Text('REFRESH REPORT'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildDetailRow('Message status', _batch!.bankMessageStatus),
+          _buildDetailRow('Instruction ID', instruction ?? 'Not submitted'),
+          _buildDetailRow('Bank report status', _batch!.bankReportStatus ?? 'Not available'),
+          if ((_batch!.bankReportReason ?? '').isNotEmpty)
+            _buildDetailRow('Bank report reason', _batch!.bankReportReason!),
+          if ((_batch!.bankSubmittedAt ?? '').isNotEmpty)
+            _buildDetailRow('Submitted at', _batch!.bankSubmittedAt!),
+          if ((_batch!.bankReportJson ?? '').isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _viewBankReport,
+                icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                label: const Text('VIEW FULL REPORT'),
+              ),
+            ),
+          const SizedBox(height: 8),
+          const Text(
+            'The approved payroll is submitted as one bank instruction containing one creditor transaction per employee.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _calculateTotal() {
     double total = 0;
     for (var item in _batch!.items) {
@@ -262,9 +392,11 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
   Widget _buildStatusChip(String status) {
     Color color;
     switch (status.toUpperCase()) {
-      case 'PROCESSED': case 'APPROVED': color = Colors.green; break;
+      case 'PROCESSED': case 'APPROVED': case 'PAID': color = Colors.green; break;
       case 'REJECTED': case 'FAILED': color = Colors.red; break;
-      case 'PENDING': case 'NEW': case 'DRAFT': color = Colors.orange; break;
+      case 'CANCELLED': color = Colors.grey; break;
+      case 'PENDING': case 'PENDING_APPROVAL': case 'NEW': case 'DRAFT': color = Colors.orange; break;
+      case 'PROCESSING': case 'SUBMITTED': color = Colors.blue; break;
       default: color = Colors.blue;
     }
 
@@ -275,7 +407,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status.toUpperCase(),
+        status.toUpperCase().replaceAll('_', ' ').replaceAll('-', ' '),
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
@@ -319,7 +451,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
           _buildDetailRow('Bank Name', item.bankName ?? '-'),
           _buildDetailRow('Account Number', item.accountNo ?? '-'),
           _buildDetailRow('Account Type', item.accountType ?? '-'),
-          _buildDetailRow('Branch Code', item.branchCode ?? '-'),
+          _buildDetailRow('Universal Branch Code', item.branchCode ?? '-'),
           _buildDetailRow('Reference', item.paymentReference ?? '-'),
         ],
       ),
