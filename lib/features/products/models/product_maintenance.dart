@@ -1,10 +1,113 @@
 import '../../../core/models/field_option.dart';
 
+class ProductTypeDefinition {
+  final String code;
+  final String name;
+  final String description;
+  final bool stockControlled;
+  final bool canBeReceived;
+  final bool canBePutAway;
+  final bool consumedOnIssue;
+  final bool returnable;
+  final bool assetTracked;
+  final bool bundle;
+  final bool specialisedWorkflow;
+  final bool defaultAvailableForSale;
+
+  const ProductTypeDefinition({
+    required this.code,
+    required this.name,
+    required this.description,
+    required this.stockControlled,
+    required this.canBeReceived,
+    required this.canBePutAway,
+    required this.consumedOnIssue,
+    required this.returnable,
+    required this.assetTracked,
+    required this.bundle,
+    required this.specialisedWorkflow,
+    required this.defaultAvailableForSale,
+  });
+
+  factory ProductTypeDefinition.fromJson(Map<String, dynamic> json) {
+    return ProductTypeDefinition(
+      code: (json['code'] ?? '').toString(),
+      name: (json['name'] ?? json['description'] ?? json['code'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      stockControlled: _bool(json['stockControlled']),
+      canBeReceived: _bool(json['canBeReceived']),
+      canBePutAway: _bool(json['canBePutAway']),
+      consumedOnIssue: _bool(json['consumedOnIssue']),
+      returnable: _bool(json['returnable']),
+      assetTracked: _bool(json['assetTracked']),
+      bundle: _bool(json['bundle']),
+      specialisedWorkflow: _bool(json['specialisedWorkflow']),
+      defaultAvailableForSale: _bool(json['defaultAvailableForSale']),
+    );
+  }
+
+  static bool _bool(dynamic value) => value == true || value?.toString().toLowerCase() == 'true' || value == 1;
+}
+
+class ProductCategoryDefinition {
+  final String id;
+  final String code;
+  final String name;
+  final String description;
+  final String? parentId;
+  final String? parentCode;
+  final String? parentName;
+  final String? productType;
+  final String fullPath;
+  final bool active;
+  final int sortOrder;
+
+  const ProductCategoryDefinition({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.description,
+    this.parentId,
+    this.parentCode,
+    this.parentName,
+    this.productType,
+    required this.fullPath,
+    required this.active,
+    required this.sortOrder,
+  });
+
+  factory ProductCategoryDefinition.fromJson(Map<String, dynamic> json) {
+    return ProductCategoryDefinition(
+      id: (json['id'] ?? '').toString(),
+      code: (json['code'] ?? '').toString(),
+      name: (json['name'] ?? json['description'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      parentId: _nullable(json['parentId']),
+      parentCode: _nullable(json['parentCode']),
+      parentName: _nullable(json['parentName']),
+      productType: _nullable(json['productType']),
+      fullPath: (json['fullPath'] ?? json['name'] ?? '').toString(),
+      active: ProductTypeDefinition._bool(json['active']),
+      sortOrder: int.tryParse((json['sortOrder'] ?? '0').toString()) ?? 0,
+    );
+  }
+
+  bool supportsType(String typeCode) => productType == null || productType!.isEmpty || productType == typeCode;
+
+  static String? _nullable(dynamic value) {
+    final text = (value ?? '').toString().trim();
+    return text.isEmpty ? null : text;
+  }
+}
+
 class ProductMaintenanceItem {
   final String id;
   final String code;
   final String description;
   final FieldOption? type;
+  final ProductTypeDefinition? typeBehaviour;
+  final ProductCategoryDefinition? primaryCategory;
+  final bool availableForSale;
   final FieldOption? baseUnitOfMeasure;
   final double price;
   final String pricingType;
@@ -18,6 +121,9 @@ class ProductMaintenanceItem {
     required this.code,
     required this.description,
     this.type,
+    this.typeBehaviour,
+    this.primaryCategory,
+    required this.availableForSale,
     this.baseUnitOfMeasure,
     required this.price,
     required this.pricingType,
@@ -35,6 +141,13 @@ class ProductMaintenanceItem {
       code: (json['code'] ?? '').toString(),
       description: (json['description'] ?? json['name'] ?? '').toString(),
       type: _fieldOption(json['type'], fallbackField: 'PRODUCT-TYPE'),
+      typeBehaviour: json['typeBehaviour'] is Map
+          ? ProductTypeDefinition.fromJson(Map<String, dynamic>.from(json['typeBehaviour'] as Map))
+          : null,
+      primaryCategory: json['primaryCategory'] is Map
+          ? ProductCategoryDefinition.fromJson(Map<String, dynamic>.from(json['primaryCategory'] as Map))
+          : null,
+      availableForSale: ProductTypeDefinition._bool(json['availableForSale']),
       baseUnitOfMeasure: _fieldOption(json['baseUnitOfMeasure'] ?? json['uom'], fallbackField: 'UOM'),
       price: preferredPrice?.value ?? _parseDouble(json['price'] ?? json['value'] ?? json['amount']),
       pricingType: preferredPrice?.pricingCode ?? 'SELLING-PRICE',
@@ -46,6 +159,12 @@ class ProductMaintenanceItem {
           .where((value) => value.trim().isNotEmpty)
           .toList(),
     );
+  }
+
+  bool get isActive {
+    final expiry = validTo;
+    if (expiry == null) return true;
+    return !expiry.isBefore(DateTime.now());
   }
 
   static FieldOption? _fieldOption(dynamic value, {required String fallbackField}) {
@@ -80,13 +199,6 @@ class ProductMaintenanceItem {
     return prices.first;
   }
 
-
-  bool get isActive {
-    final expiry = validTo;
-    if (expiry == null) return true;
-    return !expiry.isBefore(DateTime.now());
-  }
-
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
     if (value is num) {
@@ -99,8 +211,6 @@ class ProductMaintenanceItem {
   }
 
   static double _parseDouble(dynamic value) {
-    if (value is int) return value.toDouble();
-    if (value is double) return value;
     if (value is num) return value.toDouble();
     return double.tryParse((value ?? '').toString()) ?? 0;
   }
