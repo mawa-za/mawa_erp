@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/group_society.dart';
 import '../models/group_society_contact.dart';
@@ -100,7 +101,18 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
               children: [
                 TextFormField(controller: nameController, decoration: const InputDecoration(labelText: 'Contact Name')),
                 TextFormField(controller: roleController, decoration: const InputDecoration(labelText: 'Role')),
-                TextFormField(controller: phoneController, decoration: const InputDecoration(labelText: 'Mobile Number')),
+                TextFormField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number',
+                    helperText: 'Enter exactly 10 numeric digits.',
+                  ),
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                ),
                 TextFormField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
                 CheckboxListTile(
                   title: const Text('Primary Contact'),
@@ -115,10 +127,17 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             FilledButton(
               onPressed: () async {
+                final mobileNo = phoneController.text.trim();
+                if (mobileNo.isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(mobileNo)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Mobile Number must be exactly 10 numeric digits.')),
+                  );
+                  return;
+                }
                 final payload = {
                   "contactName": nameController.text.trim(),
                   "role": roleController.text.trim(),
-                  "mobileNo": phoneController.text.trim(),
+                  "mobileNo": mobileNo,
                   "email": emailController.text.trim(),
                   "primaryContact": isPrimary
                 };

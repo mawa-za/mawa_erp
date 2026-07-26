@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 import '../controllers/funeral_service_request_wizard_controller.dart';
@@ -228,6 +229,13 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           controller: _contactNumberController,
           decoration: const InputDecoration(labelText: 'Contact Number', border: OutlineInputBorder()),
           keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
+          ],
+          validator: (value) => RegExp(r'^\d{10}$').hasMatch(value?.trim() ?? '')
+              ? null
+              : 'Contact Number must be 10 numeric digits',
           onChanged: (v) => _controller.contactNumber = v,
         ),
         const Divider(height: 48),

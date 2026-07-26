@@ -17,6 +17,8 @@ class WorkcenterRouteRegistry {
     'APPROVAL': AppRoutes.approvals,
     'REPORT': AppRoutes.reports,
     'REPORTS': AppRoutes.reports,
+    'COMPANY_FORMS': AppRoutes.companyForms,
+    'COMPANY_FORM': AppRoutes.companyForms,
     'SETTINGS': AppRoutes.settings,
     'SYSTEM_SETTINGS': AppRoutes.settings,
     'SYSTEM_CONFIGURATION': AppRoutes.systemConfiguration,

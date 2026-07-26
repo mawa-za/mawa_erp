@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
 import '../models/partner_identity.dart';
 import '../partner_service.dart';
@@ -523,18 +525,16 @@ class _SupplierBankingApprovalDialogState
   final _formKey = GlobalKey<FormState>();
   final _holder = TextEditingController();
   final _number = TextEditingController();
-  final _bank = TextEditingController();
+  String? _bankName;
   final _branch = TextEditingController();
-  final _accountType = TextEditingController(text: 'CURRENT');
+  String? _accountType;
   bool _saving = false;
 
   @override
   void dispose() {
     _holder.dispose();
     _number.dispose();
-    _bank.dispose();
     _branch.dispose();
-    _accountType.dispose();
     super.dispose();
   }
 
@@ -546,9 +546,9 @@ class _SupplierBankingApprovalDialogState
         'partner': widget.partnerId,
         'accountHolder': _holder.text.trim(),
         'accountNumber': _number.text.trim(),
-        'bankName': _bank.text.trim(),
+        'bankName': _bankName,
         'branchCode': _branch.text.trim(),
-        'accountType': _accountType.text.trim().toUpperCase(),
+        'accountType': _accountType,
       });
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -587,33 +587,50 @@ class _SupplierBankingApprovalDialogState
                       : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _bank,
-                  decoration: decoration('Bank name'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Bank name is required'
+                AppDropdownField(
+                  field: 'BANK-NAME',
+                  label: 'Bank Name',
+                  value: _bankName,
+                  onChanged: (value) => setState(() => _bankName = value),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Bank Name is required'
                       : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _number,
                   decoration: decoration('Account number'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Account number is required'
-                      : null,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(20),
+                  ],
+                  validator: (value) => RegExp(r'^\d{5,20}$').hasMatch(value?.trim() ?? '')
+                      ? null
+                      : 'Account number must contain 5 to 20 digits',
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _branch,
                   decoration: decoration('Branch code'),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Branch code is required'
-                      : null,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6),
+                  ],
+                  validator: (value) => RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
+                      ? null
+                      : 'Branch code must contain 6 digits',
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _accountType,
-                  decoration: decoration('Account type'),
+                AppDropdownField(
+                  field: 'BANK-ACCOUNT-TYPE',
+                  label: 'Account Type',
+                  value: _accountType,
+                  onChanged: (value) => setState(() => _accountType = value),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Account Type is required'
+                      : null,
                 ),
               ],
             ),

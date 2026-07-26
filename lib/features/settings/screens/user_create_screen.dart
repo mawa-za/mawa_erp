@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import '../models/role.dart';
@@ -77,7 +78,15 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
         const SizedBox(height: 12),
         TextFormField(controller: _email, decoration: const InputDecoration(labelText: 'Email'), validator: (v) => !(v ?? '').contains('@') ? 'Valid email required' : null),
         const SizedBox(height: 12),
-        TextFormField(controller: _cellphone, decoration: const InputDecoration(labelText: 'Cellphone')),
+        TextFormField(
+          controller: _cellphone,
+          decoration: const InputDecoration(labelText: 'Contact Number'),
+          keyboardType: TextInputType.phone,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+          validator: (value) => RegExp(r'^\d{10}$').hasMatch(value?.trim() ?? '')
+              ? null
+              : 'Contact Number must be 10 numeric digits',
+        ),
         const SizedBox(height: 12),
         PartnerSearchDropdown(role: 'EMPLOYEE', label: 'Business Partner (Employee)', onPartnerSelected: (p) => setState(() => _partnerId = p?.id), validator: (p) => p == null ? 'Required' : null),
         const SizedBox(height: 24),
