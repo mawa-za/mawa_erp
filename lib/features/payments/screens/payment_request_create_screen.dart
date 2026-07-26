@@ -45,6 +45,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   List<FieldOption> _typeOptions = [];
   List<FieldOption> _accountTypeOptions = [];
   List<FieldOption> _bankOptions = [];
+  final Map<String, Map<String, dynamic>> _recipientMetadata = {};
   bool _isLoadingOptions = true;
 
   @override
@@ -113,6 +114,11 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
       final response = await ApiClient().get('/v2/payment-request/recipient-options?type=$_selectedType&query=${Uri.encodeQueryComponent(query)}');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        _recipientMetadata.clear();
+        for (final dynamic raw in data) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          _recipientMetadata[row['id'].toString()] = row;
+        }
         return data.map((row) => Partner.fromJson({
           'id': row['id'],
           'number': row['number'] ?? row['partner_no'] ?? '',
@@ -235,6 +241,12 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
                       onChanged: (value) => setState(() {
                         _selectedType = value;
                         _selectedRecipient = null;
+                        _recipientMetadata.clear();
+                        if (value == 'SUPPLIER_INVOICE') {
+                          _selectedPaymentMethod = 'EFT';
+                        } else {
+                          _selectedPaymentMethod = null;
+                        }
                       }),
                       validator: (value) =>
                           value == null ? 'Payment request type is required' : null,
@@ -321,10 +333,35 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
             leading: const CircleAvatar(child: Icon(Icons.person, size: 20)),
             title: Text(partner.fullName, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text('No: ${partner.number}'),
+            enabled: _selectedType != 'SUPPLIER_INVOICE' ||
+                (_recipientMetadata[partner.id]?['bankingReady'] == true ||
+                 _recipientMetadata[partner.id]?['bankingReady'] == 1),
             onTap: () {
+              final metadata = _recipientMetadata[partner.id] ?? const <String, dynamic>{};
+              final ready = metadata['bankingReady'] == true || metadata['bankingReady'] == 1;
+              if (_selectedType == 'SUPPLIER_INVOICE' && !ready) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(metadata['bankingMessage']?.toString() ??
+                      'Supplier banking details are missing or have not been approved.')),
+                );
+                return;
+              }
               setState(() {
                 _selectedRecipient = partner;
-                _accountHolderController.text = partner.fullName; 
+                _selectedPaymentMethod = _selectedType == 'SUPPLIER_INVOICE' ? 'EFT' : _selectedPaymentMethod;
+                _accountHolderController.text = metadata['accountHolder']?.toString() ?? partner.fullName;
+                _accountNumberController.text = metadata['accountNumber']?.toString() ?? '';
+                _branchCodeController.text = metadata['branchCode']?.toString() ?? '';
+                final bankName = metadata['bankName']?.toString();
+                if (bankName != null) {
+                  final matches = _bankOptions.where((option) =>
+                      option.code == bankName || option.description == bankName);
+                  if (matches.isNotEmpty) _selectedBankCode = matches.first.code;
+                }
+                final accountType = metadata['accountType']?.toString();
+                if (accountType != null && _accountTypeOptions.any((option) => option.code == accountType)) {
+                  _selectedAccountType = accountType;
+                }
                 controller.closeView(partner.fullName);
               });
             },
@@ -383,7 +420,13 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
               ],
             ),
             const SizedBox(height: 16),
-            _buildDropdown('Payment Method', _selectedPaymentMethod, _methodOptions, (val) => setState(() => _selectedPaymentMethod = val)),
+            _buildDropdown(
+              'Payment Method',
+              _selectedPaymentMethod,
+              _methodOptions,
+              (val) => setState(() => _selectedPaymentMethod = val),
+              enabled: _selectedType != 'SUPPLIER_INVOICE',
+            ),
             const SizedBox(height: 16),
             _buildTextField(_notesController, 'Notes', Icons.notes, isRequired: false),
           ],
@@ -403,26 +446,34 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildTextField(_accountHolderController, 'Account Holder', Icons.account_circle_outlined, isRequired: isEFT),
+            _buildTextField(_accountHolderController, 'Account Holder', Icons.account_circle_outlined,
+                isRequired: isEFT, readOnly: _selectedType == 'SUPPLIER_INVOICE'),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildDropdown('Bank Name', _selectedBankCode, _bankOptions, (val) => setState(() => _selectedBankCode = val), isRequired: isEFT)),
+                Expanded(child: _buildDropdown('Bank Name', _selectedBankCode, _bankOptions,
+                    (val) => setState(() => _selectedBankCode = val),
+                    isRequired: isEFT, enabled: _selectedType != 'SUPPLIER_INVOICE')),
                 const SizedBox(width: 16),
-                Expanded(child: _buildTextField(_branchCodeController, 'Branch Code', Icons.numbers, isRequired: isEFT)),
+                Expanded(child: _buildTextField(_branchCodeController, 'Branch Code', Icons.numbers,
+                    isRequired: isEFT, readOnly: _selectedType == 'SUPPLIER_INVOICE')),
               ],
             ),
             const SizedBox(height: 16),
-            _buildTextField(_accountNumberController, 'Account Number', Icons.numbers, isRequired: isEFT),
+            _buildTextField(_accountNumberController, 'Account Number', Icons.numbers,
+                isRequired: isEFT, readOnly: _selectedType == 'SUPPLIER_INVOICE'),
             const SizedBox(height: 16),
-            _buildDropdown('Account Type', _selectedAccountType, _accountTypeOptions, (val) => setState(() => _selectedAccountType = val), isRequired: isEFT),
+            _buildDropdown('Account Type', _selectedAccountType, _accountTypeOptions,
+                (val) => setState(() => _selectedAccountType = val),
+                isRequired: isEFT, enabled: _selectedType != 'SUPPLIER_INVOICE'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool isRequired = true}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon,
+      {TextInputType? keyboardType, bool isRequired = true, bool readOnly = false}) {
     return TextFormField(
       controller: controller,
       style: const TextStyle(fontSize: 14),
@@ -433,6 +484,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         isDense: true,
       ),
       keyboardType: keyboardType,
+      readOnly: readOnly,
       validator: (val) {
         if (isRequired && (val == null || val.isEmpty)) {
           return 'Required';
@@ -442,7 +494,8 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
     );
   }
 
-  Widget _buildDropdown(String label, String? value, List<FieldOption> options, Function(String?) onChanged, {bool isRequired = true}) {
+  Widget _buildDropdown(String label, String? value, List<FieldOption> options,
+      Function(String?) onChanged, {bool isRequired = true, bool enabled = true}) {
     return DropdownButtonFormField<String>(
       value: value,
       decoration: InputDecoration(
@@ -455,7 +508,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         value: opt.code,
         child: Text(opt.description, style: const TextStyle(fontSize: 14)),
       )).toList(),
-      onChanged: onChanged,
+      onChanged: enabled ? onChanged : null,
       validator: (val) {
         if (isRequired && val == null) {
           return 'Required';

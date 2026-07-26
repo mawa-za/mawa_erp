@@ -500,20 +500,16 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
 
   Future<void> _supplierPayment(Map<String, dynamic> job) async {
     final amount = TextEditingController();
-    final payee = TextEditingController(text: 'Tombstone supplier');
-    final bank = TextEditingController();
-    final holder = TextEditingController();
-    final account = TextEditingController();
-    final branch = TextEditingController();
-    final result = await _simpleDialog('Supplier Payment Request', [
-      _DialogField('Amount (R)', amount, number: true), _DialogField('Payee Name', payee), _DialogField('Bank Name', bank),
-      _DialogField('Account Holder', holder), _DialogField('Account Number', account), _DialogField('Branch Code', branch),
-    ], () => {
-      'amountCents': _money(amount.text), 'payeeName': payee.text.trim(), 'paymentMethod': 'EFT', 'bankName': bank.text.trim(),
-      'accountHolder': holder.text.trim(), 'accountNumber': account.text.trim(), 'branchCode': branch.text.trim(),
-      'accountType': 'CURRENT', 'milestone': 'TOMBSTONE_PRODUCTION_QUALITY_APPROVED',
-    });
-    for (final c in [amount, payee, bank, holder, account, branch]) c.dispose();
+    final result = await _simpleDialog(
+      'Supplier Payment Request',
+      [_DialogField('Amount (R)', amount, number: true)],
+      () => {
+        'amountCents': _money(amount.text),
+        'paymentMethod': 'EFT',
+        'milestone': 'TOMBSTONE_PRODUCTION_QUALITY_APPROVED',
+      },
+    );
+    amount.dispose();
     if (result == null) return;
     setState(() => _working = true);
     try {
@@ -545,8 +541,18 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       'team': _csv(team.text).map((id) => {'employeePartnerId': id, 'teamRole': 'INSTALLER'}).toList(),
       'materials': _csv(materials.text).map((description) => {'description': description, 'quantity': 1, 'uom': 'EA'}).toList(),
     });
+    final contactNumber = phone.text.trim();
     for (final c in [start, end, team, vehicle, contact, phone, materials]) c.dispose();
-    if (result != null) await _run(() => _service.createInstallation(widget.orderId, result));
+    if (result == null) return;
+    if (contactNumber.isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(contactNumber)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Contact Number must be 10 numeric digits.')),
+        );
+      }
+      return;
+    }
+    await _run(() => _service.createInstallation(widget.orderId, result));
   }
 
   Future<void> _scheduleInstallation(Map<String, dynamic> installation) async {

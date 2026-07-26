@@ -1,5 +1,351 @@
-import 'dart:convert';import 'package:flutter/material.dart';import '../../../core/api_client.dart';
-class PaymentAccountConfigurationScreen extends StatefulWidget{const PaymentAccountConfigurationScreen({super.key});State<PaymentAccountConfigurationScreen> createState()=>_S();}
-class _S extends State<PaymentAccountConfigurationScreen>{List<dynamic> rows=[];Future<void> load()async{final r=await ApiClient().get('/v2/payment-account-configuration');setState(()=>rows=jsonDecode(r.body));}@override void initState(){super.initState();load();}
-Future<void> edit([Map<String,dynamic>? x])async{final role=TextEditingController(text:x?['account_role']??'DEBTOR');final type=TextEditingController(text:x?['request_type']??'');final bank=TextEditingController(text:x?['bank_name']??'FNB');final holder=TextEditingController(text:x?['account_holder']??'');final number=TextEditingController(text:x?['account_number']??'');final branch=TextEditingController(text:x?['branch_code']??'');final ok=await showDialog<bool>(context:context,builder:(c)=>AlertDialog(title:const Text('Payment account'),content:SizedBox(width:480,child:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:role,decoration:const InputDecoration(labelText:'Role: DEBTOR / PETTY_CASH_CREDITOR / CASH_CLAIM_CREDITOR')),TextField(controller:type,decoration:const InputDecoration(labelText:'Payment request type (required for debtor)')),TextField(controller:bank,decoration:const InputDecoration(labelText:'Bank')),TextField(controller:holder,decoration:const InputDecoration(labelText:'Account holder')),TextField(controller:number,decoration:const InputDecoration(labelText:'Account number')),TextField(controller:branch,decoration:const InputDecoration(labelText:'Branch code'))])),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('CANCEL')),FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('SAVE'))]));if(ok==true){await ApiClient().post('/v2/payment-account-configuration',body:{if(x?['id']!=null)'id':x!['id'],'accountRole':role.text,'requestType':type.text,'bankIntegration':role.text=='DEBTOR'?'FNB':null,'bankName':bank.text,'accountHolder':holder.text,'accountNumber':number.text,'branchCode':branch.text,'active':true});load();}}
-Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Payment Account Configuration')),floatingActionButton:FloatingActionButton(onPressed:()=>edit(),child:const Icon(Icons.add)),body:ListView(children:rows.map((e)=>ListTile(title:Text('${e['account_role']} ${e['request_type']??''}'),subtitle:Text('${e['bank_name']} • ${e['account_holder']} • ${e['account_number']}'),onTap:()=>edit(Map<String,dynamic>.from(e)))).toList()));}
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/api_client.dart';
+import '../../../core/models/field_option.dart';
+import '../../../core/services/field_service.dart';
+
+class PaymentAccountConfigurationScreen extends StatefulWidget {
+  const PaymentAccountConfigurationScreen({super.key});
+
+  @override
+  State<PaymentAccountConfigurationScreen> createState() => _PaymentAccountConfigurationScreenState();
+}
+
+class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfigurationScreen> {
+  final _api = ApiClient();
+  List<Map<String, dynamic>> _rows = [];
+  List<FieldOption> _bankOptions = [];
+  List<FieldOption> _accountTypeOptions = [];
+  List<FieldOption> _requestTypeOptions = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final results = await Future.wait([
+        _api.get('/v2/payment-account-configuration'),
+        FieldService().getOptionsByField('BANK-NAME'),
+        FieldService().getOptionsByField('BANK-ACCOUNT-TYPE'),
+        FieldService().getOptionsByField('PAYMENT-REQUEST-TYPE'),
+      ]);
+      final response = results[0] as dynamic;
+      if (response.statusCode != 200) throw Exception(response.body);
+      if (!mounted) return;
+      setState(() {
+        _rows = (jsonDecode(response.body) as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .toList();
+        _bankOptions = results[1] as List<FieldOption>;
+        _accountTypeOptions = results[2] as List<FieldOption>;
+        _requestTypeOptions = results[3] as List<FieldOption>;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load payment account configuration: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _edit([Map<String, dynamic>? existing]) async {
+    final formKey = GlobalKey<FormState>();
+    String role = existing?['account_role']?.toString() ?? 'DEBTOR';
+    String? requestType = existing?['request_type']?.toString();
+    String? bankIntegration = existing?['bank_integration']?.toString();
+    String? bankName = existing?['bank_name']?.toString();
+    String? accountType = existing?['account_type']?.toString();
+    bool active = existing?['active'] == null || existing?['active'] == true || existing?['active'] == 1;
+    final holder = TextEditingController(text: existing?['account_holder']?.toString() ?? '');
+    final number = TextEditingController(text: existing?['account_number']?.toString() ?? '');
+    final branch = TextEditingController(text: existing?['branch_code']?.toString() ?? '');
+
+    bankName ??= _bankOptions.isEmpty ? null : _bankOptions.first.code;
+    accountType ??= _accountTypeOptions.isEmpty ? null : _accountTypeOptions.first.code;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(existing == null ? 'Add payment account' : 'Edit payment account'),
+          content: SizedBox(
+            width: 560,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Debtor accounts fund payment requests. Creditor accounts identify internal receiving accounts such as petty cash.',
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: role,
+                      decoration: const InputDecoration(
+                        labelText: 'Account role',
+                        helperText: 'Choose how this account is used by payment processing.',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'DEBTOR', child: Text('Debtor account')),
+                        DropdownMenuItem(
+                          value: 'PETTY_CASH_CREDITOR',
+                          child: Text('Petty cash creditor account'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'CASH_CLAIM_CREDITOR',
+                          child: Text('Cash claim creditor account'),
+                        ),
+                      ],
+                      onChanged: (value) => setDialogState(() {
+                        role = value ?? 'DEBTOR';
+                        if (role != 'DEBTOR') {
+                          requestType = null;
+                          bankIntegration = null;
+                        }
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    if (role == 'DEBTOR') ...[
+                      DropdownButtonFormField<String>(
+                        value: _valueInOptions(requestType, _requestTypeOptions),
+                        decoration: const InputDecoration(
+                          labelText: 'Payment request type',
+                          helperText: 'This account will fund the selected request type.',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _requestTypeOptions
+                            .map(
+                              (option) => DropdownMenuItem(
+                                value: option.code,
+                                child: Text(option.description),
+                              ),
+                            )
+                            .toList(),
+                        validator: (value) => value == null ? 'Payment request type is required' : null,
+                        onChanged: (value) => setDialogState(() => requestType = value),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: bankIntegration,
+                        decoration: const InputDecoration(
+                          labelText: 'Bank integration',
+                          helperText: 'Select FNB for automated FNB payments, or Manual for offline processing.',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'FNB', child: Text('FNB')),
+                          DropdownMenuItem(value: 'MANUAL', child: Text('Manual / no bank API')),
+                        ],
+                        onChanged: (value) => setDialogState(() => bankIntegration = value),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    DropdownButtonFormField<String>(
+                      value: _valueInOptions(bankName, _bankOptions),
+                      decoration: const InputDecoration(
+                        labelText: 'Bank name',
+                        helperText: 'Values are maintained under BANK-NAME.',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _bankOptions
+                          .map(
+                            (option) => DropdownMenuItem(
+                              value: option.code,
+                              child: Text(option.description),
+                            ),
+                          )
+                          .toList(),
+                      validator: (value) => value == null ? 'Bank name is required' : null,
+                      onChanged: (value) => setDialogState(() => bankName = value),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: holder,
+                      decoration: const InputDecoration(
+                        labelText: 'Account holder',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: _required,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: number,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(20)],
+                      decoration: const InputDecoration(
+                        labelText: 'Account number',
+                        helperText: 'Enter 5 to 20 numeric digits.',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => RegExp(r'^\d{5,20}$').hasMatch(value ?? '')
+                          ? null
+                          : 'Enter 5 to 20 numeric digits',
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: branch,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                      decoration: const InputDecoration(
+                        labelText: 'Branch code',
+                        helperText: 'Enter exactly 6 numeric digits.',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => RegExp(r'^\d{6}$').hasMatch(value ?? '')
+                          ? null
+                          : 'Enter exactly 6 numeric digits',
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _valueInOptions(accountType, _accountTypeOptions),
+                      decoration: const InputDecoration(
+                        labelText: 'Bank account type',
+                        helperText: 'Values are maintained under BANK-ACCOUNT-TYPE.',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _accountTypeOptions
+                          .map(
+                            (option) => DropdownMenuItem(
+                              value: option.code,
+                              child: Text(option.description),
+                            ),
+                          )
+                          .toList(),
+                      validator: (value) => value == null ? 'Bank account type is required' : null,
+                      onChanged: (value) => setDialogState(() => accountType = value),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: active,
+                      title: const Text('Active'),
+                      subtitle: const Text('Only active accounts can be selected by payment processing.'),
+                      onChanged: (value) => setDialogState(() => active = value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) return;
+    try {
+      final response = await _api.post(
+        '/v2/payment-account-configuration',
+        body: {
+          if (existing?['id'] != null) 'id': existing!['id'],
+          'accountRole': role,
+          'requestType': role == 'DEBTOR' ? requestType : null,
+          'bankIntegration': role == 'DEBTOR' ? bankIntegration : null,
+          'bankName': bankName,
+          'accountHolder': holder.text.trim(),
+          'accountNumber': number.text.trim(),
+          'branchCode': branch.text.trim(),
+          'accountType': accountType,
+          'active': active,
+        },
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) throw Exception(response.body);
+      await _load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save payment account: $error')),
+        );
+      }
+    }
+  }
+
+  String? _valueInOptions(String? value, List<FieldOption> options) {
+    if (value == null) return null;
+    return options.any((option) => option.code == value) ? value : null;
+  }
+
+  String? _required(String? value) => value == null || value.trim().isEmpty ? 'Required' : null;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Payment Account Configuration')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _loading ? null : () => _edit(),
+        icon: const Icon(Icons.add),
+        label: const Text('Add account'),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _rows.isEmpty
+              ? const Center(child: Text('No payment accounts configured.'))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _rows.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final row = _rows[index];
+                    final active = row['active'] == true || row['active'] == 1;
+                    final requestType = row['request_type']?.toString();
+                    return Card(
+                      child: ListTile(
+                        leading: Icon(active ? Icons.account_balance : Icons.account_balance_outlined),
+                        title: Text(
+                          '${_roleLabel(row['account_role']?.toString())}${requestType == null ? '' : ' — $requestType'}',
+                        ),
+                        subtitle: Text(
+                          '${row['bank_name'] ?? ''} • ${row['account_holder'] ?? ''} • ${_mask(row['account_number'])}\n'
+                          '${row['account_type'] ?? ''}${row['bank_integration'] == null ? '' : ' • ${row['bank_integration']}'}',
+                        ),
+                        isThreeLine: true,
+                        trailing: Chip(label: Text(active ? 'Active' : 'Inactive')),
+                        onTap: () => _edit(row),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  String _roleLabel(String? role) {
+    switch (role) {
+      case 'DEBTOR':
+        return 'Debtor account';
+      case 'PETTY_CASH_CREDITOR':
+        return 'Petty cash creditor';
+      case 'CASH_CLAIM_CREDITOR':
+        return 'Cash claim creditor';
+      default:
+        return role ?? 'Payment account';
+    }
+  }
+
+  String _mask(Object? value) {
+    final text = value?.toString() ?? '';
+    if (text.length <= 4) return '****';
+    return '****${text.substring(text.length - 4)}';
+  }
+}
