@@ -69,9 +69,12 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
     bool active = existing?['active'] == null || existing?['active'] == true || existing?['active'] == 1;
     final holder = TextEditingController(text: existing?['account_holder']?.toString() ?? '');
     final number = TextEditingController(text: existing?['account_number']?.toString() ?? '');
-    final branch = TextEditingController(text: existing?['branch_code']?.toString() ?? '');
 
     bankName ??= _bankOptions.isEmpty ? null : _bankOptions.first.code;
+    if (role == 'PAYROLL_DEBTOR') {
+      bankIntegration = 'FNB';
+      bankName = 'FNB';
+    }
     accountType ??= _accountTypeOptions.isEmpty ? null : _accountTypeOptions.first.code;
 
     final saved = await showDialog<bool>(
@@ -102,6 +105,10 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                       items: const [
                         DropdownMenuItem(value: 'DEBTOR', child: Text('Debtor account')),
                         DropdownMenuItem(
+                          value: 'PAYROLL_DEBTOR',
+                          child: Text('Payroll debtor account'),
+                        ),
+                        DropdownMenuItem(
                           value: 'PETTY_CASH_CREDITOR',
                           child: Text('Petty cash creditor account'),
                         ),
@@ -112,8 +119,11 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                       ],
                       onChanged: (value) => setDialogState(() {
                         role = value ?? 'DEBTOR';
-                        if (role != 'DEBTOR') {
-                          requestType = null;
+                        if (role != 'DEBTOR') requestType = null;
+                        if (role == 'PAYROLL_DEBTOR') {
+                          bankIntegration = 'FNB';
+                          bankName = 'FNB';
+                        } else if (role != 'DEBTOR') {
                           bankIntegration = null;
                         }
                       }),
@@ -139,29 +149,43 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                         onChanged: (value) => setDialogState(() => requestType = value),
                       ),
                       const SizedBox(height: 12),
+                    ],
+                    if (role == 'DEBTOR' || role == 'PAYROLL_DEBTOR') ...[
                       DropdownButtonFormField<String>(
-                        value: bankIntegration,
-                        decoration: const InputDecoration(
+                        value: role == 'PAYROLL_DEBTOR' ? 'FNB' : bankIntegration,
+                        decoration: InputDecoration(
                           labelText: 'Bank integration',
-                          helperText: 'Select FNB for automated FNB payments, or Manual for offline processing.',
-                          border: OutlineInputBorder(),
+                          helperText: role == 'PAYROLL_DEBTOR'
+                              ? 'Payroll batches are submitted as one FNB batch-booking instruction.'
+                              : 'Select FNB for automated FNB payments, or Manual for offline processing.',
+                          border: const OutlineInputBorder(),
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'FNB', child: Text('FNB')),
-                          DropdownMenuItem(value: 'MANUAL', child: Text('Manual / no bank API')),
-                        ],
-                        onChanged: (value) => setDialogState(() => bankIntegration = value),
+                        items: role == 'PAYROLL_DEBTOR'
+                            ? const [DropdownMenuItem(value: 'FNB', child: Text('FNB'))]
+                            : const [
+                                DropdownMenuItem(value: 'FNB', child: Text('FNB')),
+                                DropdownMenuItem(value: 'MANUAL', child: Text('Manual / no bank API')),
+                              ],
+                        onChanged: role == 'PAYROLL_DEBTOR'
+                            ? null
+                            : (value) => setDialogState(() => bankIntegration = value),
                       ),
                       const SizedBox(height: 12),
                     ],
                     DropdownButtonFormField<String>(
-                      value: _valueInOptions(bankName, _bankOptions),
-                      decoration: const InputDecoration(
+                      value: role == 'PAYROLL_DEBTOR'
+                          ? _valueInOptions('FNB', _bankOptions)
+                          : _valueInOptions(bankName, _bankOptions),
+                      decoration: InputDecoration(
                         labelText: 'Bank name',
-                        helperText: 'Values are maintained under BANK-NAME.',
-                        border: OutlineInputBorder(),
+                        helperText: role == 'PAYROLL_DEBTOR'
+                            ? 'Automated payroll batches require an FNB debtor account.'
+                            : 'Values are maintained under BANK-NAME.',
+                        border: const OutlineInputBorder(),
                       ),
-                      items: _bankOptions
+                      items: (role == 'PAYROLL_DEBTOR'
+                              ? _bankOptions.where((option) => option.code.toUpperCase() == 'FNB')
+                              : _bankOptions)
                           .map(
                             (option) => DropdownMenuItem(
                               value: option.code,
@@ -170,7 +194,9 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                           )
                           .toList(),
                       validator: (value) => value == null ? 'Bank name is required' : null,
-                      onChanged: (value) => setDialogState(() => bankName = value),
+                      onChanged: role == 'PAYROLL_DEBTOR'
+                          ? null
+                          : (value) => setDialogState(() => bankName = value),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -196,18 +222,9 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                           : 'Enter 5 to 20 numeric digits',
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: branch,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                      decoration: const InputDecoration(
-                        labelText: 'Branch code',
-                        helperText: 'Enter exactly 6 numeric digits.',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) => RegExp(r'^\d{6}$').hasMatch(value ?? '')
-                          ? null
-                          : 'Enter exactly 6 numeric digits',
+                    const Text(
+                      'The universal branch code is assigned automatically from the selected bank.',
+                      style: TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -262,11 +279,10 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
           if (existing?['id'] != null) 'id': existing!['id'],
           'accountRole': role,
           'requestType': role == 'DEBTOR' ? requestType : null,
-          'bankIntegration': role == 'DEBTOR' ? bankIntegration : null,
+          'bankIntegration': role == 'PAYROLL_DEBTOR' ? 'FNB' : (role == 'DEBTOR' ? bankIntegration : null),
           'bankName': bankName,
           'accountHolder': holder.text.trim(),
           'accountNumber': number.text.trim(),
-          'branchCode': branch.text.trim(),
           'accountType': accountType,
           'active': active,
         },
@@ -318,7 +334,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                         ),
                         subtitle: Text(
                           '${row['bank_name'] ?? ''} • ${row['account_holder'] ?? ''} • ${_mask(row['account_number'])}\n'
-                          '${row['account_type'] ?? ''}${row['bank_integration'] == null ? '' : ' • ${row['bank_integration']}'}',
+                          '${row['account_type'] ?? ''} • Universal branch ${row['branch_code'] ?? '-'}${row['bank_integration'] == null ? '' : ' • ${row['bank_integration']}'}',
                         ),
                         isThreeLine: true,
                         trailing: Chip(label: Text(active ? 'Active' : 'Inactive')),
@@ -334,6 +350,8 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
     switch (role) {
       case 'DEBTOR':
         return 'Debtor account';
+      case 'PAYROLL_DEBTOR':
+        return 'Payroll debtor account';
       case 'PETTY_CASH_CREDITOR':
         return 'Petty cash creditor';
       case 'CASH_CLAIM_CREDITOR':

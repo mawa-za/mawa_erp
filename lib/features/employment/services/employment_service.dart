@@ -54,6 +54,29 @@ class EmploymentService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getBankDetails(String employmentId) async {
+    final response = await _api.get('/v2/employment/$employmentId/bank-details');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load employee banking details: ${response.body}');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map || decoded['partnerBankAccountDtoList'] is! List) return const [];
+    return (decoded['partnerBankAccountDtoList'] as List)
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<void> submitBankDetails(String employmentId, Map<String, dynamic> payload) async {
+    final response = await _api.post(
+      '/v2/employment/$employmentId/bank-details/submit-for-approval',
+      body: payload,
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to submit employee banking details: ${response.body}');
+    }
+  }
+
   Future<void> terminate(String id) async {
     final response = await _api.put('/v2/employment/$id/terminate');
     if (response.statusCode != 200) {

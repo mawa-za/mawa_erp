@@ -17,7 +17,21 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   List<PayrollBatchSummary> _allBatches = [];
   List<PayrollBatchSummary> _batches = [];
   String _selectedStatus = 'ALL';
-  final List<String> _statuses = ['ALL', 'NEW', 'DRAFT', 'AWAITING-APPROVAL', 'APPROVED', 'PROCESSED', 'PAID', 'FAILED'];
+  final List<String> _statuses = [
+    'ALL',
+    'NEW',
+    'DRAFT',
+    'PENDING_APPROVAL',
+    'AWAITING-APPROVAL',
+    'APPROVED',
+    'PROCESSING',
+    'SUBMITTED',
+    'PROCESSED',
+    'PAID',
+    'FAILED',
+    'REJECTED',
+    'CANCELLED',
+  ];
   String? _error;
   late String _selectedPayPeriod;
 
@@ -321,7 +335,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         itemBuilder: (context, index) {
           final status = _statuses[index];
           return ChoiceChip(
-            label: Text(status.replaceAll('-', ' '), style: const TextStyle(fontSize: 10)),
+            label: Text(status.replaceAll('-', ' ').replaceAll('_', ' '), style: const TextStyle(fontSize: 10)),
             selected: _selectedStatus == status,
             showCheckmark: false,
             onSelected: (_) => setState(() {
@@ -551,17 +565,25 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
     Color color;
     switch (status.toUpperCase()) {
       case 'PROCESSED':
+      case 'APPROVED':
       case 'PAID':
         color = Colors.green;
         break;
       case 'FAILED':
+      case 'REJECTED':
         color = Colors.red;
         break;
+      case 'CANCELLED':
+        color = Colors.grey;
+        break;
       case 'AWAITING-APPROVAL':
+      case 'PENDING_APPROVAL':
       case 'NEW':
       case 'DRAFT':
         color = Colors.orange;
         break;
+      case 'PROCESSING':
+      case 'SUBMITTED':
       default:
         color = Colors.blue;
     }
@@ -574,7 +596,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(
-        status.replaceAll('-', ' '),
+        status.replaceAll('-', ' ').replaceAll('_', ' '),
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );

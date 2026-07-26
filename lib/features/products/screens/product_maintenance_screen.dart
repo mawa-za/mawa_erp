@@ -19,10 +19,12 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   List<ProductMaintenanceItem> _products = [];
-  List<FieldOption> _productTypes = [];
+  List<ProductTypeDefinition> _productTypes = [];
+  List<ProductCategoryDefinition> _categories = [];
   List<FieldOption> _uoms = [];
   List<FieldOption> _pricingTypes = [];
   String? _selectedTypeFilter;
+  String? _selectedCategoryFilter;
   String _selectedStatus = 'ALL';
   bool _isLoading = true;
   String? _error;
@@ -45,14 +47,16 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        _loadOptions('PRODUCT-TYPE', _defaultProductTypes()),
+      final results = await Future.wait<dynamic>([
+        _service.getProductTypes(),
+        _service.getCategories(activeOnly: false),
         _loadOptions('UOM', _defaultUoms()),
         _loadOptions('PRICING-TYPE', _defaultPricingTypes()),
       ]);
-      _productTypes = results[0];
-      _uoms = results[1];
-      _pricingTypes = results[2];
+      _productTypes = results[0] as List<ProductTypeDefinition>;
+      _categories = results[1] as List<ProductCategoryDefinition>;
+      _uoms = results[2] as List<FieldOption>;
+      _pricingTypes = results[3] as List<FieldOption>;
       await _loadProducts();
     } catch (e) {
       if (mounted) {
@@ -67,21 +71,15 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
   Future<List<FieldOption>> _loadOptions(String field, List<FieldOption> fallback) async {
     try {
       final options = await _fieldService.getOptionsByField(field);
-      return options.isEmpty ? fallback : _mergeOptions(options, fallback);
+      if (options.isEmpty) return fallback;
+      final byCode = <String, FieldOption>{for (final option in fallback) option.code.toUpperCase(): option};
+      for (final option in options) {
+        byCode[option.code.toUpperCase()] = option;
+      }
+      return byCode.values.toList()..sort((a, b) => a.description.compareTo(b.description));
     } catch (_) {
       return fallback;
     }
-  }
-
-  List<FieldOption> _mergeOptions(List<FieldOption> primary, List<FieldOption> fallback) {
-    final byCode = <String, FieldOption>{};
-    for (final option in fallback) {
-      byCode[option.code.toUpperCase()] = option;
-    }
-    for (final option in primary) {
-      if (option.code.trim().isNotEmpty) byCode[option.code.toUpperCase()] = option;
-    }
-    return byCode.values.toList()..sort((a, b) => a.description.compareTo(b.description));
   }
 
   Future<void> _loadProducts() async {
@@ -92,18 +90,13 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
     try {
       final products = await _service.getProducts(
         type: _selectedTypeFilter,
+        categoryId: _selectedCategoryFilter,
         query: _searchController.text,
       );
+      products.sort((a, b) => a.description.compareTo(b.description));
       if (mounted) {
         setState(() {
-          _products = products
-            ..sort((a, b) {
-              final aDate = a.validFrom ?? DateTime.fromMillisecondsSinceEpoch(0);
-              final bDate = b.validFrom ?? DateTime.fromMillisecondsSinceEpoch(0);
-              final dateCompare = bDate.compareTo(aDate);
-              if (dateCompare != 0) return dateCompare;
-              return b.code.compareTo(a.code);
-            });
+          _products = products;
           _isLoading = false;
         });
       }
@@ -117,53 +110,80 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
     }
   }
 
+  List<ProductCategoryDefinition> get _filterCategories {
+    return _categories
+        .where((category) => category.active)
+        .where((category) => _selectedTypeFilter == null || category.supportsType(_selectedTypeFilter!))
+        .toList()
+      ..sort((a, b) => a.fullPath.compareTo(b.fullPath));
+  }
+
+  List<ProductMaintenanceItem> get _visibleProducts {
+    return _products.where((product) {
+      if (_selectedStatus == 'ACTIVE' && !product.isActive) return false;
+      if (_selectedStatus == 'INACTIVE' && product.isActive) return false;
+      return true;
+    }).toList();
+  }
+
   Future<void> _openProductDialog({ProductMaintenanceItem? product}) async {
     final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => _ProductDialog(
+      builder: (_) => _ProductDialog(
         product: product,
         productTypes: _productTypes,
+        categories: _categories.where((category) => category.active || category.id == product?.primaryCategory?.id).toList(),
         uoms: _uoms,
         pricingTypes: _pricingTypes,
         service: _service,
       ),
     );
-    if (saved == true) {
+    if (saved == true) await _loadProducts();
+  }
+
+  Future<void> _openCategoryMaintenance() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _CategoryMaintenanceDialog(
+        service: _service,
+        productTypes: _productTypes,
+      ),
+    );
+    if (changed == true) {
+      final categories = await _service.getCategories(activeOnly: false);
+      if (mounted) {
+        setState(() {
+          _categories = categories;
+          if (_selectedCategoryFilter != null && !_categories.any((item) => item.id == _selectedCategoryFilter && item.active)) {
+            _selectedCategoryFilter = null;
+          }
+        });
+      }
       await _loadProducts();
     }
   }
 
   Future<void> _confirmDelete(ProductMaintenanceItem product) async {
-    final confirm = await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (_) => AlertDialog(
         title: const Text('Delete Product'),
         content: Text('Delete ${product.code} - ${product.description}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
+          FilledButton.tonal(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
-    if (confirm != true) return;
+    if (confirmed != true) return;
     try {
       await _service.deleteProduct(product.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product deleted')));
-      }
       await _loadProducts();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product deleted')));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -174,15 +194,16 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       appBar: AppBar(
         title: const Text('Product Maintenance', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _loadProducts,
-            icon: const Icon(Icons.refresh),
+          TextButton.icon(
+            onPressed: _openCategoryMaintenance,
+            icon: const Icon(Icons.account_tree_outlined),
+            label: const Text('Categories'),
           ),
+          IconButton(onPressed: _loadInitialData, tooltip: 'Refresh', icon: const Icon(Icons.refresh)),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton.icon(
-              onPressed: () => _openProductDialog(),
+              onPressed: _productTypes.isEmpty ? null : () => _openProductDialog(),
               icon: const Icon(Icons.add),
               label: const Text('New Product'),
             ),
@@ -192,67 +213,72 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.all(16),
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 SizedBox(
-                  width: 360,
+                  width: 320,
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Search products',
-                      prefixIcon: Icon(Icons.search),
-                    ),
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => _loadProducts(),
+                    decoration: const InputDecoration(labelText: 'Search code or description', prefixIcon: Icon(Icons.search)),
                   ),
                 ),
                 SizedBox(
-                  width: 260,
+                  width: 230,
                   child: DropdownButtonFormField<String?>(
                     value: _selectedTypeFilter,
                     decoration: const InputDecoration(labelText: 'Product Type'),
                     items: [
                       const DropdownMenuItem<String?>(value: null, child: Text('All product types')),
-                      ..._productTypes.map((type) => DropdownMenuItem<String?>(
-                            value: type.code,
-                            child: Text(type.description.isEmpty ? type.code : type.description),
-                          )),
+                      ..._productTypes.map((type) => DropdownMenuItem<String?>(value: type.code, child: Text(type.name))),
                     ],
                     onChanged: (value) {
-                      setState(() => _selectedTypeFilter = value);
+                      setState(() {
+                        _selectedTypeFilter = value;
+                        if (_selectedCategoryFilter != null && !_filterCategories.any((category) => category.id == _selectedCategoryFilter)) {
+                          _selectedCategoryFilter = null;
+                        }
+                      });
                       _loadProducts();
                     },
                   ),
                 ),
-                OutlinedButton.icon(
-                  onPressed: _loadProducts,
-                  icon: const Icon(Icons.filter_alt),
-                  label: const Text('Apply'),
+                SizedBox(
+                  width: 300,
+                  child: DropdownButtonFormField<String?>(
+                    value: _selectedCategoryFilter,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Product Category'),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('All categories')),
+                      ..._filterCategories.map((category) => DropdownMenuItem<String?>(
+                            value: category.id,
+                            child: Text(category.fullPath, overflow: TextOverflow.ellipsis),
+                          )),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _selectedCategoryFilter = value);
+                      _loadProducts();
+                    },
+                  ),
+                ),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'ALL', label: Text('All')),
+                    ButtonSegment(value: 'ACTIVE', label: Text('Active')),
+                    ButtonSegment(value: 'INACTIVE', label: Text('Inactive')),
+                  ],
+                  selected: {_selectedStatus},
+                  onSelectionChanged: (selection) => setState(() => _selectedStatus = selection.first),
                 ),
               ],
             ),
           ),
-          if (!_isLoading && _error == null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 8,
-                  children: ['ALL', 'ACTIVE', 'INACTIVE'].map((status) {
-                    return ChoiceChip(
-                      label: Text(status == 'ALL' ? 'All statuses' : status),
-                      selected: _selectedStatus == status,
-                      onSelected: (_) => setState(() => _selectedStatus = status),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -261,75 +287,38 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
                     : _visibleProducts.isEmpty
                         ? _EmptyState(onCreate: () => _openProductDialog())
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                             itemCount: _visibleProducts.length,
                             separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
+                            itemBuilder: (_, index) {
                               final product = _visibleProducts[index];
+                              final typeName = product.type?.description ?? product.type?.code ?? 'Unclassified';
+                              final category = product.primaryCategory?.fullPath ?? 'No primary category';
                               return ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 8,
-                                ),
-                                leading: CircleAvatar(
-                                  child: Text(
-                                    product.code.trim().isEmpty
-                                        ? '?'
-                                        : product.code.trim()[0].toUpperCase(),
-                                  ),
-                                ),
-                                title: Text(
-                                  product.description.trim().isEmpty
-                                      ? product.code
-                                      : product.description,
-                                  style: const TextStyle(fontWeight: FontWeight.w700),
-                                ),
+                                leading: CircleAvatar(child: Icon(_productIcon(product.type?.code))),
+                                title: Text('${product.code} · ${product.description}', style: const TextStyle(fontWeight: FontWeight.w700)),
                                 subtitle: Padding(
-                                  padding: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.only(top: 6),
                                   child: Wrap(
-                                    spacing: 14,
-                                    runSpacing: 4,
+                                    spacing: 8,
+                                    runSpacing: 6,
                                     children: [
-                                      Text('Code: ${product.code}'),
-                                      Text('Type: ${_optionLabel(product.type)}'),
-                                      Text('UOM: ${_optionLabel(product.baseUnitOfMeasure)}'),
-                                      if (product.barcodes.isNotEmpty) Text('Barcode: ${product.barcodes.first}'),
+                                      _Tag(label: typeName, icon: Icons.settings_suggest_outlined),
+                                      _Tag(label: category, icon: Icons.account_tree_outlined),
+                                      _Tag(
+                                        label: product.availableForSale ? 'Available for sale' : 'Internal use only',
+                                        icon: product.availableForSale ? Icons.point_of_sale : Icons.business_center_outlined,
+                                      ),
+                                      _Tag(label: currency.format(product.price), icon: Icons.payments_outlined),
                                     ],
                                   ),
                                 ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                trailing: Wrap(
                                   children: [
-                                    Text(
-                                      currency.format(product.price),
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.primary,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      tooltip: 'Product actions',
-                                      onSelected: (value) {
-                                        if (value == 'edit') {
-                                          _openProductDialog(product: product);
-                                        } else if (value == 'delete') {
-                                          _confirmDelete(product);
-                                        }
-                                      },
-                                      itemBuilder: (_) => const [
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: Text('Edit'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          child: Text('Delete'),
-                                        ),
-                                      ],
-                                    ),
+                                    IconButton(onPressed: () => _openProductDialog(product: product), tooltip: 'Edit', icon: const Icon(Icons.edit_outlined)),
+                                    IconButton(onPressed: () => _confirmDelete(product), tooltip: 'Delete', icon: const Icon(Icons.delete_outline)),
                                   ],
                                 ),
-                                onTap: () => _openProductDialog(product: product),
                               );
                             },
                           ),
@@ -339,31 +328,28 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
     );
   }
 
-  List<ProductMaintenanceItem> get _visibleProducts {
-    if (_selectedStatus == 'ACTIVE') {
-      return _products.where((product) => product.isActive).toList();
+  IconData _productIcon(String? type) {
+    switch (type) {
+      case 'CONSUMABLE':
+        return Icons.cleaning_services_outlined;
+      case 'SERVICE':
+        return Icons.handyman_outlined;
+      case 'ASSET':
+        return Icons.laptop_mac_outlined;
+      case 'FUNERAL-PACKAGE':
+        return Icons.inventory_2_outlined;
+      case 'TOMBSTONE':
+        return Icons.account_balance_outlined;
+      default:
+        return Icons.category_outlined;
     }
-    if (_selectedStatus == 'INACTIVE') {
-      return _products.where((product) => !product.isActive).toList();
-    }
-    return _products;
   }
-
-  String _optionLabel(FieldOption? option) {
-    if (option == null) return '-';
-    return option.description.trim().isEmpty ? option.code : option.description;
-  }
-
-  List<FieldOption> _defaultProductTypes() => [
-        FieldOption(field: 'PRODUCT-TYPE', code: 'GENERAL', type: 'TENANT', description: 'General', validFrom: '', validTo: ''),
-        FieldOption(field: 'PRODUCT-TYPE', code: 'FUNERAL-PACKAGE', type: 'TENANT', description: 'Funeral Package', validFrom: '', validTo: ''),
-        FieldOption(field: 'PRODUCT-TYPE', code: 'FUNERAL-EXTRA', type: 'TENANT', description: 'Funeral Extra', validFrom: '', validTo: ''),
-        FieldOption(field: 'PRODUCT-TYPE', code: 'CONSUMABLES', type: 'TENANT', description: 'Consumables', validFrom: '', validTo: ''),
-      ];
 
   List<FieldOption> _defaultUoms() => [
         FieldOption(field: 'UOM', code: 'EA', type: 'TENANT', description: 'Each', validFrom: '', validTo: ''),
-        FieldOption(field: 'UOM', code: 'UNIT', type: 'TENANT', description: 'Unit', validFrom: '', validTo: ''),
+        FieldOption(field: 'UOM', code: 'L', type: 'TENANT', description: 'Litre', validFrom: '', validTo: ''),
+        FieldOption(field: 'UOM', code: 'KG', type: 'TENANT', description: 'Kilogram', validFrom: '', validTo: ''),
+        FieldOption(field: 'UOM', code: 'HOUR', type: 'TENANT', description: 'Hour', validFrom: '', validTo: ''),
       ];
 
   List<FieldOption> _defaultPricingTypes() => [
@@ -371,49 +357,18 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       ];
 }
 
-class _ProductMetaChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _ProductMetaChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ProductDialog extends StatefulWidget {
   final ProductMaintenanceItem? product;
-  final List<FieldOption> productTypes;
+  final List<ProductTypeDefinition> productTypes;
+  final List<ProductCategoryDefinition> categories;
   final List<FieldOption> uoms;
   final List<FieldOption> pricingTypes;
   final ProductMaintenanceService service;
 
   const _ProductDialog({
-    this.product,
+    required this.product,
     required this.productTypes,
+    required this.categories,
     required this.uoms,
     required this.pricingTypes,
     required this.service,
@@ -430,11 +385,24 @@ class _ProductDialogState extends State<_ProductDialog> {
   late final TextEditingController _priceController;
   late final TextEditingController _barcodesController;
   String? _typeCode;
+  String? _categoryId;
   String? _uomCode;
   String? _pricingTypeCode;
-  bool _isSaving = false;
+  bool _availableForSale = true;
+  bool _saving = false;
 
-  bool get _isEditing => widget.product != null;
+  ProductTypeDefinition? get _selectedType {
+    for (final type in widget.productTypes) {
+      if (type.code == _typeCode) return type;
+    }
+    return null;
+  }
+
+  List<ProductCategoryDefinition> get _availableCategories {
+    if (_typeCode == null) return const [];
+    return widget.categories.where((category) => category.active && category.supportsType(_typeCode!)).toList()
+      ..sort((a, b) => a.fullPath.compareTo(b.fullPath));
+  }
 
   @override
   void initState() {
@@ -444,9 +412,13 @@ class _ProductDialogState extends State<_ProductDialog> {
     _descriptionController = TextEditingController(text: product?.description ?? '');
     _priceController = TextEditingController(text: product == null || product.price == 0 ? '' : product.price.toStringAsFixed(2));
     _barcodesController = TextEditingController(text: product?.barcodes.join(', ') ?? '');
-    _typeCode = _resolveCode(product?.type?.code, widget.productTypes, fallback: widget.productTypes.isNotEmpty ? widget.productTypes.first.code : 'GENERAL');
-    _uomCode = _resolveCode(product?.baseUnitOfMeasure?.code, widget.uoms, fallback: widget.uoms.isNotEmpty ? widget.uoms.first.code : 'EA');
-    _pricingTypeCode = _resolveCode(product?.pricingType, widget.pricingTypes, fallback: 'SELLING-PRICE');
+    _typeCode = product == null
+        ? (widget.productTypes.isEmpty ? null : widget.productTypes.first.code)
+        : (widget.productTypes.any((item) => item.code == product.type?.code) ? product.type?.code : null);
+    _categoryId = product?.primaryCategory?.id;
+    _uomCode = product?.baseUnitOfMeasure?.code ?? (widget.uoms.isEmpty ? 'EA' : widget.uoms.first.code);
+    _pricingTypeCode = product?.pricingType ?? (widget.pricingTypes.isEmpty ? 'SELLING-PRICE' : widget.pricingTypes.first.code);
+    _availableForSale = product?.availableForSale ?? _selectedType?.defaultAvailableForSale ?? true;
   }
 
   @override
@@ -458,42 +430,37 @@ class _ProductDialogState extends State<_ProductDialog> {
     super.dispose();
   }
 
-  String _resolveCode(String? code, List<FieldOption> options, {required String fallback}) {
-    if (code != null && code.trim().isNotEmpty) {
-      final match = options.where((option) => option.code.toUpperCase() == code.toUpperCase()).toList();
-      if (match.isNotEmpty) return match.first.code;
-      return code;
-    }
-    return fallback;
-  }
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isSaving = true);
+    setState(() => _saving = true);
     try {
-      final price = double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0;
+      final price = double.parse(_priceController.text.replaceAll(',', '.'));
       String productId;
-      if (_isEditing) {
+      if (widget.product == null) {
+        final created = await widget.service.createProduct(
+          code: _codeController.text,
+          description: _descriptionController.text,
+          type: _typeCode!,
+          categoryId: _categoryId!,
+          availableForSale: _availableForSale,
+          uom: _uomCode!,
+          price: price,
+          pricingType: _pricingTypeCode ?? 'SELLING-PRICE',
+        );
+        productId = created.id;
+      } else {
         productId = widget.product!.id;
         await widget.service.updateProduct(
           id: productId,
           code: _codeController.text,
           description: _descriptionController.text,
-          type: _typeCode ?? 'GENERAL',
-          uom: _uomCode ?? 'EA',
+          type: _typeCode!,
+          categoryId: _categoryId!,
+          availableForSale: _availableForSale,
+          uom: _uomCode!,
           price: price,
           pricingType: _pricingTypeCode ?? 'SELLING-PRICE',
         );
-      } else {
-        final created = await widget.service.createProduct(
-          code: _codeController.text,
-          description: _descriptionController.text,
-          type: _typeCode ?? 'GENERAL',
-          uom: _uomCode ?? 'EA',
-          price: price,
-          pricingType: _pricingTypeCode ?? 'SELLING-PRICE',
-        );
-        productId = created.id;
       }
       final barcodes = _barcodesController.text
           .split(RegExp(r'[,;\n]'))
@@ -505,7 +472,7 @@ class _ProductDialogState extends State<_ProductDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        setState(() => _isSaving = false);
+        setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
@@ -513,64 +480,122 @@ class _ProductDialogState extends State<_ProductDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final type = _selectedType;
     return AlertDialog(
-      title: Text(_isEditing ? 'Edit Product' : 'New Product'),
+      title: Text(widget.product == null ? 'New Product' : 'Edit Product'),
       content: SizedBox(
-        width: 520,
+        width: 650,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  controller: _codeController,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'Product Code'),
-                  validator: (value) => value == null || value.trim().isEmpty ? 'Product code is required' : null,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _codeController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: const InputDecoration(labelText: 'Product Code'),
+                        validator: (value) => value == null || value.trim().isEmpty ? 'Product code is required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(labelText: 'Description'),
+                        validator: (value) => value == null || value.trim().isEmpty ? 'Description is required' : null,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _descriptionController,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  validator: (value) => value == null || value.trim().isEmpty ? 'Description is required' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _barcodesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Barcodes',
-                    hintText: 'Scan or enter one or more barcodes, separated by commas',
-                    prefixIcon: Icon(Icons.qr_code_scanner),
+                const SizedBox(height: 14),
+                if (widget.product != null && _typeCode == null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'This legacy product uses type ${widget.product?.type?.code ?? 'UNKNOWN'}. Select one of the supported product types and a primary category before saving.',
+                    ),
                   ),
-                  minLines: 1,
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 DropdownButtonFormField<String>(
                   value: _typeCode,
-                  decoration: const InputDecoration(labelText: 'Product Type'),
-                  items: _dropdownItems(_typeCode, widget.productTypes),
-                  onChanged: (value) => setState(() => _typeCode = value),
-                  validator: (value) => value == null || value.trim().isEmpty ? 'Product type is required' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Product Type',
+                    helperText: 'Fixed system behaviour; tenants cannot add product types.',
+                  ),
+                  items: widget.productTypes.map((item) => DropdownMenuItem(value: item.code, child: Text(item.name))).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _typeCode = value;
+                      if (_categoryId != null && !_availableCategories.any((category) => category.id == _categoryId)) {
+                        _categoryId = null;
+                      }
+                      final selected = _selectedType;
+                      if (widget.product == null && selected != null) {
+                        _availableForSale = selected.defaultAvailableForSale;
+                      }
+                    });
+                  },
+                  validator: (value) => value == null ? 'Product type is required' : null,
                 ),
-                const SizedBox(height: 12),
+                if (type != null) ...[
+                  const SizedBox(height: 10),
+                  _ProductBehaviourCard(type: type),
+                ],
+                const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: _uomCode,
-                  decoration: const InputDecoration(labelText: 'Base Unit of Measure'),
-                  items: _dropdownItems(_uomCode, widget.uoms),
-                  onChanged: (value) => setState(() => _uomCode = value),
-                  validator: (value) => value == null || value.trim().isEmpty ? 'UOM is required' : null,
+                  value: _availableCategories.any((item) => item.id == _categoryId) ? _categoryId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Product Category',
+                    helperText: 'Tenant-configurable classification used for search, pricing and reporting.',
+                  ),
+                  items: _availableCategories
+                      .map((category) => DropdownMenuItem(value: category.id, child: Text(category.fullPath, overflow: TextOverflow.ellipsis)))
+                      .toList(),
+                  onChanged: (value) => setState(() => _categoryId = value),
+                  validator: (value) => value == null ? 'Product category is required' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Available for external sale'),
+                  subtitle: Text(
+                    _typeCode == 'CONSUMABLE'
+                        ? 'Consumables may be internal-only or saleable.'
+                        : 'Controls whether this item can be selected in customer sales documents.',
+                  ),
+                  value: _availableForSale,
+                  onChanged: (value) => setState(() => _availableForSale = value),
+                ),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        value: _uomCode,
+                        decoration: const InputDecoration(labelText: 'Base Unit of Measure'),
+                        items: _fieldItems(widget.uoms),
+                        onChanged: (value) => setState(() => _uomCode = value),
+                        validator: (value) => value == null ? 'UOM is required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
                         value: _pricingTypeCode,
                         decoration: const InputDecoration(labelText: 'Pricing Type'),
-                        items: _dropdownItems(_pricingTypeCode, widget.pricingTypes),
+                        items: _fieldItems(widget.pricingTypes),
                         onChanged: (value) => setState(() => _pricingTypeCode = value),
                       ),
                     ),
@@ -579,16 +604,27 @@ class _ProductDialogState extends State<_ProductDialog> {
                       child: TextFormField(
                         controller: _priceController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Selling Price'),
+                        decoration: const InputDecoration(labelText: 'Selling Price', prefixText: 'R '),
                         validator: (value) {
-                          final parsed = double.tryParse((value ?? '').replaceAll(',', '.'));
-                          if (parsed == null) return 'Valid price is required';
-                          if (parsed < 0) return 'Price cannot be negative';
+                          final amount = double.tryParse((value ?? '').replaceAll(',', '.'));
+                          if (amount == null) return 'Valid price is required';
+                          if (amount < 0) return 'Price cannot be negative';
                           return null;
                         },
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _barcodesController,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Barcodes',
+                    hintText: 'Enter one or more barcodes separated by commas',
+                    prefixIcon: Icon(Icons.qr_code_scanner),
+                  ),
                 ),
               ],
             ),
@@ -596,32 +632,390 @@ class _ProductDialogState extends State<_ProductDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
         FilledButton.icon(
-          onPressed: _isSaving ? null : _save,
-          icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
-          label: Text(_isSaving ? 'Saving...' : 'Save'),
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save),
+          label: Text(_saving ? 'Saving...' : 'Save'),
         ),
       ],
     );
   }
 
-  List<DropdownMenuItem<String>> _dropdownItems(String? currentValue, List<FieldOption> options) {
-    final map = <String, String>{};
-    for (final option in options) {
-      if (option.code.trim().isNotEmpty) {
-        map[option.code] = option.description.trim().isEmpty ? option.code : option.description;
+  List<DropdownMenuItem<String>> _fieldItems(List<FieldOption> options) {
+    return options
+        .map((option) => DropdownMenuItem(value: option.code, child: Text(option.description.isEmpty ? option.code : option.description)))
+        .toList();
+  }
+}
+
+class _ProductBehaviourCard extends StatelessWidget {
+  final ProductTypeDefinition type;
+  const _ProductBehaviourCard({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    final rules = <String>[
+      if (type.stockControlled) 'Stock controlled' else 'Non-stock',
+      if (type.canBeReceived) 'Goods receipt enabled',
+      if (type.canBePutAway) 'Putaway enabled',
+      if (type.consumedOnIssue) 'Consumed on issue',
+      if (type.returnable) 'Returnable',
+      if (type.assetTracked) 'Asset register tracking',
+      if (type.bundle) 'Bundle composition required',
+      if (type.specialisedWorkflow) 'Specialised workflow',
+    ];
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(type.description),
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 6, children: rules.map((rule) => Chip(label: Text(rule))).toList()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryMaintenanceDialog extends StatefulWidget {
+  final ProductMaintenanceService service;
+  final List<ProductTypeDefinition> productTypes;
+  const _CategoryMaintenanceDialog({required this.service, required this.productTypes});
+
+  @override
+  State<_CategoryMaintenanceDialog> createState() => _CategoryMaintenanceDialogState();
+}
+
+class _CategoryMaintenanceDialogState extends State<_CategoryMaintenanceDialog> {
+  List<ProductCategoryDefinition> _categories = [];
+  bool _loading = true;
+  bool _changed = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final categories = await widget.service.getCategories(activeOnly: false);
+      if (mounted) setState(() {
+        _categories = categories;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _edit([ProductCategoryDefinition? category]) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _CategoryEditorDialog(
+        category: category,
+        categories: _categories,
+        productTypes: widget.productTypes,
+        service: widget.service,
+      ),
+    );
+    if (saved == true) {
+      _changed = true;
+      await _load();
+    }
+  }
+
+  Future<void> _deactivate(ProductCategoryDefinition category) async {
+    try {
+      await widget.service.deactivateCategory(category.id);
+      _changed = true;
+      await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Product Categories'),
+      content: SizedBox(
+        width: 820,
+        height: 560,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? _ErrorState(message: _error!, onRetry: _load)
+                : Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Categories are tenant configurable and support parent-child relationships. Product types remain fixed system behaviour.',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: _categories.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, index) {
+                            final category = _categories[index];
+                            final typeMatches = widget.productTypes.where((type) => type.code == category.productType);
+                            final String? typeName = typeMatches.isEmpty ? null : typeMatches.first.name;
+                            return ListTile(
+                              leading: Icon(category.active ? Icons.account_tree_outlined : Icons.block_outlined),
+                              title: Text(category.fullPath),
+                              subtitle: Text('${category.code}${typeName == null ? ' · Any compatible type' : ' · $typeName'}'),
+                              enabled: category.active,
+                              trailing: Wrap(
+                                children: [
+                                  IconButton(onPressed: () => _edit(category), icon: const Icon(Icons.edit_outlined), tooltip: 'Edit'),
+                                  if (category.active)
+                                    IconButton(onPressed: () => _deactivate(category), icon: const Icon(Icons.archive_outlined), tooltip: 'Deactivate'),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, _changed), child: const Text('Close')),
+        FilledButton.icon(onPressed: () => _edit(), icon: const Icon(Icons.add), label: const Text('New Category')),
+      ],
+    );
+  }
+}
+
+class _CategoryEditorDialog extends StatefulWidget {
+  final ProductCategoryDefinition? category;
+  final List<ProductCategoryDefinition> categories;
+  final List<ProductTypeDefinition> productTypes;
+  final ProductMaintenanceService service;
+
+  const _CategoryEditorDialog({
+    required this.category,
+    required this.categories,
+    required this.productTypes,
+    required this.service,
+  });
+
+  @override
+  State<_CategoryEditorDialog> createState() => _CategoryEditorDialogState();
+}
+
+class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _codeController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _sortController;
+  String? _parentId;
+  String? _productType;
+  bool _active = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final category = widget.category;
+    _codeController = TextEditingController(text: category?.code ?? '');
+    _nameController = TextEditingController(text: category?.name ?? '');
+    _descriptionController = TextEditingController(text: category?.description ?? '');
+    _sortController = TextEditingController(text: (category?.sortOrder ?? 0).toString());
+    _parentId = category?.parentId;
+    _productType = category?.productType;
+    _active = category?.active ?? true;
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _sortController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      if (widget.category == null) {
+        await widget.service.createCategory(
+          code: _codeController.text,
+          name: _nameController.text,
+          description: _descriptionController.text,
+          parentId: _parentId,
+          productType: _productType,
+          sortOrder: int.tryParse(_sortController.text) ?? 0,
+        );
+      } else {
+        await widget.service.updateCategory(
+          category: widget.category!,
+          code: _codeController.text,
+          name: _nameController.text,
+          description: _descriptionController.text,
+          parentId: _parentId,
+          productType: _productType,
+          active: _active,
+          sortOrder: int.tryParse(_sortController.text) ?? 0,
+        );
+      }
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
-    if (currentValue != null && currentValue.trim().isNotEmpty && !map.containsKey(currentValue)) {
-      map[currentValue] = currentValue;
-    }
-    return map.entries
-        .map((entry) => DropdownMenuItem<String>(value: entry.key, child: Text(entry.value)))
-        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final parentOptions = widget.categories
+        .where((category) => category.id != widget.category?.id && (category.active || category.id == _parentId))
+        .toList()
+      ..sort((a, b) => a.fullPath.compareTo(b.fullPath));
+    final selectedParents = parentOptions.where((category) => category.id == _parentId);
+    final inheritedProductType = selectedParents.isEmpty ? null : selectedParents.first.productType;
+    return AlertDialog(
+      title: Text(widget.category == null ? 'New Product Category' : 'Edit Product Category'),
+      content: SizedBox(
+        width: 540,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Category Name'),
+                  onChanged: (value) {
+                    if (widget.category == null && _codeController.text.trim().isEmpty) {
+                      _codeController.text = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+                    }
+                  },
+                  validator: (value) => value == null || value.trim().isEmpty ? 'Category name is required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _codeController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(labelText: 'Category Code'),
+                  validator: (value) => value == null || value.trim().isEmpty ? 'Category code is required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  value: _parentId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Parent Category'),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('Root category')),
+                    ...parentOptions.map((parent) => DropdownMenuItem<String?>(value: parent.id, child: Text(parent.fullPath))),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _parentId = value;
+                      final matches = parentOptions.where((item) => item.id == value);
+                      final parent = matches.isEmpty ? null : matches.first;
+                      if (parent?.productType != null) _productType = parent!.productType;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  value: inheritedProductType ?? _productType,
+                  decoration: InputDecoration(
+                    labelText: 'Applicable Product Type',
+                    helperText: inheritedProductType == null
+                        ? 'Leave blank when the category can classify more than one product type.'
+                        : 'Inherited from the selected parent category.',
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('Any compatible product type')),
+                    ...widget.productTypes.map((type) => DropdownMenuItem<String?>(value: type.code, child: Text(type.name))),
+                  ],
+                  onChanged: inheritedProductType == null ? (value) => setState(() => _productType = value) : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _sortController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Sort Order'),
+                ),
+                if (widget.category != null)
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Active'),
+                    value: _active,
+                    onChanged: (value) => setState(() => _active = value),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton.icon(
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save),
+          label: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class _Tag extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _Tag({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 14), const SizedBox(width: 4), Text(label)]),
+    );
   }
 }
 
@@ -635,11 +1029,11 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 56, color: Theme.of(context).colorScheme.primary),
+          const Icon(Icons.inventory_2_outlined, size: 56),
           const SizedBox(height: 12),
           const Text('No products found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 8),
-          const Text('Create products for invoices, funeral packages and extras.'),
+          const Text('Create a product and classify it by type and category.'),
           const SizedBox(height: 16),
           FilledButton.icon(onPressed: onCreate, icon: const Icon(Icons.add), label: const Text('New Product')),
         ],
@@ -663,7 +1057,7 @@ class _ErrorState extends StatelessWidget {
           children: [
             Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
             const SizedBox(height: 12),
-            const Text('Could not load products', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text('Could not load product data', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),

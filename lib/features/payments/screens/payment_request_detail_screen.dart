@@ -260,7 +260,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Bank', _detail!.bankName ?? 'N/A'),
             _buildInfoRow('Account Holder', _detail!.accountHolder ?? 'N/A'),
             _buildInfoRow('Account Number', _detail!.accountNumber ?? 'N/A'),
-            _buildInfoRow('Branch Code', _detail!.branchCode ?? 'N/A'),
+            _buildInfoRow('Universal Branch Code', _detail!.branchCode ?? 'N/A'),
           ]),
 
           if (_detail!.status == 'PAID') ...[
