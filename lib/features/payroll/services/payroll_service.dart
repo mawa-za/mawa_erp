@@ -92,6 +92,27 @@ class PayrollService {
     }
   }
 
+  Future<List<int>> getVerificationPrintout(String batchId) async {
+    final response = await _apiClient.get(
+      '/v2/payroll-payment-batch/$batchId/verification-printout',
+      accept: 'application/pdf',
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to generate payroll verification printout: ${response.body}');
+    }
+    return response.bodyBytes;
+  }
+
+  Future<PayrollBatchDetail> refreshBankReport(String batchId) async {
+    final response = await _apiClient.post(
+      '/v2/payroll-payment-batch/$batchId/bank-report/refresh',
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to retrieve payroll bank report: ${response.body}');
+    }
+    return PayrollBatchDetail.fromJson(jsonDecode(response.body));
+  }
+
   Future<void> cancelBatch(String batchId) async {
     try {
       final response = await _apiClient.post('/v2/payroll-payment-batch/$batchId/cancel');

@@ -67,6 +67,14 @@ class PayrollBatchDetail {
   final List<PayrollItem> items;
   final double totalAmount;
   final int itemCount;
+  final String bankMessageStatus;
+  final String? fnbInstructionId;
+  final String? bankReportStatus;
+  final String? bankReportReason;
+  final String? bankReportJson;
+  final String? bankQueuedAt;
+  final String? bankSubmittedAt;
+  final String? bankReportRetrievedAt;
 
   PayrollBatchDetail({
     required this.id,
@@ -79,6 +87,14 @@ class PayrollBatchDetail {
     required this.items,
     this.totalAmount = 0.0,
     this.itemCount = 0,
+    this.bankMessageStatus = 'NOT_QUEUED',
+    this.fnbInstructionId,
+    this.bankReportStatus,
+    this.bankReportReason,
+    this.bankReportJson,
+    this.bankQueuedAt,
+    this.bankSubmittedAt,
+    this.bankReportRetrievedAt,
   });
 
   factory PayrollBatchDetail.fromJson(Map<String, dynamic> json) {
@@ -115,6 +131,14 @@ class PayrollBatchDetail {
       status: (json['status'] ?? 'NEW').toString(),
       totalAmount: amount,
       itemCount: toInt(json['totalEmployees'] ?? json['itemCount']),
+      bankMessageStatus: (json['bankMessageStatus'] ?? 'NOT_QUEUED').toString(),
+      fnbInstructionId: json['fnbInstructionId']?.toString(),
+      bankReportStatus: json['bankReportStatus']?.toString(),
+      bankReportReason: json['bankReportReason']?.toString(),
+      bankReportJson: json['bankReportJson']?.toString(),
+      bankQueuedAt: json['bankQueuedAt']?.toString(),
+      bankSubmittedAt: json['bankSubmittedAt']?.toString(),
+      bankReportRetrievedAt: json['bankReportRetrievedAt']?.toString(),
       items: (json['items'] is List)
           ? (json['items'] as List).map((item) => PayrollItem.fromJson(item)).toList()
           : [],

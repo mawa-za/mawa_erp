@@ -43,8 +43,6 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   final _bankAccountHolderController = TextEditingController();
   final _bankNameController = TextEditingController();
   final _bankAccountNumberController = TextEditingController();
-  final _bankBranchCodeController = TextEditingController();
-  final _bankBranchNameController = TextEditingController();
   String? _bankAccountType;
   late final String _supplierOnboardingRequestId;
   int _supportingDocumentCount = 0;
@@ -191,8 +189,6 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               'accountHolder': _bankAccountHolderController.text.trim(),
               'bankName': _bankNameController.text.trim(),
               'accountNumber': _bankAccountNumberController.text.trim(),
-              'branchCode': _bankBranchCodeController.text.trim(),
-              'branchName': _bankBranchNameController.text.trim(),
               'accountType': _bankAccountType,
               'status': 'PENDING_APPROVAL',
             },
@@ -650,21 +646,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   : 'Account Number must contain 5 to 20 digits',
             ),
             const SizedBox(height: 16),
-            _buildTextField(
-              _bankBranchCodeController,
-              'Branch Code',
-              Icons.pin_outlined,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-              validator: (value) => RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
-                  ? null
-                  : 'Branch Code must contain 6 digits',
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              _bankBranchNameController,
-              'Branch Name (Optional)',
-              Icons.location_city_outlined,
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'The universal branch code is assigned automatically from the selected bank.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
             ),
             const SizedBox(height: 16),
             AppDropdownField(
@@ -860,8 +847,6 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     _bankAccountHolderController.dispose();
     _bankNameController.dispose();
     _bankAccountNumberController.dispose();
-    _bankBranchCodeController.dispose();
-    _bankBranchNameController.dispose();
     super.dispose();
   }
 }

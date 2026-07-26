@@ -41,7 +41,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
   // Banking details
   final _accHolderController = TextEditingController();
   final _accNumberController = TextEditingController();
-  final _branchCodeController = TextEditingController();
   
   DateTime _dateOfDeath = DateTime.now();
   DateTime _burialDate = DateTime.now().add(const Duration(days: 7));
@@ -213,7 +212,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         "bankName": (isCashClaim && _selectedPayoutMethod != 'CASH') ? selectedBank.description : null,
         "accountHolderName": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _accHolderController.text.trim() : null,
         "accountNumber": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _accNumberController.text.trim() : null,
-        "branchCode": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _branchCodeController.text.trim() : null,
         "accountType": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _selectedAccType : null,
         "linkedClaimIds": []
       };
@@ -622,29 +620,22 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
           validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
         ),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _branchCodeController,
-                decoration: _inputDecoration('Branch', Icons.code_rounded),
-                keyboardType: TextInputType.number,
-                validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _selectedAccType,
-                decoration: _inputDecoration('Type', Icons.list_alt_rounded),
-                items: _accTypeOptions.map((opt) => DropdownMenuItem(
-                  value: opt.code,
-                  child: Text(opt.description, style: const TextStyle(fontSize: 12)),
-                )).toList(),
-                onChanged: (v) => setState(() => _selectedAccType = v!),
-              ),
-            ),
-          ],
+        DropdownButtonFormField<String>(
+          value: _selectedAccType,
+          decoration: _inputDecoration('Type', Icons.list_alt_rounded),
+          items: _accTypeOptions.map((opt) => DropdownMenuItem(
+            value: opt.code,
+            child: Text(opt.description, style: const TextStyle(fontSize: 12)),
+          )).toList(),
+          onChanged: (v) => setState(() => _selectedAccType = v!),
+        ),
+        const SizedBox(height: 8),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'The universal branch code is assigned automatically from the selected bank.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
         ),
       ],
     ]);
@@ -671,7 +662,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     _notesController.dispose();
     _accHolderController.dispose();
     _accNumberController.dispose();
-    _branchCodeController.dispose();
     super.dispose();
   }
 }

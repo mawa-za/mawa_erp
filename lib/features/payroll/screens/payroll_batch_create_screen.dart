@@ -5,7 +5,6 @@ import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
 import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
-import '../../../core/widgets/app_dropdown.dart';
 
 class PayrollBatchCreateScreen extends StatefulWidget {
   final String? batchId;
@@ -76,10 +75,10 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
             'paymentReference': TextEditingController(text: item.paymentReference),
             'salaryReference': TextEditingController(text: item.salaryReference),
             'bankName': item.bankName,
-            'branchCode': TextEditingController(text: item.branchCode),
-            'accountNo': TextEditingController(text: item.accountNo),
+            'branchCode': item.branchCode,
+            'accountNo': item.accountNo,
             'accountType': item.accountType,
-            'accountHolderName': TextEditingController(text: item.accountHolderName),
+            'accountHolderName': item.accountHolderName,
           });
         }
         if (_items.isNotEmpty) {
@@ -105,10 +104,10 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         'paymentReference': TextEditingController(),
         'salaryReference': TextEditingController(),
         'bankName': null,
-        'branchCode': TextEditingController(),
-        'accountNo': TextEditingController(),
+        'branchCode': null,
+        'accountNo': null,
         'accountType': null,
-        'accountHolderName': TextEditingController(),
+        'accountHolderName': null,
       });
       _expandedIndex = _items.length - 1;
     });
@@ -134,17 +133,67 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
   }
 
   Future<List<Partner>> _searchEmployees(String query) async {
-    if (query.length < 2) return [];
     try {
-      final response = await ApiClient().get('/v2/partner?query=$query');
+      final response = await ApiClient().get('/v2/employment/employees');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Partner.fromJson(json)).toList();
+        final term = query.trim().toLowerCase();
+        return data
+            .map((json) => Partner.fromJson(Map<String, dynamic>.from(json)))
+            .where((partner) => term.isEmpty ||
+                partner.fullName.toLowerCase().contains(term) ||
+                partner.number.toLowerCase().contains(term))
+            .take(50)
+            .toList();
       }
+      throw Exception('Failed to load active employees');
     } catch (e) {
       debugPrint('Error searching employees: $e');
+      return [];
     }
-    return [];
+  }
+
+  Future<void> _loadApprovedBankDetails(int index, Partner partner) async {
+    try {
+      final employmentResponse = await ApiClient().get(
+        '/v2/employment',
+        queryParameters: {'partnerId': partner.id, 'status': 'ACTIVE'},
+      );
+      if (employmentResponse.statusCode != 200) {
+        throw Exception('Unable to locate active employment');
+      }
+      final employments = jsonDecode(employmentResponse.body) as List<dynamic>;
+      if (employments.isEmpty) throw Exception('Employee has no active employment record');
+      final employmentId = (employments.first['id'] ?? '').toString();
+      final bankResponse = await ApiClient().get('/v2/employment/$employmentId/bank-details');
+      if (bankResponse.statusCode != 200) throw Exception('Unable to load approved banking details');
+      final body = jsonDecode(bankResponse.body);
+      final accounts = body is Map && body['partnerBankAccountDtoList'] is List
+          ? body['partnerBankAccountDtoList'] as List<dynamic>
+          : const <dynamic>[];
+      final active = accounts.cast<Map>().map((e) => Map<String, dynamic>.from(e)).where((e) =>
+          (e['status'] ?? '').toString().toUpperCase() == 'ACTIVE').toList();
+      if (active.isEmpty) throw Exception('Employee has no approved active banking details');
+      final bank = active.first;
+      if (!mounted || index >= _items.length) return;
+      setState(() {
+        final item = _items[index];
+        item['bankName'] = bank['bankName']?.toString();
+        item['branchCode'] = bank['branchCode']?.toString();
+        item['accountNo'] = bank['accountNumber']?.toString();
+        item['accountType'] = bank['accountType']?.toString();
+        item['accountHolderName'] = bank['accountHolder']?.toString();
+        item['bankError'] = null;
+      });
+    } catch (e) {
+      if (!mounted || index >= _items.length) return;
+      setState(() {
+        _items[index]['bankError'] = e.toString().replaceFirst('Exception: ', '');
+        _items[index]['bankName'] = null;
+        _items[index]['accountNo'] = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_items[index]['bankError'])));
+    }
   }
 
   Future<void> _submit() async {
@@ -152,6 +201,13 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please add at least one employee payment'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    final missingBank = _items.where((item) => (item['accountNo'] ?? '').toString().isEmpty).toList();
+    if (missingBank.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Every employee must have approved banking details before the payroll batch can be created.')),
       );
       return;
     }
@@ -174,10 +230,10 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
             'employeeNo': partner?.number,
             'employeeName': partner?.fullName,
             'bankName': item['bankName'],
-            'branchCode': (item['branchCode'] as TextEditingController).text,
-            'accountNo': (item['accountNo'] as TextEditingController).text,
+            'branchCode': item['branchCode'],
+            'accountNo': item['accountNo'],
             'accountType': item['accountType'],
-            'accountHolderName': (item['accountHolderName'] as TextEditingController).text,
+            'accountHolderName': item['accountHolderName'],
             'amountCents': (amountDouble * 100).round(),
             'paymentReference': (item['paymentReference'] as TextEditingController).text,
             'salaryReference': (item['salaryReference'] as TextEditingController).text,
@@ -489,63 +545,21 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
                   Row(
                     children: [
                       Expanded(
-                        flex: 3,
-                        child: _buildInputLabel('Amount', 
+                        child: _buildInputLabel('Amount',
                           TextFormField(
                             controller: item['amount'],
                             decoration: _inputDecoration('0.00').copyWith(prefixText: 'R '),
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             onChanged: (_) => setState(() {}),
                             validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                          )
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: _buildInputLabel('Acc Type', 
-                          AppDropdownField(
-                            field: 'BANK-ACCOUNT-TYPE',
-                            label: 'Select Type',
-                            value: item['accountType'],
-                            onChanged: (val) => setState(() => item['accountType'] = val),
-                          )
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildInputLabel('Bank Name', 
-                          AppDropdownField(
-                            field: 'BANK-NAME',
-                            label: 'Select Bank',
-                            value: item['bankName'],
-                            onChanged: (val) => setState(() => item['bankName'] = val),
-                          )
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildInputLabel('Branch Code', 
-                          TextFormField(
-                            controller: item['branchCode'],
-                            decoration: _inputDecoration('Code'),
-                          )
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildInputLabel('Account Number', 
-                    TextFormField(
-                      controller: item['accountNo'],
-                      decoration: _inputDecoration('Enter account number'),
-                    )
-                  ),
-                  const SizedBox(height: 12),
+                  _buildApprovedBankCard(item, colorScheme),
+                  const SizedBox(height: 16),
                   _buildInputLabel('Payment Reference', 
                     TextFormField(
                       controller: item['paymentReference'],
@@ -557,6 +571,33 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildApprovedBankCard(Map<String, dynamic> item, ColorScheme colorScheme) {
+    final error = item['bankError']?.toString();
+    final account = item['accountNo']?.toString();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: error == null ? colorScheme.primary.withOpacity(0.05) : Colors.red.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: error == null ? colorScheme.primary.withOpacity(0.2) : Colors.red.shade200),
+      ),
+      child: account == null || account.isEmpty
+          ? Text(error ?? 'Select an employee to load approved banking details.',
+              style: TextStyle(color: error == null ? Colors.black54 : Colors.red.shade700))
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('APPROVED BANKING DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('${item['accountHolderName'] ?? '-'} • ${item['bankName'] ?? '-'}'),
+                Text('$account • ${item['accountType'] ?? '-'} • Universal branch ${item['branchCode'] ?? '-'}',
+                    style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              ],
+            ),
     );
   }
 
@@ -592,14 +633,17 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
           leading: const CircleAvatar(child: Icon(Icons.person, size: 20)),
           title: Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
           subtitle: Text(p.number),
-          onTap: () {
+          onTap: () async {
             setState(() {
               item['partner'] = p;
-              (item['accountHolderName'] as TextEditingController).text = p.fullName;
+              item['bankName'] = null;
+              item['accountNo'] = null;
+              item['bankError'] = null;
               (item['paymentReference'] as TextEditingController).text = 'SALARY ${DateFormat('MMM yyyy').format(_paymentDate).toUpperCase()}';
               (item['salaryReference'] as TextEditingController).text = '${_batchNoController.text}-${p.number}';
               controller.closeView(p.fullName);
             });
+            await _loadApprovedBankDetails(index, p);
           },
         )).toList();
       },
@@ -666,9 +710,6 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
       (item['amount'] as TextEditingController).dispose();
       (item['paymentReference'] as TextEditingController).dispose();
       (item['salaryReference'] as TextEditingController).dispose();
-      (item['branchCode'] as TextEditingController).dispose();
-      (item['accountNo'] as TextEditingController).dispose();
-      (item['accountHolderName'] as TextEditingController).dispose();
     }
     super.dispose();
   }
