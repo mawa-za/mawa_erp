@@ -55,10 +55,10 @@ class FuneralApi {
     }
   }
 
-  Future<void> completePickup(String id, DateTime completionTime) async {
+  Future<void> completePickup(String id, CompletePickupRequestDto request) async {
     final response = await _apiClient.put(
       '/v2/funeral/pickup-request/$id/complete',
-      body: CompletePickupRequestDto(completionTime: completionTime).toJson(),
+      body: request.toJson(),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to complete pickup: ${response.body}');

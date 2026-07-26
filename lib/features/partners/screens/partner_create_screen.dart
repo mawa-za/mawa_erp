@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
@@ -44,7 +45,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   final _bankAccountNumberController = TextEditingController();
   final _bankBranchCodeController = TextEditingController();
   final _bankBranchNameController = TextEditingController();
-  String _bankAccountType = 'CURRENT';
+  String? _bankAccountType;
   late final String _supplierOnboardingRequestId;
   int _supportingDocumentCount = 0;
   bool _supportingDocumentsComplete = false;
@@ -173,7 +174,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       'name3': _selectedType == 'INDIVIDUAL' ? _name3Controller.text.trim() : '',
       'name4': _name4Controller.text.trim(),
       'email': _emailController.text.trim(),
-      'contactNumber': _phoneController.text.trim(),
+      'contactNumber': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
       'title': _selectedType == 'INDIVIDUAL' ? _selectedTitle : null,
       'birthDate': _selectedType == 'INDIVIDUAL' ? _birthDate?.toIso8601String() : null,
       'maritalStatus': _selectedType == 'INDIVIDUAL' ? _selectedMaritalStatus : null,
@@ -591,7 +592,20 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           children: [
             _buildTextField(_emailController, 'Email Address (Optional)', Icons.email_outlined, keyboardType: TextInputType.emailAddress),
             const SizedBox(height: 16),
-            _buildTextField(_phoneController, 'Phone Number (Optional)', Icons.phone_outlined, keyboardType: TextInputType.phone),
+            _buildTextField(
+              _phoneController,
+              'Contact Number (Optional)',
+              Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+              validator: (value) {
+                final contact = value?.trim() ?? '';
+                if (contact.isEmpty) return null;
+                return RegExp(r'^\d{10}$').hasMatch(contact)
+                    ? null
+                    : 'Contact Number must be 10 numeric digits';
+              },
+            ),
           ],
         ),
       ),
@@ -616,10 +630,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               Icons.person_outline,
             ),
             const SizedBox(height: 16),
-            _buildTextField(
-              _bankNameController,
-              'Bank Name',
-              Icons.account_balance_outlined,
+            AppDropdownField(
+              field: 'BANK-NAME',
+              label: 'Bank Name',
+              icon: Icons.account_balance_outlined,
+              value: _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
+              onChanged: (value) => setState(() => _bankNameController.text = value ?? ''),
+              validator: (value) => value == null || value.isEmpty ? 'Required' : null,
             ),
             const SizedBox(height: 16),
             _buildTextField(
@@ -627,6 +644,10 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               'Account Number',
               Icons.numbers_outlined,
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(20)],
+              validator: (value) => RegExp(r'^\d{5,20}$').hasMatch(value?.trim() ?? '')
+                  ? null
+                  : 'Account Number must contain 5 to 20 digits',
             ),
             const SizedBox(height: 16),
             _buildTextField(
@@ -634,6 +655,10 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               'Branch Code',
               Icons.pin_outlined,
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+              validator: (value) => RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
+                  ? null
+                  : 'Branch Code must contain 6 digits',
             ),
             const SizedBox(height: 16),
             _buildTextField(
@@ -642,20 +667,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               Icons.location_city_outlined,
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
+            AppDropdownField(
+              field: 'BANK-ACCOUNT-TYPE',
+              label: 'Account Type',
+              icon: Icons.account_balance_wallet_outlined,
               value: _bankAccountType,
-              decoration: _inputDecoration(
-                'Account Type',
-                Icons.account_balance_wallet_outlined,
-              ),
-              items: const [
-                DropdownMenuItem(value: 'CURRENT', child: Text('Current / Cheque')),
-                DropdownMenuItem(value: 'SAVINGS', child: Text('Savings')),
-                DropdownMenuItem(value: 'TRANSMISSION', child: Text('Transmission')),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _bankAccountType = value);
-              },
+              onChanged: (value) => setState(() => _bankAccountType = value),
+              validator: (value) => value == null || value.isEmpty ? 'Required' : null,
             ),
           ],
         ),
@@ -743,7 +761,17 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               children: [
                 Expanded(child: _buildAddressTextField('City (Optional)', addr.city, (val) => _addresses[index] = _updateAddress(addr, city: val))),
                 const SizedBox(width: 12),
-                Expanded(child: _buildAddressTextField('State/Province (Optional)', addr.state, (val) => _addresses[index] = _updateAddress(addr, state: val))),
+                Expanded(
+                  child: AppDropdownField(
+                    field: 'PROVINCE',
+                    label: 'Province (Optional)',
+                    icon: Icons.map_outlined,
+                    value: addr.state.isEmpty ? null : addr.state,
+                    onChanged: (value) => setState(
+                      () => _addresses[index] = _updateAddress(addr, state: value ?? ''),
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -772,16 +800,25 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool enabled = true}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType? keyboardType,
+    bool enabled = true,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+  }) {
     return TextFormField(
       controller: controller,
       decoration: _inputDecoration(label, icon),
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       enabled: enabled,
       style: TextStyle(fontSize: 14, color: enabled ? Colors.black87 : Colors.grey[600]),
-      validator: (val) {
+      validator: validator ?? (val) {
         if (label.contains('(Optional)')) return null;
-        if (val == null || val.isEmpty) return 'Required';
+        if (val == null || val.trim().isEmpty) return 'Required';
         return null;
       },
     );

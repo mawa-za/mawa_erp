@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
@@ -111,7 +112,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
     final amountController = TextEditingController();
     final referenceController = TextEditingController();
-    final bankController = TextEditingController();
+    String? selectedBankName;
     final notesController = TextEditingController();
     String paymentMethod = 'CASH';
     DateTime depositDate = DateTime.now();
@@ -187,12 +188,13 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: bankController,
-                    decoration: const InputDecoration(
-                      labelText: 'Bank Name',
-                      border: OutlineInputBorder(),
-                    ),
+                  AppDropdownField(
+                    field: 'BANK-NAME',
+                    label: 'Bank Name',
+                    icon: Icons.account_balance_outlined,
+                    value: selectedBankName,
+                    onChanged: (value) =>
+                        setDialogState(() => selectedBankName = value),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -296,7 +298,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                   'paymentMethod': paymentMethod,
                   'depositDate': DateFormat('yyyy-MM-dd').format(depositDate),
                   'referenceNo': referenceController.text.trim(),
-                  'bankName': bankController.text.trim(),
+                  'bankName': selectedBankName,
                   'notes': notesController.text.trim(),
                   'attachmentFile': attachmentFile,
                   'attachmentExtension': attachmentExtension,
@@ -312,7 +314,6 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
     amountController.dispose();
     referenceController.dispose();
-    bankController.dispose();
     notesController.dispose();
 
     if (result == null) return;

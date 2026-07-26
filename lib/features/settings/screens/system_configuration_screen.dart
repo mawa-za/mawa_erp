@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'settings_screen.dart';
 import 'user_list_screen.dart';
 import 'company_info_screen.dart';
 import 'role_list_screen.dart';
@@ -19,6 +18,10 @@ import 'premium_generation_settings_screen.dart';
 import 'membership_lapse_settings_screen.dart';
 import '../../payments/screens/payment_account_configuration_screen.dart';
 import 'number_range_configuration_screen.dart';
+import 'storage_configuration_screen.dart';
+import 'claim_type_configuration_screen.dart';
+import 'membership_policy_configuration_screen.dart';
+import '../../forms/company_form_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -37,11 +40,38 @@ class SystemConfigurationScreen extends StatelessWidget {
         children: [
           _buildConfigTile(
             context,
-            title: 'System Parameters',
-            subtitle: 'Manage global system settings and constants',
-            icon: Icons.settings_applications_outlined,
-            color: Colors.blue,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SystemSettingsScreen())),
+            title: 'Warehouse & Storage',
+            subtitle: 'Configure reusable warehouses, storage locations and bins',
+            icon: Icons.warehouse_outlined,
+            color: Colors.brown,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StorageConfigurationScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Claim Types',
+            subtitle: 'Choose which claim types are available during claim processing',
+            icon: Icons.fact_check_outlined,
+            color: Colors.deepPurple,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ClaimTypeConfigurationScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Membership Policy',
+            subtitle: 'Control multiple memberships and additional-membership approval',
+            icon: Icons.card_membership_outlined,
+            color: Colors.indigo,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MembershipPolicyConfigurationScreen())),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Company Forms',
+            subtitle: 'Upload and replace centrally published forms',
+            icon: Icons.description_outlined,
+            color: Colors.teal,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CompanyFormConfigurationScreen())),
           ),
           const SizedBox(height: 12),
           _buildConfigTile(
