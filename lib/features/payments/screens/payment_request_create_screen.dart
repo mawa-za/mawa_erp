@@ -35,7 +35,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   // Bank Account Fields
   final _accountHolderController = TextEditingController();
   final _accountNumberController = TextEditingController();
-  final _branchCodeController = TextEditingController();
   String? _selectedBankCode;
   String? _selectedAccountType;
 
@@ -170,7 +169,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         "bankName": isEFT ? bankName : null,
         "accountHolder": isEFT ? _accountHolderController.text : null,
         "accountNumber": isEFT ? _accountNumberController.text : null,
-        "branchCode": isEFT ? _branchCodeController.text : null,
         "accountType": isEFT ? _selectedAccountType : null,
         "externalReference": _referenceController.text,
         "paymentReason": _selectedPaymentReason,
@@ -351,7 +349,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
                 _selectedPaymentMethod = _selectedType == 'SUPPLIER_INVOICE' ? 'EFT' : _selectedPaymentMethod;
                 _accountHolderController.text = metadata['accountHolder']?.toString() ?? partner.fullName;
                 _accountNumberController.text = metadata['accountNumber']?.toString() ?? '';
-                _branchCodeController.text = metadata['branchCode']?.toString() ?? '';
                 final bankName = metadata['bankName']?.toString();
                 if (bankName != null) {
                   final matches = _bankOptions.where((option) =>
@@ -449,15 +446,16 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
             _buildTextField(_accountHolderController, 'Account Holder', Icons.account_circle_outlined,
                 isRequired: isEFT, readOnly: _selectedType == 'SUPPLIER_INVOICE'),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: _buildDropdown('Bank Name', _selectedBankCode, _bankOptions,
-                    (val) => setState(() => _selectedBankCode = val),
-                    isRequired: isEFT, enabled: _selectedType != 'SUPPLIER_INVOICE')),
-                const SizedBox(width: 16),
-                Expanded(child: _buildTextField(_branchCodeController, 'Branch Code', Icons.numbers,
-                    isRequired: isEFT, readOnly: _selectedType == 'SUPPLIER_INVOICE')),
-              ],
+            _buildDropdown('Bank Name', _selectedBankCode, _bankOptions,
+                (val) => setState(() => _selectedBankCode = val),
+                isRequired: isEFT, enabled: _selectedType != 'SUPPLIER_INVOICE'),
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'The universal branch code is assigned automatically from the selected bank.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
             ),
             const SizedBox(height: 16),
             _buildTextField(_accountNumberController, 'Account Number', Icons.numbers,
@@ -554,7 +552,6 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
     _notesController.dispose();
     _accountHolderController.dispose();
     _accountNumberController.dispose();
-    _branchCodeController.dispose();
     super.dispose();
   }
 }
