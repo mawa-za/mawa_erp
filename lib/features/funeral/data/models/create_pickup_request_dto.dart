@@ -1,31 +1,27 @@
 class CreatePickupRequestDto {
   final String deceasedName;
-  final String pickupLocation;
+  final String pickupLocationCode;
+  final bool corpseInjured;
+  final String? injuryDetails;
   final String contactPerson;
   final String contactNumber;
 
   CreatePickupRequestDto({
     required this.deceasedName,
-    required this.pickupLocation,
+    required this.pickupLocationCode,
+    required this.corpseInjured,
+    this.injuryDetails,
     required this.contactPerson,
     required this.contactNumber,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'deceasedName': deceasedName,
-      'pickupLocation': pickupLocation,
-      'contactPerson': contactPerson,
-      'contactNumber': contactNumber,
-    };
-  }
-
-  factory CreatePickupRequestDto.fromJson(Map<String, dynamic> json) {
-    return CreatePickupRequestDto(
-      deceasedName: json['deceasedName']?.toString() ?? '',
-      pickupLocation: json['pickupLocation'] ?? '',
-      contactPerson: json['contactPerson'] ?? '',
-      contactNumber: json['contactNumber'] ?? '',
-    );
-  }
+  Map<String, dynamic> toJson() => {
+        'deceasedName': deceasedName,
+        'pickupLocationCode': pickupLocationCode,
+        'pickupLocation': pickupLocationCode,
+        'corpseInjured': corpseInjured,
+        'injuryDetails': corpseInjured ? injuryDetails : null,
+        'contactPerson': contactPerson,
+        'contactNumber': contactNumber,
+      };
 }

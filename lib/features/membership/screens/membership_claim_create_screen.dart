@@ -44,6 +44,9 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
   final _branchCodeController = TextEditingController();
   
   DateTime _dateOfDeath = DateTime.now();
+  DateTime _burialDate = DateTime.now().add(const Duration(days: 7));
+  bool _isLoadingBenefit = false;
+  int? _claimAmountCents;
   String? _selectedClaimTypeCode;
   String? _selectedPayoutMethod;
   String? _selectedAccType;
@@ -82,9 +85,25 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         FieldService().getOptionsByField('BANK-NAME'),
         FieldService().getOptionsByField('CAUSE-OF-DEATH'),
       ]);
+      final configuredResponse = await ApiClient().get(
+        '/v2/claim-type-configuration',
+        queryParameters: {'enabledOnly': true},
+      );
+      final enabledTypes = <String>{};
+      if (configuredResponse.statusCode == 200) {
+        final decoded = jsonDecode(configuredResponse.body);
+        if (decoded is List) {
+          for (final item in decoded) {
+            final row = Map<String, dynamic>.from(item as Map);
+            enabledTypes.add((row['claim_type'] ?? row['claimType']).toString().toUpperCase());
+          }
+        }
+      }
 
       setState(() {
-        _claimTypeOptions = results[0];
+        _claimTypeOptions = (results[0] as List<FieldOption>)
+            .where((option) => enabledTypes.isEmpty || enabledTypes.contains(option.code.toUpperCase()))
+            .toList();
         _payoutMethodOptions = results[1];
         _accTypeOptions = results[2];
         _bankOptions = results[3];
@@ -98,9 +117,40 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         
         _isLoadingOptions = false;
       });
+      await _loadBenefitAmount();
     } catch (e) {
       debugPrint('Error loading field options: $e');
       setState(() => _isLoadingOptions = false);
+    }
+  }
+
+  Future<void> _loadBenefitAmount() async {
+    if (_selectedClaimTypeCode == null) return;
+    if (mounted) setState(() => _isLoadingBenefit = true);
+    try {
+      final deceasedPartnerId = widget.dependent?.dependentPartnerId ?? widget.member.id;
+      final response = await ApiClient().get('/v2/membership-claim/benefit', queryParameters: {
+        'membershipId': widget.membership.id,
+        'claimType': _selectedClaimTypeCode,
+        'deceasedPartnerId': deceasedPartnerId,
+        'eventDate': DateFormat('yyyy-MM-dd').format(_dateOfDeath),
+      });
+      if (response.statusCode != 200) throw Exception(response.body);
+      final data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+      final cents = (data['claimAmountCents'] as num?)?.toInt();
+      if (mounted) setState(() {
+        _claimAmountCents = cents;
+        _amountController.text = cents == null ? '' : (cents / 100).toStringAsFixed(2);
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() { _claimAmountCents = null; _amountController.clear(); });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Plan benefit could not be determined: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingBenefit = false);
     }
   }
 
@@ -128,8 +178,10 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     setState(() => _isSubmitting = true);
 
     try {
-      final double amount = double.tryParse(_amountController.text) ?? 0.0;
-      final int amountCents = (amount * 100).toInt();
+      if (_claimAmountCents == null) {
+        throw Exception('The claim amount cannot be determined because the plan benefit is not configured.');
+      }
+      final int amountCents = _claimAmountCents!;
       
       final bool isCashClaim = _selectedClaimTypeCode == 'CASH';
       
@@ -150,7 +202,8 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         "deceasedPartnerId": widget.dependent?.dependentPartnerId ?? widget.member.id,
         "dateOfDeath": DateFormat('yyyy-MM-dd').format(_dateOfDeath),
         "claimDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        "causeOfDeath": selectedCause.description,
+        "burialDate": DateFormat('yyyy-MM-dd').format(_burialDate),
+        "causeOfDeath": selectedCause.code,
         "deathCertificateNo": _deathCertificateController.text.trim(),
         "claimantPartnerId": _selectedClaimant!.id,
         "claimAmountCents": amountCents,
@@ -413,14 +466,17 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
           value: opt.code,
           child: Text(opt.description, style: const TextStyle(fontSize: 14)),
         )).toList(),
-        onChanged: (v) => setState(() {
-          _selectedClaimTypeCode = v!;
-          if (_selectedClaimTypeCode != 'CASH') {
-            _selectedPayoutMethod = null;
-          } else if (_selectedPayoutMethod == null && _payoutMethodOptions.isNotEmpty) {
-            _selectedPayoutMethod = _payoutMethodOptions.first.code;
-          }
-        }),
+        onChanged: (v) {
+          setState(() {
+            _selectedClaimTypeCode = v!;
+            if (_selectedClaimTypeCode != 'CASH') {
+              _selectedPayoutMethod = null;
+            } else if (_selectedPayoutMethod == null && _payoutMethodOptions.isNotEmpty) {
+              _selectedPayoutMethod = _payoutMethodOptions.first.code;
+            }
+          });
+          _loadBenefitAmount();
+        },
         validator: (v) => v == null ? 'Required' : null,
       ),
       const SizedBox(height: 20),
@@ -432,7 +488,15 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
             firstDate: DateTime(2000),
             lastDate: DateTime.now(),
           );
-          if (picked != null) setState(() => _dateOfDeath = picked);
+          if (picked != null) {
+            setState(() {
+              _dateOfDeath = picked;
+              if (_burialDate.isBefore(_dateOfDeath)) {
+                _burialDate = _dateOfDeath.add(const Duration(days: 1));
+              }
+            });
+            _loadBenefitAmount();
+          }
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -460,16 +524,35 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         ),
       ),
       const SizedBox(height: 20),
+      InkWell(
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: _burialDate,
+            firstDate: _dateOfDeath,
+            lastDate: _dateOfDeath.add(const Duration(days: 365)),
+          );
+          if (picked != null) setState(() => _burialDate = picked);
+        },
+        child: InputDecorator(
+          decoration: _inputDecoration('Burial Date', Icons.event_available_outlined),
+          child: Text(DateFormat('EEEE, d MMMM yyyy').format(_burialDate),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ),
+      const SizedBox(height: 20),
       TextFormField(
         controller: _amountController,
+        readOnly: true,
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        decoration: _inputDecoration('Claim Amount', Icons.payments_outlined).copyWith(prefixText: 'R ', hintText: '0.00'),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validator: (v) {
-          if (v == null || v.isEmpty) return 'Required';
-          if (double.tryParse(v) == null) return 'Invalid amount';
-          return null;
-        },
+        decoration: _inputDecoration('Claim Amount (from plan benefit)', Icons.payments_outlined).copyWith(
+          prefixText: 'R ',
+          suffixIcon: _isLoadingBenefit
+              ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.lock_outline),
+          helperText: 'This amount is determined from the membership plan benefit and cannot be changed.',
+        ),
+        validator: (_) => _claimAmountCents == null ? 'Configure a plan benefit for this claim type' : null,
       ),
       const SizedBox(height: 20),
       TextFormField(

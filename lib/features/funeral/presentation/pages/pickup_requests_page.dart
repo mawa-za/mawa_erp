@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:go_router/go_router.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/pickup_request_dto.dart';
+import '../../data/models/complete_pickup_request_dto.dart';
+import '../../../../core/api_client.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../../partners/models/partner.dart';
 import '../widgets/funeral_status_chip.dart';
@@ -154,38 +157,139 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
     }
   }
 
+  Future<List<Map<String, dynamic>>> _storageRows(String path, [Map<String, dynamic>? query]) async {
+    final response = await ApiClient().get(path, queryParameters: query);
+    if (response.statusCode != 200) throw Exception(response.body);
+    final decoded = jsonDecode(response.body);
+    return decoded is List
+        ? decoded.map((item) => Map<String, dynamic>.from(item as Map)).toList()
+        : <Map<String, dynamic>>[];
+  }
+
   Future<void> _completePickup(PickupRequestDto request) async {
-    final confirm = await showDialog<bool>(
+    List<Map<String, dynamic>> warehouses;
+    try {
+      warehouses = await _storageRows('/v2/storage-configuration/warehouses');
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load storage configuration: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    String? warehouseId;
+    String? locationId;
+    String? binId;
+    List<Map<String, dynamic>> locations = [];
+    List<Map<String, dynamic>> bins = [];
+    bool loadingChildren = false;
+
+    final selection = await showDialog<CompletePickupRequestDto>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Complete Pickup'),
-        content: Text('Confirm completion of pickup for ${request.deceasedName}?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Complete'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Complete Pickup'),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Select where ${request.deceasedName} will be stored.'),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: warehouseId,
+                  decoration: const InputDecoration(labelText: 'Warehouse', border: OutlineInputBorder()),
+                  items: warehouses.map((row) => DropdownMenuItem(
+                    value: row['id']?.toString(),
+                    child: Text('${row['code']} - ${row['name']}'),
+                  )).toList(),
+                  onChanged: loadingChildren ? null : (value) async {
+                    setDialogState(() {
+                      warehouseId = value;
+                      locationId = null;
+                      binId = null;
+                      locations = [];
+                      bins = [];
+                      loadingChildren = true;
+                    });
+                    try {
+                      final rows = await _storageRows('/v2/storage-configuration/locations', {'warehouseId': value});
+                      setDialogState(() => locations = rows);
+                    } finally {
+                      setDialogState(() => loadingChildren = false);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: locationId,
+                  decoration: const InputDecoration(labelText: 'Storage Location', border: OutlineInputBorder()),
+                  items: locations.map((row) => DropdownMenuItem(
+                    value: row['id']?.toString(),
+                    child: Text('${row['code']} - ${row['name']}'),
+                  )).toList(),
+                  onChanged: loadingChildren ? null : (value) async {
+                    setDialogState(() {
+                      locationId = value;
+                      binId = null;
+                      bins = [];
+                      loadingChildren = true;
+                    });
+                    try {
+                      final rows = await _storageRows('/v2/storage-configuration/bins', {'locationId': value});
+                      setDialogState(() => bins = rows);
+                    } finally {
+                      setDialogState(() => loadingChildren = false);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: binId,
+                  decoration: const InputDecoration(labelText: 'Storage Bin', border: OutlineInputBorder()),
+                  items: bins.map((row) => DropdownMenuItem(
+                    value: row['id']?.toString(),
+                    child: Text('${row['code']} - ${row['name']}'),
+                  )).toList(),
+                  onChanged: (value) => setDialogState(() => binId = value),
+                ),
+                if (loadingChildren) const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: warehouseId == null || locationId == null || binId == null
+                  ? null
+                  : () => Navigator.pop(context, CompletePickupRequestDto(
+                        completionTime: DateTime.now(),
+                        warehouseId: warehouseId!,
+                        storageLocationId: locationId!,
+                        storageBinId: binId!,
+                      )),
+              child: const Text('Complete Pickup'),
+            ),
+          ],
+        ),
       ),
     );
 
-    if (confirm == true) {
-      try {
-        await _api.completePickup(request.id!, DateTime.now());
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Pickup completed. Deceased checked into mortuary.')),
-          );
-        }
-        _loadRequests();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error completing pickup: $e')),
-          );
-        }
-      }
+    if (selection == null) return;
+    try {
+      await _api.completePickup(request.id!, selection);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pickup completed and checked into the selected storage bin.')),
+      );
+      _loadRequests();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error completing pickup: $e')),
+      );
     }
   }
 
@@ -245,6 +349,11 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                             const SizedBox(height: 8),
                             Text('Location: ${request.pickupLocation}'),
                             Text('Contact: ${request.contactPerson} (${request.contactNumber})'),
+                            if (request.corpseInjured)
+                              Text(
+                                'Injuries reported${request.injuryDetails == null || request.injuryDetails!.isEmpty ? '' : ': ${request.injuryDetails}'}',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
                             if (request.staffId != null && request.staffId!.isNotEmpty)
                               Text('Assigned to: ${_assignedStaffLabel(request.staffId!)}'),
                             const Divider(),
