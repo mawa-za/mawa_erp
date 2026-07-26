@@ -13,7 +13,7 @@ import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.d
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import 'pos_printing_settings_screen.dart';
 import 'manual_receipt_cutover_settings_screen.dart';
-import '../../funeral/presentation/pages/third_party_funeral_cover_underwriting_page.dart';
+import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
 import 'premium_generation_settings_screen.dart';
 import 'membership_lapse_settings_screen.dart';
 import '../../payments/screens/payment_account_configuration_screen.dart';
@@ -22,6 +22,8 @@ import 'storage_configuration_screen.dart';
 import 'claim_type_configuration_screen.dart';
 import 'membership_policy_configuration_screen.dart';
 import '../../forms/company_form_configuration_screen.dart';
+import 'payment_request_invoice_email_configuration_screen.dart';
+import 'signiflow_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatelessWidget {
   const SystemConfigurationScreen({super.key});
@@ -124,7 +126,45 @@ class SystemConfigurationScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _buildConfigTile(context,title:'Third Party Funeral Underwriting',subtitle:'Manage external funeral covers and underwriting decisions',icon:Icons.fact_check_outlined,color:Colors.deepPurple,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const ThirdPartyFuneralCoverUnderwritingPage()))),
+          _buildConfigTile(
+            context,
+            title: 'Funeral Cover Underwriter Configuration',
+            subtitle: 'Maintain the organisations that underwrite third-party funeral cover',
+            icon: Icons.business_center_outlined,
+            color: Colors.deepPurple,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ThirdPartyFuneralUnderwriterConfigurationPage(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'Payment Request Invoice Email',
+            subtitle: 'Email approved supplier invoice attachments and run the once-off backfill',
+            icon: Icons.attach_email_outlined,
+            color: Colors.green,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const PaymentRequestInvoiceEmailConfigurationScreen(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildConfigTile(
+            context,
+            title: 'SigniFlow Electronic Signatures',
+            subtitle: 'Configure electronic signing of generated claim forms',
+            icon: Icons.draw_outlined,
+            color: Colors.indigo,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SigniFlowConfigurationScreen()),
+            ),
+          ),
           const SizedBox(height:12),
           _buildConfigTile(
             context,

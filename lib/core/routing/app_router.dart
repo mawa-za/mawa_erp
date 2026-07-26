@@ -21,6 +21,8 @@ import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
 import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
 import '../../features/settings/screens/xero_integration_screen.dart';
+import '../../features/settings/screens/payment_request_invoice_email_configuration_screen.dart';
+import '../../features/settings/screens/signiflow_configuration_screen.dart';
 import '../../features/admin/message_queue/message_queue_admin_screen.dart';
 import '../../features/appointments/screens/appointment_calendar_screen.dart';
 import '../../features/cashup/screens/cashup_list_screen.dart';
@@ -52,6 +54,7 @@ import '../../features/funeral/presentation/pages/funeral_service_request_page.d
 import '../../features/funeral/presentation/pages/funeral_package_setup_page.dart';
 import '../../features/funeral/presentation/pages/funeral_all_claims_page.dart';
 import '../../features/funeral/presentation/pages/funeral_payments_page.dart';
+import '../../features/funeral/presentation/pages/third_party_funeral_cover_underwriting_page.dart';
 
 import '../services/session_service.dart';
 
@@ -219,12 +222,15 @@ class AppRouter {
         path: '/partners/:role',
         builder: (context, state) {
           final role = state.pathParameters['role']!.toUpperCase();
+          final isBusinessPartner = role == 'PARTNER';
           return PartnerListScreen(
-            role: role,
-            title: '${role[0]}${role.substring(1).toLowerCase()}s',
-            // Partner creation remains restricted for role-specific lists,
-            // except for the explicit supplier onboarding workflow.
-            allowCreate: role == 'SUPPLIER',
+            role: isBusinessPartner ? null : role,
+            title: isBusinessPartner
+                ? 'Business Partners'
+                : '${role[0]}${role.substring(1).toLowerCase()}s',
+            // Generic Business Partner and Supplier onboarding allow creation.
+            // Member/dependent records are maintained through membership flows.
+            allowCreate: isBusinessPartner || role == 'SUPPLIER',
           );
         },
       ),
@@ -250,6 +256,15 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.xeroIntegration,
         builder: (context, state) => const XeroIntegrationScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.paymentInvoiceEmailConfiguration,
+        builder: (context, state) =>
+            const PaymentRequestInvoiceEmailConfigurationScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.signiFlowConfiguration,
+        builder: (context, state) => const SigniFlowConfigurationScreen(),
       ),
       GoRoute(
         path: AppRoutes.messageQueueAdmin,
@@ -298,6 +313,11 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.groupSocieties,
         builder: (context, state) => const GroupSocietyListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.funeralCoverUnderwriting,
+        builder: (context, state) =>
+            const ThirdPartyFuneralCoverUnderwritingPage(),
       ),
       GoRoute(
         path: AppRoutes.companyForms,
