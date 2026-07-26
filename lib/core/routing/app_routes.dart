@@ -23,6 +23,8 @@ class AppRoutes {
   static const String systemConfiguration = '/system-configuration';
   static const String fnbIntegration = '/system-configuration/fnb-integration';
   static const String xeroIntegration = '/system-configuration/xero-integration';
+  static const String paymentInvoiceEmailConfiguration = '/system-configuration/payment-invoice-email';
+  static const String signiFlowConfiguration = '/system-configuration/signiflow';
   static const String messageQueueAdmin = '/admin/message-queue';
   static const String calendar = '/calendar';
   static const String appointments = '/appointments';
@@ -77,6 +79,7 @@ class AppRoutes {
   static const String funeralInvoicePayment = '/funeral/invoice/:invoiceId/payment';
   static const String funeralPayments = '/funeral/payments';
   static const String funeralPackageSetup = '/funeral/packages/setup';
+  static const String funeralCoverUnderwriting = '/funeral/cover-underwriting';
 
   // Legacy routes for redirection
   static const String legacyMembershipDetail = '/membership-detail';

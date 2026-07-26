@@ -10,6 +10,7 @@ import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../screens/membership_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
+import '../../../core/api_client.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../../payments/screens/payment_request_detail_screen.dart';
@@ -27,6 +28,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   final MembershipService _membershipService = MembershipService();
   final PartnerService _partnerService = PartnerService();
   final ApprovalService _approvalService = ApprovalService();
+  final ApiClient _api = ApiClient();
 
   late TabController _tabController;
   MembershipClaim? _claim;
@@ -239,6 +241,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildStatusBanner(claim, colorScheme),
           const SizedBox(height: 24),
           _buildAmountCard(claim, colorScheme),
+          const SizedBox(height: 20),
+          _buildSigniFlowCard(claim, colorScheme),
           if (claim.claimType.toUpperCase() == 'CASH' &&
               (claim.paymentRequestId?.isNotEmpty ?? false)) ...[
             const SizedBox(height: 20),
@@ -487,6 +491,299 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         ],
       ),
     );
+  }
+
+  Widget _buildSigniFlowCard(MembershipClaim claim, ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: colorScheme.primary.withOpacity(0.1),
+            child: Icon(Icons.draw_outlined, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SigniFlow electronic signature',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Generate the claim form, send it for signature and retrieve the signed copy.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: _openSigniFlow,
+            icon: const Icon(Icons.send_outlined),
+            label: const Text('Manage'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openSigniFlow() async {
+    setState(() => _isSubmitting = true);
+    try {
+      final responses = await Future.wait([
+        _api.get('/v2/membership-claim/${widget.claimId}/signiflow/signer-options'),
+        _api.get('/v2/membership-claim/${widget.claimId}/signiflow'),
+      ]);
+      if (responses.any((response) => response.statusCode != 200)) {
+        throw Exception(responses.firstWhere((response) => response.statusCode != 200).body);
+      }
+      final signers = (jsonDecode(responses[0].body) as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+      final workflows = (jsonDecode(responses[1].body) as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+      if (!mounted) return;
+      await _showSigniFlowDialog(signers, workflows);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to open SigniFlow: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _showSigniFlowDialog(
+    List<Map<String, dynamic>> initialSigners,
+    List<Map<String, dynamic>> initialWorkflows,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final name = TextEditingController();
+    final email = TextEditingController();
+    String? selectedPartnerId;
+    var workflows = List<Map<String, dynamic>>.from(initialWorkflows);
+    bool busy = false;
+
+    void applySigner(Map<String, dynamic>? signer) {
+      selectedPartnerId = signer?['partnerId']?.toString();
+      name.text = signer?['name']?.toString() ?? '';
+      email.text = signer?['email']?.toString() ?? '';
+    }
+
+    if (initialSigners.isNotEmpty) {
+      final preferred = initialSigners.firstWhere(
+        (row) => (row['relationship'] ?? '').toString() == 'CLAIMANT',
+        orElse: () => initialSigners.first,
+      );
+      applySigner(preferred);
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !busy,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (_, setDialogState) {
+          Future<void> reloadWorkflows() async {
+            final response = await _api.get(
+              '/v2/membership-claim/${widget.claimId}/signiflow',
+            );
+            if (response.statusCode != 200) throw Exception(response.body);
+            setDialogState(() {
+              workflows = (jsonDecode(response.body) as List)
+                  .map((row) => Map<String, dynamic>.from(row as Map))
+                  .toList();
+            });
+          }
+
+          Future<void> runWorkflowAction(String workflowId, String action) async {
+            setDialogState(() => busy = true);
+            try {
+              final response = await _api.post(
+                '/v2/signiflow/workflows/$workflowId/$action',
+              );
+              if (response.statusCode != 200) throw Exception(response.body);
+              await reloadWorkflows();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(action == 'download-signed'
+                        ? 'Signed claim form saved to attachments.'
+                        : 'Signature status refreshed.'),
+                  ),
+                );
+              }
+            } catch (error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('SigniFlow action failed: $error')),
+                );
+              }
+            } finally {
+              setDialogState(() => busy = false);
+            }
+          }
+
+          Future<void> send() async {
+            if (!formKey.currentState!.validate()) return;
+            setDialogState(() => busy = true);
+            try {
+              final response = await _api.post(
+                '/v2/membership-claim/${widget.claimId}/signiflow/send',
+                body: {
+                  'signerPartnerId': selectedPartnerId,
+                  'signerName': name.text.trim(),
+                  'signerEmail': email.text.trim(),
+                },
+              );
+              if (response.statusCode != 200) throw Exception(response.body);
+              await reloadWorkflows();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Claim form sent to SigniFlow.')),
+                );
+              }
+            } catch (error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Unable to send claim form: $error')),
+                );
+              }
+            } finally {
+              setDialogState(() => busy = false);
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('SigniFlow claim form signature'),
+            content: SizedBox(
+              width: 720,
+              height: 620,
+              child: Form(
+                key: formKey,
+                child: ListView(
+                  children: [
+                    const Text(
+                      'Select the person who must sign. Existing partner email details are used where available and can be corrected before sending.',
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedPartnerId,
+                      decoration: const InputDecoration(
+                        labelText: 'Signer',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: initialSigners
+                          .map((signer) => DropdownMenuItem(
+                                value: signer['partnerId']?.toString(),
+                                child: Text(
+                                  '${signer['name'] ?? ''} (${signer['relationship'] ?? ''})',
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        final signer = initialSigners.cast<Map<String, dynamic>?>().firstWhere(
+                              (row) => row?['partnerId']?.toString() == value,
+                              orElse: () => null,
+                            );
+                        setDialogState(() => applySigner(signer));
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: name,
+                      decoration: const InputDecoration(
+                        labelText: 'Signer full name',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => value == null || value.trim().isEmpty
+                          ? 'Signer name is required'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: email,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Signer email address',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        final text = value?.trim() ?? '';
+                        if (text.isEmpty) return 'Signer email address is required';
+                        return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)
+                            ? null
+                            : 'Enter a valid email address';
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: busy ? null : send,
+                      icon: const Icon(Icons.send_outlined),
+                      label: const Text('Generate and send claim form'),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Signature workflows',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    if (workflows.isEmpty)
+                      const Text('No claim form has been sent for signature yet.')
+                    else
+                      ...workflows.map(
+                        (workflow) => Card(
+                          child: ListTile(
+                            title: Text(workflow['signer_name']?.toString() ?? ''),
+                            subtitle: Text(
+                              '${workflow['signer_email'] ?? ''}\nStatus: ${workflow['status'] ?? ''}',
+                            ),
+                            isThreeLine: true,
+                            trailing: PopupMenuButton<String>(
+                              enabled: !busy,
+                              onSelected: (action) => runWorkflowAction(
+                                workflow['id'].toString(),
+                                action,
+                              ),
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'refresh',
+                                  child: Text('Refresh status'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'download-signed',
+                                  child: Text('Retrieve signed form'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: busy ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    name.dispose();
+    email.dispose();
   }
 
   Widget _buildMembershipCard(MembershipDetail detail, MembershipClaim claim, ColorScheme colorScheme) {
