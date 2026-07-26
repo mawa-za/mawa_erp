@@ -26,6 +26,9 @@ class WorkcenterRouteRegistry {
     'FNB_INTEGRATION': AppRoutes.fnbIntegration,
     'FNB_INTEGRATION_ADMIN': AppRoutes.fnbIntegration,
     'FNB_API': AppRoutes.fnbIntegration,
+    'PAYMENT_INVOICE_EMAIL': AppRoutes.paymentInvoiceEmailConfiguration,
+    'SIGNIFLOW': AppRoutes.signiFlowConfiguration,
+    'ELECTRONIC_SIGNATURES': AppRoutes.signiFlowConfiguration,
     'XERO': AppRoutes.xeroIntegration,
     'XERO_INTEGRATION': AppRoutes.xeroIntegration,
     'XERO_INTEGRATION_ADMIN': AppRoutes.xeroIntegration,
@@ -52,6 +55,9 @@ class WorkcenterRouteRegistry {
     'EMPLOYMENT_MANAGEMENT': AppRoutes.employment,
     'PARTNER': '/partners/PARTNER',
     'PARTNERS': '/partners/PARTNER',
+    'BUSINESS_PARTNER': '/partners/PARTNER',
+    'BUSINESS_PARTNERS': '/partners/PARTNER',
+    'PARTNER_MANAGEMENT': '/partners/PARTNER',
     'EMPLOYEE_REQUEST': AppRoutes.employeeRequests,
     'EMPLOYEE_REQUESTS': AppRoutes.employeeRequests,
     'LEAVE_REQUEST': AppRoutes.employeeRequests,
@@ -82,6 +88,8 @@ class WorkcenterRouteRegistry {
     'GROUP_SOCIETY': AppRoutes.groupSocieties,
     'GROUP_SOCIETIES': AppRoutes.groupSocieties,
     'GROUP_SOCIETY_MANAGEMENT': AppRoutes.groupSocieties,
+    'FUNERAL_COVER_UNDERWRITING': AppRoutes.funeralCoverUnderwriting,
+    'THIRD_PARTY_FUNERAL_UNDERWRITING': AppRoutes.funeralCoverUnderwriting,
 
     // Inventory Management
     'INVENTORY': AppRoutes.inventory,

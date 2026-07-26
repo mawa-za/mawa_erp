@@ -358,6 +358,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
         FieldOption(field: 'PRODUCT-TYPE', code: 'GENERAL', type: 'TENANT', description: 'General', validFrom: '', validTo: ''),
         FieldOption(field: 'PRODUCT-TYPE', code: 'FUNERAL-PACKAGE', type: 'TENANT', description: 'Funeral Package', validFrom: '', validTo: ''),
         FieldOption(field: 'PRODUCT-TYPE', code: 'FUNERAL-EXTRA', type: 'TENANT', description: 'Funeral Extra', validFrom: '', validTo: ''),
+        FieldOption(field: 'PRODUCT-TYPE', code: 'CONSUMABLES', type: 'TENANT', description: 'Consumables', validFrom: '', validTo: ''),
       ];
 
   List<FieldOption> _defaultUoms() => [
