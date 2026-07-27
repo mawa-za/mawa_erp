@@ -236,7 +236,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     final theme = Theme.of(context);
     final selectedTitle = _cardForSection(_selectedSection)?.title ?? 'Inventory Management';
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(selectedTitle),
         leading: _selectedSection == null

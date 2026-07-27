@@ -109,7 +109,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
     if (_case == null) return const Scaffold(body: Center(child: Text('Case not found')));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_case!.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(

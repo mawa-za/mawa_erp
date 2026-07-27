@@ -137,7 +137,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     final entityName = widget.isMemberContext ? 'Member' : 'Partner';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.title ?? '$entityName Details'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),

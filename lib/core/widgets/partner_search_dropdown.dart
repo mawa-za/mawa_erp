@@ -6,6 +6,7 @@ class PartnerSearchDropdown extends StatefulWidget {
   final String role;
   final String label;
   final String? initialPartnerId;
+  final String? partnerType;
   final ValueChanged<Partner?> onPartnerSelected;
   final String? Function(Partner?)? validator;
 
@@ -14,6 +15,7 @@ class PartnerSearchDropdown extends StatefulWidget {
     required this.role,
     required this.label,
     this.initialPartnerId,
+    this.partnerType,
     required this.onPartnerSelected,
     this.validator,
   });
@@ -122,7 +124,14 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
                     return const <Widget>[];
                   }
 
-                  if (partners.isEmpty) {
+                  final expectedType = widget.partnerType?.trim().toUpperCase();
+                  final matchingPartners = expectedType == null || expectedType.isEmpty
+                      ? partners
+                      : partners
+                          .where((partner) => partner.type.toUpperCase() == expectedType)
+                          .toList();
+
+                  if (matchingPartners.isEmpty) {
                     return [
                       ListTile(
                         title: Text('No ${widget.label.toLowerCase()} found'),
@@ -130,7 +139,7 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
                     ];
                   }
 
-                  return partners.map((partner) {
+                  return matchingPartners.map((partner) {
                     return ListTile(
                       leading: const CircleAvatar(
                         child: Icon(Icons.person, size: 20),

@@ -82,7 +82,7 @@ class _EditDependentScreenState extends State<EditDependentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Replace Dependent'),
         backgroundColor: Colors.white,

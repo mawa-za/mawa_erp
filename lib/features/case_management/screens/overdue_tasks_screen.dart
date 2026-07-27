@@ -43,7 +43,7 @@ class _OverdueTasksScreenState extends State<OverdueTasksScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Overdue Tasks', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
