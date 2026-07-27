@@ -68,7 +68,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'en_ZA', symbol: 'R ');
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Funeral Service Requests'),
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],

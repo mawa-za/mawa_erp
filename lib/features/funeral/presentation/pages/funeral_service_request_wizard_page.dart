@@ -14,6 +14,8 @@ import '../widgets/funeral_status_chip.dart';
 import '../../../../core/widgets/partner_search_dropdown.dart';
 import '../../../../core/widgets/attachment_section.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/theme/mawa_design.dart';
+import '../../../../core/widgets/mawa_ui.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
@@ -68,10 +70,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       listenable: _controller,
       builder: (context, _) {
         return Scaffold(
+          backgroundColor: MawaDesign.page,
           appBar: AppBar(
             title: const Text('Funeral Arrangement Wizard'),
             leading: IconButton(
-              icon: const Icon(Icons.close),
+              tooltip: 'Close wizard',
+              icon: const Icon(Icons.close_rounded),
               onPressed: () => context.pop(),
             ),
           ),
@@ -83,30 +87,50 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               ),
               if (_controller.errorMessage != null)
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  color: Colors.red.shade50,
                   width: double.infinity,
+                  color: MawaDesign.redSoft,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.error_outline_rounded, color: MawaDesign.red),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           _controller.errorMessage!,
-                          style: const TextStyle(color: Colors.red),
+                          style: const TextStyle(
+                            color: MawaDesign.redDark,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 18, color: Colors.red),
-                        onPressed: () => setState(() => _controller.errorMessage = null),
+                        tooltip: 'Dismiss',
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        color: MawaDesign.red,
+                        onPressed: () => setState(
+                          () => _controller.errorMessage = null,
+                        ),
                       ),
                     ],
                   ),
                 ),
               Expanded(
-                child: _controller.isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildStepContent(),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth > 1440
+                        ? 1440.0
+                        : constraints.maxWidth;
+                    return Center(
+                      child: SizedBox(
+                        width: width,
+                        height: constraints.maxHeight,
+                        child: _controller.isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildStepContent(),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -278,76 +302,205 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   Widget _buildPackageStep() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('Select Funeral Package', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        ..._controller.packages.map((p) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FuneralPackageCard(
-                package: p,
-                isSelected: _controller.effectiveSelectedPackage?.id == p.id,
-                onTap: () => _controller.selectPackage(p),
-              ),
-            )),
-        const Divider(height: 40),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 980;
+        final mainContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Extras', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            TextButton.icon(
-              onPressed: _showAddExtraDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Extra'),
+            const MawaSectionHeader(
+              title: 'Select funeral package',
+              description:
+                  'Choose the package that best suits the family’s needs and add any additional products.',
             ),
-          ],
-        ),
-        if (_controller.extras.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('No extras added.', style: TextStyle(color: Colors.grey)),
-          ),
-        ..._controller.extras.map((e) => Card(
-          child: ListTile(
-                title: Text(e.description),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FuneralMoneyText(cents: e.amountCents, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => setState(() => _controller.extras.remove(e)),
-                    ),
-                  ],
+            const SizedBox(height: 16),
+            if (_controller.packages.isEmpty)
+              const MawaEmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: 'No funeral packages available',
+                description:
+                    'Configure an active funeral package before continuing with the arrangement.',
+              )
+            else
+              ..._controller.packages.map(
+                (package) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: FuneralPackageCard(
+                    package: package,
+                    isSelected:
+                        _controller.effectiveSelectedPackage?.id == package.id,
+                    onTap: () => _controller.selectPackage(package),
+                  ),
                 ),
               ),
-        )),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              _moneySummaryRow('Package', _controller.packageAmountCents),
-              _moneySummaryRow('Extras', _controller.extrasTotalCents),
-              const Divider(),
-              _moneySummaryRow('Total funeral cost', _controller.arrangementTotalCents, bold: true),
-              _moneySummaryRow('Selected cover total', _controller.selectedCoverTotalCents, bold: true),
-              _moneySummaryRow('Family shortfall', _controller.shortfallCents, bold: true),
-            ]),
-          ),
-        ),
-      ],
+            const SizedBox(height: 8),
+            MawaSurface(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MawaSectionHeader(
+                    title: 'Extras',
+                    description:
+                        'Add optional products to personalise the funeral arrangement.',
+                    trailing: TextButton.icon(
+                      onPressed: _showAddExtraDialog,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Add extra'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (_controller.extras.isEmpty)
+                    const MawaEmptyState(
+                      icon: Icons.add_shopping_cart_outlined,
+                      title: 'No extras added yet',
+                      description:
+                          'Select “Add extra” to include additional products in this arrangement.',
+                      padding: EdgeInsets.symmetric(horizontal: 18, vertical: 30),
+                    )
+                  else
+                    ..._controller.extras.map(
+                      (extra) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: MawaDesign.surfaceMuted,
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(color: MawaDesign.border),
+                        ),
+                        child: ListTile(
+                          leading: const MawaIconBadge(
+                            icon: Icons.add_box_outlined,
+                            color: MawaDesign.info,
+                            size: 38,
+                          ),
+                          title: Text(extra.description),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              FuneralMoneyText(
+                                cents: extra.amountCents,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: 'Remove extra',
+                                icon: const Icon(Icons.delete_outline_rounded),
+                                color: MawaDesign.red,
+                                onPressed: () => setState(
+                                  () => _controller.extras.remove(extra),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        final summary = _buildCostSummary();
+        return SingleChildScrollView(
+          padding: MawaDesign.responsivePagePadding(constraints.maxWidth),
+          child: wide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: mainContent),
+                    const SizedBox(width: 20),
+                    SizedBox(width: 330, child: summary),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    mainContent,
+                    const SizedBox(height: 18),
+                    summary,
+                  ],
+                ),
+        );
+      },
     );
   }
 
-  Widget _moneySummaryRow(String label, int cents, {bool bold = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(label, style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null),
-      FuneralMoneyText(cents: cents, style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null),
-    ]),
-  );
+  Widget _buildCostSummary() {
+    final theme = Theme.of(context);
+    return MawaSurface(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Cost summary', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 18),
+          _moneySummaryRow('Package', _controller.packageAmountCents),
+          _moneySummaryRow('Extras', _controller.extrasTotalCents),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(),
+          ),
+          _moneySummaryRow(
+            'Total funeral cost',
+            _controller.arrangementTotalCents,
+            bold: true,
+          ),
+          _moneySummaryRow(
+            'Selected cover total',
+            _controller.selectedCoverTotalCents,
+            bold: true,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(),
+          ),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _controller.shortfallCents > 0
+                  ? MawaDesign.redSoft
+                  : MawaDesign.successSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _moneySummaryRow(
+              'Family shortfall',
+              _controller.shortfallCents,
+              bold: true,
+              colour: _controller.shortfallCents > 0
+                  ? MawaDesign.redDark
+                  : MawaDesign.success,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _moneySummaryRow(
+    String label,
+    int cents, {
+    bool bold = false,
+    Color? colour,
+  }) {
+    final style = TextStyle(
+      color: colour,
+      fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: Text(label, style: style)),
+          const SizedBox(width: 12),
+          FuneralMoneyText(cents: cents, style: style),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCoverStep() {
     return ListView(
@@ -619,34 +772,55 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   Widget _buildBottomBar() {
-    if (_controller.currentStep == 6 && _controller.generationResponse != null) {
+    if (_controller.currentStep == 6 &&
+        _controller.generationResponse != null) {
       return const SizedBox.shrink();
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          if (_controller.currentStep > 0)
-            OutlinedButton(
-              onPressed: _controller.previousStep,
-              child: const Text('Previous'),
-            )
-          else
-            const SizedBox.shrink(),
-          ElevatedButton(
-            onPressed: _onNextPressed,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-            ),
-            child: Text(_getNextButtonText()),
+      decoration: const BoxDecoration(
+        color: MawaDesign.surface,
+        border: Border(top: BorderSide(color: MawaDesign.border)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x100F172A),
+            blurRadius: 18,
+            offset: Offset(0, -5),
           ),
         ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1440),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              child: Row(
+                children: [
+                  if (_controller.currentStep > 0)
+                    OutlinedButton.icon(
+                      onPressed: _controller.previousStep,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: const Text('Back'),
+                    )
+                  else
+                    const SizedBox(width: 1),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: _onNextPressed,
+                    iconAlignment: IconAlignment.end,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    label: Text(_getNextButtonText()),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(140, 48),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -746,39 +920,101 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   void _showAddExtraDialog() {
     ProductLookup? selected;
     int quantity = 1;
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
-        title: const Text('Add Product Extra'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<ProductLookup>(
-            value: selected,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Product', border: OutlineInputBorder()),
-            items: _controller.products.map((p) => DropdownMenuItem(value: p, child: Text('${p.code} • ${p.description}'))).toList(),
-            onChanged: (v) => setDialogState(() => selected = v),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            initialValue: '1',
-            decoration: const InputDecoration(labelText: 'Quantity', border: OutlineInputBorder()),
-            keyboardType: TextInputType.number,
-            onChanged: (v) => quantity = int.tryParse(v) ?? 1,
-          ),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(onPressed: selected == null ? null : () {
-            final p = selected!;
-            final qty = quantity < 1 ? 1 : quantity;
-            setState(() => _controller.extras.add(FuneralExtraDto(
-              description: '${p.code} - ${p.description} x $qty',
-              amountCents: p.priceCents * qty,
-            )));
-            Navigator.pop(context);
-          }, child: const Text('Add')),
-        ],
-      )),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Dialog(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 580),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    MawaDialogHeader(
+                      icon: Icons.add_shopping_cart_rounded,
+                      title: 'Add product extra',
+                      description:
+                          'Add an optional product to the funeral arrangement.',
+                      onClose: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(height: 22),
+                    DropdownButtonFormField<ProductLookup>(
+                      value: selected,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Product',
+                      ),
+                      items: _controller.products
+                          .map(
+                            (product) => DropdownMenuItem(
+                              value: product,
+                              child: Text(
+                                '${product.code} • ${product.description}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setDialogState(() => selected = value),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      initialValue: '1',
+                      decoration: const InputDecoration(
+                        labelText: 'Quantity',
+                        prefixIcon: Icon(Icons.numbers_rounded),
+                      ),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) => quantity = int.tryParse(value) ?? 1,
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: selected == null
+                                ? null
+                                : () {
+                                    final product = selected!;
+                                    final safeQuantity = quantity < 1 ? 1 : quantity;
+                                    setState(
+                                      () => _controller.extras.add(
+                                        FuneralExtraDto(
+                                          description:
+                                              '${product.code} - ${product.description} x $safeQuantity',
+                                          amountCents:
+                                              product.priceCents * safeQuantity,
+                                        ),
+                                      ),
+                                    );
+                                    Navigator.pop(context);
+                                  },
+                            child: const Text('Add product'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

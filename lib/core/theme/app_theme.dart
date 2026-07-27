@@ -1,189 +1,411 @@
 import 'package:flutter/material.dart';
 
+import 'mawa_design.dart';
+
 class AppTheme {
   AppTheme._();
 
-  static const Color brandRed = Color(0xFFF20D1A);
-  static const Color brandRedDark = Color(0xFFC9000B);
-  static const Color brandNavy = Color(0xFF001A30);
-  static const Color brandNavySoft = Color(0xFF0B2940);
-
-  static const Color _primary = brandRed;
-  static const Color _pageBackground = Color(0xFFF5F7FA);
-  static const Color _containerBackground = Color(0xFFFFFFFF);
-  static const Color _fieldBackground = Color(0xFFFBFCFF);
-  static const Color _fieldBorder = Color(0xFFCBD5E1);
-  static const Color _fieldFocusedBorder = brandRed;
-  static const Color _text = brandNavy;
-  static const Color _mutedText = Color(0xFF526474);
-  static const Color _divider = Color(0xFFE2E8F0);
+  static const Color brandRed = MawaDesign.red;
+  static const Color brandRedDark = MawaDesign.redDark;
+  static const Color brandNavy = MawaDesign.navy;
+  static const Color brandNavySoft = MawaDesign.navySoft;
 
   static ThemeData get light {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: _primary,
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: MawaDesign.red,
       brightness: Brightness.light,
-      primary: _primary,
+      primary: MawaDesign.red,
       onPrimary: Colors.white,
-      secondary: brandNavy,
+      secondary: MawaDesign.navy,
       onSecondary: Colors.white,
-      surface: _containerBackground,
+      surface: MawaDesign.surface,
       error: const Color(0xFFDC2626),
     ).copyWith(
-      onSurface: _text,
-      surfaceContainerLowest: _containerBackground,
-      surfaceContainerLow: const Color(0xFFF8FAFC),
+      primaryContainer: MawaDesign.redSoft,
+      onPrimaryContainer: MawaDesign.redDark,
+      secondaryContainer: const Color(0xFFEAF0F6),
+      onSecondaryContainer: MawaDesign.navy,
+      surfaceContainerLowest: MawaDesign.surface,
+      surfaceContainerLow: MawaDesign.surfaceMuted,
       surfaceContainer: const Color(0xFFF1F5F9),
       surfaceContainerHigh: const Color(0xFFEFF3F8),
-      outline: _fieldBorder,
-      outlineVariant: _divider,
+      onSurface: MawaDesign.text,
+      onSurfaceVariant: MawaDesign.textMuted,
+      outline: MawaDesign.borderStrong,
+      outlineVariant: MawaDesign.border,
     );
 
-    OutlineInputBorder fieldBorder(Color color, {double width = 1.2}) {
-      return OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: color, width: width),
-      );
-    }
+    OutlineInputBorder inputBorder(Color colour, {double width = 1}) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(MawaDesign.fieldRadius),
+          borderSide: BorderSide(color: colour, width: width),
+        );
+
+    final baseTextTheme = ThemeData.light().textTheme.copyWith(
+          displayLarge: const TextStyle(
+            fontSize: 48,
+            height: 1.08,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.6,
+          ),
+          displayMedium: const TextStyle(
+            fontSize: 38,
+            height: 1.1,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.2,
+          ),
+          headlineLarge: const TextStyle(
+            fontSize: 30,
+            height: 1.16,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.8,
+          ),
+          headlineMedium: const TextStyle(
+            fontSize: 25,
+            height: 1.2,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.55,
+          ),
+          headlineSmall: const TextStyle(
+            fontSize: 21,
+            height: 1.25,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
+          titleLarge: const TextStyle(
+            fontSize: 19,
+            height: 1.28,
+            fontWeight: FontWeight.w700,
+          ),
+          titleMedium: const TextStyle(
+            fontSize: 15.5,
+            height: 1.3,
+            fontWeight: FontWeight.w700,
+          ),
+          titleSmall: const TextStyle(
+            fontSize: 13.5,
+            height: 1.3,
+            fontWeight: FontWeight.w700,
+          ),
+          bodyLarge: const TextStyle(fontSize: 15.5, height: 1.5),
+          bodyMedium: const TextStyle(fontSize: 14, height: 1.48),
+          bodySmall: const TextStyle(fontSize: 12.5, height: 1.45),
+          labelLarge: const TextStyle(
+            fontSize: 13.5,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+          ),
+          labelMedium: const TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+          ),
+          labelSmall: const TextStyle(
+            fontSize: 10.5,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.15,
+          ),
+        ).apply(
+          bodyColor: MawaDesign.text,
+          displayColor: MawaDesign.text,
+          fontFamily: 'Roboto',
+        );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: _pageBackground,
-      canvasColor: _pageBackground,
-      cardColor: _containerBackground,
-      dividerColor: _divider,
-      primaryColor: _primary,
       fontFamily: 'Roboto',
+      textTheme: baseTextTheme,
+      primaryColor: MawaDesign.red,
+      scaffoldBackgroundColor: MawaDesign.page,
+      canvasColor: MawaDesign.page,
+      cardColor: MawaDesign.surface,
+      dividerColor: MawaDesign.border,
+      visualDensity: VisualDensity.standard,
+      splashFactory: InkRipple.splashFactory,
       appBarTheme: const AppBarTheme(
-        backgroundColor: _containerBackground,
-        foregroundColor: _text,
+        backgroundColor: MawaDesign.surface,
+        foregroundColor: MawaDesign.text,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
-        shadowColor: Color(0x1A0F172A),
+        shadowColor: Color(0x180F172A),
+        centerTitle: false,
+        toolbarHeight: 68,
+        titleTextStyle: TextStyle(
+          color: MawaDesign.text,
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.25,
+        ),
+        iconTheme: IconThemeData(color: MawaDesign.navySoft, size: 22),
+        actionsIconTheme: IconThemeData(color: MawaDesign.navySoft, size: 22),
       ),
       cardTheme: CardThemeData(
-        color: _containerBackground,
+        color: MawaDesign.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 1,
-        shadowColor: const Color(0x1A0F172A),
-        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+        shadowColor: const Color(0x160F172A),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: _divider),
+          borderRadius: BorderRadius.circular(MawaDesign.cardRadius),
+          side: const BorderSide(color: MawaDesign.border),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: _containerBackground,
+        backgroundColor: MawaDesign.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        elevation: 18,
+        shadowColor: const Color(0x380F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(MawaDesign.dialogRadius),
+        ),
+        titleTextStyle: const TextStyle(
+          color: MawaDesign.text,
+          fontSize: 20,
+          height: 1.25,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+        ),
+        contentTextStyle: const TextStyle(
+          color: MawaDesign.textMuted,
+          fontSize: 14,
+          height: 1.5,
+        ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: _containerBackground,
+        backgroundColor: MawaDesign.surface,
         surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: MawaDesign.surface,
+        elevation: 18,
+        modalElevation: 18,
+        showDragHandle: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: _fieldBackground,
-        hoverColor: const Color(0xFFF8FAFC),
-        isDense: true,
+        fillColor: MawaDesign.surface,
+        hoverColor: MawaDesign.surfaceMuted,
+        isDense: false,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        labelStyle: const TextStyle(color: _mutedText, fontWeight: FontWeight.w500),
-        hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-        helperStyle: const TextStyle(color: _mutedText),
-        prefixIconColor: _mutedText,
-        suffixIconColor: _mutedText,
-        border: fieldBorder(_fieldBorder),
-        enabledBorder: fieldBorder(_fieldBorder),
-        focusedBorder: fieldBorder(_fieldFocusedBorder, width: 1.8),
-        errorBorder: fieldBorder(const Color(0xFFDC2626)),
-        focusedErrorBorder: fieldBorder(const Color(0xFFDC2626), width: 1.8),
-        disabledBorder: fieldBorder(const Color(0xFFE2E8F0)),
+        labelStyle: const TextStyle(
+          color: MawaDesign.textMuted,
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+        ),
+        floatingLabelStyle: const TextStyle(
+          color: MawaDesign.red,
+          fontWeight: FontWeight.w700,
+        ),
+        hintStyle: const TextStyle(color: MawaDesign.textSubtle),
+        helperStyle: const TextStyle(color: MawaDesign.textMuted),
+        prefixIconColor: MawaDesign.textMuted,
+        suffixIconColor: MawaDesign.textMuted,
+        border: inputBorder(MawaDesign.borderStrong),
+        enabledBorder: inputBorder(MawaDesign.borderStrong),
+        focusedBorder: inputBorder(MawaDesign.red, width: 1.6),
+        errorBorder: inputBorder(const Color(0xFFDC2626)),
+        focusedErrorBorder: inputBorder(const Color(0xFFDC2626), width: 1.6),
+        disabledBorder: inputBorder(MawaDesign.border),
       ),
       dropdownMenuTheme: DropdownMenuThemeData(
+        menuStyle: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(MawaDesign.surface),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(8),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: _fieldBackground,
-          border: fieldBorder(_fieldBorder),
-          enabledBorder: fieldBorder(_fieldBorder),
-          focusedBorder: fieldBorder(_fieldFocusedBorder, width: 1.8),
+          fillColor: MawaDesign.surface,
+          border: inputBorder(MawaDesign.borderStrong),
+          enabledBorder: inputBorder(MawaDesign.borderStrong),
+          focusedBorder: inputBorder(MawaDesign.red, width: 1.6),
         ),
-      ),
-      textTheme: ThemeData.light().textTheme.apply(
-            bodyColor: _text,
-            displayColor: _text,
-          ),
-      dividerTheme: const DividerThemeData(
-        color: _divider,
-        thickness: 1,
-        space: 1,
-      ),
-      listTileTheme: const ListTileThemeData(
-        tileColor: _containerBackground,
-        iconColor: _mutedText,
-        textColor: _text,
-      ),
-      chipTheme: ChipThemeData(
-        backgroundColor: const Color(0xFFF1F5F9),
-        selectedColor: const Color(0xFFFFE7E9),
-        disabledColor: const Color(0xFFE2E8F0),
-        labelStyle: const TextStyle(color: _text),
-        secondaryLabelStyle: const TextStyle(color: _text),
-        side: const BorderSide(color: _divider),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: _primary,
+          elevation: 0,
+          backgroundColor: MawaDesign.red,
           foregroundColor: Colors.white,
           disabledBackgroundColor: const Color(0xFFCBD5E1),
           disabledForegroundColor: const Color(0xFF64748B),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          elevation: 0,
+          backgroundColor: MawaDesign.red,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: _primary,
-          side: const BorderSide(color: _fieldBorder),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          elevation: 0,
+          foregroundColor: MawaDesign.navy,
+          backgroundColor: MawaDesign.surface,
+          side: const BorderSide(color: MawaDesign.borderStrong),
+          minimumSize: const Size(0, 46),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: _primary,
+          foregroundColor: MawaDesign.red,
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: MawaDesign.navySoft,
+          hoverColor: MawaDesign.surfaceMuted,
+          highlightColor: MawaDesign.redSoft,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
-      dataTableTheme: const DataTableThemeData(
-        headingRowColor: WidgetStatePropertyAll(Color(0xFFF1F5F9)),
-        dataRowColor: WidgetStatePropertyAll(_containerBackground),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: MawaDesign.red,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        focusElevation: 5,
+        hoverElevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: const Color(0xFFF1F5F9),
+        selectedColor: MawaDesign.redSoft,
+        disabledColor: MawaDesign.border,
+        labelStyle: const TextStyle(
+          color: MawaDesign.text,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        secondaryLabelStyle: const TextStyle(color: MawaDesign.text),
+        side: const BorderSide(color: MawaDesign.border),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: MawaDesign.border,
+        thickness: 1,
+        space: 1,
+      ),
+      listTileTheme: const ListTileThemeData(
+        tileColor: MawaDesign.surface,
+        iconColor: MawaDesign.textMuted,
+        textColor: MawaDesign.text,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        minVerticalPadding: 10,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingRowColor: const WidgetStatePropertyAll(Color(0xFFF8FAFC)),
+        dataRowColor: const WidgetStatePropertyAll(MawaDesign.surface),
+        headingTextStyle: const TextStyle(
+          color: MawaDesign.navySoft,
+          fontWeight: FontWeight.w800,
+          fontSize: 12.5,
+        ),
+        dataTextStyle: const TextStyle(
+          color: MawaDesign.text,
+          fontSize: 13.5,
+        ),
         dividerThickness: 1,
+        horizontalMargin: 18,
+        columnSpacing: 24,
+        headingRowHeight: 48,
+        dataRowMinHeight: 52,
+        dataRowMaxHeight: 64,
+        decoration: BoxDecoration(
+          color: MawaDesign.surface,
+          border: Border.all(color: MawaDesign.border),
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        indicatorColor: MawaDesign.red,
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelColor: MawaDesign.navy,
+        unselectedLabelColor: MawaDesign.textMuted,
+        dividerColor: MawaDesign.border,
+        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: MawaDesign.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 10,
+        shadowColor: const Color(0x280F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: const TextStyle(color: MawaDesign.text, fontSize: 13.5),
       ),
       navigationRailTheme: const NavigationRailThemeData(
-        backgroundColor: _containerBackground,
-        indicatorColor: Color(0xFFFFE7E9),
-        selectedIconTheme: IconThemeData(color: brandRed),
-        selectedLabelTextStyle: TextStyle(color: brandNavy, fontWeight: FontWeight.w700),
-        unselectedIconTheme: IconThemeData(color: _mutedText),
-        unselectedLabelTextStyle: TextStyle(color: _mutedText),
+        backgroundColor: MawaDesign.surface,
+        indicatorColor: MawaDesign.redSoft,
+        selectedIconTheme: IconThemeData(color: MawaDesign.red),
+        selectedLabelTextStyle: TextStyle(
+          color: MawaDesign.navy,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedIconTheme: IconThemeData(color: MawaDesign.textMuted),
+        unselectedLabelTextStyle: TextStyle(color: MawaDesign.textMuted),
       ),
       navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: _containerBackground,
-        indicatorColor: Color(0xFFFFE7E9),
+        backgroundColor: MawaDesign.surface,
+        indicatorColor: MawaDesign.redSoft,
+        surfaceTintColor: Colors.transparent,
+        elevation: 4,
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(color: brandRed),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: brandRed,
-        foregroundColor: Colors.white,
-      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: MawaDesign.red),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: brandNavy,
-        contentTextStyle: const TextStyle(color: Colors.white),
+        backgroundColor: MawaDesign.navy,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
+        actionTextColor: Colors.white,
+        elevation: 8,
+        insetPadding: const EdgeInsets.all(18),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: MawaDesign.navy,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: const TextStyle(color: Colors.white, fontSize: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.hovered)
+                ? MawaDesign.borderStrong
+                : MawaDesign.border),
+        radius: const Radius.circular(10),
+        thickness: const WidgetStatePropertyAll(7),
+        crossAxisMargin: 3,
       ),
     );
   }
