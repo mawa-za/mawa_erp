@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
+import '../../core/services/tenant_experience_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/routing/workcenter_route_registry.dart';
@@ -17,6 +18,7 @@ import '../../core/models/access_profile.dart';
 import '../../core/services/access_profile_service.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
+import 'models/tenant_experience.dart';
 
 // Import missing screens for legacy navigation fallback
 import '../auth/role_selection_screen.dart';
@@ -55,6 +57,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   final FocusNode _searchFocusNode = FocusNode();
   late AnimationController _animationController;
   final ModuleUsageService _moduleUsageService = ModuleUsageService();
+  final TenantExperienceService _tenantExperienceService = TenantExperienceService();
+  TenantExperience? _tenantExperience;
 
   @override
   void initState() {
@@ -64,6 +68,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 800),
     );
     _loadUserInfo();
+    _loadTenantExperience();
     _loadAppVersion();
     _fetchRecentModules();
     _fetchFrequentModules();
@@ -74,6 +79,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     setState(() {
       _appVersion = 'v${packageInfo.version}+${packageInfo.buildNumber}';
     });
+  }
+
+  Future<void> _loadTenantExperience() async {
+    try {
+      final experience = await _tenantExperienceService.getExperience();
+      if (mounted) setState(() => _tenantExperience = experience);
+    } catch (error) {
+      debugPrint('Unable to load tenant industry experience: $error');
+      if (mounted) setState(() => _tenantExperience = null);
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -152,17 +167,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   void _applySearch(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredWorkcenters = _workcenters;
-      } else {
-        final lowercaseQuery = query.toLowerCase();
-        _filteredWorkcenters = _workcenters.where((wc) {
-          return wc.description.toLowerCase().contains(lowercaseQuery) ||
-                 wc.id.toLowerCase().contains(lowercaseQuery);
-        }).toList();
-      }
-    });
+    setState(() => _filteredWorkcenters = _workcenters);
     _animationController.forward(from: 0.0);
   }
 
@@ -239,8 +244,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
-  IconData _getIconData(String id) {
-    final lowerId = id.toLowerCase();
+  IconData _getIconData(String id, [String? iconKey]) {
+    final lowerId = '${iconKey ?? ''} $id'.toLowerCase();
     if (lowerId.contains('employment')) return Icons.work_history_rounded;
     if (lowerId.contains('leave')) return Icons.event_available_rounded;
     if (lowerId.contains('asset')) return Icons.precision_manufacturing_rounded;
@@ -276,7 +281,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     // Track module usage
     _moduleUsageService.trackUsage(
       moduleCode: wc.id,
-      moduleName: wc.description,
+      moduleName: wc.presentationTitle,
       modulePath: wc.routePath,
       workcenterId: wc.id,
     );
@@ -376,70 +381,186 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       context.push(AppRoutes.internalCommunications);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
+        SnackBar(content: Text('${wc.presentationTitle} feature coming soon'), behavior: SnackBarBehavior.floating),
       );
     }
   }
 
-  List<Workcenter> _groupWorkcenters(List<Workcenter> workcenters) {
-    final grouped = <String, List<Workcenter>>{};
-    final ungrouped = <Workcenter>[];
+  List<_HomeWorkcenterSection> _buildHomeSections(
+    List<Workcenter> roleWorkcenters,
+  ) {
+    final query = _searchController.text.trim().toLowerCase();
+    final experience = _tenantExperience;
+    final sections = experience?.sections.isNotEmpty == true
+        ? experience!.sections
+        : _fallbackExperienceSections();
+    final usedIds = <String>{};
+    final result = <_HomeWorkcenterSection>[];
 
-    for (final workcenter in workcenters) {
-      if (FeatureGroupRegistry.isStandaloneCard(
-        workcenter.id,
-        workcenter.description,
-      )) {
-        ungrouped.add(workcenter);
-        continue;
+    for (final section in sections) {
+      final cards = <Workcenter>[];
+      final orderedGroups = [...section.groups]
+        ..sort((left, right) => left.displayOrder.compareTo(right.displayOrder));
+      for (final group in orderedGroups) {
+        if (!group.active) continue;
+        final configuredChildren = <Workcenter>[];
+        for (final item in group.workcenters) {
+          if (!item.active) continue;
+          final matched = _findRoleWorkcenter(roleWorkcenters, item.id);
+          if (matched == null) continue;
+          final normalizedId = FeatureGroupRegistry.normalize(matched.id);
+          if (usedIds.contains(normalizedId)) continue;
+          configuredChildren.add(matched);
+          usedIds.add(normalizedId);
+        }
+        if (configuredChildren.isEmpty) continue;
+
+        final groupMatches = query.isEmpty ||
+            group.title.toLowerCase().contains(query) ||
+            group.description.toLowerCase().contains(query);
+        final childMatches = query.isEmpty ||
+            configuredChildren.any((child) =>
+                child.description.toLowerCase().contains(query) ||
+                child.id.toLowerCase().contains(query));
+        if (!groupMatches && !childMatches) continue;
+
+        cards.add(
+          Workcenter(
+            id: group.code,
+            description: group.title,
+            displayLabel: group.title,
+            cardDescription: group.description,
+            defaultFunction: '',
+            path: '/feature-groups/${group.code}',
+            position: group.displayOrder,
+            routeKey: group.code,
+            routePath: '/feature-groups/${group.code}',
+            iconKey: group.iconKey,
+          ),
+        );
       }
-
-      final group = FeatureGroupRegistry.groupForWorkcenter(
-        workcenter.id,
-        workcenter.description,
-      );
-      if (group == null) {
-        ungrouped.add(workcenter);
-      } else {
-        grouped.putIfAbsent(group.id, () => <Workcenter>[]).add(workcenter);
+      if (cards.isNotEmpty) {
+        cards.sort((a, b) => a.position.compareTo(b.position));
+        result.add(
+          _HomeWorkcenterSection(
+            code: section.code,
+            title: section.title,
+            description: section.description,
+            displayOrder: section.displayOrder,
+            items: cards,
+          ),
+        );
       }
     }
 
-    final result = <Workcenter>[...ungrouped];
-    for (final entry in grouped.entries) {
-      final group = FeatureGroupRegistry.groupById(entry.key)!;
-      final children = entry.value..sort((a, b) => a.position.compareTo(b.position));
-      result.add(
-        Workcenter(
-          id: group.id,
-          description: group.title,
-          defaultFunction: '',
-          path: group.routePath,
-          position: children.first.position,
-          routeKey: group.id,
-          routePath: group.routePath,
-          iconKey: 'group',
-        ),
-      );
-    }
+    final allowUnassignedWorkcenters = experience == null ||
+        experience.primaryIndustryCode.trim().toUpperCase() == 'GENERAL_CUSTOM';
+    if (allowUnassignedWorkcenters) {
+      final unmatched = roleWorkcenters.where((workcenter) {
+        if (FeatureGroupRegistry.isGroupId(workcenter.id)) return false;
+        if (usedIds.contains(FeatureGroupRegistry.normalize(workcenter.id))) {
+          return false;
+        }
+        if (query.isEmpty) return true;
+        return workcenter.description.toLowerCase().contains(query) ||
+            workcenter.id.toLowerCase().contains(query);
+      }).toList()
+        ..sort((a, b) => a.position.compareTo(b.position));
 
-    result.sort((a, b) => a.position.compareTo(b.position));
+      if (unmatched.isNotEmpty) {
+        result.add(
+          _HomeWorkcenterSection(
+            code: 'ADDITIONAL_WORKCENTERS',
+            title: 'Additional Workcenters',
+            description:
+                'Role-specific capabilities that have not yet been assigned to a custom industry group.',
+            displayOrder: 90,
+            items: unmatched,
+          ),
+        );
+      }
+    }
+    result.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     return result;
+  }
+
+  Workcenter? _findRoleWorkcenter(
+    List<Workcenter> roleWorkcenters,
+    String configuredId,
+  ) {
+    final target = FeatureGroupRegistry.normalize(configuredId);
+    for (final workcenter in roleWorkcenters) {
+      final candidates = <String>{
+        FeatureGroupRegistry.normalize(workcenter.id),
+        FeatureGroupRegistry.normalize(workcenter.routeKey),
+        FeatureGroupRegistry.normalize(workcenter.defaultFunction),
+      };
+      if (candidates.contains(target)) return workcenter;
+    }
+    return null;
+  }
+
+  List<TenantExperienceSection> _fallbackExperienceSections() {
+    final sectionMetadata = <String, ({String title, String description, int order})>{
+      'YOUR_BUSINESS': (
+        title: 'Your Business',
+        description: 'Core solutions configured for this organisation.',
+        order: 10,
+      ),
+      'BUSINESS_SERVICES': (
+        title: 'Business Services',
+        description: 'Shared services supporting daily operations.',
+        order: 20,
+      ),
+      'SYSTEM_ADMINISTRATION': (
+        title: 'System Administration',
+        description: 'Configuration, integrations and platform administration.',
+        order: 30,
+      ),
+    };
+    return sectionMetadata.entries.map((entry) {
+      final groups = FeatureGroupRegistry.groups
+          .where((group) => group.sectionCode == entry.key)
+          .map((group) => TenantExperienceGroup(
+                code: group.id,
+                title: group.title,
+                description: group.description,
+                sectionCode: group.sectionCode,
+                iconKey: group.iconKey,
+                displayOrder: group.displayOrder,
+                active: true,
+                workcenters: group.childWorkcenterIds
+                    .asMap()
+                    .entries
+                    .map((item) => TenantExperienceWorkcenter(
+                          id: item.value,
+                          displayLabel: '',
+                          description: '',
+                          displayOrder: item.key * 10,
+                          active: true,
+                        ))
+                    .toList(),
+              ))
+          .toList();
+      return TenantExperienceSection(
+        code: entry.key,
+        title: entry.value.title,
+        description: entry.value.description,
+        displayOrder: entry.value.order,
+        groups: groups,
+      );
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final moduleWorkcenters = _filteredWorkcenters
-        .where((wc) =>
-            !wc.id.toLowerCase().contains('report') &&
-            !wc.description.toLowerCase().contains('report'))
-        .toList();
-    final modules = _groupWorkcenters(moduleWorkcenters);
-    final reports = _filteredWorkcenters
-        .where((wc) =>
-            wc.id.toLowerCase().contains('report') ||
-            wc.description.toLowerCase().contains('report'))
+    final sections = _buildHomeSections(_filteredWorkcenters);
+    final modules = sections.expand((section) => section.items).toList();
+    final reports = modules
+        .where((item) =>
+            item.id.toLowerCase().contains('report') ||
+            item.presentationTitle.toLowerCase().contains('report'))
         .toList();
     final showSidebar = screenWidth >= 1120;
 
@@ -458,6 +579,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                         child: _buildDashboardContent(
                           modules: modules,
                           reports: reports,
+                          sections: sections,
                         ),
                       ),
                     ],
@@ -584,7 +706,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             ),
             ...navigationModules.map(
               (workcenter) => _sidebarItem(
-                icon: _getIconData(workcenter.id),
+                icon: _getIconData(workcenter.id, workcenter.iconKey),
                 label: workcenter.description,
                 onTap: () => _navigateToWorkcenter(workcenter),
               ),
@@ -655,6 +777,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Widget _buildDashboardContent({
     required List<Workcenter> modules,
     required List<Workcenter> reports,
+    required List<_HomeWorkcenterSection> sections,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -678,24 +801,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 const SizedBox(height: 24),
                 _buildActivityRow(modules),
                 const SizedBox(height: 30),
-                if (modules.isNotEmpty)
+                for (var index = 0; index < sections.length; index++) ...[
+                  if (index > 0) const SizedBox(height: 30),
                   _buildWorkcenterSection(
-                    title: 'Workcenters',
-                    description:
-                        'Open a business area to access its processes, records and daily tasks.',
-                    items: modules,
-                  ),
-                if (reports.isNotEmpty) ...[
-                  const SizedBox(height: 30),
-                  _buildWorkcenterSection(
-                    title: 'Reports & analytics',
-                    description:
-                        'Review operational performance and management information.',
-                    items: reports,
-                    isReport: true,
+                    title: sections[index].title,
+                    description: sections[index].description,
+                    items: sections[index].items,
+                    isReport: sections[index].code == 'REPORTS_ANALYTICS',
                   ),
                 ],
-                if (_filteredWorkcenters.isEmpty &&
+                if (sections.isEmpty &&
                     _searchController.text.isNotEmpty) ...[
                   const SizedBox(height: 28),
                   const MawaEmptyState(
@@ -721,7 +836,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final date = DateFormat('EEEE, d MMMM yyyy').format(DateTime.now());
     return MawaPageHeader(
       title: 'Good ${_greetingForNow()}, $firstName',
-      description: 'Here is a clear view of the MAWA areas available for your role.',
+      description: _tenantExperience == null
+          ? 'Here is a clear view of the MAWA areas available for your role.'
+          : 'Your ${_tenantExperience!.primaryIndustryName} workspace, shaped around the industries configured for this organisation.',
       eyebrow: Row(
         children: [
           Container(
@@ -1062,15 +1179,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }) {
     final theme = Theme.of(context);
     final tint = isReport ? MawaDesign.warning : MawaDesign.iconTint(index);
-    final description = FeatureGroupRegistry.isGroupId(workcenter.id)
-        ? WorkcenterCardDescriptions.forGroup(
-            workcenter.id,
-            workcenter.description,
-          )
-        : WorkcenterCardDescriptions.forWorkcenter(
-            workcenter.id,
-            workcenter.description,
-          );
+    final description = workcenter.cardDescription ??
+        (FeatureGroupRegistry.isGroupId(workcenter.id)
+            ? WorkcenterCardDescriptions.forGroup(
+                workcenter.id,
+                workcenter.description,
+              )
+            : WorkcenterCardDescriptions.forWorkcenter(
+                workcenter.id,
+                workcenter.description,
+              ));
 
     return Card(
       child: InkWell(
@@ -1083,7 +1201,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               Row(
                 children: [
                   MawaIconBadge(
-                    icon: _getIconData(workcenter.id),
+                    icon: _getIconData(workcenter.id, workcenter.iconKey),
                     color: tint,
                     size: 48,
                   ),
@@ -1105,7 +1223,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               ),
               const Spacer(),
               Text(
-                workcenter.description,
+                workcenter.presentationTitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium,
@@ -1322,4 +1440,21 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _animationController.dispose();
     super.dispose();
   }
+}
+
+
+class _HomeWorkcenterSection {
+  final String code;
+  final String title;
+  final String description;
+  final int displayOrder;
+  final List<Workcenter> items;
+
+  const _HomeWorkcenterSection({
+    required this.code,
+    required this.title,
+    required this.description,
+    required this.displayOrder,
+    required this.items,
+  });
 }

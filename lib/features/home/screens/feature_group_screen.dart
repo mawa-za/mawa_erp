@@ -10,10 +10,12 @@ import '../../../core/routing/feature_group_registry.dart';
 import '../../../core/routing/workcenter_route_registry.dart';
 import '../../../core/routing/workcenter_card_descriptions.dart';
 import '../../../core/services/module_usage_service.dart';
+import '../../../core/services/tenant_experience_service.dart';
 import '../../../core/theme/mawa_design.dart';
 import '../../../core/widgets/mawa_ui.dart';
 import '../../approvals/services/approval_workflow_service.dart';
 import '../models/workcenter.dart';
+import '../models/tenant_experience.dart';
 
 class FeatureGroupScreen extends StatefulWidget {
   final String groupId;
@@ -27,12 +29,16 @@ class FeatureGroupScreen extends StatefulWidget {
 class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
   final ModuleUsageService _moduleUsageService = ModuleUsageService();
   final ApprovalWorkflowService _approvalWorkflowService = ApprovalWorkflowService();
+  final TenantExperienceService _tenantExperienceService = TenantExperienceService();
   bool _loading = true;
   String? _error;
   List<Workcenter> _children = [];
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   bool _gridView = true;
+  TenantExperienceGroup? _experienceGroup;
+  String _groupTitle = 'Workcenter';
+  String _groupDescription = 'Open a feature to continue.';
 
   @override
   void initState() {
@@ -46,8 +52,19 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       _error = null;
     });
     try {
-      final group = FeatureGroupRegistry.groupById(widget.groupId);
-      if (group == null) {
+      TenantExperience? experience;
+      try {
+        experience = await _tenantExperienceService.getExperience();
+      } catch (_) {
+        // Industry presentation is additive. Legacy grouping remains available
+        // if configuration refresh is temporarily unavailable.
+      }
+
+      final fallbackGroup = FeatureGroupRegistry.groupById(widget.groupId);
+      final canonicalGroupId = FeatureGroupRegistry.canonicalGroupId(widget.groupId);
+      final experienceGroup = experience?.groupByCode(canonicalGroupId) ??
+          experience?.groupByCode(widget.groupId);
+      if (experienceGroup == null && fallbackGroup == null) {
         throw Exception('Unknown feature group: ${widget.groupId}');
       }
 
@@ -63,31 +80,54 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       }
 
       final List<dynamic> data = jsonDecode(response.body);
-      final all = data.map((json) => Workcenter.fromJson(json)).toList();
-      final allowed = all
-          .where(
+      final all = data
+          .whereType<Map>()
+          .map((json) => Workcenter.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+      final allowed = <Workcenter>[];
+
+      if (experienceGroup != null) {
+        for (final configured in experienceGroup.workcenters) {
+          if (!configured.active) continue;
+          final matched = _findConfiguredWorkcenter(all, configured.id);
+          if (matched == null) continue;
+          allowed.add(
+            matched.copyWith(
+              position: configured.displayOrder,
+              displayLabel: configured.displayLabel.trim().isEmpty
+                  ? null
+                  : configured.displayLabel,
+              cardDescription: configured.description.trim().isEmpty
+                  ? null
+                  : configured.description,
+            ),
+          );
+        }
+      } else if (fallbackGroup != null) {
+        allowed.addAll(
+          all.where(
             (wc) =>
-                group.matches(wc.id, wc.description) &&
-                !FeatureGroupRegistry.isGroupId(wc.id) &&
-                !FeatureGroupRegistry.isStandaloneCard(
-                  wc.id,
-                  wc.description,
-                ),
-          )
-          .toList()
-        ..sort((a, b) => a.position.compareTo(b.position));
+                fallbackGroup.matches(wc.id, wc.description) &&
+                !FeatureGroupRegistry.isGroupId(wc.id),
+          ),
+        );
+      }
+      allowed.sort((a, b) => a.position.compareTo(b.position));
 
       // Active approval workflows are first-class features. Surface each type
-      // in the business group that owns the object instead of hiding every
-      // approval behind one generic Finance card.
+      // in the group that owns the business object.
       try {
         final workflows = await _approvalWorkflowService.getActiveWorkflows();
         var nextPosition = allowed.isEmpty
             ? 900
             : allowed.map((item) => item.position).reduce((a, b) => a > b ? a : b) + 1;
+        final activeGroupId = experienceGroup?.code ?? fallbackGroup?.id ?? canonicalGroupId;
         for (final workflow in workflows) {
           final type = FeatureGroupRegistry.normalize(workflow.approvalType);
-          if (FeatureGroupRegistry.approvalGroup(type) != group.id) continue;
+          if (FeatureGroupRegistry.normalize(FeatureGroupRegistry.approvalGroup(type)) !=
+              FeatureGroupRegistry.normalize(activeGroupId)) {
+            continue;
+          }
           if (allowed.any((item) =>
               FeatureGroupRegistry.normalize(item.id) == 'APPROVAL_$type')) {
             continue;
@@ -100,8 +140,10 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
             path: AppRoutes.approvals,
             position: nextPosition++,
             routeKey: 'APPROVAL_$type',
-            routePath: '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
+            routePath:
+                '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
             iconKey: 'APPROVAL',
+            cardDescription: 'Review and process $label approval requests assigned to your role.',
           ));
         }
       } catch (_) {
@@ -110,6 +152,11 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
 
       if (!mounted) return;
       setState(() {
+        _experienceGroup = experienceGroup;
+        _groupTitle = experienceGroup?.title ?? fallbackGroup?.title ?? 'Workcenter';
+        _groupDescription = experienceGroup?.description.trim().isNotEmpty == true
+            ? experienceGroup!.description
+            : fallbackGroup?.description ?? 'Open a feature to continue.';
         _children = allowed;
         _loading = false;
       });
@@ -122,10 +169,26 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     }
   }
 
+  Workcenter? _findConfiguredWorkcenter(
+    List<Workcenter> workcenters,
+    String configuredId,
+  ) {
+    final target = FeatureGroupRegistry.normalize(configuredId);
+    for (final workcenter in workcenters) {
+      final candidates = <String>{
+        FeatureGroupRegistry.normalize(workcenter.id),
+        FeatureGroupRegistry.normalize(workcenter.routeKey),
+        FeatureGroupRegistry.normalize(workcenter.defaultFunction),
+      };
+      if (candidates.contains(target)) return workcenter;
+    }
+    return null;
+  }
+
   void _openWorkcenter(Workcenter wc) {
     _moduleUsageService.trackUsage(
       moduleCode: wc.id,
-      moduleName: wc.description,
+      moduleName: wc.presentationTitle,
       modulePath: wc.routePath,
       workcenterId: wc.id,
     );
@@ -175,12 +238,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${wc.description} feature coming soon')),
+      SnackBar(content: Text('${wc.presentationTitle} feature coming soon')),
     );
   }
 
   String? _routeForCurrentGroup(Workcenter workcenter) {
-    final group = FeatureGroupRegistry.normalize(widget.groupId);
+    final group = FeatureGroupRegistry.normalize(
+      _experienceGroup?.code ?? FeatureGroupRegistry.canonicalGroupId(widget.groupId),
+    );
     final identity = [
       workcenter.id,
       workcenter.routeKey,
@@ -188,7 +253,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       workcenter.routePath ?? '',
     ].map(FeatureGroupRegistry.normalize).join('_');
 
-    if (group == FeatureGroupRegistry.normalize('funeral-management')) {
+    if (group == FeatureGroupRegistry.normalize('funeral-operations') ||
+        group == FeatureGroupRegistry.normalize('funeral-management')) {
       if (identity.contains('CLAIM')) return AppRoutes.funeralAllClaims;
       if (identity.contains('PAYMENT')) return AppRoutes.funeralPayments;
       if (identity.contains('PICKUP')) return AppRoutes.funeralPickups;
@@ -203,7 +269,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       }
     }
 
-    if (group == FeatureGroupRegistry.normalize('membership-management')) {
+    if (group == FeatureGroupRegistry.normalize('membership-cover') ||
+        group == FeatureGroupRegistry.normalize('membership-management')) {
       if (identity.contains('CLAIM')) return AppRoutes.membershipClaims;
       if (identity.contains('PLAN')) return AppRoutes.membershipPlans;
       if (identity.contains('GROUP') || identity.contains('SOCIET')) {
@@ -223,12 +290,20 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     }
 
 
-    if (group == FeatureGroupRegistry.normalize('partner-management')) {
+    if (group == FeatureGroupRegistry.normalize('people-workplace') ||
+        group == FeatureGroupRegistry.normalize('partner-management')) {
       if (identity.contains('LEAVE')) return AppRoutes.employeeRequests;
       if (identity.contains('EMPLOY')) return AppRoutes.employment;
     }
 
-    if (group == FeatureGroupRegistry.normalize('sales-management')) {
+    if (group == FeatureGroupRegistry.normalize('clients-relationships')) {
+      if (identity.contains('CLIENT') || identity.contains('PARTNER')) {
+        return '/partners/CLIENT';
+      }
+    }
+
+    if (group == FeatureGroupRegistry.normalize('sales-customers') ||
+        group == FeatureGroupRegistry.normalize('sales-management')) {
       if (identity.contains('CUSTOMER') || identity.contains('CLIENT')) {
         return '/partners/CUSTOMER';
       }
@@ -238,7 +313,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       }
     }
 
-    if (group == FeatureGroupRegistry.normalize('procurement-management')) {
+    if (group == FeatureGroupRegistry.normalize('procurement-suppliers') ||
+        group == FeatureGroupRegistry.normalize('procurement-management')) {
       if (identity.contains('SUPPLIER') && !identity.contains('INVOICE')) {
         return '/partners/SUPPLIER';
       }
@@ -250,7 +326,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       }
     }
 
-    if (group == FeatureGroupRegistry.normalize('inventory')) {
+    if (group == FeatureGroupRegistry.normalize('legal-practice')) {
+      if (identity.contains('CASE') || identity.contains('MATTER')) {
+        return AppRoutes.cases;
+      }
+    }
+
+    if (group == FeatureGroupRegistry.normalize('products-inventory') ||
+        group == FeatureGroupRegistry.normalize('inventory')) {
       if (identity.contains('ASSET')) return AppRoutes.assetRegister;
       if (identity.contains('PRODUCT')) return AppRoutes.products;
       if (identity.contains('QUOT')) return AppRoutes.inventoryQuotations;
@@ -277,8 +360,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     return null;
   }
 
-  IconData _iconFor(String id) {
-    final lower = id.toLowerCase();
+  IconData _iconFor(String id, [String? iconKey]) {
+    final lower = '${iconKey ?? ''} $id'.toLowerCase();
     if (lower.contains('receipt')) return Icons.call_received_outlined;
     if (lower.contains('putaway')) return Icons.compare_arrows_outlined;
     if (lower.contains('stock')) return Icons.inventory_2_outlined;
@@ -302,18 +385,16 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final group = FeatureGroupRegistry.groupById(widget.groupId);
-    final title = group?.title ?? 'Feature Group';
-    final description =
-        WorkcenterCardDescriptions.forGroup(widget.groupId, title);
+    final title = _groupTitle;
+    final description = _groupDescription;
     final filtered = _children.where((item) {
       if (_query.trim().isEmpty) return true;
       final query = _query.toLowerCase();
-      return item.description.toLowerCase().contains(query) ||
-          WorkcenterCardDescriptions.forWorkcenter(
+      return item.presentationTitle.toLowerCase().contains(query) ||
+          (item.cardDescription ?? WorkcenterCardDescriptions.forWorkcenter(
             item.id,
             item.description,
-          ).toLowerCase().contains(query);
+          )).toLowerCase().contains(query);
     }).toList();
 
     return Scaffold(
@@ -506,10 +587,11 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
   Widget _workcenterCard(Workcenter workcenter, {required int index}) {
     final theme = Theme.of(context);
     final colour = MawaDesign.iconTint(index);
-    final description = WorkcenterCardDescriptions.forWorkcenter(
-      workcenter.id,
-      workcenter.description,
-    );
+    final description = workcenter.cardDescription ??
+        WorkcenterCardDescriptions.forWorkcenter(
+          workcenter.id,
+          workcenter.description,
+        );
 
     return Card(
       child: InkWell(
@@ -522,7 +604,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
               Row(
                 children: [
                   MawaIconBadge(
-                    icon: _iconFor(workcenter.id),
+                    icon: _iconFor(workcenter.id, workcenter.iconKey),
                     color: colour,
                     size: 50,
                   ),
@@ -544,7 +626,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
               ),
               const Spacer(),
               Text(
-                workcenter.description,
+                workcenter.presentationTitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium,
@@ -584,7 +666,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         child: Row(
           children: [
             MawaIconBadge(
-              icon: _iconFor(workcenter.id),
+              icon: _iconFor(workcenter.id, workcenter.iconKey),
               color: colour,
               size: 44,
             ),
@@ -593,13 +675,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(workcenter.description, style: theme.textTheme.titleSmall),
+                  Text(workcenter.presentationTitle, style: theme.textTheme.titleSmall),
                   const SizedBox(height: 4),
                   Text(
-                    WorkcenterCardDescriptions.forWorkcenter(
-                      workcenter.id,
-                      workcenter.description,
-                    ),
+                    workcenter.cardDescription ??
+                        WorkcenterCardDescriptions.forWorkcenter(
+                          workcenter.id,
+                          workcenter.description,
+                        ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
