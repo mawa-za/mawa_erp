@@ -71,11 +71,8 @@ class _MyAppState extends State<MyApp> {
           onPointerMove: (_) => SessionService().userActivityDetected(),
           child: ColoredBox(
             color: Theme.of(context).scaffoldBackgroundColor,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1920),
-                child: child ?? const SizedBox.shrink(),
-              ),
+            child: SizedBox.expand(
+              child: child ?? const SizedBox.shrink(),
             ),
           ),
         );

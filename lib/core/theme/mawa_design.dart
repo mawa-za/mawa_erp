@@ -27,8 +27,6 @@ class MawaDesign {
   static const Color info = Color(0xFF2F80ED);
   static const Color infoSoft = Color(0xFFEAF3FF);
 
-  static const double pageMaxWidth = 1560;
-  static const double contentMaxWidth = 1320;
   static const double desktopSidebarWidth = 224;
   static const double cardRadius = 16;
   static const double dialogRadius = 20;

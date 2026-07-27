@@ -324,7 +324,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 18),
                             Text(
-                              'MAWA • v1.0.8+9',
+                              'MAWA • v1.0.9+10',
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: MawaDesign.textMuted,

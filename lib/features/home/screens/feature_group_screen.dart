@@ -304,14 +304,16 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
   Widget build(BuildContext context) {
     final group = FeatureGroupRegistry.groupById(widget.groupId);
     final title = group?.title ?? 'Feature Group';
-    final description = WorkcenterCardDescriptions.forGroup(widget.groupId, title);
+    final description =
+        WorkcenterCardDescriptions.forGroup(widget.groupId, title);
     final filtered = _children.where((item) {
       if (_query.trim().isEmpty) return true;
       final query = _query.toLowerCase();
       return item.description.toLowerCase().contains(query) ||
-          WorkcenterCardDescriptions.forWorkcenter(item.id, item.description)
-              .toLowerCase()
-              .contains(query);
+          WorkcenterCardDescriptions.forWorkcenter(
+            item.id,
+            item.description,
+          ).toLowerCase().contains(query);
     }).toList();
 
     return Scaffold(
@@ -349,43 +351,38 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
                     );
                     return SingleChildScrollView(
                       padding: padding,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: MawaDesign.contentMaxWidth,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              MawaPageHeader(
-                                title: title,
-                                description: description,
-                                eyebrow: _groupEyebrow(filtered.length),
-                              ),
-                              const SizedBox(height: 22),
-                              _buildToolbar(),
-                              const SizedBox(height: 18),
-                              if (_children.isEmpty)
-                                const MawaEmptyState(
-                                  icon: Icons.lock_outline_rounded,
-                                  title: 'No features available',
-                                  description:
-                                      'No workcenters in this group are assigned to your current role.',
-                                )
-                              else if (filtered.isEmpty)
-                                const MawaEmptyState(
-                                  icon: Icons.search_off_rounded,
-                                  title: 'No matching features',
-                                  description:
-                                      'Try a different feature name or process description.',
-                                )
-                              else if (_gridView)
-                                _buildGrid(filtered)
-                              else
-                                _buildList(filtered),
-                            ],
-                          ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            MawaPageHeader(
+                              title: title,
+                              description: description,
+                              eyebrow: _groupEyebrow(filtered.length),
+                            ),
+                            const SizedBox(height: 22),
+                            _buildToolbar(),
+                            const SizedBox(height: 18),
+                            if (_children.isEmpty)
+                              const MawaEmptyState(
+                                icon: Icons.lock_outline_rounded,
+                                title: 'No features available',
+                                description:
+                                    'No workcenters in this group are assigned to your current role.',
+                              )
+                            else if (filtered.isEmpty)
+                              const MawaEmptyState(
+                                icon: Icons.search_off_rounded,
+                                title: 'No matching features',
+                                description:
+                                    'Try a different feature name or process description.',
+                              )
+                            else if (_gridView)
+                              _buildGrid(filtered)
+                            else
+                              _buildList(filtered),
+                          ],
                         ),
                       ),
                     );
