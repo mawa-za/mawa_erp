@@ -12,6 +12,8 @@ class PickupRequestDto {
   final PickupStatus status;
   final String? staffId;
   final DateTime? createdAt;
+  final DateTime? arrivalTime;
+  final DateTime? injuryAssessedAt;
   final DateTime? completionTime;
 
   PickupRequestDto({
@@ -26,6 +28,8 @@ class PickupRequestDto {
     this.status = PickupStatus.PENDING,
     this.staffId,
     this.createdAt,
+    this.arrivalTime,
+    this.injuryAssessedAt,
     this.completionTime,
   });
 
@@ -43,6 +47,8 @@ class PickupRequestDto {
       if (staffId != null) 'staffId': staffId,
       if (staffId != null) 'assignedStaffId': staffId,
       if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+      if (arrivalTime != null) 'arrivalTime': arrivalTime!.toIso8601String(),
+      if (injuryAssessedAt != null) 'injuryAssessedAt': injuryAssessedAt!.toIso8601String(),
       if (completionTime != null) 'completionTime': completionTime!.toIso8601String(),
     };
   }
@@ -60,6 +66,8 @@ class PickupRequestDto {
       status: PickupStatus.parse(json['status']),
       staffId: (json['assignedStaffId'] ?? json['staffId'])?.toString(),
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
+      arrivalTime: json['arrivalTime'] != null ? DateTime.tryParse(json['arrivalTime'].toString()) : null,
+      injuryAssessedAt: json['injuryAssessedAt'] != null ? DateTime.tryParse(json['injuryAssessedAt'].toString()) : null,
       completionTime: json['completionTime'] != null ? DateTime.tryParse(json['completionTime'].toString()) : null,
     );
   }

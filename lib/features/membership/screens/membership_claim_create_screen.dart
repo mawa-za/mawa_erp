@@ -52,7 +52,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
   String? _selectedBankCode;
   String? _selectedCauseOfDeathCode;
   
-  Partner? _selectedClaimant;
   List<FieldOption> _claimTypeOptions = [];
   List<FieldOption> _payoutMethodOptions = [];
   List<FieldOption> _accTypeOptions = [];
@@ -63,10 +62,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
   void initState() {
     super.initState();
     _loadOptions();
-    
-    if (widget.dependent != null) {
-      _selectedClaimant = widget.member;
-    }
     
     final deceasedName = widget.deceasedPartner?.fullName ?? widget.member.fullName;
     final relationshipLabel = widget.dependent != null 
@@ -153,27 +148,8 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     }
   }
 
-  Future<List<Partner>> _searchClaimants(String query) async {
-    if (query.length < 2) return [];
-    try {
-      final response = await ApiClient().get('/v2/partner?query=$query');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Partner.fromJson(json)).toList();
-      }
-    } catch (e) {
-      debugPrint('Error searching partners: $e');
-    }
-    return [];
-  }
-
   Future<void> _submitClaim() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedClaimant == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a claimant'), behavior: SnackBarBehavior.floating));
-      return;
-    }
-
     setState(() => _isSubmitting = true);
 
     try {
@@ -204,7 +180,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         "burialDate": DateFormat('yyyy-MM-dd').format(_burialDate),
         "causeOfDeath": selectedCause.code,
         "deathCertificateNo": _deathCertificateController.text.trim(),
-        "claimantPartnerId": _selectedClaimant!.id,
         "claimAmountCents": amountCents,
         "notes": _notesController.text.trim(),
         "submit": false,
@@ -277,9 +252,9 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
                 children: [
                   _buildSummaryCard(colorScheme),
                   const SizedBox(height: 32),
-                  _buildSectionHeader(Icons.person_search_outlined, '1. CLAIMANT (BENEFICIARY)'),
+                  _buildSectionHeader(Icons.person_outline, '1. MEMBERSHIP HOLDER'),
                   const SizedBox(height: 12),
-                  _buildClaimantSelector(colorScheme),
+                  _buildMembershipHolderCard(colorScheme),
                   const SizedBox(height: 32),
                   _buildSectionHeader(Icons.assignment_outlined, '2. CLAIM DETAILS'),
                   const SizedBox(height: 12),
@@ -391,67 +366,53 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     );
   }
 
-  Widget _buildClaimantSelector(ColorScheme colorScheme) {
+  Widget _buildMembershipHolderCard(ColorScheme colorScheme) {
+    final member = widget.member;
+    final identity = member.identityNumber.trim().isEmpty
+        ? 'Identity not captured'
+        : '${member.idType ?? 'ID'}: ${member.identityNumber}';
+
     return _buildCard([
-      SearchAnchor(
-        builder: (context, controller) => SearchBar(
-          controller: controller,
-          onTap: () => controller.openView(),
-          onChanged: (_) => controller.openView(),
-          hintText: 'Search for Beneficiary...',
-          leading: const Icon(Icons.search_rounded),
-          elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: WidgetStatePropertyAll(Colors.grey[100]),
-          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16)),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
         ),
-        suggestionsBuilder: (context, controller) async {
-          final partners = await _searchClaimants(controller.text);
-          return partners.map((p) => ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person, size: 18)),
-            title: Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Policy No: ${p.number}'),
-            onTap: () {
-              setState(() => _selectedClaimant = p);
-              controller.closeView(p.fullName);
-            },
-          )).toList();
-        },
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: colorScheme.primary.withOpacity(0.1),
+              child: Text(
+                member.fullName.isNotEmpty ? member.fullName[0].toUpperCase() : '?',
+                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(member.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Text(identity, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text(
+                    'Membership #${widget.membership.membershipNo}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.lock_outline_rounded, color: colorScheme.primary, size: 20),
+          ],
+        ),
       ),
-      if (_selectedClaimant != null) ...[
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: colorScheme.primary.withOpacity(0.1),
-                child: Text(_selectedClaimant!.fullName.isNotEmpty ? _selectedClaimant!.fullName[0].toUpperCase() : '?', 
-                  style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_selectedClaimant!.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text('ID: ${_selectedClaimant!.identityNumber}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, size: 20),
-                onPressed: () => setState(() => _selectedClaimant = null),
-              ),
-            ],
-          ),
-        ),
-      ],
+      const SizedBox(height: 10),
+      Text(
+        'The claimant is derived from the selected membership and cannot be changed.',
+        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+      ),
     ]);
   }
 
