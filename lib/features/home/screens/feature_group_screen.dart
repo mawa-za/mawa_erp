@@ -10,6 +10,8 @@ import '../../../core/routing/feature_group_registry.dart';
 import '../../../core/routing/workcenter_route_registry.dart';
 import '../../../core/routing/workcenter_card_descriptions.dart';
 import '../../../core/services/module_usage_service.dart';
+import '../../../core/theme/mawa_design.dart';
+import '../../../core/widgets/mawa_ui.dart';
 import '../../approvals/services/approval_workflow_service.dart';
 import '../models/workcenter.dart';
 
@@ -28,6 +30,9 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
   bool _loading = true;
   String? _error;
   List<Workcenter> _children = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+  bool _gridView = true;
 
   @override
   void initState() {
@@ -299,13 +304,22 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
   Widget build(BuildContext context) {
     final group = FeatureGroupRegistry.groupById(widget.groupId);
     final title = group?.title ?? 'Feature Group';
+    final description = WorkcenterCardDescriptions.forGroup(widget.groupId, title);
+    final filtered = _children.where((item) {
+      if (_query.trim().isEmpty) return true;
+      final query = _query.toLowerCase();
+      return item.description.toLowerCase().contains(query) ||
+          WorkcenterCardDescriptions.forWorkcenter(item.id, item.description)
+              .toLowerCase()
+              .contains(query);
+    }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: MawaDesign.page,
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -315,114 +329,331 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
           },
         ),
         title: Text(title),
-        actions: [IconButton(onPressed: _loadChildren, icon: const Icon(Icons.refresh))],
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _loadChildren,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 10),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!, textAlign: TextAlign.center)))
-              : _children.isEmpty
-                  ? const Center(child: Text('No features are available for your current role.'))
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final crossAxisCount =
-                            (constraints.maxWidth / 210).floor().clamp(1, 5);
-                        return GridView.builder(
-                          padding: const EdgeInsets.all(24),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            childAspectRatio: 1.0,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
+              ? _buildErrorState()
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final padding = MawaDesign.responsivePagePadding(
+                      constraints.maxWidth,
+                    );
+                    return SingleChildScrollView(
+                      padding: padding,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: MawaDesign.contentMaxWidth,
                           ),
-                          itemCount: _children.length,
-                          itemBuilder: (context, index) =>
-                              _workcenterCard(_children[index]),
-                        );
-                      },
-                    ),
-    );
-  }
-  Widget _workcenterCard(Workcenter workcenter, {bool compact = false}) {
-    final theme = Theme.of(context);
-    final borderRadius = BorderRadius.circular(compact ? 14 : 18);
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: borderRadius,
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: InkWell(
-        borderRadius: borderRadius,
-        onTap: () => _openWorkcenter(workcenter),
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 12 : 18),
-          child: compact
-              ? Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer
-                            .withOpacity(0.55),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Icon(
-                        _iconFor(workcenter.id),
-                        size: 22,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        workcenter.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MawaPageHeader(
+                                title: title,
+                                description: description,
+                                eyebrow: _groupEyebrow(filtered.length),
+                              ),
+                              const SizedBox(height: 22),
+                              _buildToolbar(),
+                              const SizedBox(height: 18),
+                              if (_children.isEmpty)
+                                const MawaEmptyState(
+                                  icon: Icons.lock_outline_rounded,
+                                  title: 'No features available',
+                                  description:
+                                      'No workcenters in this group are assigned to your current role.',
+                                )
+                              else if (filtered.isEmpty)
+                                const MawaEmptyState(
+                                  icon: Icons.search_off_rounded,
+                                  title: 'No matching features',
+                                  description:
+                                      'Try a different feature name or process description.',
+                                )
+                              else if (_gridView)
+                                _buildGrid(filtered)
+                              else
+                                _buildList(filtered),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right),
-                  ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      _iconFor(workcenter.id),
-                      size: 32,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const Spacer(),
-                    Text(
-                      workcenter.description,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      WorkcenterCardDescriptions.forWorkcenter(
-                        workcenter.id,
-                        workcenter.description,
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
+    );
+  }
+
+  Widget _groupEyebrow(int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: MawaDesign.redSoft,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$count ${count == 1 ? 'feature' : 'features'} available',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: MawaDesign.redDark,
+            ),
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return MawaSurface(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: InputDecoration(
+                hintText: 'Search features in this workcenter',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                filled: true,
+                fillColor: MawaDesign.surfaceMuted,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment<bool>(
+                value: true,
+                icon: Icon(Icons.grid_view_rounded, size: 18),
+                tooltip: 'Grid view',
+              ),
+              ButtonSegment<bool>(
+                value: false,
+                icon: Icon(Icons.view_list_rounded, size: 19),
+                tooltip: 'List view',
+              ),
+            ],
+            selected: {_gridView},
+            showSelectedIcon: false,
+            onSelectionChanged: (selection) {
+              setState(() => _gridView = selection.first);
+            },
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              side: const WidgetStatePropertyAll(
+                BorderSide(color: MawaDesign.borderStrong),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrid(List<Workcenter> items) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 320,
+        mainAxisExtent: 224,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => _workcenterCard(
+        items[index],
+        index: index,
+      ),
+    );
+  }
+
+  Widget _buildList(List<Workcenter> items) {
+    return MawaSurface(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            _workcenterListTile(items[index], index: index),
+            if (index < items.length - 1)
+              const Divider(indent: 64, endIndent: 12),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _workcenterCard(Workcenter workcenter, {required int index}) {
+    final theme = Theme.of(context);
+    final colour = MawaDesign.iconTint(index);
+    final description = WorkcenterCardDescriptions.forWorkcenter(
+      workcenter.id,
+      workcenter.description,
+    );
+
+    return Card(
+      child: InkWell(
+        onTap: () => _openWorkcenter(workcenter),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  MawaIconBadge(
+                    icon: _iconFor(workcenter.id),
+                    color: colour,
+                    size: 50,
+                  ),
+                  const Spacer(),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: MawaDesign.surfaceMuted,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 16,
+                      color: MawaDesign.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                workcenter.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 7),
+              Text(
+                description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: MawaDesign.textMuted,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Open  →',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: MawaDesign.red,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  Widget _workcenterListTile(Workcenter workcenter, {required int index}) {
+    final theme = Theme.of(context);
+    final colour = MawaDesign.iconTint(index);
+    return InkWell(
+      onTap: () => _openWorkcenter(workcenter),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        child: Row(
+          children: [
+            MawaIconBadge(
+              icon: _iconFor(workcenter.id),
+              color: colour,
+              size: 44,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(workcenter.description, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text(
+                    WorkcenterCardDescriptions.forWorkcenter(
+                      workcenter.id,
+                      workcenter.description,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: MawaDesign.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              'Open',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: MawaDesign.red,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: MawaDesign.textMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: MawaEmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: 'Unable to load this workcenter',
+            description: _error ?? 'An unexpected error occurred.',
+            action: ElevatedButton.icon(
+              onPressed: _loadChildren,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Try again'),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 }

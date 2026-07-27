@@ -92,7 +92,7 @@ class _FuneralPaymentsPageState extends State<FuneralPaymentsPage> {
   Widget build(BuildContext context) {
     final items = _filtered;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Back',

@@ -269,7 +269,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.batchId != null ? 'Edit Payroll Run' : 'New Payroll Run'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),

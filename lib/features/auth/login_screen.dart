@@ -7,6 +7,7 @@ import '../../core/api_client.dart';
 import '../../core/config.dart';
 import '../../core/services/field_service.dart';
 import '../../core/services/access_profile_service.dart';
+import '../../core/theme/mawa_design.dart';
 import '../settings/models/role.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
@@ -24,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -151,99 +153,233 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final showBrandPanel = width >= 980;
+
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
+      backgroundColor: MawaDesign.page,
+      body: Row(
+        children: [
+          if (showBrandPanel)
             Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset('assets/branding/mawa_logo.png', height: 72, fit: BoxFit.contain),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Login to continue',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                          const SizedBox(height: 48),
-                          TextFormField(
-                            controller: _usernameController,
-                            textInputAction: TextInputAction.next,
-                            decoration: InputDecoration(
-                              labelText: 'Username',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              prefixIcon: const Icon(Icons.person),
+              flex: 5,
+              child: Container(
+                height: double.infinity,
+                padding: const EdgeInsets.all(56),
+                color: MawaDesign.navy,
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Image.asset(
+                        'assets/branding/mawa_logo_white.png',
+                        height: 48,
+                        fit: BoxFit.contain,
+                        alignment: Alignment.centerLeft,
+                      ),
+                      const Spacer(),
+                      Text(
+                        'One platform for the work\nthat matters every day.',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              color: Colors.white,
+                              fontSize: 38,
+                              height: 1.16,
                             ),
-                            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-                          ),
-                          const SizedBox(height: 20),
-                          TextFormField(
-                            controller: _passwordController,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _login(),
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              prefixIcon: const Icon(Icons.lock),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Manage memberships, funeral arrangements, finance, inventory and operations with clarity.',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: const Color(0xFFCBD5E1),
+                              height: 1.6,
                             ),
-                            obscureText: true,
-                            validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
-                                );
-                              },
-                              child: const Text('Forgot Password?'),
+                      ),
+                      const SizedBox(height: 34),
+                      const _LoginFeature(
+                        icon: Icons.grid_view_rounded,
+                        text: 'Role-based workcenters',
+                      ),
+                      const SizedBox(height: 14),
+                      const _LoginFeature(
+                        icon: Icons.verified_user_outlined,
+                        text: 'Secure business processes',
+                      ),
+                      const SizedBox(height: 14),
+                      const _LoginFeature(
+                        icon: Icons.insights_outlined,
+                        text: 'Operational visibility',
+                      ),
+                      const Spacer(),
+                      const Text(
+                        'Trusted technology for communities that matter.',
+                        style: TextStyle(color: Color(0xFF94A3B8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          Expanded(
+            flex: showBrandPanel ? 4 : 1,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(34),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (!showBrandPanel) ...[
+                              Image.asset(
+                                'assets/branding/mawa_logo.png',
+                                height: 52,
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                            Text(
+                              'Welcome back',
+                              style: Theme.of(context).textTheme.headlineMedium,
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          _isLoading
-                              ? const CircularProgressIndicator()
-                              : ElevatedButton(
-                                  onPressed: _login,
-                                  style: ElevatedButton.styleFrom(
-                                    minimumSize: const Size.fromHeight(56),
-                                    elevation: 1,
+                            const SizedBox(height: 8),
+                            Text(
+                              'Sign in to continue to MAWA.',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: MawaDesign.textMuted,
                                   ),
-                                  child: const Text(
-                                    'LOGIN',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.2,
+                            ),
+                            const SizedBox(height: 28),
+                            TextFormField(
+                              controller: _usernameController,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: 'Username',
+                                prefixIcon: Icon(Icons.person_outline_rounded),
+                              ),
+                              validator: (value) => value?.trim().isEmpty ?? true
+                                  ? 'Please enter your username'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _isLoading ? null : _login(),
+                              obscureText: _obscurePassword,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                suffixIcon: IconButton(
+                                  tooltip: _obscurePassword
+                                      ? 'Show password'
+                                      : 'Hide password',
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                  ),
+                                ),
+                              ),
+                              validator: (value) => value?.isEmpty ?? true
+                                  ? 'Please enter your password'
+                                  : null,
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const ForgotPasswordScreen(),
                                     ),
+                                  );
+                                },
+                                child: const Text('Forgot password?'),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: _isLoading ? null : _login,
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(48),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Sign in'),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              'MAWA • v1.0.8+9',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: MawaDesign.textMuted,
                                   ),
-                                ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: Text(
-                'v1.0.4+5',
-                style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w300),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+}
+
+class _LoginFeature extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _LoginFeature({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, color: Colors.white, size: 19),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xFFE2E8F0),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
