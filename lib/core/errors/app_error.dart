@@ -13,7 +13,7 @@ class AppException implements Exception {
   })  : technicalMessage = source?.toString(),
         message = friendlyErrorMessage(
           source,
-          fallback: fallback,
+          fallback: fallback ?? 'Something went wrong. Please try again.',
           statusCode: statusCode,
         );
 
@@ -24,7 +24,7 @@ class AppException implements Exception {
   })  : technicalMessage = responseBody,
         message = friendlyErrorMessage(
           responseBody,
-          fallback: fallback,
+          fallback: fallback ?? 'Something went wrong. Please try again.',
           statusCode: statusCode,
         );
 
