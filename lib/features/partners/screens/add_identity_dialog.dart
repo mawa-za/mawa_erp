@@ -63,7 +63,7 @@ class _AddIdentityDialogState extends State<AddIdentityDialog> {
           Navigator.of(context).pop(true);
         }
       } else {
-        throw Exception('Failed to add identity: ${response.statusCode}');
+        throw Exception('Failed to add identity: ${response.body.isNotEmpty ? response.body : response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
