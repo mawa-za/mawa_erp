@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/theme/mawa_design.dart';
+import '../../../../core/widgets/mawa_ui.dart';
 import '../../data/models/funeral_package_dto.dart';
 import 'funeral_money_text.dart';
 
@@ -17,61 +20,88 @@ class FuneralPackageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
-    return Card(
-      elevation: isSelected ? 4 : 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isSelected 
-          ? BorderSide(color: theme.primaryColor, width: 2)
-          : BorderSide(color: Colors.grey.shade300),
+    final supportingText = package.inclusions.isNotEmpty
+        ? package.inclusions.take(3).join(' • ')
+        : package.products.isNotEmpty
+            ? '${package.products.length} configured package items'
+            : 'A configured funeral package for the selected arrangement.';
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFFFFFBFB) : MawaDesign.surface,
+        borderRadius: BorderRadius.circular(MawaDesign.cardRadius),
+        border: Border.all(
+          color: isSelected ? MawaDesign.red : MawaDesign.border,
+          width: isSelected ? 1.5 : 1,
+        ),
+        boxShadow: isSelected ? MawaDesign.cardShadow : null,
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      package.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                    ),
-                  ),
-                  if (isSelected)
-                    Icon(Icons.check_circle, color: theme.primaryColor),
-                ],
-              ),
-              const SizedBox(height: 8),
-              FuneralMoneyText(
-                cents: package.basePriceCents,
-                style: TextStyle(
-                  fontSize: 20, 
-                  fontWeight: FontWeight.bold, 
-                  color: theme.primaryColor
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(MawaDesign.cardRadius),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const MawaIconBadge(
+                  icon: Icons.inventory_2_outlined,
+                  color: MawaDesign.red,
+                  size: 50,
                 ),
-              ),
-              if (package.inclusions.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Text('Inclusions:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: package.inclusions.map((item) => Chip(
-                    label: Text(item, style: const TextStyle(fontSize: 10)),
-                    padding: EdgeInsets.zero,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                  )).toList(),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(package.name, style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 5),
+                      Text(
+                        supportingText,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: MawaDesign.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FuneralMoneyText(
+                      cents: package.basePriceCents,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: MawaDesign.red,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: isSelected
+                          ? const Icon(
+                              Icons.check_circle_rounded,
+                              key: ValueKey('selected'),
+                              color: MawaDesign.red,
+                              size: 22,
+                            )
+                          : const Icon(
+                              Icons.radio_button_unchecked_rounded,
+                              key: ValueKey('unselected'),
+                              color: MawaDesign.borderStrong,
+                              size: 22,
+                            ),
+                    ),
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),

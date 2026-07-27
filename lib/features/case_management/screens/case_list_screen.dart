@@ -76,7 +76,7 @@ class _CaseListScreenState extends State<CaseListScreen> {
     final isTablet = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Case Management', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,

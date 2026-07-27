@@ -6,29 +6,29 @@ import 'feature_group_registry.dart';
 class WorkcenterCardDescriptions {
   static const Map<String, String> _groupDescriptions = {
     'MEMBERSHIP_MANAGEMENT':
-        'Manage members, memberships, plans, dependants, claims and group societies.',
+        'Run the complete member lifecycle, from plan enrolment and premiums to dependants, claims and group societies.',
     'TOMBSTONE_MANAGEMENT':
-        'Manage tombstone sales, laybys, designs, production, installation and rework.',
+        'Coordinate tombstone sales, laybys, design approval, production, installation and after-sales rework.',
     'FUNERAL_MANAGEMENT':
-        'Coordinate collections, mortuary activity, funeral arrangements, claims and payments.',
+        'Coordinate every funeral service stage, from collection and mortuary care to arrangements, claims, invoicing and payment.',
     'FINANCE_MANAGEMENT':
-        'Manage invoices, payment requests, cashups and financial approvals.',
+        'Control invoicing, payment requests, cashier reconciliation and financial approvals from one workcenter.',
     'SALES_MANAGEMENT':
-        'Manage customers, quotations and sales orders from enquiry to fulfilment.',
+        'Turn customer enquiries into quotations, confirmed sales orders and fulfilled commitments.',
     'PROCUREMENT_MANAGEMENT':
-        'Onboard suppliers and manage purchase orders, receipts and supplier invoices.',
+        'Govern supplier onboarding and purchasing from approved orders through goods receipt and supplier invoicing.',
     'INVENTORY':
-        'Manage products, stock availability, movements, putaway and inventory controls.',
+        'Maintain product master data and control stock availability, receiving, putaway, movement and audit history.',
     'SCHEDULING':
-        'Plan appointments, bookings and operational calendar activities.',
+        'Plan appointments, bookings and operational commitments in a shared business calendar.',
     'PARTNER_MANAGEMENT':
-        'Manage business partners, employees, employment records and leave requests.',
+        'Maintain trusted partner and workforce records, including employment actions and employee leave.',
     'ADMINISTRATION':
-        'Configure the system, integrations, roles, queues and operational settings.',
+        'Control MAWA configuration, access roles, integrations, processing schedules and operational settings.',
     'LEGAL_MANAGEMENT':
-        'Manage legal matters, case activity, documents, time and disbursements.',
+        'Manage legal matters with structured case activity, parties, documents, time, billing and disbursements.',
     'COMMUNICATIONS':
-        'Coordinate internal communication and employee engagement activities.',
+        'Publish internal communication and coordinate employee engagement across the organisation.',
   };
 
   static String forGroup(String id, String title) {

@@ -69,7 +69,12 @@ class _MyAppState extends State<MyApp> {
         return Listener(
           onPointerDown: (_) => SessionService().userActivityDetected(),
           onPointerMove: (_) => SessionService().userActivityDetected(),
-          child: child ?? const SizedBox.shrink(),
+          child: ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: SizedBox.expand(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         );
       },
     );

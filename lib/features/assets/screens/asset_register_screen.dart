@@ -143,7 +143,7 @@ class _AssetRegisterScreenState extends State<AssetRegisterScreen> {
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'en_ZA', symbol: 'R ');
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Asset Register'),
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
