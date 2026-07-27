@@ -28,28 +28,22 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
       _error = null;
     });
     try {
-      // First get the list of distinct fields
       final fields = await _service.getFields();
-      
-      // Then get all options to group them
       final options = await _service.getOptions();
-      
       final Map<String, List<FieldOption>> groups = {};
-      
-      // Initialize groups with empty lists for all fields
-      for (var field in fields) {
+
+      for (final field in fields) {
         final fieldCode = field['code']?.toString() ?? '';
-        if (fieldCode.isNotEmpty) {
-          groups[fieldCode] = [];
-        }
+        if (fieldCode.isNotEmpty) groups[fieldCode] = [];
       }
-      
-      // Populate the groups with actual options
-      for (var option in options) {
-        if (!groups.containsKey(option.field)) {
-          groups[option.field] = [];
-        }
+
+      for (final option in options) {
+        groups.putIfAbsent(option.field, () => []);
         groups[option.field]!.add(option);
+      }
+
+      for (final values in groups.values) {
+        values.sort((a, b) => a.description.compareTo(b.description));
       }
 
       if (mounted) {
@@ -69,122 +63,209 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
     }
   }
 
+  String _generatedCode(String description) {
+    return description.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '-');
+  }
+
+  String _fieldLabel(Map<String, dynamic> field) {
+    final code = field['code']?.toString() ?? '';
+    final description = field['description']?.toString().trim() ?? '';
+    if (description.isEmpty || description.toUpperCase() == code.toUpperCase()) {
+      return code;
+    }
+    return '$description ($code)';
+  }
+
   Future<void> _addField() async {
-    final fieldController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final descriptionController = TextEditingController();
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Add Field'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: fieldController,
-                decoration: const InputDecoration(labelText: 'Field Name/Code (e.g. GENDER)'),
+        content: SizedBox(
+          width: 460,
+          child: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: descriptionController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                helperText: 'The field code is generated automatically.',
               ),
-            ],
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Enter a description'
+                  : null,
+            ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CANCEL'),
+          ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
             child: const Text('CREATE'),
           ),
         ],
       ),
     );
 
-    if (result == true) {
-      final fieldName = fieldController.text.trim().toUpperCase();
-      if (fieldName.isEmpty) return;
+    if (result != true) return;
 
-      try {
-        await _service.addField({
-          'description': fieldName,
-          'validFrom': DateTime.now().toIso8601String().split('T')[0],
-          'validTo': '2099-12-31'
-        });
-        _fetchData();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-        }
+    try {
+      await _service.addField({
+        'description': descriptionController.text.trim(),
+      });
+      await _fetchData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
 
-  Future<void> _addOrEditOption({FieldOption? option, String? initialField}) async {
-    final fieldController = TextEditingController(text: option?.field ?? initialField ?? '');
-    final codeController = TextEditingController(text: option?.code ?? '');
-    final descriptionController = TextEditingController(text: option?.description ?? '');
-    final typeController = TextEditingController(text: option?.type ?? '');
-    
-    final bool isEditing = option != null;
+  Future<void> _addOrEditOption({
+    FieldOption? option,
+    String? initialField,
+  }) async {
+    final formKey = GlobalKey<FormState>();
+    final descriptionController = TextEditingController(
+      text: option?.description ?? '',
+    );
+    final isEditing = option != null;
+    String? selectedField = option?.field ?? initialField;
+
+    final fieldItems = <Map<String, dynamic>>[..._fields];
+    final knownCodes = fieldItems
+        .map((field) => field['code']?.toString() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet();
+    if (selectedField != null &&
+        selectedField!.isNotEmpty &&
+        !knownCodes.contains(selectedField)) {
+      fieldItems.add({
+        'code': selectedField,
+        'description': selectedField,
+      });
+    }
+    fieldItems.sort(
+      (a, b) => _fieldLabel(a).compareTo(_fieldLabel(b)),
+    );
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isEditing ? 'Edit Option' : 'Add Option'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: fieldController,
-                decoration: const InputDecoration(labelText: 'Field Name (e.g. GENDER)'),
-                enabled: !isEditing && initialField == null,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(isEditing ? 'Edit Field Option' : 'Add Field Option'),
+          content: SizedBox(
+            width: 480,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedField != null &&
+                            fieldItems.any(
+                              (field) => field['code']?.toString() == selectedField,
+                            )
+                        ? selectedField
+                        : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Field',
+                    ),
+                    items: fieldItems
+                        .map(
+                          (field) => DropdownMenuItem<String>(
+                            value: field['code']?.toString(),
+                            child: Text(
+                              _fieldLabel(field),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: isEditing || initialField != null
+                        ? null
+                        : (value) => setDialogState(() {
+                              selectedField = value;
+                            }),
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'Select a field'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: descriptionController,
+                    autofocus: !isEditing,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      helperText: 'Code and type are set automatically.',
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Enter a description'
+                        : null,
+                  ),
+                  if (!isEditing && descriptionController.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Generated code: ${_generatedCode(descriptionController.text)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ],
               ),
-              TextField(
-                controller: codeController,
-                decoration: const InputDecoration(labelText: 'Code (e.g. M)'),
-                enabled: !isEditing,
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description (e.g. Male)'),
-              ),
-              TextField(
-                controller: typeController,
-                decoration: const InputDecoration(labelText: 'Type'),
-              ),
-            ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: Text(isEditing ? 'UPDATE' : 'CREATE'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(isEditing ? 'UPDATE' : 'CREATE'),
-          ),
-        ],
       ),
     );
 
-    if (result == true) {
-      try {
-        final field = fieldController.text.trim().toUpperCase();
-        final data = {
-          'field': field,
-          'code': codeController.text.trim().toUpperCase(),
-          'description': descriptionController.text.trim(),
-          'type': typeController.text.trim(),
-          'validFrom': option?.validFrom ?? DateTime.now().toIso8601String().split('T')[0],
-          'validTo': option?.validTo ?? '2099-12-31',
-        };
+    if (result != true || selectedField == null) return;
 
-        if (isEditing) {
-          await _service.updateOption(option.field, option.code, data);
-        } else {
-          await _service.saveOption(field, data);
-        }
-        _fetchData();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-        }
+    try {
+      final data = <String, dynamic>{
+        'description': descriptionController.text.trim(),
+      };
+
+      if (isEditing) {
+        await _service.updateOption(option.field, option.code, data);
+      } else {
+        await _service.saveOption(selectedField!, data);
+      }
+      await _fetchData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -192,27 +273,32 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
   Future<void> _deleteOption(FieldOption option) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Option'),
         content: Text('Are you sure you want to delete ${option.description}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('DELETE', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
-      try {
-        await _service.deleteOption(option.field, option.code);
-        _fetchData();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-        }
+    if (confirm != true) return;
+
+    try {
+      await _service.deleteOption(option.field, option.code);
+      await _fetchData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -233,7 +319,12 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              ? Center(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                )
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: sortedFields.length,
@@ -243,31 +334,61 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       child: ExpansionTile(
-                        title: Text(field, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(options.isEmpty ? 'No options' : '${options.length} options'),
+                        title: Text(
+                          field,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          options.isEmpty
+                              ? 'No options'
+                              : '${options.length} options',
+                        ),
                         trailing: IconButton(
                           icon: const Icon(Icons.add_circle_outline),
                           onPressed: () => _addOrEditOption(initialField: field),
                         ),
-                        children: options.isEmpty 
-                          ? [const Padding(padding: EdgeInsets.all(16.0), child: Text('No options defined for this field', style: TextStyle(color: Colors.grey)))]
-                          : options.map((opt) => ListTile(
-                          title: Text(opt.description),
-                          subtitle: Text('Code: ${opt.code} | Type: ${opt.type}'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined, size: 20),
-                                onPressed: () => _addOrEditOption(option: opt),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                                onPressed: () => _deleteOption(opt),
-                              ),
-                            ],
-                          ),
-                        )).toList(),
+                        children: options.isEmpty
+                            ? const [
+                                Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'No options defined for this field',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                              ]
+                            : options
+                                .map(
+                                  (opt) => ListTile(
+                                    title: Text(opt.description),
+                                    subtitle: Text('Code: ${opt.code}'),
+                                    trailing: opt.type.toUpperCase() == 'TENANT'
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.edit_outlined,
+                                                  size: 20,
+                                                ),
+                                                onPressed: () =>
+                                                    _addOrEditOption(option: opt),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  size: 20,
+                                                  color: Colors.red,
+                                                ),
+                                                onPressed: () =>
+                                                    _deleteOption(opt),
+                                              ),
+                                            ],
+                                          )
+                                        : null,
+                                  ),
+                                )
+                                .toList(),
                       ),
                     );
                   },
