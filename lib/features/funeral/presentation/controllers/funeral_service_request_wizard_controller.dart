@@ -77,6 +77,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
+      _synchroniseSelectedPackage();
       causeOfDeathOptions = results[2] as List<FieldOption>;
       salesAreaOptions = results[3] as List<FieldOption>;
       products = results[4] as List<ProductLookup>;
@@ -115,9 +116,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   Future<bool> createServiceRequest() async {
+    final package = effectiveSelectedPackage;
     if (selectedDeceased == null ||
         familyRepPartnerId == null ||
-        selectedPackage == null ||
+        package == null ||
         deathCertificateNo.trim().isEmpty ||
         causeOfDeath == null ||
         causeOfDeath!.trim().isEmpty ||
@@ -140,7 +142,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         funeralDate: funeralDate,
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
         familyRepPartnerId: familyRepPartnerId!,
-        packageId: selectedPackage!.id,
+        packageId: package.id,
         extras: extras,
       );
 
@@ -228,7 +230,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     try {
       final request = FuneralInvoicePreviewRequestDto(
         deceasedName: selectedDeceased?.deceasedName ?? '',
-        packageId: selectedPackage?.id ?? '',
+        packageId: effectiveSelectedPackage?.id ?? '',
         familyRepId: familyRepPartnerId ?? '',
         memberships: selectedCovers.map((c) => c.membershipId ?? c.sourceReference ?? '').toList(),
         extras: extras,
@@ -258,11 +260,92 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
-  int get packageAmountCents => selectedPackage?.basePriceCents ?? 0;
+  FuneralPackageDto? get effectiveSelectedPackage {
+    final selectedId = selectedPackage?.id;
+    if (selectedId != null && selectedId.isNotEmpty) {
+      for (final package in packages) {
+        if (package.id == selectedId) return package;
+      }
+      return selectedPackage;
+    }
+    return packages.length == 1 ? packages.single : null;
+  }
+
+  int get packageAmountCents => effectiveSelectedPackage?.basePriceCents ?? 0;
   int get extrasTotalCents => extras.fold(0, (sum, e) => sum + e.amountCents);
   int get arrangementTotalCents => packageAmountCents + extrasTotalCents;
-  int get selectedCoverTotalCents => selectedCovers.fold(0, (sum, c) => sum + (c.combinationAmountCents > 0 ? c.combinationAmountCents : c.funeralAmountCents));
+  int get selectedCoverTotalCents {
+    final useCombinationBenefit = selectedCovers.length > 1;
+    return selectedCovers.fold(
+      0,
+      (sum, cover) =>
+          sum + _coverAmountCents(cover, useCombinationBenefit: useCombinationBenefit),
+    );
+  }
   int get shortfallCents => (arrangementTotalCents - selectedCoverTotalCents).clamp(0, 1 << 62).toInt();
+
+  void selectPackage(FuneralPackageDto package) {
+    selectedPackage = package;
+    notifyListeners();
+  }
+
+  void toggleCoverSelection(FuneralMembershipCoverDto cover) {
+    final selectionId = _coverSelectionId(cover);
+    final isSelected = selectedCovers.any(
+      (selected) => _coverSelectionId(selected) == selectionId,
+    );
+
+    if (isSelected) {
+      selectedCovers.removeWhere(
+        (selected) => _coverSelectionId(selected) == selectionId,
+      );
+      if (groceryCoverSelectionId == selectionId) {
+        groceryCoverSelectionId = null;
+      }
+    } else {
+      selectedCovers.add(cover);
+    }
+    notifyListeners();
+  }
+
+  int _coverAmountCents(
+    FuneralMembershipCoverDto cover, {
+    required bool useCombinationBenefit,
+  }) {
+    final funeralAmount = cover.funeralAmountCents > 0
+        ? cover.funeralAmountCents
+        : cover.coverAmountCents;
+
+    if (!useCombinationBenefit) {
+      return funeralAmount;
+    }
+
+    return cover.combinationAmountCents > 0
+        ? cover.combinationAmountCents
+        : funeralAmount;
+  }
+
+  String? _coverSelectionId(FuneralMembershipCoverDto cover) =>
+      cover.membershipId ?? cover.sourceReference;
+
+  void _synchroniseSelectedPackage() {
+    final selectedId = selectedPackage?.id;
+    if (selectedId != null && selectedId.isNotEmpty) {
+      for (final package in packages) {
+        if (package.id == selectedId) {
+          selectedPackage = package;
+          return;
+        }
+      }
+      selectedPackage = null;
+    }
+
+    // A single available package is unambiguous and should immediately feed
+    // the package, total-cost and shortfall calculations.
+    if (packages.length == 1) {
+      selectedPackage = packages.single;
+    }
+  }
 
   void nextStep() {
     if (currentStep < 6) {
