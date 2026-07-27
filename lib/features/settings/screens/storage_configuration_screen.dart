@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class StorageConfigurationScreen extends StatefulWidget {
   const StorageConfigurationScreen({super.key});
@@ -31,7 +32,7 @@ class _StorageConfigurationScreenState extends State<StorageConfigurationScreen>
     Map<String, dynamic>? query,
   ]) async {
     final response = await ApiClient().get(path, queryParameters: query);
-    if (response.statusCode != 200) throw Exception(response.body);
+    if (response.statusCode != 200) throw AppException(response.body);
     final decoded = jsonDecode(response.body);
     if (decoded is! List) return <Map<String, dynamic>>[];
     return decoded.map((item) => Map<String, dynamic>.from(item as Map)).toList();
@@ -53,7 +54,7 @@ class _StorageConfigurationScreenState extends State<StorageConfigurationScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not load storage configuration: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Could not load storage configuration: $e'))),
         );
       }
     } finally {
@@ -524,7 +525,7 @@ class _StorageConfigurationScreenState extends State<StorageConfigurationScreen>
   Future<void> _save(String path, Map<String, dynamic> body) async {
     final response = await ApiClient().post(path, body: body);
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(response.body);
+      throw AppException(response.body);
     }
   }
 
@@ -541,7 +542,7 @@ class _StorageConfigurationScreenState extends State<StorageConfigurationScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save storage location type: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Could not save storage location type: $e'))),
         );
       }
     }

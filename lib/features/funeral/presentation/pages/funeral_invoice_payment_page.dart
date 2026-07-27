@@ -3,6 +3,7 @@ import '../../data/funeral_api.dart';
 import '../../data/models/invoice_payment_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../../../core/utils/formatters.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralInvoicePaymentPage extends StatefulWidget {
   final String invoiceId;
@@ -45,7 +46,7 @@ class _FuneralInvoicePaymentPageState extends State<FuneralInvoicePaymentPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

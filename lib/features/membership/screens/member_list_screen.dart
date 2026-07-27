@@ -9,6 +9,7 @@ import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/models/partner.dart';
 import 'add_member_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MemberListScreen extends StatefulWidget {
   const MemberListScreen({super.key});
@@ -162,7 +163,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -200,7 +201,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         setState(() {
           _isLoadingMore = false;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error loading more: $e'), behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(friendlyErrorMessage('Error loading more: $e')), behavior: SnackBarBehavior.floating),
           );
         });
       }

@@ -6,6 +6,7 @@ import '../models/invoice.dart';
 import '../../partners/models/partner.dart';
 import 'invoice_create_screen.dart' hide Partner;
 import 'invoice_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InvoiceListScreen extends StatefulWidget {
   final String? partnerId;
@@ -80,13 +81,17 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         _resolvePartnerNames(invoices);
       } else {
         setState(() {
-          _error = 'Failed to load invoices: ${response.statusCode}';
+          _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'Invoices could not be loaded. Please try again.',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }

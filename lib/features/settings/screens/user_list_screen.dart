@@ -3,6 +3,7 @@ import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
 import 'user_detail_screen.dart';
 import 'user_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class UserListScreen extends StatefulWidget {
   const UserListScreen({super.key});
@@ -48,7 +49,7 @@ class _UserListScreenState extends State<UserListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }

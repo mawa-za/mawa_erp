@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../core/api_client.dart';
 import '../models/product_maintenance.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ProductMaintenanceService {
   Future<List<ProductMaintenanceItem>> getProducts({String? type, String? categoryId, String? query}) async {
@@ -12,7 +13,7 @@ class ProductMaintenanceService {
 
     final response = await ApiClient().get('/product', queryParameters: params);
     if (response.statusCode != 200) {
-      throw Exception('Failed to load products (${response.statusCode})');
+      throw AppException('Failed to load products (${response.statusCode})');
     }
     final decoded = jsonDecode(response.body);
     final List<dynamic> data = decoded is List
@@ -29,7 +30,7 @@ class ProductMaintenanceService {
   Future<List<ProductTypeDefinition>> getProductTypes() async {
     final response = await ApiClient().get('/v2/product-types');
     if (response.statusCode != 200) {
-      throw Exception(_errorMessage(response.body, 'Failed to load product types'));
+      throw AppException(_errorMessage(response.body, 'Failed to load product types'));
     }
     final decoded = jsonDecode(response.body) as List<dynamic>;
     return decoded
@@ -43,7 +44,7 @@ class ProductMaintenanceService {
     if (productType != null && productType.trim().isNotEmpty) params['productType'] = productType.trim();
     final response = await ApiClient().get('/v2/product-categories', queryParameters: params);
     if (response.statusCode != 200) {
-      throw Exception(_errorMessage(response.body, 'Failed to load product categories'));
+      throw AppException(_errorMessage(response.body, 'Failed to load product categories'));
     }
     final decoded = jsonDecode(response.body) as List<dynamic>;
     return decoded
@@ -70,7 +71,7 @@ class ProductMaintenanceService {
       'sortOrder': sortOrder,
     });
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(_errorMessage(response.body, 'Failed to create category'));
+      throw AppException(_errorMessage(response.body, 'Failed to create category'));
     }
     return ProductCategoryDefinition.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
   }
@@ -95,7 +96,7 @@ class ProductMaintenanceService {
       'sortOrder': sortOrder,
     });
     if (response.statusCode != 200) {
-      throw Exception(_errorMessage(response.body, 'Failed to update category'));
+      throw AppException(_errorMessage(response.body, 'Failed to update category'));
     }
     return ProductCategoryDefinition.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
   }
@@ -103,7 +104,7 @@ class ProductMaintenanceService {
   Future<void> deactivateCategory(String id) async {
     final response = await ApiClient().delete('/v2/product-categories/$id');
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception(_errorMessage(response.body, 'Failed to deactivate category'));
+      throw AppException(_errorMessage(response.body, 'Failed to deactivate category'));
     }
   }
 
@@ -128,7 +129,7 @@ class ProductMaintenanceService {
       'pricingType': pricingType.trim().isEmpty ? 'SELLING-PRICE' : pricingType.trim().toUpperCase(),
     });
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(_errorMessage(response.body, 'Failed to create product'));
+      throw AppException(_errorMessage(response.body, 'Failed to create product'));
     }
     final decoded = jsonDecode(response.body);
     if (decoded is String) {
@@ -160,14 +161,14 @@ class ProductMaintenanceService {
       'pricingType': pricingType.trim().isEmpty ? 'SELLING-PRICE' : pricingType.trim().toUpperCase(),
     });
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception(_errorMessage(response.body, 'Failed to update product'));
+      throw AppException(_errorMessage(response.body, 'Failed to update product'));
     }
   }
 
   Future<void> deleteProduct(String id) async {
     final response = await ApiClient().delete('/product/$id');
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception(_errorMessage(response.body, 'Failed to delete product'));
+      throw AppException(_errorMessage(response.body, 'Failed to delete product'));
     }
   }
 
@@ -177,7 +178,7 @@ class ProductMaintenanceService {
       'barcodeType': 'EAN',
     });
     if (response.statusCode != 200) {
-      throw Exception(_errorMessage(response.body, 'Failed to save product barcodes'));
+      throw AppException(_errorMessage(response.body, 'Failed to save product barcodes'));
     }
   }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AssetRegisterService {
   final ApiClient _api = ApiClient();
@@ -8,7 +9,7 @@ class AssetRegisterService {
   Future<Map<String, dynamic>> dashboard() async {
     final response = await _api.get('/v2/assets/dashboard');
     if (response.statusCode != 200) {
-      throw Exception('Failed to load asset summary: ${response.body}');
+      throw AppException('Failed to load asset summary: ${response.body}');
     }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
@@ -19,7 +20,7 @@ class AssetRegisterService {
       if (status != null && status != 'ALL') 'status': status,
     });
     if (response.statusCode != 200) {
-      throw Exception('Failed to load assets: ${response.body}');
+      throw AppException('Failed to load assets: ${response.body}');
     }
     final decoded = jsonDecode(response.body);
     return (decoded is List ? decoded : const <dynamic>[])
@@ -31,7 +32,7 @@ class AssetRegisterService {
   Future<Map<String, dynamic>> create(Map<String, dynamic> payload) async {
     final response = await _api.post('/v2/assets', body: payload);
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to create asset: ${response.body}');
+      throw AppException('Failed to create asset: ${response.body}');
     }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
@@ -39,7 +40,7 @@ class AssetRegisterService {
   Future<Map<String, dynamic>> update(String id, Map<String, dynamic> payload) async {
     final response = await _api.put('/v2/assets/$id', body: payload);
     if (response.statusCode != 200) {
-      throw Exception('Failed to update asset: ${response.body}');
+      throw AppException('Failed to update asset: ${response.body}');
     }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
@@ -51,7 +52,7 @@ class AssetRegisterService {
       'notes': notes,
     });
     if (response.statusCode != 200) {
-      throw Exception('Failed to assign asset: ${response.body}');
+      throw AppException('Failed to assign asset: ${response.body}');
     }
   }
 
@@ -62,7 +63,7 @@ class AssetRegisterService {
       'notes': notes,
     });
     if (response.statusCode != 200) {
-      throw Exception('Failed to dispose asset: ${response.body}');
+      throw AppException('Failed to dispose asset: ${response.body}');
     }
   }
 }

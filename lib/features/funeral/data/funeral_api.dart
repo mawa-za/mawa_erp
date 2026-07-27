@@ -22,6 +22,7 @@ import 'models/funeral_payment_summary_dto.dart';
 import 'models/funeral_tenant_integration_configuration_dto.dart';
 import 'models/funeral_tenant_option_dto.dart';
 import 'models/tenant_trust_relationship_dto.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralApi {
   final ApiClient _apiClient = ApiClient();
@@ -35,7 +36,7 @@ class FuneralApi {
           .map((e) => Partner.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     }
-    throw Exception('Failed to load employees: ${response.body}');
+    throw AppException('Failed to load employees: ${response.body}');
   }
 
   Future<PickupRequestDto> createPickupRequest(CreatePickupRequestDto request) async {
@@ -43,7 +44,7 @@ class FuneralApi {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return PickupRequestDto.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to create pickup request: ${response.body}');
+    throw AppException('Failed to create pickup request: ${response.body}');
   }
 
   Future<void> assignPickup(String id, String staffId) async {
@@ -52,7 +53,7 @@ class FuneralApi {
       body: AssignPickupRequestDto(staffId: staffId).toJson(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to assign pickup: ${response.body}');
+      throw AppException('Failed to assign pickup: ${response.body}');
     }
   }
 
@@ -62,7 +63,7 @@ class FuneralApi {
       body: request.toJson(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to record driver arrival: ${response.body}');
+      throw AppException('Failed to record driver arrival: ${response.body}');
     }
   }
 
@@ -72,7 +73,7 @@ class FuneralApi {
       body: request.toJson(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to complete pickup: ${response.body}');
+      throw AppException('Failed to complete pickup: ${response.body}');
     }
   }
 
@@ -84,7 +85,7 @@ class FuneralApi {
           .map((e) => MortuaryInventoryDto.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     }
-    throw Exception('Failed to load mortuary inventory: ${response.body}');
+    throw AppException('Failed to load mortuary inventory: ${response.body}');
   }
 
   Future<void> checkoutFromMortuary(String id, MortuaryCheckoutRequestDto request) async {
@@ -93,7 +94,7 @@ class FuneralApi {
       body: request.toJson(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to checkout from mortuary: ${response.body}');
+      throw AppException('Failed to checkout from mortuary: ${response.body}');
     }
   }
 
@@ -108,7 +109,7 @@ class FuneralApi {
           .map((e) => FuneralPackageDto.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     }
-    throw Exception('Failed to load funeral packages: ${response.body}');
+    throw AppException('Failed to load funeral packages: ${response.body}');
   }
 
   Future<FuneralPackageDto> createFuneralPackage(FuneralPackageDto package) async {
@@ -116,7 +117,7 @@ class FuneralApi {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return FuneralPackageDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
     }
-    throw Exception('Failed to create funeral package: ${response.body}');
+    throw AppException('Failed to create funeral package: ${response.body}');
   }
 
   Future<FuneralPackageDto> updateFuneralPackage(FuneralPackageDto package) async {
@@ -124,13 +125,13 @@ class FuneralApi {
     if (response.statusCode == 200) {
       return FuneralPackageDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
     }
-    throw Exception('Failed to update funeral package: ${response.body}');
+    throw AppException('Failed to update funeral package: ${response.body}');
   }
 
   Future<void> deleteFuneralPackage(String id) async {
     final response = await _apiClient.delete('/v2/funeral/packages/$id');
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to delete funeral package: ${response.body}');
+      throw AppException('Failed to delete funeral package: ${response.body}');
     }
   }
 
@@ -141,7 +142,7 @@ class FuneralApi {
           .map((e) => FuneralMembershipCoverDto.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     }
-    throw Exception('Failed to check membership: ${response.body}');
+    throw AppException('Failed to check membership: ${response.body}');
   }
 
   Future<FuneralTenantIntegrationConfigurationDto>
@@ -152,7 +153,7 @@ class FuneralApi {
         Map<String, dynamic>.from(jsonDecode(response.body) as Map),
       );
     }
-    throw Exception('Failed to load tenant integration: ${response.body}');
+    throw AppException('Failed to load tenant integration: ${response.body}');
   }
 
   Future<FuneralTenantIntegrationConfigurationDto>
@@ -168,7 +169,7 @@ class FuneralApi {
         Map<String, dynamic>.from(jsonDecode(response.body) as Map),
       );
     }
-    throw Exception('Failed to save tenant integration: ${response.body}');
+    throw AppException('Failed to save tenant integration: ${response.body}');
   }
 
   Future<List<FuneralTenantOptionDto>> getAvailableTenantOptions() async {
@@ -185,25 +186,25 @@ class FuneralApi {
           .where((tenant) => tenant.id.isNotEmpty)
           .toList();
     }
-    throw Exception('Failed to load tenants: ${response.body}');
+    throw AppException('Failed to load tenants: ${response.body}');
   }
 
   Future<List<TenantTrustRelationshipDto>> getTrustedTenants() async {
     final response = await _apiClient.get('/v2/funeral/trusted-tenants');
     if (response.statusCode == 200) return _decodeList(response.body).map((e) => TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(e as Map))).toList();
-    throw Exception('Failed to load trusted tenants: ${response.body}');
+    throw AppException('Failed to load trusted tenants: ${response.body}');
   }
 
   Future<TenantTrustRelationshipDto> requestTrustedTenant(TenantTrustRelationshipDto request) async {
     final response = await _apiClient.post('/v2/funeral/trusted-tenants', body: request.toJson());
     if (response.statusCode == 200) return TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(jsonDecode(response.body) as Map));
-    throw Exception('Failed to request trusted tenant: ${response.body}');
+    throw AppException('Failed to request trusted tenant: ${response.body}');
   }
 
   Future<TenantTrustRelationshipDto> updateTrustedTenantStatus(String id, String status) async {
     final response = await _apiClient.put('/v2/funeral/trusted-tenants/$id/status/$status');
     if (response.statusCode == 200) return TenantTrustRelationshipDto.fromJson(Map<String,dynamic>.from(jsonDecode(response.body) as Map));
-    throw Exception('Failed to update trusted tenant: ${response.body}');
+    throw AppException('Failed to update trusted tenant: ${response.body}');
   }
 
   // Funeral Service and Claims
@@ -225,7 +226,7 @@ class FuneralApi {
               ))
           .toList();
     }
-    throw Exception('Failed to load funeral service requests: ${response.body}');
+    throw AppException('Failed to load funeral service requests: ${response.body}');
   }
 
   Future<FuneralServiceRequestDto> createServiceRequest(FuneralServiceRequestDto request) async {
@@ -233,7 +234,7 @@ class FuneralApi {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return FuneralServiceRequestDto.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to create service request: ${response.body}');
+    throw AppException('Failed to create service request: ${response.body}');
   }
 
   Future<void> initiateClaims(String serviceRequestId, InitiateFuneralClaimsRequestDto request) async {
@@ -242,7 +243,7 @@ class FuneralApi {
       body: request.toJson(),
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to initiate claims: ${response.body}');
+      throw AppException('Failed to initiate claims: ${response.body}');
     }
   }
 
@@ -250,13 +251,13 @@ class FuneralApi {
   Future<List<int>> downloadClaimForm(String claimId) async {
     final response = await _apiClient.get('/v2/membership-claim/$claimId/claim-form');
     if (response.statusCode == 200) return response.bodyBytes;
-    throw Exception('Failed to download claim form: ${response.body}');
+    throw AppException('Failed to download claim form: ${response.body}');
   }
 
   Future<void> submitClaimForApproval(String claimId) async {
     final response = await _apiClient.post('/v2/funeral/claims/$claimId/submit-for-approval');
     if (response.statusCode != 200) {
-      throw Exception('Failed to submit claim: ${response.body}');
+      throw AppException('Failed to submit claim: ${response.body}');
     }
   }
   Future<List<FuneralClaimDto>> getClaims(String serviceRequestId) async {
@@ -266,7 +267,7 @@ class FuneralApi {
           .map((e) => FuneralClaimDto.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     }
-    throw Exception('Failed to load claims: ${response.body}');
+    throw AppException('Failed to load claims: ${response.body}');
   }
 
   Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {
@@ -275,7 +276,7 @@ class FuneralApi {
       body: request.toJson(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to approve claim: ${response.body}');
+      throw AppException('Failed to approve claim: ${response.body}');
     }
   }
 
@@ -290,7 +291,7 @@ class FuneralApi {
           )
           .toList();
     }
-    throw Exception('Failed to load funeral payments: ${response.body}');
+    throw AppException('Failed to load funeral payments: ${response.body}');
   }
 
   // Invoicing
@@ -301,7 +302,7 @@ class FuneralApi {
           .map((e) => FuneralInvoicePreviewLineDto.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
     }
-    throw Exception('Failed to get invoice preview: ${response.body}');
+    throw AppException('Failed to get invoice preview: ${response.body}');
   }
 
   Future<GenerateFuneralInvoicesResponseDto> generateInvoices(Map<String, dynamic> request) async {
@@ -309,7 +310,7 @@ class FuneralApi {
     if (response.statusCode == 200) {
       return GenerateFuneralInvoicesResponseDto.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to generate invoices: ${response.body}');
+    throw AppException('Failed to generate invoices: ${response.body}');
   }
 
   Future<void> capturePayment(String invoiceId, InvoicePaymentRequestDto request) async {
@@ -318,7 +319,7 @@ class FuneralApi {
       body: request.toJson(),
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to capture payment: ${response.body}');
+      throw AppException('Failed to capture payment: ${response.body}');
     }
   }
 
@@ -360,7 +361,7 @@ class FuneralApi {
       }
       return [];
     }
-    throw Exception('Failed to initiate claims: ${response.body}');
+    throw AppException('Failed to initiate claims: ${response.body}');
   }
 
   Future<GenerateFuneralInvoicesResponseDto> generateInvoicesFromPreviewRequest(

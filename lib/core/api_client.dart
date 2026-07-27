@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -195,7 +196,7 @@ class ApiClient {
   }) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) {
-      throw Exception('API Host not configured');
+      throw AppException('API Host not configured');
     }
     final tenantId = (await _getTenantId() ?? '').trim();
     return _execute(
@@ -275,7 +276,7 @@ class ApiClient {
   }) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) {
-      throw Exception('API Host not configured');
+      throw AppException('API Host not configured');
     }
 
     final url = _buildUrl(host, path, queryParameters);
@@ -316,21 +317,39 @@ class ApiClient {
     Uri url, {
     required Map<String, String> headers,
     dynamic body,
-  }) {
+  }) async {
     final encodedBody = body == null ? null : jsonEncode(body);
-    switch (method) {
-      case 'GET':
-        return _client.get(url, headers: headers);
-      case 'POST':
-        return _client.post(url, headers: headers, body: encodedBody);
-      case 'PUT':
-        return _client.put(url, headers: headers, body: encodedBody);
-      case 'PATCH':
-        return _client.patch(url, headers: headers, body: encodedBody);
-      case 'DELETE':
-        return _client.delete(url, headers: headers);
-      default:
-        throw UnsupportedError('Unsupported HTTP method: $method');
+    try {
+      late final Future<http.Response> request;
+      switch (method) {
+        case 'GET':
+          request = _client.get(url, headers: headers);
+          break;
+        case 'POST':
+          request = _client.post(url, headers: headers, body: encodedBody);
+          break;
+        case 'PUT':
+          request = _client.put(url, headers: headers, body: encodedBody);
+          break;
+        case 'PATCH':
+          request = _client.patch(url, headers: headers, body: encodedBody);
+          break;
+        case 'DELETE':
+          request = _client.delete(url, headers: headers);
+          break;
+        default:
+          throw UnsupportedError('Unsupported HTTP method: $method');
+      }
+      return await request.timeout(const Duration(seconds: 45));
+    } on TimeoutException catch (error) {
+      throw AppException(
+        error,
+        fallback: 'The request took too long. Check your connection and try again.',
+      );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw AppException(error);
     }
   }
 

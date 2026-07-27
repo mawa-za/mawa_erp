@@ -6,6 +6,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_payment_summary_dto.dart';
 import 'funeral_invoice_payment_page.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralPaymentsPage extends StatefulWidget {
   const FuneralPaymentsPage({super.key});
@@ -49,7 +50,7 @@ class _FuneralPaymentsPageState extends State<FuneralPaymentsPage> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyErrorMessage(error);
         _loading = false;
       });
     }

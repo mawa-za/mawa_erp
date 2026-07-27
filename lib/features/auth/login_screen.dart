@@ -8,9 +8,11 @@ import '../../core/config.dart';
 import '../../core/services/field_service.dart';
 import '../../core/services/access_profile_service.dart';
 import '../../core/theme/mawa_design.dart';
+import '../../core/widgets/app_feedback.dart';
 import '../settings/models/role.dart';
 import 'forgot_password_screen.dart';
 import 'role_selection_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoggedIn;
@@ -48,17 +50,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final url = Uri.parse('https://$apiHost/v2/authenticate');
 
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-TenantID': tenantId,
-        },
-        body: jsonEncode({
-          'username': _usernameController.text.trim(),
-          'password': _passwordController.text,
-        }),
-      );
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-TenantID': tenantId,
+            },
+            body: jsonEncode({
+              'username': _usernameController.text.trim(),
+              'password': _passwordController.text,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -127,15 +131,23 @@ class _LoginScreenState extends State<LoginScreen> {
           widget.onLoggedIn();
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${response.statusCode}')),
+        throw AppException.fromHttp(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+          fallback: response.statusCode == 401 || response.statusCode == 403
+              ? 'The username or password is incorrect.'
+              : 'We could not sign you in. Please try again.',
         );
       }
     } catch (e) {
       debugPrint('Login Error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        AppFeedback.showError(
+          context,
+          e,
+          fallback: 'We could not sign you in. Please try again.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

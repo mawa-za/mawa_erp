@@ -15,6 +15,7 @@ import '../../data/models/funeral_invoice_preview_request_dto.dart';
 import '../../data/models/generate_funeral_invoices_response_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralServiceRequestWizardController extends ChangeNotifier {
   final FuneralApi _api = FuneralApi();
@@ -82,7 +83,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       salesAreaOptions = results[3] as List<FieldOption>;
       products = results[4] as List<ProductLookup>;
     } catch (e) {
-      errorMessage = 'Failed to load initial data: $e';
+      errorMessage = friendlyErrorMessage('Failed to load initial data: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -108,7 +109,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         errorMessage = 'No memberships found for this identity number.';
       }
     } catch (e) {
-      errorMessage = 'Failed to check membership: $e';
+      errorMessage = friendlyErrorMessage('Failed to check membership: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -151,7 +152,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       
       return true;
     } catch (e) {
-      errorMessage = 'Failed to create service request: $e';
+      errorMessage = friendlyErrorMessage('Failed to create service request: $e');
       return false;
     } finally {
       isLoading = false;
@@ -177,7 +178,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       ));
       await loadClaims();
       return true;
-    } catch (e) { errorMessage = 'Failed to initiate funeral claims: $e'; return false; }
+    } catch (e) { errorMessage = friendlyErrorMessage('Failed to initiate funeral claims: $e'); return false; }
     finally { isLoading = false; notifyListeners(); }
   }
 
@@ -190,7 +191,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       }
       await loadClaims();
       return true;
-    } catch (e) { errorMessage = 'Attach the signed claim form and supporting documents to every claim before continuing: $e'; return false; }
+    } catch (e) { errorMessage = friendlyErrorMessage('Attach the signed claim form and supporting documents to every claim before continuing: $e'); return false; }
     finally { isLoading = false; notifyListeners(); }
   }
 
@@ -203,7 +204,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     try {
       claims = await _api.getClaims(serviceRequestId!);
     } catch (e) {
-      errorMessage = 'Failed to load claims: $e';
+      errorMessage = friendlyErrorMessage('Failed to load claims: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -217,7 +218,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       await _api.approveClaim(claimId, request);
       await loadClaims();
     } catch (e) {
-      errorMessage = 'Failed to approve claim: $e';
+      errorMessage = friendlyErrorMessage('Failed to approve claim: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -237,7 +238,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       );
       previewLines = await _api.getInvoicePreview(request);
     } catch (e) {
-      errorMessage = 'Failed to load invoice preview: $e';
+      errorMessage = friendlyErrorMessage('Failed to load invoice preview: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -252,7 +253,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       generationResponse = await _api.generateInvoices({'serviceRequestId': serviceRequestId});
       return true;
     } catch (e) {
-      errorMessage = 'Failed to generate invoices: $e';
+      errorMessage = friendlyErrorMessage('Failed to generate invoices: $e');
       return false;
     } finally {
       isLoading = false;

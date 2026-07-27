@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipPolicyConfigurationScreen extends StatefulWidget {
   const MembershipPolicyConfigurationScreen({super.key});
@@ -37,7 +38,7 @@ class _MembershipPolicyConfigurationScreenState
     try {
       final response =
           await ApiClient().get('/v2/membership-policy-configuration');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final data = Map<String, dynamic>.from(
         jsonDecode(response.body) as Map,
       );
@@ -55,7 +56,7 @@ class _MembershipPolicyConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not load membership policy: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Could not load membership policy: $error'))),
         );
       }
     } finally {
@@ -74,7 +75,7 @@ class _MembershipPolicyConfigurationScreenState
               _additionalMembershipRequiresApproval,
         },
       );
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -84,7 +85,7 @@ class _MembershipPolicyConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save membership policy: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Could not save membership policy: $error'))),
         );
       }
     } finally {

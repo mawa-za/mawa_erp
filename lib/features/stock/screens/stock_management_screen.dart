@@ -7,6 +7,7 @@ import '../../../core/api_client.dart';
 import '../../home/models/workcenter.dart';
 import '../services/stock_service.dart';
 import '../widgets/inventory_document_dialog.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InventoryManagementScreen extends StatefulWidget {
   final String? initialSection;
@@ -84,7 +85,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -165,7 +166,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     try {
       await _loadSectionData(section);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -178,7 +179,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
 
     final response = await ApiClient().get('/role/$roleId/workcenter');
     if (response.statusCode != 200) {
-      throw Exception('Failed to load role workcenters: ${response.statusCode} ${response.body}');
+      throw AppException('Failed to load role workcenters: ${response.statusCode} ${response.body}');
     }
 
     final List<dynamic> data = jsonDecode(response.body);
@@ -671,7 +672,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       await action.handler(row);
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red));
     }
   }
 
@@ -772,7 +773,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       if (saved == true) await _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red));
       }
     }
   }
@@ -810,7 +811,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
             if (mounted) Navigator.pop(context);
             await _load();
           } catch (e) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red));
           }
         }, child: Text(actionLabel)),
       ],

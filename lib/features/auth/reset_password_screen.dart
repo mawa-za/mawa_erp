@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String token;
@@ -47,15 +47,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
         }
       } else {
-        var message = 'This password reset link is invalid or expired.';
-        try {
-          final error = jsonDecode(response.body);
-          if (error is Map<String, dynamic> && error['message'] != null) {
-            message = error['message'].toString();
-          }
-        } catch (_) {
-          // Keep the safe fallback for non-JSON server responses.
-        }
+        final message = friendlyErrorMessage(
+          response.body,
+          statusCode: response.statusCode,
+          fallback: 'This password reset link is invalid or expired.',
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message)),
@@ -65,7 +61,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e'))),
         );
       }
     } finally {

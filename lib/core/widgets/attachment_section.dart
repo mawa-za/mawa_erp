@@ -12,6 +12,7 @@ import '../api_client.dart';
 import '../models/attachment.dart';
 import '../models/field_option.dart';
 import '../services/field_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AttachmentSection extends StatefulWidget {
   final String objectId;
@@ -282,14 +283,14 @@ class _AttachmentSectionState extends State<AttachmentSection> {
             );
           }
         } else {
-          throw Exception('Failed to upload: ${response.statusCode}');
+          throw AppException('Failed to upload: ${response.statusCode}');
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Upload failed: $e'),
+            content: Text(friendlyErrorMessage('Upload failed: $e')),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Colors.red.shade600,
           ),
@@ -397,7 +398,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error downloading attachment: $e'),
+            content: Text(friendlyErrorMessage('Error downloading attachment: $e')),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
           ),
@@ -447,14 +448,14 @@ class _AttachmentSectionState extends State<AttachmentSection> {
           _downloadOrOpenFile(bytes, attachment, base64String);
         }
       } else {
-        throw Exception('Failed to fetch document: ${response.statusCode}');
+        throw AppException('Failed to fetch document: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop(); // Ensure loading is closed
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error viewing attachment: $e'),
+            content: Text(friendlyErrorMessage('Error viewing attachment: $e')),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/field_option.dart';
 import '../../../core/services/field_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FieldOptionListScreen extends StatefulWidget {
   const FieldOptionListScreen({super.key});
@@ -56,7 +57,7 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -128,7 +129,7 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     }
@@ -264,7 +265,7 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     }
@@ -297,7 +298,7 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     }

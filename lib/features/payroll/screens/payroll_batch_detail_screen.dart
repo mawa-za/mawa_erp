@@ -8,6 +8,7 @@ import '../services/payroll_service.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import 'payroll_batch_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PayrollBatchDetailScreen extends StatefulWidget {
   final String batchId;
@@ -46,7 +47,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to load details: $e';
+        _error = friendlyErrorMessage('Failed to load details: $e');
         _isLoading = false;
       });
     }
@@ -80,7 +81,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -109,7 +110,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
       );
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to generate verification printout: $e')),
+        SnackBar(content: Text(friendlyErrorMessage('Unable to generate verification printout: $e'))),
       );
     }
   }
@@ -122,7 +123,7 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
       if (mounted) setState(() => _batch = refreshed);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to retrieve bank report: $e')),
+        SnackBar(content: Text(friendlyErrorMessage('Unable to retrieve bank report: $e'))),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

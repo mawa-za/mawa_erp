@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class EmploymentService {
   final ApiClient _api = ApiClient();
@@ -10,7 +11,7 @@ class EmploymentService {
       if (status != null && status != 'ALL') 'status': status,
     });
     if (response.statusCode != 200) {
-      throw Exception('Failed to load employee records: ${response.body}');
+      throw AppException('Failed to load employee records: ${response.body}');
     }
     final decoded = jsonDecode(response.body);
     final values = decoded is List ? decoded : const <dynamic>[];
@@ -40,7 +41,7 @@ class EmploymentService {
   Future<String> hire(Map<String, dynamic> payload) async {
     final response = await _api.post('/v2/employment', body: payload);
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to hire employee: ${response.body}');
+      throw AppException('Failed to hire employee: ${response.body}');
     }
     final decoded = jsonDecode(response.body);
     if (decoded is Map) return (decoded['id'] ?? '').toString();
@@ -50,14 +51,14 @@ class EmploymentService {
   Future<void> update(String id, Map<String, dynamic> payload) async {
     final response = await _api.put('/v2/employment/$id', body: payload);
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to update employee record: ${response.body}');
+      throw AppException('Failed to update employee record: ${response.body}');
     }
   }
 
   Future<List<Map<String, dynamic>>> getBankDetails(String employmentId) async {
     final response = await _api.get('/v2/employment/$employmentId/bank-details');
     if (response.statusCode != 200) {
-      throw Exception('Failed to load employee banking details: ${response.body}');
+      throw AppException('Failed to load employee banking details: ${response.body}');
     }
     final decoded = jsonDecode(response.body);
     if (decoded is! Map || decoded['partnerBankAccountDtoList'] is! List) return const [];
@@ -73,14 +74,14 @@ class EmploymentService {
       body: payload,
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to submit employee banking details: ${response.body}');
+      throw AppException('Failed to submit employee banking details: ${response.body}');
     }
   }
 
   Future<void> terminate(String id) async {
     final response = await _api.put('/v2/employment/$id/terminate');
     if (response.statusCode != 200) {
-      throw Exception('Failed to terminate employee: ${response.body}');
+      throw AppException('Failed to terminate employee: ${response.body}');
     }
   }
 
@@ -90,7 +91,7 @@ class EmploymentService {
       if (endDate != null && endDate.isNotEmpty) 'endDate': endDate,
     });
     if (response.statusCode != 200) {
-      throw Exception('Failed to rehire employee: ${response.body}');
+      throw AppException('Failed to rehire employee: ${response.body}');
     }
   }
 }

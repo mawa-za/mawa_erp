@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class XeroIntegrationException implements Exception {
   final String message;
@@ -86,7 +87,7 @@ class XeroIntegrationService {
   Future<XeroActivationResult> secretNames() async {
     final response = await ApiClient().get('/v2/integrations/xero/secret-names');
     if (response.statusCode != 200) {
-      throw Exception('Failed to retrieve Xero secret names: ${response.body}');
+      throw AppException('Failed to retrieve Xero secret names: ${response.body}');
     }
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
@@ -108,7 +109,7 @@ class XeroIntegrationService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to activate Xero integration: ${response.body}');
+      throw AppException('Failed to activate Xero integration: ${response.body}');
     }
 
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
@@ -148,7 +149,7 @@ class XeroIntegrationService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to select Xero organisation: ${response.body}');
+      throw AppException('Failed to select Xero organisation: ${response.body}');
     }
 
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
@@ -158,7 +159,7 @@ class XeroIntegrationService {
     final response = await ApiClient().post('/v2/integrations/xero/deactivate');
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to deactivate Xero integration: ${response.body}');
+      throw AppException('Failed to deactivate Xero integration: ${response.body}');
     }
 
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);

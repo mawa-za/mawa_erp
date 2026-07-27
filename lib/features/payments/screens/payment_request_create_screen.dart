@@ -9,6 +9,7 @@ import '../../../core/services/field_service.dart';
 import '../../../core/services/user_service.dart';
 import '../../partners/models/partner.dart';
 import '../services/payment_request_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PaymentRequestCreateScreen extends StatefulWidget {
   const PaymentRequestCreateScreen({super.key});
@@ -187,7 +188,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {

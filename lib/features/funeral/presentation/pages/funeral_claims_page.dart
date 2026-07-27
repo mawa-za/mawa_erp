@@ -5,6 +5,7 @@ import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../widgets/funeral_claim_card.dart';
 import '../../../../core/utils/formatters.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralClaimsPage extends StatefulWidget {
   final String serviceRequestId;
@@ -37,7 +38,7 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading claims: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error loading claims: $e'))));
       }
     }
   }
@@ -100,7 +101,7 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
       } catch (e) {
         setState(() => _isLoading = false);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
         }
       }
     }

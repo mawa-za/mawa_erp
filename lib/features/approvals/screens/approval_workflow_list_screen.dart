@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/approval_workflow.dart';
 import '../services/approval_workflow_service.dart';
 import 'approval_workflow_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApprovalWorkflowListScreen extends StatefulWidget {
   const ApprovalWorkflowListScreen({super.key});
@@ -43,7 +44,7 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }

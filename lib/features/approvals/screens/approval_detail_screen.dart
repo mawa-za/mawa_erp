@@ -14,6 +14,7 @@ import '../../leave_requests/screens/leave_request_detail_screen.dart';
 import '../../payroll/screens/payroll_batch_detail_screen.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApprovalDetailScreen extends StatefulWidget {
   final Approval approval;
@@ -202,7 +203,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           updated = await _service.cancel(_approval.id, comments: comment, actionBy: userId);
           break;
         default:
-          throw Exception('Unknown action: $action');
+          throw AppException('Unknown action: $action');
       }
 
       if (mounted) {
@@ -228,7 +229,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyErrorMessage('Error: $e')),
             backgroundColor: const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
           ),

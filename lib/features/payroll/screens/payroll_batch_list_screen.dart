@@ -4,6 +4,7 @@ import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
 import 'payroll_batch_detail_screen.dart';
 import 'payroll_batch_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PayrollBatchListScreen extends StatefulWidget {
   const PayrollBatchListScreen({super.key});
@@ -61,7 +62,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to load payroll batches: $e';
+        _error = friendlyErrorMessage('Failed to load payroll batches: $e');
         _isLoading = false;
       });
     }
@@ -227,7 +228,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
           );
         }
       }

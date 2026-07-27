@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api_client.dart';
 import '../models/access_profile.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AccessProfileService {
   static const _keys = <String>[
@@ -14,7 +15,7 @@ class AccessProfileService {
   Future<AccessProfile> getProfile() async {
     final response = await ApiClient().get('/v2/access/profile');
     if (response.statusCode != 200) {
-      throw Exception(response.body.isNotEmpty
+      throw AppException(response.body.isNotEmpty
           ? response.body
           : 'Failed to load access profile');
     }

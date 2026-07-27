@@ -8,6 +8,7 @@ import '../../data/models/funeral_claim_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../widgets/funeral_claim_card.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralAllClaimsPage extends StatefulWidget {
   const FuneralAllClaimsPage({super.key});
@@ -61,7 +62,7 @@ class _FuneralAllClaimsPageState extends State<FuneralAllClaimsPage> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyErrorMessage(error);
         _loading = false;
       });
     }
@@ -149,7 +150,7 @@ class _FuneralAllClaimsPageState extends State<FuneralAllClaimsPage> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to update claim: $error')),
+        SnackBar(content: Text(friendlyErrorMessage('Unable to update claim: $error'))),
       );
     }
   }

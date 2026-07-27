@@ -4,6 +4,7 @@ import '../../../core/services/user_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class UserCreateScreen extends StatefulWidget {
   const UserCreateScreen({super.key});
@@ -62,7 +63,7 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
       }
       if (mounted) { Navigator.pop(context, true); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User created successfully.'))); }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$e')), backgroundColor: Colors.red));
     } finally { if (mounted) setState(() => _loading = false); }
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ThirdPartyFuneralUnderwriterConfigurationPage extends StatefulWidget {
   const ThirdPartyFuneralUnderwriterConfigurationPage({super.key});
@@ -29,7 +30,7 @@ class _ThirdPartyFuneralUnderwriterConfigurationPageState
     setState(() => _loading = true);
     try {
       final response = await _api.get('/v2/funeral-underwriting/underwriters');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       if (!mounted) return;
       setState(() {
         _underwriters = (jsonDecode(response.body) as List)
@@ -39,7 +40,7 @@ class _ThirdPartyFuneralUnderwriterConfigurationPageState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load underwriters: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load underwriters: $error'))),
         );
       }
     } finally {
@@ -62,7 +63,7 @@ class _ThirdPartyFuneralUnderwriterConfigurationPageState
                 '/v2/partner',
                 queryParameters: {'query': search.text.trim()},
               );
-              if (response.statusCode != 200) throw Exception(response.body);
+              if (response.statusCode != 200) throw AppException(response.body);
               final decoded = (jsonDecode(response.body) as List)
                   .map((e) => Map<String, dynamic>.from(e as Map))
                   .where((e) => (e['type'] ?? '').toString().toUpperCase() != 'INDIVIDUAL')
@@ -272,13 +273,13 @@ class _ThirdPartyFuneralUnderwriterConfigurationPageState
         'notes': notes.text.trim(),
       });
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception(response.body);
+        throw AppException(response.body);
       }
       await _load();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to save underwriter: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Unable to save underwriter: $error'))),
         );
       }
     }

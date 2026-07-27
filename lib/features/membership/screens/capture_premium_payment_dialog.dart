@@ -8,6 +8,7 @@ import '../models/payment_batch_response.dart';
 import '../models/receipt_response.dart';
 import '../../../core/services/bluetooth_print_service.dart';
 import '../../settings/services/pos_printing_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CapturePremiumPaymentDialog extends StatefulWidget {
   final MembershipDetail membership;
@@ -119,7 +120,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isSubmitting = false;
       });
     }
@@ -155,7 +156,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
       try {
         if (_selectedDevice == null) {
           final devices = await _printService.getDevices();
-          if (devices.isEmpty) throw Exception('No Bluetooth printers found. Pair a printer in device settings.');
+          if (devices.isEmpty) throw AppException('No Bluetooth printers found. Pair a printer in device settings.');
           if (!mounted) return;
           final device = await showDialog<BluetoothDevice>(
             context: context,
@@ -203,7 +204,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Bluetooth print failed: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text(friendlyErrorMessage('Bluetooth print failed: $e')), backgroundColor: Colors.red),
           );
         }
       }

@@ -8,6 +8,7 @@ import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../models/dependent.dart';
 import '../services/membership_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddDependentScreen extends StatefulWidget {
   final String membershipId;
@@ -117,7 +118,7 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyErrorMessage('Error: $e')),
             backgroundColor: Colors.red[700],
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

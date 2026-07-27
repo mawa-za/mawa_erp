@@ -3,6 +3,7 @@ import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'tombstone_order_detail_screen.dart';
 import 'tombstone_order_form_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class TombstoneManagementScreen extends StatefulWidget {
   final String initialSection;
@@ -82,7 +83,7 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
       if (!mounted) return;
       setState(() { _dashboard = dashboard; _orders = orders; _records = records; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = friendlyErrorMessage(e); _loading = false; });
     }
   }
 

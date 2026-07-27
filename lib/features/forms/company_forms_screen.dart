@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
 import '../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CompanyFormsScreen extends StatefulWidget {
   const CompanyFormsScreen({super.key});
@@ -27,13 +28,13 @@ class _CompanyFormsScreenState extends State<CompanyFormsScreen> {
     setState(() => _loading = true);
     try {
       final response = await ApiClient().get('/v2/company-forms');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final decoded = jsonDecode(response.body);
       if (mounted) setState(() {
         _forms = (decoded as List).map((item) => Map<String, dynamic>.from(item as Map)).toList();
       });
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not load forms: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Could not load forms: $e'))));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -44,7 +45,7 @@ class _CompanyFormsScreenState extends State<CompanyFormsScreen> {
       '/v2/company-forms/${form['id']}/download',
       accept: 'application/octet-stream',
     );
-    if (response.statusCode != 200) throw Exception(response.body);
+    if (response.statusCode != 200) throw AppException(response.body);
     return response.bodyBytes;
   }
 
@@ -78,19 +79,19 @@ class _CompanyFormsScreenState extends State<CompanyFormsScreen> {
         filename: form['file_name']?.toString() ?? '${form['form_code']}.${form['extension']}',
       );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Download failed: $e'))));
     }
   }
 
   Future<void> _print(Map<String, dynamic> form) async {
     try {
       if ((form['extension'] ?? '').toString().toLowerCase() != 'pdf') {
-        throw Exception('Printing is available for PDF forms. Download this file to print it with its native application.');
+        throw AppException('Printing is available for PDF forms. Download this file to print it with its native application.');
       }
       final bytes = await _download(form);
       await Printing.layoutPdf(name: form['title']?.toString() ?? 'Company Form', onLayout: (_) async => bytes);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$e'))));
     }
   }
 
