@@ -31,7 +31,7 @@ class FieldService {
     try {
       final response = await ApiClient().post('/v2/field', body: data);
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to add field: ${response.statusCode}');
+        throw Exception('Failed to add field: ${response.body.isNotEmpty ? response.body : response.statusCode}');
       }
       _cachedFields = null; // Clear cache
     } catch (e) {
@@ -83,7 +83,7 @@ class FieldService {
     try {
       final response = await ApiClient().post('/v2/field/$fieldName/option', body: data);
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to save field option: ${response.statusCode}');
+        throw Exception('Failed to save field option: ${response.body.isNotEmpty ? response.body : response.statusCode}');
       }
       _cachedOptions = null; // Clear cache
     } catch (e) {
@@ -95,7 +95,7 @@ class FieldService {
     try {
       final response = await ApiClient().put('/v2/field/$fieldName/option', queryParameters: {'fieldOption': code}, body: data);
       if (response.statusCode != 200) {
-        throw Exception('Failed to update field option: ${response.statusCode}');
+        throw Exception('Failed to update field option: ${response.body.isNotEmpty ? response.body : response.statusCode}');
       }
       _cachedOptions = null; // Clear cache
     } catch (e) {
@@ -107,7 +107,7 @@ class FieldService {
     try {
       final response = await ApiClient().delete('/v2/field/$fieldName/option', queryParameters: {'fieldOption': code});
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to delete field option: ${response.statusCode}');
+        throw Exception('Failed to delete field option: ${response.body.isNotEmpty ? response.body : response.statusCode}');
       }
       _cachedOptions = null; // Clear cache
     } catch (e) {

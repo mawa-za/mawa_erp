@@ -208,6 +208,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final String? createdId = (responseData['partnerId'] ?? responseData['id'])?.toString();
+        final bool existingPartner = responseData['existingPartner'] == true;
 
         if (mounted) {
           final entityName = widget.isMemberContext
@@ -217,7 +218,9 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   : 'Partner';
           final message = isNewSupplier
               ? 'Supplier submitted for approval. Banking approval will be created only after supplier approval.'
-              : '$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully';
+              : existingPartner
+                  ? 'An existing $entityName with this identity was found. No duplicate record was created.'
+                  : '$entityName ${widget.existingPartner == null ? "created" : "updated"} successfully';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
           );
