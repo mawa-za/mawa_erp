@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/membership_detail.dart';
+
+import '../../../core/models/field_option.dart';
+import '../../../core/services/field_service.dart';
+import '../../employment/services/employment_service.dart';
 import '../../partners/models/partner.dart';
+import '../../settings/models/manual_receipt_book.dart';
+import '../../settings/services/manual_receipt_book_service.dart';
+import '../models/membership_detail.dart';
 import '../services/membership_service.dart';
 
 class CaptureManualPremiumReceiptDialog extends StatefulWidget {
@@ -16,24 +22,96 @@ class CaptureManualPremiumReceiptDialog extends StatefulWidget {
 class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremiumReceiptDialog> {
   final _formKey = GlobalKey<FormState>();
   final _amount = TextEditingController();
-  final _book = TextEditingController();
   final _number = TextEditingController();
-  final _collector = TextEditingController();
-  final _location = TextEditingController();
-  final _workcentre = TextEditingController();
   final _reason = TextEditingController();
   final _attachmentId = TextEditingController();
   final _notes = TextEditingController();
+
+  List<ManualReceiptBook> _books = const [];
+  List<Map<String, dynamic>> _employees = const [];
+  List<FieldOption> _areas = const [];
+  String? _bookNo;
+  String? _collectorEmployeeId;
+  String? _locationAreaCode;
   DateTime _originalDate = DateTime.now();
   String _mode = 'LEGACY_CATCH_UP';
   String _paymentMethod = 'CASH';
+  bool _loadingOptions = true;
   bool _saving = false;
   String? _error;
 
   @override
-  void dispose() {
-    for (final c in [_amount, _book, _number, _collector, _location, _workcentre, _reason, _attachmentId, _notes]) { c.dispose(); }
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadOptions();
+  }
+
+  Future<void> _loadOptions() async {
+    try {
+      final results = await Future.wait([
+        ManualReceiptBookService().list(activeOnly: true),
+        EmploymentService().list(status: 'ACTIVE'),
+        FieldService().getOptionsByField('SALES-AREA'),
+      ]);
+      if (!mounted) return;
+      final books = results[0] as List<ManualReceiptBook>;
+      final employees = results[1] as List<Map<String, dynamic>>;
+      final areas = results[2] as List<FieldOption>;
+      final employeeIds = employees.map(_employeePartnerId).where((id) => id.isNotEmpty).toSet();
+      final areaCodes = areas.map((area) => area.code).toSet();
+      final firstBook = books.isEmpty ? null : books.first;
+      setState(() {
+        _books = books;
+        _employees = employees;
+        _areas = areas;
+        _bookNo = firstBook?.receiptBookNo;
+        _collectorEmployeeId = employeeIds.contains(firstBook?.assignedEmployeeId)
+            ? firstBook?.assignedEmployeeId
+            : null;
+        _locationAreaCode = areaCodes.contains(firstBook?.assignedAreaCode)
+            ? firstBook?.assignedAreaCode
+            : null;
+        _loadingOptions = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _loadingOptions = false; _error = e.toString(); });
+    }
+  }
+
+  String _employeePartnerId(Map<String, dynamic> record) {
+    final employee = record['employee'];
+    return employee is Map ? (employee['id'] ?? '').toString() : '';
+  }
+
+  String _employeeName(Map<String, dynamic> record) {
+    final employee = record['employee'];
+    if (employee is! Map) return (record['employeeNumber'] ?? '').toString();
+    final names = [employee['name2'], employee['name3'], employee['name1']]
+        .map((value) => (value ?? '').toString().trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    return names.isEmpty
+        ? (record['employeeNumber'] ?? _employeePartnerId(record)).toString()
+        : names.join(' ');
+  }
+
+  ManualReceiptBook? get _selectedBook {
+    for (final book in _books) {
+      if (book.receiptBookNo == _bookNo) return book;
+    }
+    return null;
+  }
+
+  String? _validateReceiptNumber(String? value) {
+    final text = value?.trim() ?? '';
+    final number = int.tryParse(text);
+    if (number == null) return 'Enter a numeric receipt number';
+    final book = _selectedBook;
+    final from = int.tryParse(book?.receiptFromNo ?? '');
+    final to = int.tryParse(book?.receiptToNo ?? '');
+    if (from != null && number < from) return 'Below book range ($from – ${book!.receiptToNo})';
+    if (to != null && number > to) return 'Above book range (${book!.receiptFromNo} – $to)';
+    return null;
   }
 
   Future<void> _save() async {
@@ -43,14 +121,13 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
       final prefs = await SharedPreferences.getInstance();
       await MembershipService().captureManualPremiumReceipt(
         membershipId: widget.membership.id,
-        amountCents: (double.parse(_amount.text) * 100).round(),
+        amountCents: (double.parse(_amount.text.replaceAll(',', '.')) * 100).round(),
         paymentMethod: _paymentMethod,
         originalReceiptDate: _originalDate,
-        receiptBookNo: _book.text.trim(),
+        receiptBookNo: _bookNo!,
         manualReceiptNo: _number.text.trim(),
-        originalCollector: _collector.text.trim(),
-        location: _location.text.trim(),
-        workcentreId: _workcentre.text.trim(),
+        originalCollectorEmployeeId: _collectorEmployeeId!,
+        locationAreaCode: _locationAreaCode!,
         captureMode: _mode,
         lateCaptureReason: _reason.text.trim(),
         proofAttachmentId: _attachmentId.text.trim(),
@@ -64,72 +141,171 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
   }
 
   @override
+  void dispose() {
+    for (final controller in [_amount, _number, _reason, _attachmentId, _notes]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Capture Manual Premium Receipt'),
       content: SizedBox(
-        width: 560,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${widget.member.fullName} • ${widget.membership.membershipNo}', style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _mode,
-                decoration: const InputDecoration(labelText: 'Capture type', border: OutlineInputBorder()),
-                items: const [
-                  DropdownMenuItem(value: 'LEGACY_CATCH_UP', child: Text('Outstanding legacy receipt')),
-                  DropdownMenuItem(value: 'MANUAL_EMERGENCY', child: Text('Post-go-live emergency receipt')),
-                ],
-                onChanged: (v) => setState(() => _mode = v!),
+        width: 600,
+        child: _loadingOptions
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${widget.member.fullName} • ${widget.membership.membershipNo}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 16),
+                    if (_books.isEmpty)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('No active manual receipt book exists. Maintain a receipt book under System Configuration before capturing a manual receipt.'),
+                        ),
+                      ),
+                    DropdownButtonFormField<String>(
+                      value: _mode,
+                      decoration: const InputDecoration(labelText: 'Capture type', border: OutlineInputBorder()),
+                      items: const [
+                        DropdownMenuItem(value: 'LEGACY_CATCH_UP', child: Text('Outstanding legacy receipt')),
+                        DropdownMenuItem(value: 'MANUAL_EMERGENCY', child: Text('Post-go-live emergency receipt')),
+                      ],
+                      onChanged: (value) => setState(() => _mode = value!),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _bookNo,
+                          decoration: const InputDecoration(labelText: 'Receipt book number *', border: OutlineInputBorder()),
+                          items: _books.map((book) => DropdownMenuItem(
+                            value: book.receiptBookNo,
+                            child: Text('${book.receiptBookNo} (${book.rangeLabel})'),
+                          )).toList(),
+                          onChanged: (value) {
+                            ManualReceiptBook? book;
+                            for (final item in _books) {
+                              if (item.receiptBookNo == value) { book = item; break; }
+                            }
+                            final employeeIds = _employees.map(_employeePartnerId).where((id) => id.isNotEmpty).toSet();
+                            final areaCodes = _areas.map((area) => area.code).toSet();
+                            setState(() {
+                              _bookNo = value;
+                              _collectorEmployeeId = employeeIds.contains(book?.assignedEmployeeId)
+                                  ? book?.assignedEmployeeId
+                                  : null;
+                              _locationAreaCode = areaCodes.contains(book?.assignedAreaCode)
+                                  ? book?.assignedAreaCode
+                                  : null;
+                              _number.clear();
+                            });
+                          },
+                          validator: (value) => value == null ? 'Required' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _number,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Receipt number *', border: OutlineInputBorder()),
+                          validator: _validateReceiptNumber,
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Original receipt date'),
+                      subtitle: Text('${_originalDate.year}-${_originalDate.month.toString().padLeft(2, '0')}-${_originalDate.day.toString().padLeft(2, '0')}'),
+                      trailing: const Icon(Icons.calendar_today_outlined),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: _originalDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (date != null) setState(() => _originalDate = date);
+                      },
+                    ),
+                    Row(children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _amount,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Amount', prefixText: 'R ', border: OutlineInputBorder()),
+                          validator: (value) {
+                            final amount = double.tryParse((value ?? '').replaceAll(',', '.'));
+                            return amount == null || amount <= 0 ? 'Enter a valid amount' : null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _paymentMethod,
+                          decoration: const InputDecoration(labelText: 'Payment method', border: OutlineInputBorder()),
+                          items: const ['CASH', 'CARD', 'EFT', 'OTHER']
+                              .map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                          onChanged: (value) => setState(() => _paymentMethod = value!),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _collectorEmployeeId,
+                      decoration: const InputDecoration(labelText: 'Original collector/cashier *', border: OutlineInputBorder()),
+                      items: _employees.map((record) {
+                        final id = _employeePartnerId(record);
+                        return DropdownMenuItem<String>(value: id, child: Text(_employeeName(record)));
+                      }).where((item) => item.value != null && item.value!.isNotEmpty).toList(),
+                      onChanged: (value) => setState(() => _collectorEmployeeId = value),
+                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _locationAreaCode,
+                      decoration: const InputDecoration(labelText: 'Location/branch (SALES-AREA) *', border: OutlineInputBorder()),
+                      items: _areas.map((area) => DropdownMenuItem(value: area.code, child: Text(area.description))).toList(),
+                      onChanged: (value) => setState(() => _locationAreaCode = value),
+                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                    ),
+                    if (_mode == 'MANUAL_EMERGENCY') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(controller: _reason, maxLines: 2, decoration: const InputDecoration(labelText: 'Emergency/late capture reason', border: OutlineInputBorder()), validator: _required),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _attachmentId,
+                        decoration: const InputDecoration(
+                          labelText: 'Carbon-copy proof attachment ID',
+                          helperText: 'Upload the proof under Documents first, then enter its attachment ID.',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _required,
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextFormField(controller: _notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
+                    if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+                  ]),
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: TextFormField(controller: _book, decoration: const InputDecoration(labelText: 'Receipt book number', border: OutlineInputBorder()), validator: _required)),
-                const SizedBox(width: 12),
-                Expanded(child: TextFormField(controller: _number, decoration: const InputDecoration(labelText: 'Receipt number', border: OutlineInputBorder()), validator: _required)),
-              ]),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Original receipt date'),
-                subtitle: Text('${_originalDate.year}-${_originalDate.month.toString().padLeft(2,'0')}-${_originalDate.day.toString().padLeft(2,'0')}'),
-                trailing: const Icon(Icons.calendar_today_outlined),
-                onTap: () async {
-                  final d = await showDatePicker(context: context, initialDate: _originalDate, firstDate: DateTime(2000), lastDate: DateTime.now());
-                  if (d != null) setState(() => _originalDate = d);
-                },
-              ),
-              Row(children: [
-                Expanded(child: TextFormField(controller: _amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Amount', prefixText: 'R ', border: OutlineInputBorder()), validator: (v) => double.tryParse(v ?? '') == null ? 'Enter a valid amount' : null)),
-                const SizedBox(width: 12),
-                Expanded(child: DropdownButtonFormField<String>(value: _paymentMethod, decoration: const InputDecoration(labelText: 'Payment method', border: OutlineInputBorder()), items: const ['CASH','CARD','EFT','OTHER'].map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(), onChanged: (v) => setState(() => _paymentMethod = v!))),
-              ]),
-              const SizedBox(height: 12),
-              TextFormField(controller: _collector, decoration: const InputDecoration(labelText: 'Original collector/cashier', border: OutlineInputBorder())),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: TextFormField(controller: _location, decoration: const InputDecoration(labelText: 'Location/branch', border: OutlineInputBorder()))),
-                const SizedBox(width: 12),
-                Expanded(child: TextFormField(controller: _workcentre, decoration: const InputDecoration(labelText: 'Workcentre ID', border: OutlineInputBorder()))),
-              ]),
-              if (_mode == 'MANUAL_EMERGENCY') ...[
-                const SizedBox(height: 12),
-                TextFormField(controller: _reason, maxLines: 2, decoration: const InputDecoration(labelText: 'Emergency/late capture reason', border: OutlineInputBorder()), validator: _required),
-                const SizedBox(height: 12),
-                TextFormField(controller: _attachmentId, decoration: const InputDecoration(labelText: 'Carbon-copy proof attachment ID', helperText: 'Upload the proof under Documents first, then enter its attachment ID.', border: OutlineInputBorder()), validator: _required),
-              ],
-              const SizedBox(height: 12),
-              TextFormField(controller: _notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
-              if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-            ]),
-          ),
-        ),
       ),
       actions: [
         TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: _saving ? null : _save, child: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Capture and update membership')),
+        FilledButton(
+          onPressed: _saving || _loadingOptions || _books.isEmpty ? null : _save,
+          child: _saving
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Capture and update membership'),
+        ),
       ],
     );
   }

@@ -593,6 +593,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
+  String _formatDependentDate(String? value) {
+    if (value == null || value.trim().isEmpty) return 'N/A';
+    final parsed = DateTime.tryParse(value.replaceFirst(' ', 'T'));
+    return parsed == null ? value : DateFormat('dd MMM yyyy').format(parsed);
+  }
+
   Widget _buildDependentsSection(ColorScheme colorScheme) {
     if (_dependents.isEmpty) {
       return _buildEmptyStateCard(Icons.people_outline, 'No dependents linked to this policy');
@@ -629,6 +635,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                       const SizedBox(height: 12),
                       _buildProfileRow(Icons.badge_outlined, 'Identity', '$displayIdType: $displayId'),
                       _buildProfileRow(Icons.cake_outlined, 'Birth Date', partner?.birthDate ?? dependent.birthDate ?? 'N/A'),
+                      _buildProfileRow(Icons.person_add_alt_1_outlined, 'Date Added', _formatDependentDate(dependent.createdAt)),
+                      _buildProfileRow(Icons.event_available_outlined, 'Effective Date', _formatDependentDate(dependent.effectiveFrom)),
                       if (isDeceased)
                         _buildProfileRow(Icons.event_busy_outlined, 'Deceased Date', dependent.deceasedDate ?? 'Recorded from claim'),
                       if (dependent.statusReason != null && dependent.statusReason!.isNotEmpty)

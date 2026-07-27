@@ -4,6 +4,7 @@ import '../../partners/models/partner.dart';
 import 'models/pickup_request_dto.dart';
 import 'models/create_pickup_request_dto.dart';
 import 'models/assign_pickup_request_dto.dart';
+import 'models/arrive_pickup_request_dto.dart';
 import 'models/complete_pickup_request_dto.dart';
 import 'models/mortuary_inventory_dto.dart';
 import 'models/mortuary_checkout_request_dto.dart';
@@ -52,6 +53,16 @@ class FuneralApi {
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to assign pickup: ${response.body}');
+    }
+  }
+
+  Future<void> arriveAtPickupLocation(String id, ArrivePickupRequestDto request) async {
+    final response = await _apiClient.put(
+      '/v2/funeral/pickup-request/$id/arrive',
+      body: request.toJson(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to record driver arrival: ${response.body}');
     }
   }
 

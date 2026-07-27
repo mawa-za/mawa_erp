@@ -13,6 +13,7 @@ import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.d
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import 'pos_printing_settings_screen.dart';
 import 'manual_receipt_cutover_settings_screen.dart';
+import 'manual_receipt_book_maintenance_screen.dart';
 import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
 import 'premium_generation_settings_screen.dart';
 import 'membership_lapse_settings_screen.dart';
@@ -166,6 +167,15 @@ class SystemConfigurationScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height:12),
+          _buildConfigTile(
+            context,
+            title: 'Manual Receipt Books',
+            subtitle: 'Maintain valid receipt-book numbers, ranges and assignments',
+            icon: Icons.menu_book_outlined,
+            color: Colors.orange,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualReceiptBookMaintenanceScreen())),
+          ),
+          const SizedBox(height: 12),
           _buildConfigTile(
             context,
             title: 'Manual Receipt Cutover',

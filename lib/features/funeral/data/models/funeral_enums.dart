@@ -1,6 +1,7 @@
 enum PickupStatus {
   PENDING,
   ASSIGNED,
+  ARRIVED,
   COMPLETED,
   CANCELLED;
 
