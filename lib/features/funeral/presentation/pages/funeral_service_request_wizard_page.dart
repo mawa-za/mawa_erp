@@ -791,33 +791,31 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       ),
       child: SafeArea(
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1440),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              child: Row(
-                children: [
-                  if (_controller.currentStep > 0)
-                    OutlinedButton.icon(
-                      onPressed: _controller.previousStep,
-                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                      label: const Text('Back'),
-                    )
-                  else
-                    const SizedBox(width: 1),
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    onPressed: _onNextPressed,
-                    iconAlignment: IconAlignment.end,
-                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                    label: Text(_getNextButtonText()),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(140, 48),
-                    ),
+        child: SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            child: Row(
+              children: [
+                if (_controller.currentStep > 0)
+                  OutlinedButton.icon(
+                    onPressed: _controller.previousStep,
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Back'),
+                  )
+                else
+                  const SizedBox(width: 1),
+                const Spacer(),
+                ElevatedButton.icon(
+                  onPressed: _onNextPressed,
+                  iconAlignment: IconAlignment.end,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: Text(_getNextButtonText()),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(140, 48),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

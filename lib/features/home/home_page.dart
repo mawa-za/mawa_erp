@@ -661,55 +661,53 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         final padding = MawaDesign.responsivePagePadding(constraints.maxWidth);
         return SingleChildScrollView(
           padding: padding,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: MawaDesign.contentMaxWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildWelcomeHeader(),
-                  if (_accessProfile != null &&
-                      (_accessProfile!.platformSession || _accessProfile!.testUser)) ...[
-                    const SizedBox(height: 18),
-                    _buildAccessSessionBanner(_accessProfile!),
-                  ],
-                  const SizedBox(height: 22),
-                  _buildMetricGrid(modules: modules, reports: reports),
-                  const SizedBox(height: 24),
-                  _buildActivityRow(modules),
-                  const SizedBox(height: 30),
-                  if (modules.isNotEmpty)
-                    _buildWorkcenterSection(
-                      title: 'Workcenters',
-                      description:
-                          'Open a business area to access its processes, records and daily tasks.',
-                      items: modules,
-                    ),
-                  if (reports.isNotEmpty) ...[
-                    const SizedBox(height: 30),
-                    _buildWorkcenterSection(
-                      title: 'Reports & analytics',
-                      description:
-                          'Review operational performance and management information.',
-                      items: reports,
-                      isReport: true,
-                    ),
-                  ],
-                  if (_filteredWorkcenters.isEmpty &&
-                      _searchController.text.isNotEmpty) ...[
-                    const SizedBox(height: 28),
-                    const MawaEmptyState(
-                      icon: Icons.search_off_rounded,
-                      title: 'No matching workcenters',
-                      description:
-                          'Try a different name, process or report in the search field.',
-                    ),
-                  ],
-                  const SizedBox(height: 34),
-                  _buildFooter(),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildWelcomeHeader(),
+                if (_accessProfile != null &&
+                    (_accessProfile!.platformSession ||
+                        _accessProfile!.testUser)) ...[
+                  const SizedBox(height: 18),
+                  _buildAccessSessionBanner(_accessProfile!),
                 ],
-              ),
+                const SizedBox(height: 22),
+                _buildMetricGrid(modules: modules, reports: reports),
+                const SizedBox(height: 24),
+                _buildActivityRow(modules),
+                const SizedBox(height: 30),
+                if (modules.isNotEmpty)
+                  _buildWorkcenterSection(
+                    title: 'Workcenters',
+                    description:
+                        'Open a business area to access its processes, records and daily tasks.',
+                    items: modules,
+                  ),
+                if (reports.isNotEmpty) ...[
+                  const SizedBox(height: 30),
+                  _buildWorkcenterSection(
+                    title: 'Reports & analytics',
+                    description:
+                        'Review operational performance and management information.',
+                    items: reports,
+                    isReport: true,
+                  ),
+                ],
+                if (_filteredWorkcenters.isEmpty &&
+                    _searchController.text.isNotEmpty) ...[
+                  const SizedBox(height: 28),
+                  const MawaEmptyState(
+                    icon: Icons.search_off_rounded,
+                    title: 'No matching workcenters',
+                    description:
+                        'Try a different name, process or report in the search field.',
+                  ),
+                ],
+                const SizedBox(height: 34),
+                _buildFooter(),
+              ],
             ),
           ),
         );
