@@ -3,14 +3,22 @@ import 'app_routes.dart';
 class FeatureGroupDefinition {
   final String id;
   final String title;
+  final String description;
   final String routePath;
+  final String sectionCode;
+  final String iconKey;
+  final int displayOrder;
   final List<String> childWorkcenterIds;
   final List<String> aliases;
 
   const FeatureGroupDefinition({
     required this.id,
     required this.title,
+    required this.description,
     required this.routePath,
+    required this.sectionCode,
+    required this.iconKey,
+    required this.displayOrder,
     required this.childWorkcenterIds,
     this.aliases = const [],
   });
@@ -22,243 +30,251 @@ class FeatureGroupDefinition {
         FeatureGroupRegistry.normalize(description),
     };
     final accepted = <String>{
-      ...normalizeList(childWorkcenterIds),
-      ...normalizeList(aliases),
-      normalize(id),
+      ...childWorkcenterIds.map(FeatureGroupRegistry.normalize),
+      ...aliases.map(FeatureGroupRegistry.normalize),
+      FeatureGroupRegistry.normalize(id),
     };
     return candidates.any(accepted.contains);
   }
-
-  static Set<String> normalizeList(List<String> values) =>
-      values.map(normalize).toSet();
-
-  static String normalize(String value) =>
-      value.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
 }
 
+/// Cross-industry fallback catalogue.
+///
+/// Tenant industry profiles supplied by `/tenant-experience` take precedence.
+/// This registry remains available for tenants that have not yet run the
+/// industry-profile migration and for legacy deep links.
 class FeatureGroupRegistry {
-  static const Set<String> standaloneCardIds = {
-    'EMPLOYMENT',
-    'EMPLOYMENT_MANAGEMENT',
-    'LEAVE_MANAGEMENT',
-    'ASSET',
-    'ASSETS',
-    'ASSET_REGISTER',
-    'ASSET_MANAGEMENT',
-  };
-
   static const List<FeatureGroupDefinition> groups = [
     FeatureGroupDefinition(
-      id: 'membership-management',
-      title: 'Membership Management',
-      routePath: '/feature-groups/membership-management',
+      id: 'membership-cover',
+      title: 'Membership & Cover',
+      description:
+          'Enrol members, manage plans and dependants, collect premiums, assess cover and process membership claims.',
+      routePath: '/feature-groups/membership-cover',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'membership',
+      displayOrder: 10,
       childWorkcenterIds: [
-        'membership',
-        'memberships',
-        'member',
-        'members',
-        'membership-plan',
-        'membership-plans',
-        'membership-claim',
-        'membership-claims',
-        'group-society',
-        'group-societies',
+        'member', 'members', 'membership', 'memberships',
+        'membership-plan', 'membership-plans', 'membership-claim',
+        'membership-claims', 'group-society', 'group-societies',
+        'cover-underwriting', 'funeral-cover-underwriting',
+        'third-party-cover-underwriting',
       ],
-      aliases: ['memberships', 'membership-management'],
+      aliases: ['membership-management', 'memberships'],
     ),
     FeatureGroupDefinition(
-      id: 'tombstone-management',
-      title: 'Tombstone Management',
-      routePath: '/feature-groups/tombstone-management',
+      id: 'funeral-operations',
+      title: 'Funeral Operations',
+      description:
+          'Coordinate collections, mortuary care, funeral arrangements, claims, invoicing and settlement.',
+      routePath: '/feature-groups/funeral-operations',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'funeral',
+      displayOrder: 20,
       childWorkcenterIds: [
-        'tombstone-orders',
-        'tombstone-laybys',
-        'tombstone-site-assessments',
-        'tombstone-design-approvals',
-        'tombstone-production-jobs',
-        'tombstone-installation-planning',
-        'tombstone-installation-calendar',
-        'tombstone-installation-teams',
-        'tombstone-rework-jobs',
-        'tombstone-reports',
-      ],
-      aliases: ['tombstones', 'tombstone-management'],
-    ),
-    FeatureGroupDefinition(
-      id: 'funeral-management',
-      title: 'Funeral Management',
-      routePath: '/feature-groups/funeral-management',
-      childWorkcenterIds: [
-        'funeral-service-request',
-        'funeral-package-setup',
-        'pickup-request',
-        'mortuary-inventory',
-        'corpse-check-in',
-        'corpse-check-out',
-        'funeral-claim',
-        'funeral-claims',
-        'funeral-payment',
+        'funeral-service-request', 'funeral-package-setup', 'pickup-request',
+        'mortuary-inventory', 'corpse-check-in', 'corpse-check-out',
+        'funeral-claim', 'funeral-claims', 'funeral-payment',
         'funeral-payments',
       ],
-      aliases: ['funeral', 'funeral-management'],
+      aliases: ['funeral-management', 'funeral'],
     ),
     FeatureGroupDefinition(
-      id: 'finance-management',
-      title: 'Finance Management',
-      routePath: '/feature-groups/finance-management',
+      id: 'tombstone-operations',
+      title: 'Tombstone Operations',
+      description:
+          'Manage tombstone orders from layby and assessment through design, production, installation and after-sales service.',
+      routePath: '/feature-groups/tombstone-operations',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'tombstone',
+      displayOrder: 30,
       childWorkcenterIds: [
-        'invoice',
-        'invoices',
-        'payment-request',
-        'payment-requests',
-        'cashup',
-        'cashups',
-        'approvals',
+        'tombstone-orders', 'tombstone-laybys',
+        'tombstone-site-assessments', 'tombstone-design-approvals',
+        'tombstone-production-jobs', 'tombstone-installation-planning',
+        'tombstone-installation-calendar', 'tombstone-installation-teams',
+        'tombstone-rework-jobs', 'tombstone-reports',
       ],
-      aliases: ['finance', 'finance-management'],
+      aliases: ['tombstone-management', 'tombstones'],
     ),
     FeatureGroupDefinition(
-      id: 'sales-management',
-      title: 'Sales Management',
-      routePath: '/feature-groups/sales-management',
+      id: 'legal-practice',
+      title: 'Legal Practice',
+      description:
+          'Manage clients, matters, parties, documents, court dates, activities, time, billing and disbursements.',
+      routePath: '/feature-groups/legal-practice',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'legal',
+      displayOrder: 40,
       childWorkcenterIds: [
-        'customer',
-        'customers',
-        'client',
-        'clients',
-        'quotation',
-        'quotations',
-        'sales-order',
-        'sales-orders',
+        'legal-case', 'legal-cases', 'case', 'cases', 'case-management',
+        'legal-documents', 'legal-time', 'legal-billing', 'trust-accounting',
       ],
-      aliases: ['sales', 'customer-management'],
+      aliases: ['legal-management', 'legal-cases'],
     ),
     FeatureGroupDefinition(
-      id: 'procurement-management',
-      title: 'Procurement Management',
-      routePath: '/feature-groups/procurement-management',
+      id: 'clients-relationships',
+      title: 'Clients & Relationships',
+      description:
+          'Maintain clients, contacts, organisations and professional relationships.',
+      routePath: '/feature-groups/clients-relationships',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'clients',
+      displayOrder: 50,
+      childWorkcenterIds: ['client', 'clients', 'business-partner', 'partner'],
+      aliases: ['client-management'],
+    ),
+    FeatureGroupDefinition(
+      id: 'sales-customers',
+      title: 'Sales & Customers',
+      description:
+          'Manage customers, quotations and sales orders from enquiry through fulfilment.',
+      routePath: '/feature-groups/sales-customers',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'sales',
+      displayOrder: 60,
       childWorkcenterIds: [
-        'supplier',
-        'suppliers',
-        'purchase-order',
-        'purchase-orders',
-        'goods-receipt',
-        'goods-receipts',
-        'supplier-invoice',
+        'customer', 'customers', 'quotation', 'quotations',
+        'sales-order', 'sales-orders', 'prospect', 'prospects',
+      ],
+      aliases: ['sales-management', 'customer-management'],
+    ),
+    FeatureGroupDefinition(
+      id: 'procurement-suppliers',
+      title: 'Procurement & Suppliers',
+      description:
+          'Onboard suppliers and manage purchasing from requisition through supplier invoicing.',
+      routePath: '/feature-groups/procurement-suppliers',
+      sectionCode: 'BUSINESS_SERVICES',
+      iconKey: 'procurement',
+      displayOrder: 10,
+      childWorkcenterIds: [
+        'supplier', 'suppliers', 'purchase-requisition',
+        'purchase-order', 'purchase-orders', 'supplier-invoice',
         'supplier-invoices',
       ],
-      aliases: ['procurement', 'purchasing'],
+      aliases: ['procurement-management', 'procurement', 'purchasing'],
     ),
     FeatureGroupDefinition(
-      id: 'inventory',
-      title: 'Inventory Management',
-      routePath: '/feature-groups/inventory',
+      id: 'products-inventory',
+      title: 'Products & Inventory',
+      description:
+          'Maintain products and services while controlling receiving, putaway, stock movement and warehouse availability.',
+      routePath: '/feature-groups/products-inventory',
+      sectionCode: 'BUSINESS_SERVICES',
+      iconKey: 'inventory',
+      displayOrder: 20,
       childWorkcenterIds: [
-        'inventory',
-        'stock',
-        'putaway',
-        'putaways',
-        'stock-on-hand',
-        'stock-movement',
-        'stock-movements',
-        'inventory-audit',
-        'inventory-setup',
-        'products',
-        'product',
-        'asset-register',
-        'assets',
+        'product', 'products', 'inventory', 'stock', 'goods-receipt',
+        'goods-receipts', 'putaway', 'putaways', 'stock-on-hand',
+        'stock-movement', 'stock-movements', 'inventory-audit',
+        'inventory-setup', 'warehouse', 'storage-location',
       ],
       aliases: ['inventory-management', 'stock-management'],
     ),
     FeatureGroupDefinition(
-      id: 'scheduling',
-      title: 'Calendar & Appointments',
-      routePath: '/feature-groups/scheduling',
+      id: 'finance-payments',
+      title: 'Finance & Payments',
+      description:
+          'Manage invoicing, receipts, outgoing payments, cashier reconciliation, deposits and payroll processing.',
+      routePath: '/feature-groups/finance-payments',
+      sectionCode: 'BUSINESS_SERVICES',
+      iconKey: 'finance',
+      displayOrder: 30,
       childWorkcenterIds: [
-        'calendar',
-        'appointment',
+        'invoice', 'invoices', 'receipt', 'receipts', 'payment-request',
+        'payment-requests', 'cashup', 'cashups', 'deposit', 'deposits',
+        'payroll-batch', 'payroll-batches',
       ],
-      aliases: ['appointments', 'appointment-booking', 'booking', 'bookings'],
+      aliases: ['finance-management', 'finance'],
     ),
     FeatureGroupDefinition(
-      id: 'partner-management',
-      title: 'Partner Management',
-      routePath: '/feature-groups/partner-management',
+      id: 'people-workplace',
+      title: 'People & Workplace',
+      description:
+          'Maintain employees, employment actions, leave, organisational assets and workplace records.',
+      routePath: '/feature-groups/people-workplace',
+      sectionCode: 'BUSINESS_SERVICES',
+      iconKey: 'people',
+      displayOrder: 40,
       childWorkcenterIds: [
-        'employee',
-        'employees',
-        'employment',
-        'employment-management',
-        'employee-request',
-        'employee-requests',
-        'leave-request',
-        'leave-requests',
-        'leave-management',
-        'business-partner',
-        'partner',
+        'employee', 'employees', 'employment', 'employment-management',
+        'employee-request', 'employee-requests', 'leave-request',
+        'leave-requests', 'leave-management', 'asset', 'assets',
+        'asset-register', 'asset-management',
       ],
-      aliases: ['partners', 'business-partners'],
+      aliases: ['partner-management', 'human-resources', 'hr'],
     ),
     FeatureGroupDefinition(
-      id: 'administration',
-      title: 'Administration',
-      routePath: '/feature-groups/administration',
+      id: 'work-management',
+      title: 'Work Management',
+      description:
+          'Coordinate approvals, tasks, appointments, calendars, forms and internal communication.',
+      routePath: '/feature-groups/work-management',
+      sectionCode: 'BUSINESS_SERVICES',
+      iconKey: 'work',
+      displayOrder: 50,
       childWorkcenterIds: [
-        'system-configuration',
-        'system-configurations',
-        'api-log',
-        'api-logs',
-        'settings',
-        'fnb-integration-admin',
-        'fnb-integration',
-        'xero-integration-admin',
-        'xero-integration',
-        'xero',
-        'message-queue-admin',
+        'approvals', 'approval-inbox', 'calendar', 'appointment',
+        'appointments', 'employee-engagement', 'internal-communications',
+        'company-forms', 'forms', 'tasks', 'diary',
       ],
-      aliases: ['admin', 'system-settings'],
+      aliases: ['scheduling', 'communications', 'engagement'],
     ),
     FeatureGroupDefinition(
-      id: 'legal-management',
-      title: 'Legal Management',
-      routePath: AppRoutes.cases,
-      childWorkcenterIds: [
-        'legal-case',
-        'case',
-      ],
-      aliases: ['legal-cases', 'case-management'],
+      id: 'reports-analytics',
+      title: 'Reports & Analytics',
+      description:
+          'Explore operational, financial and management insights across enabled MAWA business areas.',
+      routePath: '/feature-groups/reports-analytics',
+      sectionCode: 'BUSINESS_SERVICES',
+      iconKey: 'reports',
+      displayOrder: 60,
+      childWorkcenterIds: ['report', 'reports', 'reporting', 'analytics'],
+      aliases: ['reports-and-analytics'],
     ),
     FeatureGroupDefinition(
-      id: 'communications',
-      title: 'Communications',
-      routePath: AppRoutes.internalCommunications,
+      id: 'administration-integrations',
+      title: 'Administration & Integrations',
+      description:
+          'Configure access, business rules, workflows, numbering, integrations and background processing.',
+      routePath: '/feature-groups/administration-integrations',
+      sectionCode: 'SYSTEM_ADMINISTRATION',
+      iconKey: 'administration',
+      displayOrder: 10,
       childWorkcenterIds: [
-        'employee-engagement',
-        'internal-communications',
+        'system-configuration', 'system-configurations', 'api-log',
+        'api-logs', 'settings', 'fnb-integration-admin', 'fnb-integration',
+        'xero-integration-admin', 'xero-integration', 'xero',
+        'signiflow', 'message-queue-admin', 'approval-workflow',
+        'number-range-configuration', 'manual-receipt-book',
+        'underwriter-configuration', 'processing-schedules',
+        'user', 'users', 'role', 'roles', 'company',
       ],
-      aliases: ['engagement'],
+      aliases: ['administration', 'admin', 'system-settings'],
     ),
   ];
 
   static const Map<String, String> approvalTypeGroups = {
-    'CLAIM': 'membership-management',
-    'MEMBERSHIP_TRANSFER': 'membership-management',
-    'MEMBERSHIP_PLAN_CHANGE': 'membership-management',
-    'PAYMENT': 'finance-management',
-    'PAYMENT_REQUEST': 'finance-management',
-    'INVOICE': 'finance-management',
-    'CASHUP': 'finance-management',
-    'JOURNAL': 'finance-management',
-    'CUSTOMER_REFUND': 'finance-management',
-    'PURCHASE_ORDER': 'procurement-management',
-    'SUPPLIER_INVOICE': 'procurement-management',
-    'SUPPLIER_ONBOARDING': 'procurement-management',
-    'SUPPLIER_BANKING_DETAILS': 'procurement-management',
-    'LEAVE': 'partner-management',
+    'CLAIM': 'membership-cover',
+    'MEMBERSHIP_TRANSFER': 'membership-cover',
+    'MEMBERSHIP_PLAN_CHANGE': 'membership-cover',
+    'PAYMENT': 'finance-payments',
+    'PAYMENT_REQUEST': 'finance-payments',
+    'INVOICE': 'finance-payments',
+    'CASHUP': 'finance-payments',
+    'JOURNAL': 'finance-payments',
+    'CUSTOMER_REFUND': 'finance-payments',
+    'PURCHASE_ORDER': 'procurement-suppliers',
+    'SUPPLIER_INVOICE': 'procurement-suppliers',
+    'SUPPLIER_ONBOARDING': 'procurement-suppliers',
+    'SUPPLIER_BANKING_DETAILS': 'procurement-suppliers',
+    'LEAVE': 'people-workplace',
   };
 
   static String approvalGroup(String approvalType) =>
-      approvalTypeGroups[normalize(approvalType)] ?? 'finance-management';
+      approvalTypeGroups[normalize(approvalType)] ?? 'work-management';
 
   static String approvalLabel(String approvalType) => approvalType
       .split('_')
@@ -267,15 +283,11 @@ class FeatureGroupRegistry {
           : '${part[0]}${part.substring(1).toLowerCase()}')
       .join(' ');
 
-  static String normalize(String value) =>
-      value.toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
-
-  static bool isStandaloneCard(String workcenterId, [String? description]) {
-    if (standaloneCardIds.contains(normalize(workcenterId))) return true;
-    return description != null &&
-        description.trim().isNotEmpty &&
-        standaloneCardIds.contains(normalize(description));
-  }
+  static String normalize(String value) => value
+      .trim()
+      .toUpperCase()
+      .replaceAll(RegExp(r'[^A-Z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
 
   static FeatureGroupDefinition? groupForWorkcenter(
     String workcenterId, [
@@ -298,7 +310,11 @@ class FeatureGroupRegistry {
     return null;
   }
 
+  static String canonicalGroupId(String id) => groupById(id)?.id ?? id;
+
   static String? routeForGroup(String id) => groupById(id)?.routePath;
 
   static bool isGroupId(String id) => groupById(id) != null;
+
+  static bool isStandaloneCard(String workcenterId, [String? description]) => false;
 }
