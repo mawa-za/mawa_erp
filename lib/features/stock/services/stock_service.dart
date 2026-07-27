@@ -202,7 +202,7 @@ class StockService {
       'warehouseId': warehouseId,
       'locationCode': locationCode,
       'name': name,
-      'locationType': locationType ?? 'BIN',
+      'locationType': locationType ?? 'GENERAL_STORAGE',
     });
     return _decodeMapResponse(response.body, response.statusCode, 'storage location');
   }

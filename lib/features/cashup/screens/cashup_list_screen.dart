@@ -8,6 +8,8 @@ import 'cashup_detail_screen.dart';
 import '../../partners/models/partner.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../settings/models/manual_receipt_book.dart';
+import '../../settings/services/manual_receipt_book_service.dart';
 
 class CashupListScreen extends StatefulWidget {
   const CashupListScreen({super.key});
@@ -29,6 +31,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
   };
 
   final CashupService _cashupService = CashupService();
+  final ManualReceiptBookService _manualReceiptBookService = ManualReceiptBookService();
   final ScrollController _scrollController = ScrollController();
   final List<Cashup> _cashups = [];
 
@@ -115,13 +118,35 @@ class _CashupListScreenState extends State<CashupListScreen> {
 
 
   Future<void> _showManualCashupDialog() async {
-    final bookController = TextEditingController();
+    List<ManualReceiptBook> receiptBooks;
+    try {
+      receiptBooks = await _manualReceiptBookService.list(activeOnly: true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load manual receipt books: $error'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    if (receiptBooks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No active manual receipt books exist. Maintain a receipt book before creating a manual cashup.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final fromController = TextEditingController();
     final toController = TextEditingController();
     final notesController = TextEditingController();
     final amountController = TextEditingController();
     Partner? employeeResponsible;
     String? areaCode;
+    ManualReceiptBook? selectedBook;
     DateTime cashupDate = DateTime.now();
     String? validationError;
 
@@ -164,12 +189,32 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     onChanged: (value) => setDialogState(() => areaCode = value),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: bookController,
+                  DropdownButtonFormField<ManualReceiptBook>(
+                    value: selectedBook,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Receipt Book Number *',
                       border: OutlineInputBorder(),
                     ),
+                    items: receiptBooks
+                        .map(
+                          (book) => DropdownMenuItem(
+                            value: book,
+                            child: Text('${book.receiptBookNo} • ${book.rangeLabel}'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (book) {
+                      setDialogState(() {
+                        selectedBook = book;
+                        if (book?.assignedAreaCode != null && book!.assignedAreaCode!.isNotEmpty) {
+                          areaCode = book.assignedAreaCode;
+                        }
+                        fromController.text = book?.receiptFromNo ?? '';
+                        toController.text = book?.receiptToNo ?? '';
+                        validationError = null;
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -245,7 +290,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
             ),
             FilledButton(
               onPressed: () {
-                final book = bookController.text.trim();
+                final book = selectedBook;
                 final from = fromController.text.trim();
                 final to = toController.text.trim();
                 final fromNumber = int.tryParse(from);
@@ -259,12 +304,20 @@ class _CashupListScreenState extends State<CashupListScreen> {
                   error = 'Employee responsible is required.';
                 } else if (areaCode == null || areaCode!.isEmpty) {
                   error = 'Area is required.';
-                } else if (book.isEmpty) {
+                } else if (book == null) {
                   error = 'Receipt book number is required.';
                 } else if (fromNumber == null || toNumber == null) {
                   error = 'Receipt from and receipt to must be numeric.';
                 } else if (fromNumber > toNumber) {
                   error = 'Receipt from cannot be greater than receipt to.';
+                } else {
+                  final configuredFrom = int.tryParse(book!.receiptFromNo ?? '');
+                  final configuredTo = int.tryParse(book.receiptToNo ?? '');
+                  if (configuredFrom != null && fromNumber < configuredFrom) {
+                    error = 'Receipt from is outside the configured book range (${book.rangeLabel}).';
+                  } else if (configuredTo != null && toNumber > configuredTo) {
+                    error = 'Receipt to is outside the configured book range (${book.rangeLabel}).';
+                  }
                 }
 
                 if (error != null) {
@@ -278,7 +331,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
                   'employeeResponsibleName': employeeResponsible!.fullName,
                   'areaCode': areaCode,
                   'areaName': areaCode,
-                  'receiptBookNo': book,
+                  'receiptBookNo': book!.receiptBookNo,
                   'receiptFromNo': from,
                   'receiptToNo': to,
                   'cashupDate': DateFormat('yyyy-MM-dd').format(cashupDate),
@@ -292,7 +345,6 @@ class _CashupListScreenState extends State<CashupListScreen> {
       ),
     );
 
-    bookController.dispose();
     fromController.dispose();
     toController.dispose();
     notesController.dispose();

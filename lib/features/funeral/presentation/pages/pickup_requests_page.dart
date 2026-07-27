@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/pickup_request_dto.dart';
 import '../../data/models/complete_pickup_request_dto.dart';
+import '../../data/models/arrive_pickup_request_dto.dart';
 import '../../../../core/api_client.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../../partners/models/partner.dart';
@@ -18,6 +21,7 @@ class PickupRequestsPage extends StatefulWidget {
 
 class _PickupRequestsPageState extends State<PickupRequestsPage> {
   final _api = FuneralApi();
+  final _imagePicker = ImagePicker();
   List<PickupRequestDto> _requests = [];
   List<Partner> _employees = [];
   bool _isLoading = true;
@@ -164,6 +168,170 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
     return decoded is List
         ? decoded.map((item) => Map<String, dynamic>.from(item as Map)).toList()
         : <Map<String, dynamic>>[];
+  }
+
+  Future<void> _uploadInjuryPhotos(String pickupId, List<XFile> photos) async {
+    for (final photo in photos) {
+      final bytes = await photo.readAsBytes();
+      final extension = photo.name.contains('.') ? photo.name.split('.').last : 'jpg';
+      final response = await ApiClient().post('/v2/attachment', body: {
+        'objectId': pickupId,
+        'documentType': 'PICKUP-INJURY-PHOTO',
+        'extension': extension,
+        'file': base64Encode(bytes),
+      });
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Could not upload injury photo ${photo.name}: ${response.body}');
+      }
+    }
+  }
+
+  Future<void> _recordArrival(PickupRequestDto request) async {
+    bool injured = false;
+    final injuryDetails = TextEditingController();
+    final photos = <XFile>[];
+
+    final assessment = await showDialog<_ArrivalAssessment>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final canSubmit = !injured ||
+              (injuryDetails.text.trim().isNotEmpty && photos.isNotEmpty);
+          return AlertDialog(
+            title: const Text('Driver Arrival Assessment'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Confirm arrival at ${request.pickupLocation} and assess the deceased.'),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Injuries identified at pickup'),
+                      subtitle: const Text('Describe and photograph injuries before recording arrival.'),
+                      value: injured,
+                      onChanged: (value) => setDialogState(() {
+                        injured = value;
+                        if (!value) {
+                          injuryDetails.clear();
+                          photos.clear();
+                        }
+                      }),
+                    ),
+                    if (injured) ...[
+                      TextField(
+                        controller: injuryDetails,
+                        maxLines: 3,
+                        onChanged: (_) => setDialogState(() {}),
+                        decoration: const InputDecoration(
+                          labelText: 'Injury Details',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final photo = await _imagePicker.pickImage(
+                                source: ImageSource.camera,
+                                imageQuality: 85,
+                              );
+                              if (photo != null) setDialogState(() => photos.add(photo));
+                            },
+                            icon: const Icon(Icons.camera_alt_outlined),
+                            label: const Text('Take Photo'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final photo = await _imagePicker.pickImage(
+                                source: ImageSource.gallery,
+                                imageQuality: 85,
+                              );
+                              if (photo != null) setDialogState(() => photos.add(photo));
+                            },
+                            icon: const Icon(Icons.photo_library_outlined),
+                            label: const Text('Photo Library'),
+                          ),
+                        ],
+                      ),
+                      if (photos.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            'At least one injury photo is required.',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ...photos.asMap().entries.map(
+                            (entry) => ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.image_outlined),
+                              title: Text(entry.value.name),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => setDialogState(() => photos.removeAt(entry.key)),
+                              ),
+                            ),
+                          ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: canSubmit
+                    ? () => Navigator.pop(
+                          context,
+                          _ArrivalAssessment(
+                            corpseInjured: injured,
+                            injuryDetails: injured ? injuryDetails.text.trim() : null,
+                            photos: List<XFile>.from(photos),
+                          ),
+                        )
+                    : null,
+                child: const Text('Record Arrival'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    injuryDetails.dispose();
+
+    if (assessment == null || request.id == null) return;
+    try {
+      if (assessment.corpseInjured) {
+        await _uploadInjuryPhotos(request.id!, assessment.photos);
+      }
+      await _api.arriveAtPickupLocation(
+        request.id!,
+        ArrivePickupRequestDto(
+          arrivalTime: DateTime.now(),
+          corpseInjured: assessment.corpseInjured,
+          injuryDetails: assessment.injuryDetails,
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Driver arrival and injury assessment recorded.')),
+      );
+      _loadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error recording arrival: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _completePickup(PickupRequestDto request) async {
@@ -349,9 +517,12 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                             const SizedBox(height: 8),
                             Text('Location: ${request.pickupLocation}'),
                             Text('Contact: ${request.contactPerson} (${request.contactNumber})'),
-                            if (request.corpseInjured)
+                            if (request.status == PickupStatus.ARRIVED ||
+                                request.status == PickupStatus.COMPLETED)
                               Text(
-                                'Injuries reported${request.injuryDetails == null || request.injuryDetails!.isEmpty ? '' : ': ${request.injuryDetails}'}',
+                                request.corpseInjured
+                                    ? 'Arrival assessment: injuries identified${request.injuryDetails == null || request.injuryDetails!.isEmpty ? '' : ': ${request.injuryDetails}'}'
+                                    : 'Arrival assessment: no injuries identified',
                                 style: const TextStyle(fontWeight: FontWeight.w600),
                               ),
                             if (request.staffId != null && request.staffId!.isNotEmpty)
@@ -366,6 +537,12 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                                     child: const Text('Assign Staff'),
                                   ),
                                 if (request.status == PickupStatus.ASSIGNED)
+                                  ElevatedButton.icon(
+                                    onPressed: () => _recordArrival(request),
+                                    icon: const Icon(Icons.location_on_outlined),
+                                    label: const Text('Arrived at Pickup'),
+                                  ),
+                                if (request.status == PickupStatus.ARRIVED)
                                   ElevatedButton(
                                     onPressed: () => _completePickup(request),
                                     child: const Text('Complete Pickup'),
@@ -386,4 +563,16 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
       ),
     );
   }
+}
+
+class _ArrivalAssessment {
+  final bool corpseInjured;
+  final String? injuryDetails;
+  final List<XFile> photos;
+
+  const _ArrivalAssessment({
+    required this.corpseInjured,
+    required this.injuryDetails,
+    required this.photos,
+  });
 }

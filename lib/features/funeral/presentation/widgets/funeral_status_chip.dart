@@ -64,6 +64,8 @@ class FuneralStatusChip extends StatelessWidget {
           return Colors.orange;
         case PickupStatus.ASSIGNED:
           return Colors.blue;
+        case PickupStatus.ARRIVED:
+          return Colors.teal;
         case PickupStatus.COMPLETED:
           return Colors.green;
         case PickupStatus.CANCELLED:
@@ -106,6 +108,8 @@ class FuneralStatusChip extends StatelessWidget {
       case 'ASSIGNED':
       case 'PARTIALLY_APPROVED':
         return Colors.blue;
+      case 'ARRIVED':
+        return Colors.teal;
       case 'COMPLETED':
       case 'APPROVED':
       case 'RELEASED':
