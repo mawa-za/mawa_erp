@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class SchedulerConfigurationScreen extends StatefulWidget {
   const SchedulerConfigurationScreen({super.key});
@@ -27,12 +28,12 @@ class _SchedulerConfigurationScreenState extends State<SchedulerConfigurationScr
     setState(() => _loading = true);
     try {
       final response = await _api.get('/v2/scheduler/jobs');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final decoded = jsonDecode(response.body) as List;
       _jobs = decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load schedules: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to load schedules: $e'))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -44,14 +45,14 @@ class _SchedulerConfigurationScreenState extends State<SchedulerConfigurationScr
     try {
       final code = job['jobCode'];
       final response = await _api.put('/v2/scheduler/jobs/$code', body: job);
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Schedule updated')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save schedule: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to save schedule: $e'))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -63,14 +64,14 @@ class _SchedulerConfigurationScreenState extends State<SchedulerConfigurationScr
     try {
       final code = job['jobCode'];
       final response = await _api.post('/v2/scheduler/jobs/$code/run-now');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Job triggered')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to run job: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to run job: $e'))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

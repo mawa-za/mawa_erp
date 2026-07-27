@@ -6,6 +6,7 @@ import '../../../core/services/field_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../partners/models/partner.dart';
 import '../services/leave_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class LeaveRequestCreateScreen extends StatefulWidget {
   const LeaveRequestCreateScreen({super.key});
@@ -57,7 +58,7 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _optionsError = 'Unable to load leave types: $e';
+        _optionsError = friendlyErrorMessage('Unable to load leave types: $e');
         _isLoadingOptions = false;
       });
     }
@@ -105,7 +106,7 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
         Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) _showError('Unable to create leave request: $e');
+      if (mounted) _showError(friendlyErrorMessage('Unable to create leave request: $e'));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

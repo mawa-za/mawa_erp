@@ -13,6 +13,7 @@ import '../models/group_society_contact.dart';
 import '../models/group_society_payment.dart';
 import '../models/payment_batch_response.dart';
 import '../models/membership_change.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
@@ -71,12 +72,11 @@ class MembershipService {
           (json) => Membership.fromJson(json),
         );
       } else {
-        String errorMessage = 'Failed to load memberships (${response.statusCode})';
-        try {
-          final errorData = jsonDecode(response.body);
-          errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
-        } catch (_) {}
-        throw Exception(errorMessage);
+        throw AppException.fromHttp(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+          fallback: 'Memberships could not be loaded. Please try again.',
+        );
       }
     } catch (e) {
       rethrow;
@@ -91,7 +91,7 @@ class MembershipService {
         return data['id'];
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to create membership: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to create membership: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -103,7 +103,7 @@ class MembershipService {
       final response = await ApiClient().put('/v2/membership/$id', body: payload);
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update membership: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to update membership: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -115,7 +115,7 @@ class MembershipService {
       final response = await ApiClient().delete('/v2/membership/$id');
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete membership: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to delete membership: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -132,12 +132,11 @@ class MembershipService {
         }
         return MembershipDetail.fromJson(decoded as Map<String, dynamic>);
       } else {
-        String errorMessage = 'Failed to load membership details (${response.statusCode})';
-        try {
-          final errorData = jsonDecode(response.body);
-          errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
-        } catch (_) {}
-        throw Exception(errorMessage);
+        throw AppException.fromHttp(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+          fallback: 'The membership details could not be loaded. Please try again.',
+        );
       }
     } catch (e) {
       rethrow;
@@ -159,7 +158,7 @@ class MembershipService {
         }
         return data.whereType<Map<String, dynamic>>().map((json) => Dependent.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load membership dependents: ${response.statusCode}');
+        throw AppException('Failed to load membership dependents: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -171,7 +170,7 @@ class MembershipService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception(_errorMessage(response.body, 'Failed to add dependent: ${response.statusCode}'));
+    throw AppException(_errorMessage(response.body, 'Failed to add dependent: ${response.statusCode}'));
   }
 
   Future<MembershipChange> replaceDependent(
@@ -183,7 +182,7 @@ class MembershipService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception(_errorMessage(response.body, 'Failed to replace dependent: ${response.statusCode}'));
+    throw AppException(_errorMessage(response.body, 'Failed to replace dependent: ${response.statusCode}'));
   }
 
   @Deprecated('Use replaceDependent')
@@ -201,7 +200,7 @@ class MembershipService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception(_errorMessage(response.body, 'Failed to remove dependent: ${response.statusCode}'));
+    throw AppException(_errorMessage(response.body, 'Failed to remove dependent: ${response.statusCode}'));
   }
 
   @Deprecated('Use removeDependent with a reason')
@@ -271,7 +270,7 @@ class MembershipService {
         }
         return [];
       } else {
-        throw Exception('Failed to load unpaid premiums: ${response.statusCode}');
+        throw AppException('Failed to load unpaid premiums: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -305,7 +304,7 @@ class MembershipService {
           (json) => MembershipPlan.fromJson(json),
         );
       } else {
-        throw Exception('Failed to load membership plans: ${response.statusCode}');
+        throw AppException('Failed to load membership plans: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -322,7 +321,7 @@ class MembershipService {
         }
         return MembershipPlan.fromJson(decoded as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to load membership plan: ${response.statusCode}');
+        throw AppException('Failed to load membership plan: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -334,7 +333,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/membership/plans', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to create membership plan: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to create membership plan: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -346,7 +345,7 @@ class MembershipService {
       final response = await ApiClient().put('/v2/membership/plans/$id', body: payload);
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update membership plan: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to update membership plan: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -358,7 +357,7 @@ class MembershipService {
       final response = await ApiClient().delete('/v2/membership/plans/$id');
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete membership plan: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to delete membership plan: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -374,7 +373,7 @@ class MembershipService {
         final List<dynamic> decoded = jsonDecode(response.body);
         return decoded.map((item) => MembershipPlanPremiumRule.fromJson(item)).toList();
       } else {
-        throw Exception('Failed to load premium rules: ${response.statusCode}');
+        throw AppException('Failed to load premium rules: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -386,7 +385,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/membership/plans/$planId/premium-rule', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to add premium rule: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to add premium rule: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -398,7 +397,7 @@ class MembershipService {
       final response = await ApiClient().put('/v2/membership/plans/$planId/premium-rule/$ruleId', body: payload);
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update premium rule: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to update premium rule: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -410,7 +409,7 @@ class MembershipService {
       final response = await ApiClient().delete('/v2/membership/plans/$planId/premium-rule/$ruleId');
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete premium rule: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to delete premium rule: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -429,7 +428,7 @@ class MembershipService {
         final List<dynamic> decoded = jsonDecode(response.body);
         return decoded.map((item) => MembershipPlanClaimPayout.fromJson(item)).toList();
       } else {
-        throw Exception('Failed to load claim payouts: ${response.statusCode}');
+        throw AppException('Failed to load claim payouts: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -441,7 +440,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/membership/plans/$planId/claim-payout', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to add claim payout: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to add claim payout: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -453,7 +452,7 @@ class MembershipService {
       final response = await ApiClient().put('/v2/membership/plans/$planId/claim-payout/$payoutId', body: payload);
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update claim payout: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to update claim payout: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -465,7 +464,7 @@ class MembershipService {
       final response = await ApiClient().delete('/v2/membership/plans/$planId/claim-payout/$payoutId');
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete claim payout: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to delete claim payout: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -481,7 +480,7 @@ class MembershipService {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to process claim: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to process claim: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -504,7 +503,7 @@ class MembershipService {
 
     final response = await ApiClient().get(path);
     if (response.statusCode != 200) {
-      throw Exception(_extractErrorMessage(
+      throw AppException(_extractErrorMessage(
         response.body,
         'Failed to load membership claims: ${response.statusCode}',
       ));
@@ -547,7 +546,7 @@ class MembershipService {
         }
         return data.whereType<Map<String, dynamic>>().map((json) => MembershipClaim.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load membership claims: ${response.statusCode}');
+        throw AppException('Failed to load membership claims: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -569,7 +568,7 @@ class MembershipService {
         }
         return data.whereType<Map<String, dynamic>>().map((json) => MembershipClaim.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load membership claims: ${response.statusCode}');
+        throw AppException('Failed to load membership claims: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -586,7 +585,7 @@ class MembershipService {
         }
         return MembershipClaim.fromJson(decoded as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to load membership claim: ${response.statusCode}');
+        throw AppException('Failed to load membership claim: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -598,7 +597,7 @@ class MembershipService {
       final response = await ApiClient().put('/v2/membership-claim/$id', body: payload);
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update membership claim: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to update membership claim: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -610,7 +609,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/membership-claim/$id/submit');
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to submit membership claim: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to submit membership claim: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -622,7 +621,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/membership-claim/$id/cancel');
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to cancel membership claim: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to cancel membership claim: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -637,7 +636,7 @@ class MembershipService {
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to link claims: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to link claims: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -649,7 +648,7 @@ class MembershipService {
       final response = await ApiClient().delete('/v2/membership-claim/$parentClaimId/linked-claims/$linkedClaimId');
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to detach claim: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to detach claim: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -680,7 +679,7 @@ class MembershipService {
 
         return data.whereType<Map<String, dynamic>>().map((json) => GroupSociety.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load group societies: ${response.statusCode}');
+        throw AppException('Failed to load group societies: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -697,7 +696,7 @@ class MembershipService {
         }
         return GroupSociety.fromJson(decoded as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to load group society: ${response.statusCode}');
+        throw AppException('Failed to load group society: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -711,7 +710,7 @@ class MembershipService {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to create group society: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to create group society: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -723,7 +722,7 @@ class MembershipService {
       final response = await ApiClient().put('/v2/group-society/$id', body: payload);
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to update group society: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to update group society: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -743,7 +742,7 @@ class MembershipService {
       final response = await ApiClient().delete('/v2/group-society/$id');
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete group society: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to delete group society: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -755,7 +754,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/group-society/$id/suspend');
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to suspend group society: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to suspend group society: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -767,7 +766,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/group-society/$id/activate');
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to activate group society: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to activate group society: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -779,7 +778,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/group-society/$id/close');
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to close group society: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to close group society: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -801,7 +800,7 @@ class MembershipService {
         }
         return data.whereType<Map<String, dynamic>>().map((json) => GroupSocietyContact.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load contacts: ${response.statusCode}');
+        throw AppException('Failed to load contacts: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -813,7 +812,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/group-society/$id/contacts', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to add contact: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to add contact: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -825,7 +824,7 @@ class MembershipService {
       final response = await ApiClient().delete('/v2/group-society/contacts/$contactId');
       if (response.statusCode != 200 && response.statusCode != 204) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to delete contact: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to delete contact: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -839,7 +838,7 @@ class MembershipService {
         return GroupSocietyPayment.fromJson(jsonDecode(response.body));
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to add payment: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to add payment: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -851,7 +850,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/group-society/$id/claims/debit', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to process claim debit: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to process claim debit: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -863,7 +862,7 @@ class MembershipService {
       final response = await ApiClient().post('/v2/group-society/$id/adjustments', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
-        throw Exception(error['message'] ?? 'Failed to process adjustment: ${response.statusCode}');
+        throw AppException(error['message'] ?? 'Failed to process adjustment: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -889,7 +888,7 @@ class MembershipService {
         }
         return data.whereType<Map<String, dynamic>>().map((json) => GroupSocietyPayment.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load statement: ${response.statusCode}');
+        throw AppException('Failed to load statement: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -905,7 +904,7 @@ class MembershipService {
       } else if (response.statusCode == 404) {
         return null;
       } else {
-        throw Exception('Failed to find group society for partner: ${response.statusCode}');
+        throw AppException('Failed to find group society for partner: ${response.statusCode}');
       }
     } catch (e) {
       return null;
@@ -919,7 +918,7 @@ class MembershipService {
         final dynamic data = jsonDecode(response.body);
         return GroupSociety.fromJson(Map<String, dynamic>.from(data));
       } else {
-        throw Exception('Failed to find group society for group no: ${response.statusCode}');
+        throw AppException('Failed to find group society for group no: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -950,12 +949,11 @@ class MembershipService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PaymentBatchResponse.fromJson(jsonDecode(response.body));
       } else {
-        String errorMessage = 'Failed to create membership premium payment (${response.statusCode})';
-        try {
-          final errorData = jsonDecode(response.body);
-          errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
-        } catch (_) {}
-        throw Exception(errorMessage);
+        throw AppException.fromHttp(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+          fallback: 'The membership premium payment could not be created. Please try again.',
+        );
       }
     } catch (e) {
       rethrow;
@@ -996,14 +994,14 @@ class MembershipService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return PaymentBatchResponse.fromJson(jsonDecode(response.body));
     }
-    throw Exception(_extractErrorMessage(response.body, 'Failed to capture manual receipt (${response.statusCode})'));
+    throw AppException(_extractErrorMessage(response.body, 'Failed to capture manual receipt (${response.statusCode})'));
   }
 
   Future<void> printReceipt(String receiptId) async {
     try {
       final response = await ApiClient().get('/v2/receipts/$receiptId/print');
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to print receipt: ${response.statusCode}');
+        throw AppException('Failed to print receipt: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -1032,7 +1030,7 @@ class MembershipService {
         }
         return MembershipClaim.fromJson(Map<String, dynamic>.from(decoded as Map));
       }
-      throw Exception(_extractErrorMessage(response.body, 'Failed to load membership claim: ${response.statusCode}'));
+      throw AppException(_extractErrorMessage(response.body, 'Failed to load membership claim: ${response.statusCode}'));
     } catch (e) {
       rethrow;
     }
@@ -1046,7 +1044,7 @@ class MembershipService {
             .map((json) => MembershipClaim.fromJson(Map<String, dynamic>.from(json as Map)))
             .toList();
       }
-      throw Exception(_extractErrorMessage(response.body, 'Failed to load membership claims: ${response.statusCode}'));
+      throw AppException(_extractErrorMessage(response.body, 'Failed to load membership claims: ${response.statusCode}'));
     } catch (e) {
       rethrow;
     }
@@ -1058,7 +1056,7 @@ class MembershipService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PaymentBatchResponse.fromJson(jsonDecode(response.body));
       }
-      throw Exception(_extractErrorMessage(response.body, 'Failed to sync membership premium payment: ${response.statusCode}'));
+      throw AppException(_extractErrorMessage(response.body, 'Failed to sync membership premium payment: ${response.statusCode}'));
     } catch (e) {
       rethrow;
     }
@@ -1071,7 +1069,7 @@ class MembershipService {
         if (response.body.isEmpty) return null;
         return jsonDecode(response.body);
       }
-      throw Exception(_extractErrorMessage(response.body, 'Failed to migrate memberships: ${response.statusCode}'));
+      throw AppException(_extractErrorMessage(response.body, 'Failed to migrate memberships: ${response.statusCode}'));
     } catch (e) {
       rethrow;
     }
@@ -1102,7 +1100,7 @@ class MembershipService {
       final rows = decoded is List ? decoded : <dynamic>[];
       return rows.map((item) => MembershipChange.fromJson(Map<String, dynamic>.from(item))).toList();
     }
-    throw Exception(_extractMessage(response.body, 'Failed to load membership changes'));
+    throw AppException(_extractMessage(response.body, 'Failed to load membership changes'));
   }
 
   Future<List<MembershipChangeAudit>> getMembershipChangeAudit(String membershipId) async {
@@ -1112,7 +1110,7 @@ class MembershipService {
       final rows = decoded is List ? decoded : <dynamic>[];
       return rows.map((item) => MembershipChangeAudit.fromJson(Map<String, dynamic>.from(item))).toList();
     }
-    throw Exception(_extractMessage(response.body, 'Failed to load membership audit trail'));
+    throw AppException(_extractMessage(response.body, 'Failed to load membership audit trail'));
   }
 
   Future<MembershipChangeConfiguration> getMembershipChangeConfiguration() async {
@@ -1120,7 +1118,7 @@ class MembershipService {
     if (response.statusCode == 200) {
       return MembershipChangeConfiguration.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception(_extractMessage(response.body, 'Failed to load membership change configuration'));
+    throw AppException(_extractMessage(response.body, 'Failed to load membership change configuration'));
   }
 
   Future<void> updateMembershipChangeConfiguration(int months) async {
@@ -1128,7 +1126,7 @@ class MembershipService {
       'planChangeWaitingPeriodMonths': months,
     });
     if (response.statusCode != 200) {
-      throw Exception(_extractMessage(response.body, 'Failed to update membership change configuration'));
+      throw AppException(_extractMessage(response.body, 'Failed to update membership change configuration'));
     }
   }
 
@@ -1140,7 +1138,7 @@ class MembershipService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception(_extractMessage(response.body, 'Failed to submit membership transfer'));
+    throw AppException(_extractMessage(response.body, 'Failed to submit membership transfer'));
   }
 
   Future<MembershipChange> requestMembershipPlanChange(String membershipId, String newPlanId, String reason) async {
@@ -1151,7 +1149,7 @@ class MembershipService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
-    throw Exception(_extractMessage(response.body, 'Failed to submit membership plan change'));
+    throw AppException(_extractMessage(response.body, 'Failed to submit membership plan change'));
   }
 
   String _extractMessage(String body, String fallback) {

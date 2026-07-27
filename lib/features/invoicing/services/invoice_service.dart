@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InvoiceService {
   static final InvoiceService _instance = InvoiceService._internal();
@@ -27,7 +28,7 @@ class InvoiceService {
       }
       return [];
     }
-    throw Exception('Failed to load invoices');
+    throw AppException('Failed to load invoices');
   }
 
   Future<Map<String, dynamic>> createInvoice(Map<String, dynamic> invoice) async {
@@ -35,7 +36,7 @@ class InvoiceService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
     }
-    throw Exception('Failed to create invoice');
+    throw AppException('Failed to create invoice');
   }
 
   Future<Map<String, dynamic>> getInvoice(String id) async {
@@ -43,13 +44,13 @@ class InvoiceService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     }
-    throw Exception('Failed to load invoice');
+    throw AppException('Failed to load invoice');
   }
 
   Future<void> deleteInvoice(String id) async {
     final response = await _apiClient.delete('/v2/invoice/$id');
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to delete invoice');
+      throw AppException('Failed to delete invoice');
     }
   }
 
@@ -60,7 +61,7 @@ class InvoiceService {
       if (response.statusCode == 200) {
         return response.bodyBytes;
       } else {
-        throw Exception('Failed to download invoice PDF: ${response.statusCode}');
+        throw AppException('Failed to download invoice PDF: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -73,7 +74,7 @@ class InvoiceService {
       body: email != null ? {'email': email} : null,
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to send invoice email');
+      throw AppException('Failed to send invoice email');
     }
   }
 
@@ -82,7 +83,7 @@ class InvoiceService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     }
-    throw Exception('Failed to load invoice payments');
+    throw AppException('Failed to load invoice payments');
   }
 
   Future<Map<String, dynamic>> getInvoiceLines(String id) async {
@@ -90,13 +91,13 @@ class InvoiceService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     }
-    throw Exception('Failed to load invoice lines');
+    throw AppException('Failed to load invoice lines');
   }
 
   Future<void> capturePayment(String invoiceId, Map<String, dynamic> payment) async {
     final response = await _apiClient.post('/v2/invoice/$invoiceId/payment', body: payment);
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to capture payment');
+      throw AppException('Failed to capture payment');
     }
   }
 }

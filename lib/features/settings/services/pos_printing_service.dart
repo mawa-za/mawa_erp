@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/pos_printing_models.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PosPrintingService {
   static const _terminalKeyPreference = 'mawa_pos_terminal_key';
@@ -32,7 +33,7 @@ class PosPrintingService {
       'location': terminalLocation,
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(response.body, 'Unable to register this terminal'));
+      throw AppException(_message(response.body, 'Unable to register this terminal'));
     }
     await prefs.setString(_terminalNamePreference, name);
     await prefs.setString(_terminalLocationPreference, terminalLocation);
@@ -42,7 +43,7 @@ class PosPrintingService {
   Future<List<PosPrintAgent>> getAgents() async {
     final response = await ApiClient().get('/v2/pos-printing/agents');
     if (response.statusCode != 200) {
-      throw Exception(_message(response.body, 'Unable to load print agents'));
+      throw AppException(_message(response.body, 'Unable to load print agents'));
     }
     final decoded = jsonDecode(response.body);
     return (decoded as List)
@@ -62,7 +63,7 @@ class PosPrintingService {
       'printerRole': 'RECEIPT',
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(response.body, 'Unable to configure receipt printer'));
+      throw AppException(_message(response.body, 'Unable to configure receipt printer'));
     }
     return PosPrinter.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
   }
@@ -79,7 +80,7 @@ class PosPrintingService {
       'defaultDocumentPrinterId': documentPrinterId,
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(response.body, 'Unable to assign terminal printer'));
+      throw AppException(_message(response.body, 'Unable to assign terminal printer'));
     }
     return PosTerminal.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
   }
@@ -95,7 +96,7 @@ class PosPrintingService {
       'validMinutes': validMinutes,
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(response.body, 'Unable to create enrollment code'));
+      throw AppException(_message(response.body, 'Unable to create enrollment code'));
     }
     return PosEnrollmentCode.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
   }
@@ -103,7 +104,7 @@ class PosPrintingService {
   Future<String> queueReceipt(String receiptId, {bool reprint = false, String? printerId}) async {
     final terminal = await ensureTerminal();
     if (!terminal.configured && (printerId == null || printerId.isEmpty)) {
-      throw Exception('This terminal is not linked to a Windows print agent and receipt printer. Configure POS Printing under System Configuration.');
+      throw AppException('This terminal is not linked to a Windows print agent and receipt printer. Configure POS Printing under System Configuration.');
     }
     final requestId = '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
     final response = await ApiClient().post('/v2/receipts/$receiptId/print-jobs', body: {
@@ -113,7 +114,7 @@ class PosPrintingService {
       'reprint': reprint,
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(response.body, 'Unable to queue receipt for printing'));
+      throw AppException(_message(response.body, 'Unable to queue receipt for printing'));
     }
     final decoded = Map<String, dynamic>.from(jsonDecode(response.body));
     return (decoded['id'] ?? '').toString();
@@ -126,7 +127,7 @@ class PosPrintingService {
       'requestId': requestId,
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(response.body, 'Unable to queue test print'));
+      throw AppException(_message(response.body, 'Unable to queue test print'));
     }
     final decoded = Map<String, dynamic>.from(jsonDecode(response.body));
     return (decoded['id'] ?? '').toString();
@@ -135,7 +136,7 @@ class PosPrintingService {
   Future<void> confirmDirectPrint(String receiptId) async {
     final response = await ApiClient().post('/v2/receipts/$receiptId/direct-print-spooled', body: const {});
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(response.body, 'Receipt printed, but MAWA could not record the print'));
+      throw AppException(_message(response.body, 'Receipt printed, but MAWA could not record the print'));
     }
   }
 

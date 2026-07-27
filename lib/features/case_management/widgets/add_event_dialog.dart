@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/case_event.dart';
 import '../services/case_management_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddEventDialog extends StatefulWidget {
   final String caseId;
@@ -73,7 +74,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
     }
   }
 

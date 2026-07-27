@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../models/payment_request.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PaymentRequestService {
   static final PaymentRequestService _instance = PaymentRequestService._internal();
@@ -37,7 +38,7 @@ class PaymentRequestService {
         
         return data.map((json) => PaymentRequestResponse.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load payment requests: ${response.statusCode}');
+        throw AppException('Failed to load payment requests: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('PaymentRequestService Error: $e');
@@ -54,7 +55,7 @@ class PaymentRequestService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PaymentRequestResponse.fromJson(jsonDecode(response.body));
       } else {
-        throw Exception('Failed to create payment request: ${response.statusCode}');
+        throw AppException('Failed to create payment request: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -66,7 +67,7 @@ class PaymentRequestService {
     if (response.statusCode == 200) {
       return PaymentRequestResponse.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to load payment request');
+    throw AppException('Failed to load payment request');
   }
 
   Future<PaymentRequestResponse> updatePaymentRequest(String id, Map<String, dynamic> data) async {
@@ -74,7 +75,7 @@ class PaymentRequestService {
     if (response.statusCode == 200) {
       return PaymentRequestResponse.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to update payment request');
+    throw AppException('Failed to update payment request');
   }
 
   Future<PaymentRequestResponse> submitPaymentRequest(String id) async {
@@ -82,7 +83,7 @@ class PaymentRequestService {
     if (response.statusCode == 200) {
       return PaymentRequestResponse.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to submit payment request');
+    throw AppException('Failed to submit payment request');
   }
 
   Future<PaymentRequestResponse> updatePaymentRequestStatus(String id, Map<String, dynamic> data) async {
@@ -90,7 +91,7 @@ class PaymentRequestService {
     if (response.statusCode == 200) {
       return PaymentRequestResponse.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to update status');
+    throw AppException('Failed to update status');
   }
 
   Future<PaymentRequestResponse> markAsPaid(String id, Map<String, dynamic> data) async {
@@ -98,7 +99,7 @@ class PaymentRequestService {
     if (response.statusCode == 200) {
       return PaymentRequestResponse.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to mark as paid');
+    throw AppException('Failed to mark as paid');
   }
 
   Future<PaymentRequestResponse> cancelPaymentRequest(String id, {String? comment}) async {
@@ -108,7 +109,7 @@ class PaymentRequestService {
     if (response.statusCode == 200) {
       return PaymentRequestResponse.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to cancel payment request');
+    throw AppException('Failed to cancel payment request');
   }
 
   Future<List<PaymentDisbursementAttempt>> getPaymentAttempts(String id) async {
@@ -119,7 +120,7 @@ class PaymentRequestService {
           .map((json) => PaymentDisbursementAttempt.fromJson(Map<String, dynamic>.from(json)))
           .toList();
     }
-    throw Exception('Failed to load payment attempts');
+    throw AppException('Failed to load payment attempts');
   }
 
   Future<List<PaymentRequestStatusHistoryEntity>> getPaymentRequestHistory(String id) async {
@@ -128,7 +129,7 @@ class PaymentRequestService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => PaymentRequestStatusHistoryEntity.fromJson(json)).toList();
     }
-    throw Exception('Failed to load history');
+    throw AppException('Failed to load history');
   }
 
   Future<List<PaymentRequestResponse>> getPaymentRequestsByType(String type) async {
@@ -137,7 +138,7 @@ class PaymentRequestService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => PaymentRequestResponse.fromJson(json)).toList();
     }
-    throw Exception('Failed to load payment requests by type');
+    throw AppException('Failed to load payment requests by type');
   }
 
   Future<List<PaymentRequestResponse>> getPaymentRequestsByPayee(String partnerId) async {
@@ -146,7 +147,7 @@ class PaymentRequestService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => PaymentRequestResponse.fromJson(json)).toList();
     }
-    throw Exception('Failed to load payment requests for payee');
+    throw AppException('Failed to load payment requests for payee');
   }
 
   Future<Map<String, dynamic>> getBankReport(String id) async {
@@ -154,7 +155,7 @@ class PaymentRequestService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw Exception('Failed to load bank report');
+    throw AppException('Failed to load bank report');
   }
 
   Future<PaymentRequestResponse> approvePaymentRequest(String id, {String? comment}) {

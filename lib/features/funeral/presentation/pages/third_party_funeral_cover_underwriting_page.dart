@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ThirdPartyFuneralCoverUnderwritingPage extends StatefulWidget {
   const ThirdPartyFuneralCoverUnderwritingPage({super.key});
@@ -34,7 +35,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
         _api.get('/v2/funeral-underwriting/covers'),
       ]);
       if (responses.any((response) => response.statusCode != 200)) {
-        throw Exception(responses.firstWhere((r) => r.statusCode != 200).body);
+        throw AppException(responses.firstWhere((r) => r.statusCode != 200).body);
       }
       if (!mounted) return;
       setState(() {
@@ -49,7 +50,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load funeral cover underwriting: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load funeral cover underwriting: $error'))),
         );
       }
     } finally {
@@ -72,7 +73,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
                 '/v2/funeral-underwriting/eligible-parties',
                 queryParameters: {'query': search.text.trim()},
               );
-              if (response.statusCode != 200) throw Exception(response.body);
+              if (response.statusCode != 200) throw AppException(response.body);
               setDialogState(() {
                 rows = (jsonDecode(response.body) as List)
                     .map((e) => Map<String, dynamic>.from(e as Map))
@@ -287,7 +288,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
         'beneficiaries': const [],
       });
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception(response.body);
+        throw AppException(response.body);
       }
       await _load();
       if (mounted) {
@@ -298,7 +299,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to submit underwriting: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Unable to submit underwriting: $error'))),
         );
       }
     }
@@ -310,12 +311,12 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
         '/v2/funeral-underwriting/covers/${row['id']}/decision',
         body: {'status': status},
       );
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       await _load();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to update underwriting decision: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Unable to update underwriting decision: $error'))),
         );
       }
     }

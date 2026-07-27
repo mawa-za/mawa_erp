@@ -5,6 +5,7 @@ import '../../data/models/mortuary_checkout_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../widgets/funeral_status_chip.dart';
 import '../../../../core/utils/formatters.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MortuaryInventoryPage extends StatefulWidget {
   const MortuaryInventoryPage({super.key});
@@ -38,7 +39,7 @@ class _MortuaryInventoryPageState extends State<MortuaryInventoryPage> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading inventory: $e')),
+        SnackBar(content: Text(friendlyErrorMessage('Error loading inventory: $e'))),
       );
     }
   }
@@ -130,7 +131,7 @@ class _MortuaryInventoryPageState extends State<MortuaryInventoryPage> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
         }
       }
     }

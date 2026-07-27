@@ -6,6 +6,7 @@ import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import 'invoice_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InvoiceItemDraft {
   final TextEditingController productController;
@@ -433,12 +434,12 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           }
         }
       } else {
-        throw Exception('Failed to save invoice: ${response.statusCode}');
+        throw AppException('Failed to save invoice: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {

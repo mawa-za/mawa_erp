@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../services/asset_register_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AssetRegisterScreen extends StatefulWidget {
   const AssetRegisterScreen({super.key});
@@ -50,7 +51,7 @@ class _AssetRegisterScreenState extends State<AssetRegisterScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -132,7 +133,7 @@ class _AssetRegisterScreenState extends State<AssetRegisterScreen> {
         );
         await _load();
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
     proceeds.dispose();
@@ -342,7 +343,7 @@ class _AssetDialogState extends State<_AssetDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }
@@ -411,7 +412,7 @@ class _AssetAssignmentDialogState extends State<_AssetAssignmentDialog> {
     query.dispose();
     if (selected != null) setState(() => _partner = selected);
   }
-  Future<void> _save() async { setState(() => _saving = true); try { await widget.service.assign(widget.asset['id'].toString(), partnerId: _partner?.id ?? widget.asset['custodian_partner_id']?.toString(), location: _location.text, notes: _notes.text); if (mounted) Navigator.pop(context, true); } catch (e) { if (mounted) { setState(() => _saving = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()))); } } }
+  Future<void> _save() async { setState(() => _saving = true); try { await widget.service.assign(widget.asset['id'].toString(), partnerId: _partner?.id ?? widget.asset['custodian_partner_id']?.toString(), location: _location.text, notes: _notes.text); if (mounted) Navigator.pop(context, true); } catch (e) { if (mounted) { setState(() => _saving = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e)))); } } }
   @override
   Widget build(BuildContext context) => AlertDialog(title: const Text('Assign / Transfer Asset'), content: SizedBox(width: 480, child: Column(mainAxisSize: MainAxisSize.min, children: [ListTile(contentPadding: EdgeInsets.zero, title: Text(_partner?.fullName ?? (widget.asset['custodian_name'] ?? 'No custodian').toString()), subtitle: const Text('Asset custodian'), trailing: OutlinedButton(onPressed: _pick, child: const Text('Select'))), TextField(controller: _location, decoration: const InputDecoration(labelText: 'Location')), const SizedBox(height: 12), TextField(controller: _notes, maxLines: 3, decoration: const InputDecoration(labelText: 'Transfer Notes'))])), actions: [TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Saving...' : 'Assign'))]);
 }

@@ -7,6 +7,7 @@ import '../../data/models/funeral_package_dto.dart';
 import '../widgets/funeral_money_text.dart';
 import '../../../../core/models/product_lookup.dart';
 import '../../../../core/services/product_lookup_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralPackageSetupPage extends StatefulWidget {
   const FuneralPackageSetupPage({super.key});
@@ -43,7 +44,7 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _loading = false;
       });
     }
@@ -82,7 +83,7 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
       await _loadPackages();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to deactivate package: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to deactivate package: $e'))));
     }
   }
 
@@ -267,7 +268,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save funeral package: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to save funeral package: $e'))));
     }
   }
 

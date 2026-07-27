@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../models/tombstone_models.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class TombstoneService {
   final ApiClient _api = ApiClient();
@@ -152,21 +153,21 @@ class TombstoneService {
   Map<String, dynamic> _map(dynamic response) {
     final code = response.statusCode as int;
     final text = response.body as String;
-    if (code < 200 || code >= 300) throw Exception(_error(text, code));
+    if (code < 200 || code >= 300) throw AppException(_error(text, code));
     if (text.trim().isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(text);
     if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    throw Exception('Unexpected tombstone API response');
+    throw AppException('Unexpected tombstone API response');
   }
 
   List<Map<String, dynamic>> _list(dynamic response) {
     final code = response.statusCode as int;
     final text = response.body as String;
-    if (code < 200 || code >= 300) throw Exception(_error(text, code));
+    if (code < 200 || code >= 300) throw AppException(_error(text, code));
     if (text.trim().isEmpty) return const [];
     final decoded = jsonDecode(text);
     if (decoded is List) return decoded.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-    throw Exception('Unexpected tombstone API list response');
+    throw AppException('Unexpected tombstone API list response');
   }
 
   String _error(String body, int code) {

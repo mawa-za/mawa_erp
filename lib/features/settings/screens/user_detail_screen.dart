@@ -4,6 +4,7 @@ import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class UserDetailScreen extends StatefulWidget {
   final String userId;
@@ -26,7 +27,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     try {
       final values=await Future.wait([_users.getUser(widget.userId),_users.getUserRoles(widget.userId),_roles.getRoles()]);
       if(mounted)setState((){_user=values[0] as User;_assigned=List<Map<String,dynamic>>.from(values[1] as List);_available=values[2] as List<Role>;_loading=false;});
-    } catch(e){if(mounted)setState((){_error=e.toString();_loading=false;});}
+    } catch(e){if(mounted)setState((){_error=friendlyErrorMessage(e);_loading=false;});}
   }
 
   Future<void> _action(String action) async {
@@ -86,5 +87,5 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget _row(String label,String value)=>Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[SizedBox(width:170,child:Text(label,style:const TextStyle(fontWeight:FontWeight.w600))),Expanded(child:Text(value))]));
   Future<String?> _textDialog(String title,String label) async{final c=TextEditingController();return showDialog<String>(context:context,builder:(d)=>AlertDialog(title:Text(title),content:TextField(controller:c,decoration:InputDecoration(labelText:label)),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,c.text),child:const Text('Continue'))]));}
   Future<bool> _confirm(String message) async=>(await showDialog<bool>(context:context,builder:(d)=>AlertDialog(title:const Text('Confirm'),content:Text(message),actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Continue'))])))??false;
-  void _showError(Object e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e'),backgroundColor:Colors.red));}
+  void _showError(Object e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(friendlyErrorMessage('$e')),backgroundColor:Colors.red));}
 }

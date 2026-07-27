@@ -19,6 +19,7 @@ import 'membership_claim_detail_screen.dart';
 import 'capture_premium_payment_dialog.dart';
 import 'capture_manual_premium_receipt_dialog.dart';
 import '../widgets/membership_change_section.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
   final String membershipId;
@@ -98,7 +99,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -179,7 +180,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

@@ -8,6 +8,7 @@ import '../services/membership_service.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class GroupSocietyDetailScreen extends StatefulWidget {
   final String societyId;
@@ -76,7 +77,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -145,7 +146,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   await _membershipService.addGroupSocietyContact(widget.societyId, payload);
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               },
               child: const Text('SAVE'),
@@ -217,7 +218,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   await _membershipService.addGroupSocietyPayment(widget.societyId, payload);
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               },
               child: const Text('RECORD'),
@@ -277,7 +278,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   await _membershipService.debitGroupSocietyClaim(widget.societyId, payload);
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               },
               child: const Text('DEBIT'),
@@ -330,7 +331,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   await _membershipService.adjustGroupSocietyBalance(widget.societyId, payload);
                   if (context.mounted) Navigator.pop(context, true);
                 } catch (e) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               },
               child: const Text('APPLY'),
@@ -351,7 +352,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e'))));
       }
     }
   }
@@ -773,7 +774,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
         await _membershipService.postGroupSocietyUpdate(widget.societyId, payload);
         if (context.mounted) Navigator.pop(context, true);
       } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     }, child: const Text('SAVE'))])));
     if (result == true) _fetchDetails();

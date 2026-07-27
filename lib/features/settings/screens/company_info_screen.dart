@@ -5,6 +5,7 @@ import '../../../core/api_client.dart';
 import '../../../core/models/setting.dart';
 import '../../../core/services/setting_service.dart';
 import '../../../core/widgets/attachment_section.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CompanyInfoScreen extends StatefulWidget {
   final bool isReadOnly;
@@ -110,7 +111,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving info: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Error saving info: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {

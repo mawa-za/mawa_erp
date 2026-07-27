@@ -11,6 +11,7 @@ import 'partner_create_screen.dart';
 import 'add_identity_dialog.dart';
 import 'add_address_dialog.dart';
 import 'add_role_dialog.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PartnerDetailScreen extends StatefulWidget {
   final String partnerId;
@@ -70,13 +71,17 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         });
       } else {
         setState(() {
-          _error = 'Failed to load details: ${response.statusCode}';
+          _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'The partner details could not be loaded. Please try again.',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }
@@ -551,7 +556,7 @@ class _SupplierBankingApprovalDialogState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red),
         );
       }
     } finally {

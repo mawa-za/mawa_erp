@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/field_option.dart';
 import '../services/field_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AppDropdownField extends StatefulWidget {
   final String field;
@@ -47,7 +48,7 @@ class _AppDropdownFieldState extends State<AppDropdownField> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }

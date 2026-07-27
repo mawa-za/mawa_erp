@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../api_client.dart';
 import '../models/setting.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class SettingService {
   static final SettingService _instance = SettingService._internal();
@@ -14,7 +15,7 @@ class SettingService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Setting.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load settings');
+        throw AppException('Failed to load settings');
       }
     } catch (e) {
       rethrow;
@@ -28,7 +29,7 @@ class SettingService {
         body: setting.toJson(),
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to add setting');
+        throw AppException('Failed to add setting');
       }
     } catch (e) {
       rethrow;
@@ -46,7 +47,7 @@ class SettingService {
         },
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to update setting');
+        throw AppException('Failed to update setting');
       }
     } catch (e) {
       rethrow;

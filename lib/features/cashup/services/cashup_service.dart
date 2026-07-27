@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../models/cashup.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CashupService {
   static final CashupService _instance = CashupService._internal();
@@ -24,7 +25,7 @@ class CashupService {
       includeRole: false,
     );
     if (response.statusCode != 200) {
-      throw Exception(_extractErrorMessage(
+      throw AppException(_extractErrorMessage(
         response.body,
         'Failed to load cashups: ${response.statusCode}',
       ));
@@ -71,7 +72,7 @@ class CashupService {
       if (response.statusCode == 200) {
         return _decodeCashupList(response.body);
       } else {
-        throw Exception('Failed to load cashups: ${response.statusCode}');
+        throw AppException('Failed to load cashups: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -85,7 +86,7 @@ class CashupService {
         final dynamic data = jsonDecode(response.body);
         return Cashup.fromJson(Map<String, dynamic>.from(data));
       } else {
-        throw Exception('Failed to load cashup details: ${response.statusCode}');
+        throw AppException('Failed to load cashup details: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -96,7 +97,7 @@ class CashupService {
     try {
       final response = await ApiClient().post('/v2/cashup', body: request);
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to submit cashup: ${response.body}');
+        throw AppException('Failed to submit cashup: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -107,7 +108,7 @@ class CashupService {
     try {
       final response = await ApiClient().post('/v2/cashup/$id/approve');
       if (response.statusCode != 200) {
-        throw Exception('Failed to approve cashup: ${response.body}');
+        throw AppException('Failed to approve cashup: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -118,7 +119,7 @@ class CashupService {
     try {
       final response = await ApiClient().post('/v2/cashup/$id/reject', body: reason);
       if (response.statusCode != 200) {
-        throw Exception('Failed to reject cashup: ${response.body}');
+        throw AppException('Failed to reject cashup: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -131,7 +132,7 @@ class CashupService {
       if (response.statusCode == 200) {
         return _decodeCashupList(response.body);
       } else {
-        throw Exception('Failed to load device cashups: ${response.statusCode}');
+        throw AppException('Failed to load device cashups: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -165,7 +166,7 @@ class CashupService {
         }
         return Cashup.fromJson(request);
       }
-      throw Exception(_extractErrorMessage(response.body, 'Failed to submit cashup: ${response.statusCode}'));
+      throw AppException(_extractErrorMessage(response.body, 'Failed to submit cashup: ${response.statusCode}'));
     } catch (e) {
       rethrow;
     }
@@ -183,7 +184,7 @@ class CashupService {
         return Cashup.fromJson(Map<String, dynamic>.from(decoded));
       }
     }
-    throw Exception(_extractErrorMessage(
+    throw AppException(_extractErrorMessage(
       response.body,
       'Failed to create manual cashup: ${response.statusCode}',
     ));
@@ -208,7 +209,7 @@ class CashupService {
       final dynamic decoded = response.body.isEmpty ? request : jsonDecode(response.body);
       return CashupDeposit.fromJson(Map<String, dynamic>.from(decoded as Map));
     }
-    throw Exception(_extractErrorMessage(response.body, 'Failed to create deposit: ${response.statusCode}'));
+    throw AppException(_extractErrorMessage(response.body, 'Failed to create deposit: ${response.statusCode}'));
   }
 
   Future<List<CashupDeposit>> getDeposits(String cashupId) async {
@@ -221,20 +222,20 @@ class CashupService {
           .map((json) => CashupDeposit.fromJson(Map<String, dynamic>.from(json)))
           .toList();
     }
-    throw Exception(_extractErrorMessage(response.body, 'Failed to load deposits: ${response.statusCode}'));
+    throw AppException(_extractErrorMessage(response.body, 'Failed to load deposits: ${response.statusCode}'));
   }
 
   Future<void> deleteDeposit(String cashupId, String depositId) async {
     final response = await ApiClient().delete('/v2/cashup/$cashupId/deposits/$depositId');
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception(_extractErrorMessage(response.body, 'Failed to delete deposit: ${response.statusCode}'));
+      throw AppException(_extractErrorMessage(response.body, 'Failed to delete deposit: ${response.statusCode}'));
     }
   }
 
   Future<void> submitForApproval(String cashupId, Map<String, dynamic> request) async {
     final response = await ApiClient().post('/v2/cashup/$cashupId/submit', body: request);
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(_extractErrorMessage(response.body, 'Failed to submit cashup for approval: ${response.statusCode}'));
+      throw AppException(_extractErrorMessage(response.body, 'Failed to submit cashup for approval: ${response.statusCode}'));
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/case_party.dart';
 import '../services/case_management_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddPartyDialog extends StatefulWidget {
   final String caseId;
@@ -82,7 +83,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     }
   }

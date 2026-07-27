@@ -10,6 +10,7 @@ import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import '../widgets/membership_plan_dropdown.dart';
 import 'membership_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddMemberScreen extends StatefulWidget {
   const AddMemberScreen({super.key});
@@ -115,7 +116,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyErrorMessage('Error: $e')),
             backgroundColor: Colors.red[700],
             behavior: SnackBarBehavior.floating,
           ),

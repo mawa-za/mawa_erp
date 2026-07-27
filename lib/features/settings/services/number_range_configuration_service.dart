@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../core/api_client.dart';
 import '../models/number_range_configuration.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class NumberRangeConfigurationService {
   final ApiClient _api = ApiClient();
@@ -101,6 +102,6 @@ class NumberRangeConfigurationService {
     } catch (_) {
       // Use the response body when it is not JSON.
     }
-    throw Exception(message.isEmpty ? 'Failed to $action' : message);
+    throw AppException(message.isEmpty ? 'Failed to $action' : message);
   }
 }

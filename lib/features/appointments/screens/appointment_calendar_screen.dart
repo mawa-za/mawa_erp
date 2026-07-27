@@ -8,6 +8,7 @@ import '../../partners/models/partner.dart';
 import '../models/appointment_booking.dart';
 import '../services/appointment_booking_service.dart';
 import '../../invoicing/screens/invoice_pdf_preview_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AppointmentCalendarScreen extends StatefulWidget {
   const AppointmentCalendarScreen({super.key});
@@ -52,7 +53,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isLoading = false;
       });
     }
@@ -95,7 +96,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update appointment: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(friendlyErrorMessage('Failed to update appointment: $e')), backgroundColor: Colors.red),
       );
     }
   }
@@ -122,7 +123,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cancel appointment: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(friendlyErrorMessage('Failed to cancel appointment: $e')), backgroundColor: Colors.red),
       );
     }
   }
@@ -144,7 +145,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create invoice: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(friendlyErrorMessage('Failed to create invoice: $e')), backgroundColor: Colors.red),
       );
     }
   }
@@ -684,7 +685,7 @@ class _AppointmentBookingDialogState extends State<AppointmentBookingDialog> {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save appointment: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(friendlyErrorMessage('Failed to save appointment: $e')), backgroundColor: Colors.red),
       );
     }
   }

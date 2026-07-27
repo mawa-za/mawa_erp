@@ -6,6 +6,7 @@ import '../../../core/services/field_service.dart';
 import '../../employment/services/employment_service.dart';
 import '../models/manual_receipt_book.dart';
 import '../services/manual_receipt_book_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ManualReceiptBookMaintenanceScreen extends StatefulWidget {
   const ManualReceiptBookMaintenanceScreen({super.key});
@@ -32,7 +33,7 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
       final books = await _service.list();
       if (mounted) setState(() { _books = books; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) setState(() { _error = friendlyErrorMessage(e); _loading = false; });
     }
   }
 
@@ -61,7 +62,7 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
       await _service.deactivate(book.id);
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
     }
   }
 
@@ -179,7 +180,7 @@ class _ManualReceiptBookDialogState extends State<_ManualReceiptBookDialog> {
         _loading = false;
       });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) setState(() { _error = friendlyErrorMessage(e); _loading = false; });
     }
   }
 
@@ -231,7 +232,7 @@ class _ManualReceiptBookDialogState extends State<_ManualReceiptBookDialog> {
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() { _saving = false; _error = e.toString(); });
+      if (mounted) setState(() { _saving = false; _error = friendlyErrorMessage(e); });
     }
   }
 

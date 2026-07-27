@@ -10,6 +10,7 @@ import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../settings/models/manual_receipt_book.dart';
 import '../../settings/services/manual_receipt_book_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CashupListScreen extends StatefulWidget {
   const CashupListScreen({super.key});
@@ -103,7 +104,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyErrorMessage(error);
         _isLoading = false;
         _isLoadingMore = false;
       });
@@ -124,7 +125,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load manual receipt books: $error'), backgroundColor: Colors.red),
+        SnackBar(content: Text(friendlyErrorMessage('Failed to load manual receipt books: $error')), backgroundColor: Colors.red),
       );
       return;
     }
@@ -356,7 +357,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId') ?? '';
       if (userId.isEmpty) {
-        throw Exception('The current user could not be identified. Please sign in again.');
+        throw AppException('The current user could not be identified. Please sign in again.');
       }
       request['userId'] = userId;
       final cashup = await _cashupService.createManualCashup(request);
@@ -377,7 +378,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create manual cashup: $error'),
+          content: Text(friendlyErrorMessage('Failed to create manual cashup: $error')),
           backgroundColor: Colors.red,
         ),
       );

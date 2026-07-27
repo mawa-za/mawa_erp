@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/api_client.dart';
 import '../../../core/models/field_option.dart';
 import '../../../core/services/field_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PaymentAccountConfigurationScreen extends StatefulWidget {
   const PaymentAccountConfigurationScreen({super.key});
@@ -38,7 +39,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
         FieldService().getOptionsByField('PAYMENT-REQUEST-TYPE'),
       ]);
       final response = results[0] as dynamic;
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       if (!mounted) return;
       setState(() {
         _rows = (jsonDecode(response.body) as List)
@@ -51,7 +52,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load payment account configuration: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load payment account configuration: $error'))),
         );
       }
     } finally {
@@ -287,12 +288,12 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
           'active': active,
         },
       );
-      if (response.statusCode != 200 && response.statusCode != 201) throw Exception(response.body);
+      if (response.statusCode != 200 && response.statusCode != 201) throw AppException(response.body);
       await _load();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save payment account: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to save payment account: $error'))),
         );
       }
     }

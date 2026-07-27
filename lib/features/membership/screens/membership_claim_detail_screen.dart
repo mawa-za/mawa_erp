@@ -15,6 +15,7 @@ import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../../payments/screens/payment_request_detail_screen.dart';
 import '../../tombstones/screens/tombstone_order_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipClaimDetailScreen extends StatefulWidget {
   final String claimId;
@@ -76,7 +77,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -132,7 +133,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to submit: $e'),
+              content: Text(friendlyErrorMessage('Failed to submit: $e')),
               backgroundColor: Colors.red[700],
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -542,7 +543,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         _api.get('/v2/membership-claim/${widget.claimId}/signiflow'),
       ]);
       if (responses.any((response) => response.statusCode != 200)) {
-        throw Exception(responses.firstWhere((response) => response.statusCode != 200).body);
+        throw AppException(responses.firstWhere((response) => response.statusCode != 200).body);
       }
       final signers = (jsonDecode(responses[0].body) as List)
           .map((row) => Map<String, dynamic>.from(row as Map))
@@ -555,7 +556,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to open SigniFlow: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Unable to open SigniFlow: $error'))),
         );
       }
     } finally {
@@ -597,7 +598,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             final response = await _api.get(
               '/v2/membership-claim/${widget.claimId}/signiflow',
             );
-            if (response.statusCode != 200) throw Exception(response.body);
+            if (response.statusCode != 200) throw AppException(response.body);
             setDialogState(() {
               workflows = (jsonDecode(response.body) as List)
                   .map((row) => Map<String, dynamic>.from(row as Map))
@@ -611,7 +612,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
               final response = await _api.post(
                 '/v2/signiflow/workflows/$workflowId/$action',
               );
-              if (response.statusCode != 200) throw Exception(response.body);
+              if (response.statusCode != 200) throw AppException(response.body);
               await reloadWorkflows();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -625,7 +626,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             } catch (error) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('SigniFlow action failed: $error')),
+                  SnackBar(content: Text(friendlyErrorMessage('SigniFlow action failed: $error'))),
                 );
               }
             } finally {
@@ -645,7 +646,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
                   'signerEmail': email.text.trim(),
                 },
               );
-              if (response.statusCode != 200) throw Exception(response.body);
+              if (response.statusCode != 200) throw AppException(response.body);
               await reloadWorkflows();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -655,7 +656,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
             } catch (error) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Unable to send claim form: $error')),
+                  SnackBar(content: Text(friendlyErrorMessage('Unable to send claim form: $error'))),
                 );
               }
             } finally {
@@ -1018,7 +1019,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
            _fetchDetails();
          }
        } catch (e) {
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red));
        } finally {
          if (mounted) setState(() => _isSubmitting = false);
        }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/api_endpoint_log.dart';
 import '../services/log_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApiLogListScreen extends StatefulWidget {
   const ApiLogListScreen({super.key});
@@ -67,7 +68,7 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -96,7 +97,7 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
       if (mounted) {
         setState(() => _isLoadingMore = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more logs: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error loading more logs: $e'))),
         );
       }
     }

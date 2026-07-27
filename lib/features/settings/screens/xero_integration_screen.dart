@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config.dart';
 import '../services/xero_integration_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class XeroIntegrationScreen extends StatefulWidget {
   const XeroIntegrationScreen({super.key});
@@ -147,7 +148,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       final reconnectRequired = error is XeroIntegrationException &&
           error.reauthorisationRequired;
-      final message = error.toString().replaceFirst('Exception: ', '').trim();
+      final message = friendlyErrorMessage(error);
       setState(() {
         _connections = const [];
         _selectedTenantId = null;
@@ -228,7 +229,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   }
 
   void _showError(String title, Object error) {
-    final message = error.toString().replaceFirst('Exception: ', '').trim();
+    final message = friendlyErrorMessage(error);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$title: $message')),
     );

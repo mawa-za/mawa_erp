@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipLapseSettingsScreen extends StatefulWidget {
   const MembershipLapseSettingsScreen({super.key});
@@ -40,7 +41,7 @@ class _MembershipLapseSettingsScreenState
       final response =
           await ApiClient().get('/v2/membership-lapse/configuration');
       if (!_isSuccessful(response.statusCode)) {
-        throw Exception(_errorMessage(response.body, response.statusCode));
+        throw AppException(_errorMessage(response.body, response.statusCode));
       }
 
       final data = _decodeObject(response.body);
@@ -59,7 +60,7 @@ class _MembershipLapseSettingsScreenState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _pageError = error.toString().replaceFirst('Exception: ', '');
+        _pageError = friendlyErrorMessage(error);
       });
     }
   }
@@ -77,7 +78,7 @@ class _MembershipLapseSettingsScreenState
         },
       );
       if (!_isSuccessful(response.statusCode)) {
-        throw Exception(_errorMessage(response.body, response.statusCode));
+        throw AppException(_errorMessage(response.body, response.statusCode));
       }
 
       final data = _decodeObject(response.body);
@@ -90,7 +91,7 @@ class _MembershipLapseSettingsScreenState
     } catch (error) {
       if (!mounted) return;
       _showMessage(
-        error.toString().replaceFirst('Exception: ', ''),
+        friendlyErrorMessage(error),
         isError: true,
       );
     } finally {
@@ -133,7 +134,7 @@ class _MembershipLapseSettingsScreenState
       final response =
           await ApiClient().post('/v2/membership-lapse/run-now');
       if (!_isSuccessful(response.statusCode)) {
-        throw Exception(_errorMessage(response.body, response.statusCode));
+        throw AppException(_errorMessage(response.body, response.statusCode));
       }
 
       final result = _decodeObject(response.body);
@@ -150,7 +151,7 @@ class _MembershipLapseSettingsScreenState
     } catch (error) {
       if (!mounted) return;
       _showMessage(
-        error.toString().replaceFirst('Exception: ', ''),
+        friendlyErrorMessage(error),
         isError: true,
       );
     } finally {
@@ -369,21 +370,11 @@ class _MembershipLapseSettingsScreenState
   }
 
   String _errorMessage(String body, int statusCode) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map) {
-        final message =
-            decoded['message'] ?? decoded['error'] ?? decoded['reason'];
-        if (message != null && message.toString().trim().isNotEmpty) {
-          return message.toString();
-        }
-      }
-    } catch (_) {
-      // Fall back to the response body below.
-    }
-    final trimmed = body.trim();
-    if (trimmed.isNotEmpty && !trimmed.startsWith('<')) return trimmed;
-    return 'Membership lapse request failed with HTTP $statusCode.';
+    return friendlyErrorMessage(
+      body,
+      statusCode: statusCode,
+      fallback: 'The membership lapse request could not be completed. Please try again.',
+    );
   }
 
   int _asInt(Object? value, {int fallback = 0}) {

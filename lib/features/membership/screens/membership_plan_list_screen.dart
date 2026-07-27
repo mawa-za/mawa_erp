@@ -4,6 +4,7 @@ import '../services/membership_service.dart';
 import 'membership_plan_create_screen.dart';
 import 'membership_plan_detail_screen.dart';
 import '../widgets/membership_change_settings_dialog.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipPlanListScreen extends StatefulWidget {
   const MembershipPlanListScreen({super.key});
@@ -45,7 +46,7 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }

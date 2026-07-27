@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../home/models/workcenter.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class RoleWorkcenterAssignmentScreen extends StatefulWidget {
   final Role role;
@@ -52,7 +53,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -82,7 +83,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

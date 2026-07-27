@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../models/case_task.dart';
 import '../services/case_management_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class OverdueTasksScreen extends StatefulWidget {
   const OverdueTasksScreen({super.key});
@@ -34,7 +35,7 @@ class _OverdueTasksScreenState extends State<OverdueTasksScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     }

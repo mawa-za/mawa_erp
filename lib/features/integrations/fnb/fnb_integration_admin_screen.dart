@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FnbIntegrationAdminScreen extends StatefulWidget {
   const FnbIntegrationAdminScreen({super.key});
@@ -49,12 +50,12 @@ class _FnbIntegrationAdminScreenState extends State<FnbIntegrationAdminScreen> {
     setState(() => _loading = true);
     try {
       final response = await _api.get('/v2/integrations/fnb/settings');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       _applySettings(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load FNB settings: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load FNB settings: $error'))),
         );
       }
     } finally {
@@ -98,7 +99,7 @@ class _FnbIntegrationAdminScreenState extends State<FnbIntegrationAdminScreen> {
           'popRecipient': _popRecipient.text.trim(),
         },
       );
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       if (!mounted) return;
       setState(() => _applySettings(Map<String, dynamic>.from(jsonDecode(response.body) as Map)));
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,7 +108,7 @@ class _FnbIntegrationAdminScreenState extends State<FnbIntegrationAdminScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save FNB settings: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to save FNB settings: $error'))),
         );
       }
     } finally {
