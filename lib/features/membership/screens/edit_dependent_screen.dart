@@ -3,6 +3,7 @@ import '../models/dependent.dart';
 import '../services/membership_service.dart';
 import '../../partners/models/partner.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class EditDependentScreen extends StatefulWidget {
   final String membershipId;
@@ -71,7 +72,7 @@ class _EditDependentScreenState extends State<EditDependentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red[700]),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red[700]),
         );
       }
     } finally {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../models/approval_workflow.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApprovalWorkflowService {
   final ApiClient _apiClient = ApiClient();
@@ -12,7 +13,7 @@ class ApprovalWorkflowService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((item) => ApprovalWorkflow.fromJson(item)).toList();
     } else {
-      throw Exception('Failed to load approval workflows: ${response.statusCode}');
+      throw AppException('Failed to load approval workflows: ${response.statusCode}');
     }
   }
 
@@ -22,7 +23,7 @@ class ApprovalWorkflowService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((item) => ApprovalWorkflow.fromJson(item)).toList();
     }
-    throw Exception('Failed to load active workflows');
+    throw AppException('Failed to load active workflows');
   }
 
   Future<ApprovalWorkflow> getWorkflowByType(String approvalType, {bool activeOnly = false}) async {
@@ -33,7 +34,7 @@ class ApprovalWorkflowService {
     if (response.statusCode == 200) {
       return ApprovalWorkflow.fromJson(jsonDecode(response.body));
     }
-    throw Exception('Failed to load workflow by type');
+    throw AppException('Failed to load workflow by type');
   }
 
   Future<ApprovalWorkflow> createWorkflow(ApprovalWorkflow workflow) async {
@@ -46,7 +47,7 @@ class ApprovalWorkflowService {
       final data = jsonDecode(response.body);
       return ApprovalWorkflow.fromJson(data);
     } else {
-      throw Exception('Failed to create approval workflow: ${response.statusCode}');
+      throw AppException('Failed to create approval workflow: ${response.statusCode}');
     }
   }
 
@@ -57,7 +58,7 @@ class ApprovalWorkflowService {
       final data = jsonDecode(response.body);
       return ApprovalWorkflow.fromJson(data);
     } else {
-      throw Exception('Failed to load approval workflow: ${response.statusCode}');
+      throw AppException('Failed to load approval workflow: ${response.statusCode}');
     }
   }
 
@@ -71,21 +72,21 @@ class ApprovalWorkflowService {
       final data = jsonDecode(response.body);
       return ApprovalWorkflow.fromJson(data);
     } else {
-      throw Exception('Failed to update approval workflow: ${response.statusCode}');
+      throw AppException('Failed to update approval workflow: ${response.statusCode}');
     }
   }
 
   Future<void> activateWorkflow(String id) async {
     final response = await _apiClient.patch('/v2/approval-workflow/$id/activate');
     if (response.statusCode != 200) {
-      throw Exception('Failed to activate workflow');
+      throw AppException('Failed to activate workflow');
     }
   }
 
   Future<void> deactivateWorkflow(String id) async {
     final response = await _apiClient.patch('/v2/approval-workflow/$id/deactivate');
     if (response.statusCode != 200) {
-      throw Exception('Failed to deactivate workflow');
+      throw AppException('Failed to deactivate workflow');
     }
   }
 
@@ -93,7 +94,7 @@ class ApprovalWorkflowService {
     final response = await _apiClient.delete('/v2/approval-workflow/$id');
 
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to delete approval workflow: ${response.statusCode}');
+      throw AppException('Failed to delete approval workflow: ${response.statusCode}');
     }
   }
 }

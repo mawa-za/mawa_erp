@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../models/approval.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApprovalService {
   final ApiClient _apiClient = ApiClient();
@@ -16,7 +17,7 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw Exception('Failed to submit approval: ${response.statusCode}');
+      throw AppException('Failed to submit approval: ${response.statusCode}');
     }
   }
 
@@ -50,7 +51,7 @@ class ApprovalService {
         
         return data.map((item) => Approval.fromJson(Map<String, dynamic>.from(item))).toList();
       } else {
-        throw Exception('Failed to load approvals: ${response.statusCode}');
+        throw AppException('Failed to load approvals: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('ApprovalService Error: $e');
@@ -65,7 +66,7 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw Exception('Failed to load approval: ${response.statusCode}');
+      throw AppException('Failed to load approval: ${response.statusCode}');
     }
   }
 
@@ -76,7 +77,7 @@ class ApprovalService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((item) => ApprovalAction.fromJson(item)).toList();
     } else {
-      throw Exception('Failed to load audit trail: ${response.statusCode}');
+      throw AppException('Failed to load audit trail: ${response.statusCode}');
     }
   }
 
@@ -93,7 +94,7 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw Exception('Failed to approve: ${response.statusCode}');
+      throw AppException('Failed to approve: ${response.statusCode}');
     }
   }
 
@@ -110,7 +111,7 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw Exception('Failed to reject: ${response.statusCode}');
+      throw AppException('Failed to reject: ${response.statusCode}');
     }
   }
 
@@ -127,7 +128,7 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw Exception('Failed to cancel: ${response.statusCode}');
+      throw AppException('Failed to cancel: ${response.statusCode}');
     }
   }
 }

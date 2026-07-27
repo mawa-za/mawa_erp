@@ -9,6 +9,7 @@ import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
 import 'membership_claim_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipClaimCreateScreen extends StatefulWidget {
   final MembershipDetail membership;
@@ -129,7 +130,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         'deceasedPartnerId': deceasedPartnerId,
         'eventDate': DateFormat('yyyy-MM-dd').format(_dateOfDeath),
       });
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
       final cents = (data['claimAmountCents'] as num?)?.toInt();
       if (mounted) setState(() {
@@ -140,7 +141,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
       if (mounted) {
         setState(() { _claimAmountCents = null; _amountController.clear(); });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Plan benefit could not be determined: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Plan benefit could not be determined: $e'))),
         );
       }
     } finally {
@@ -154,7 +155,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
 
     try {
       if (_claimAmountCents == null) {
-        throw Exception('The claim amount cannot be determined because the plan benefit is not configured.');
+        throw AppException('The claim amount cannot be determined because the plan benefit is not configured.');
       }
       final int amountCents = _claimAmountCents!;
       
@@ -216,7 +217,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyErrorMessage('Error: $e')),
             backgroundColor: Colors.red[700],
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

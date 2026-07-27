@@ -8,6 +8,7 @@ import '../services/membership_service.dart';
 import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class DependentClaimScreen extends StatefulWidget {
   final MembershipDetail membership;
@@ -134,7 +135,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ClaimTypeConfigurationScreen extends StatefulWidget {
   const ClaimTypeConfigurationScreen({super.key});
@@ -26,7 +27,7 @@ class _ClaimTypeConfigurationScreenState
 
   Future<void> _load() async {
     final response = await ApiClient().get('/v2/claim-type-configuration');
-    if (response.statusCode != 200) throw Exception(response.body);
+    if (response.statusCode != 200) throw AppException(response.body);
     if (!mounted) return;
     setState(() {
       _rows = (jsonDecode(response.body) as List)
@@ -51,7 +52,7 @@ class _ClaimTypeConfigurationScreenState
         '/v2/claim-type-configuration',
         body: payload,
       );
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../api_client.dart';
 import '../models/product_lookup.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ProductLookupService {
   static final ProductLookupService _instance = ProductLookupService._internal();
@@ -17,7 +18,7 @@ class ProductLookupService {
     Future<List<ProductLookup>> fetch(String path) async {
       final response = await ApiClient().get(path);
       if (response.statusCode != 200) {
-        throw Exception('Failed to load products (${response.statusCode})');
+        throw AppException('Failed to load products (${response.statusCode})');
       }
       final dynamic decoded = jsonDecode(response.body);
       final List<dynamic> data = decoded is List

@@ -5,6 +5,7 @@ import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../models/leave_request.dart';
 import '../services/leave_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class LeaveRequestDetailScreen extends StatefulWidget {
   final String requestId;
@@ -46,7 +47,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -80,7 +81,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isActionLoading = false);

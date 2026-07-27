@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import 'membership_plan_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipPlanDetailScreen extends StatefulWidget {
   final String planId;
@@ -57,7 +58,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -404,7 +405,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                 await MembershipService().deleteMembershipPlan(widget.planId);
                 if (mounted) Navigator.pop(context, true);
               } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
               }
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -420,7 +421,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
       await MembershipService().deletePremiumRule(widget.planId, ruleId);
       _fetchPlanDetails();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
     }
   }
 
@@ -429,7 +430,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
       await MembershipService().deleteClaimPayout(widget.planId, payoutId);
       _fetchPlanDetails();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
     }
   }
 
@@ -507,7 +508,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                   Navigator.pop(context);
                   _fetchPlanDetails();
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               },
               child: Text(rule == null ? 'ADD' : 'SAVE'),
@@ -580,7 +581,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                   Navigator.pop(context);
                   _fetchPlanDetails();
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               },
               child: Text(payout == null ? 'ADD' : 'SAVE'),

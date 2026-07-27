@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/case_note.dart';
 import '../services/case_management_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddNoteDialog extends StatefulWidget {
   final String caseId;
@@ -38,7 +39,7 @@ class _AddNoteDialogState extends State<AddNoteDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     }
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../features/partners/models/partner.dart';
 import '../../features/partners/partner_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PartnerSearchDropdown extends StatefulWidget {
   final String role;
@@ -171,7 +172,10 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
                   return [
                     ListTile(
                       title: Text(
-                        'Error loading partners: $e',
+                        friendlyErrorMessage(
+                          e,
+                          fallback: 'We could not load partners. Please try again.',
+                        ),
                         style: const TextStyle(color: Colors.red),
                       ),
                     ),

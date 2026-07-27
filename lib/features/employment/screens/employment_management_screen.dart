@@ -7,6 +7,7 @@ import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../services/employment_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class EmploymentManagementScreen extends StatefulWidget {
   const EmploymentManagementScreen({super.key});
@@ -46,7 +47,7 @@ class _EmploymentManagementScreenState
       final rows = await _service.list(status: _status, query: _search.text);
       if (mounted) setState(() => _rows = rows);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -89,7 +90,7 @@ class _EmploymentManagementScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }
@@ -111,7 +112,7 @@ class _EmploymentManagementScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }
@@ -370,7 +371,7 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }
@@ -561,7 +562,7 @@ class _EmployeeBankingDialogState extends State<_EmployeeBankingDialog> {
       final accounts = await widget.service.getBankDetails(widget.employmentId);
       if (mounted) setState(() => _accounts = accounts);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -598,7 +599,7 @@ class _EmployeeBankingDialogState extends State<_EmployeeBankingDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }

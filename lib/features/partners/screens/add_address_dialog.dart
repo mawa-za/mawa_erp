@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddAddressDialog extends StatefulWidget {
   final String partnerId;
@@ -59,12 +60,12 @@ class _AddAddressDialogState extends State<AddAddressDialog> {
           Navigator.of(context).pop(true);
         }
       } else {
-        throw Exception('Failed to add address: ${response.statusCode}');
+        throw AppException('Failed to add address: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

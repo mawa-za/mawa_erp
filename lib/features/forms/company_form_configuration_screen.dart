@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/models/field_option.dart';
 import '../../core/services/field_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CompanyFormConfigurationScreen extends StatefulWidget {
   const CompanyFormConfigurationScreen({super.key});
@@ -33,14 +34,14 @@ class _CompanyFormConfigurationScreenState extends State<CompanyFormConfiguratio
         FieldService().getOptionsByField('COMPANY-FORM-CATEGORY'),
       ]);
       final response = results[0] as dynamic;
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final decoded = jsonDecode(response.body);
       if (mounted) setState(() {
         _forms = (decoded as List).map((item) => Map<String, dynamic>.from(item as Map)).toList();
         _categories = results[1] as List<FieldOption>;
       });
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not load form configuration: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Could not load form configuration: $e'))));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -121,17 +122,17 @@ class _CompanyFormConfigurationScreenState extends State<CompanyFormConfiguratio
         'extension': extension,
         'file': base64Encode(selectedFile!.bytes!),
       });
-      if (response.statusCode != 200 && response.statusCode != 201) throw Exception(response.body);
+      if (response.statusCode != 200 && response.statusCode != 201) throw AppException(response.body);
       await _load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company form published. Existing versions with this code were replaced.')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Upload failed: $e'))));
     }
   }
 
   Future<void> _deactivate(Map<String, dynamic> form) async {
     final response = await ApiClient().delete('/v2/company-forms/${form['id']}');
-    if (response.statusCode != 204 && response.statusCode != 200) throw Exception(response.body);
+    if (response.statusCode != 204 && response.statusCode != 200) throw AppException(response.body);
     await _load();
   }
 

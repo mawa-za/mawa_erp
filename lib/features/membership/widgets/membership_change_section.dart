@@ -6,6 +6,7 @@ import '../services/membership_service.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../widgets/membership_plan_dropdown.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipChangeSection extends StatefulWidget {
   final MembershipDetail membership;
@@ -144,7 +145,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
       await _load();
       widget.onChanged();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$e')), backgroundColor: Colors.red));
     } finally { reason.dispose(); }
   }
 
@@ -185,7 +186,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
       await _load();
       widget.onChanged();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$e')), backgroundColor: Colors.red));
     } finally { reason.dispose(); }
   }
 

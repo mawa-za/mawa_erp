@@ -16,6 +16,7 @@ import '../../../core/widgets/mawa_ui.dart';
 import '../../approvals/services/approval_workflow_service.dart';
 import '../models/workcenter.dart';
 import '../models/tenant_experience.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FeatureGroupScreen extends StatefulWidget {
   final String groupId;
@@ -65,18 +66,18 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       final experienceGroup = experience?.groupByCode(canonicalGroupId) ??
           experience?.groupByCode(widget.groupId);
       if (experienceGroup == null && fallbackGroup == null) {
-        throw Exception('Unknown feature group: ${widget.groupId}');
+        throw AppException('Unknown feature group: ${widget.groupId}');
       }
 
       final prefs = await SharedPreferences.getInstance();
       final roleId = prefs.getString('selectedRole');
       if (roleId == null || roleId.isEmpty) {
-        throw Exception('No selected role found');
+        throw AppException('No selected role found');
       }
 
       final response = await ApiClient().get('/role/$roleId/workcenter');
       if (response.statusCode != 200) {
-        throw Exception('Failed to load role workcenters: ${response.statusCode}');
+        throw AppException('Failed to load role workcenters: ${response.statusCode}');
       }
 
       final List<dynamic> data = jsonDecode(response.body);
@@ -163,7 +164,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _loading = false;
       });
     }

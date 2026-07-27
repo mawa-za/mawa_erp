@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/approval_workflow.dart';
 import '../services/approval_workflow_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApprovalWorkflowCreateScreen extends StatefulWidget {
   final ApprovalWorkflow? workflow;
@@ -124,7 +125,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

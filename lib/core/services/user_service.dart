@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../api_client.dart';
 import '../models/user.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class UserService {
   static final UserService _instance = UserService._internal();
@@ -14,7 +15,7 @@ class UserService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => User.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load users: ${response.statusCode}');
+        throw AppException('Failed to load users: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -27,7 +28,7 @@ class UserService {
       if (response.statusCode == 200) {
         return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
-        throw Exception('Failed to load user: ${response.statusCode}');
+        throw AppException('Failed to load user: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -55,7 +56,7 @@ class UserService {
         body: roles,
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to update user roles: ${response.body}');
+        throw AppException('Failed to update user roles: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -103,7 +104,7 @@ class UserService {
         },
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to create user: ${response.body}');
+        throw AppException('Failed to create user: ${response.body}');
       }
       return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     } catch (e) {
@@ -114,14 +115,14 @@ class UserService {
   Future<void> updateUser(String userId, Map<String, dynamic> body) async {
     final response = await ApiClient().put('/v2/user/$userId', body: body);
     if (response.statusCode != 200) {
-      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to update user');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to update user');
     }
   }
 
   Future<void> deleteUser(String userId) async {
     final response = await ApiClient().delete('/v2/user/$userId');
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to delete user');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to delete user');
     }
   }
 
@@ -132,7 +133,7 @@ class UserService {
         queryParameters: {'reason': reason},
       );
       if (response.statusCode != 200) {
-        throw Exception('Failed to lock user: ${response.body}');
+        throw AppException('Failed to lock user: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -143,7 +144,7 @@ class UserService {
     try {
       final response = await ApiClient().put('/v2/user/$userId/unlock');
       if (response.statusCode != 200) {
-        throw Exception('Failed to unlock user: ${response.body}');
+        throw AppException('Failed to unlock user: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -154,7 +155,7 @@ class UserService {
     try {
       final response = await ApiClient().put('/v2/user/$userId/reset');
       if (response.statusCode != 200) {
-        throw Exception('Failed to reset user: ${response.body}');
+        throw AppException('Failed to reset user: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -167,7 +168,7 @@ class UserService {
       if (response.statusCode == 200) {
         return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
-        throw Exception('Failed to load user by username: ${response.statusCode}');
+        throw AppException('Failed to load user by username: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -180,7 +181,7 @@ class UserService {
       if (response.statusCode == 200) {
         return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
-        throw Exception('Failed to load user by partner ID: ${response.statusCode}');
+        throw AppException('Failed to load user by partner ID: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -193,7 +194,7 @@ class UserService {
       if (response.statusCode == 200) {
         return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
-        throw Exception('Failed to load user by email: ${response.statusCode}');
+        throw AppException('Failed to load user by email: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -206,7 +207,7 @@ class UserService {
       if (response.statusCode == 200) {
         return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
-        throw Exception('Failed to load user by cellphone: ${response.statusCode}');
+        throw AppException('Failed to load user by cellphone: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

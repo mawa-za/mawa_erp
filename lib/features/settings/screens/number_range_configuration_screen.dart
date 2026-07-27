@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../models/number_range_configuration.dart';
 import '../services/number_range_configuration_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class NumberRangeConfigurationScreen extends StatefulWidget {
   const NumberRangeConfigurationScreen({super.key});
@@ -865,17 +866,14 @@ class _NumberRangeConfigurationScreenState extends State<NumberRangeConfiguratio
     return RegExp(r'(\d+)$').firstMatch(value)?.group(1);
   }
 
-  String _cleanError(Object error) {
-    final text = error.toString();
-    return text.startsWith('Exception: ') ? text.substring(11) : text;
-  }
+  String _cleanError(Object error) => friendlyErrorMessage(error);
 
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green.shade700));
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red.shade700));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(message)), backgroundColor: Colors.red.shade700));
   }
 }
 

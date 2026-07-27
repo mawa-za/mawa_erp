@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/pos_printing_models.dart';
 import '../services/pos_printing_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PosPrintingSettingsScreen extends StatefulWidget {
   const PosPrintingSettingsScreen({super.key});
@@ -57,7 +58,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
         }
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -87,7 +88,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       var terminal = await _service.ensureTerminal(displayName: _terminalName.text, location: _location.text);
-      if (_agentId == null || _printerId == null) throw Exception('Select an active print agent and an online receipt printer.');
+      if (_agentId == null || _printerId == null) throw AppException('Select an active print agent and an online receipt printer.');
       await _service.configurePrinter(
         printerId: _printerId!,
         supportsCut: _supportsCut,
@@ -98,7 +99,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
       setState(() => _terminal = terminal);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('POS printing configuration saved')));
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -138,7 +139,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
         const SnackBar(content: Text('Configuration saved and test print queued.')),
       );
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -187,7 +188,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
       );
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$e')), backgroundColor: Colors.red));
     }
   }
 

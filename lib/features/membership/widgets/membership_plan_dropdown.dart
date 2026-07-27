@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipPlanDropdown extends StatefulWidget {
   final String? value;
@@ -46,7 +47,7 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }

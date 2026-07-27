@@ -3,6 +3,7 @@ import '../models/leave_request.dart';
 import '../services/leave_service.dart';
 import 'leave_request_create_screen.dart';
 import 'leave_request_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class LeaveRequestListScreen extends StatefulWidget {
   const LeaveRequestListScreen({super.key});
@@ -45,7 +46,7 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }

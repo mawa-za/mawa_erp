@@ -5,6 +5,7 @@ import '../../../partners/partner_service.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_tenant_integration_configuration_dto.dart';
 import '../../data/models/funeral_tenant_option_dto.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralTenantIntegrationSetupPage extends StatefulWidget {
   const FuneralTenantIntegrationSetupPage({super.key});
@@ -78,7 +79,7 @@ class _FuneralTenantIntegrationSetupPageState
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -125,7 +126,7 @@ class _FuneralTenantIntegrationSetupPageState
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

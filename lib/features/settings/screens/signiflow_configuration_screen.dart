@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class SigniFlowConfigurationScreen extends StatefulWidget {
   const SigniFlowConfigurationScreen({super.key});
@@ -48,7 +49,7 @@ class _SigniFlowConfigurationScreenState extends State<SigniFlowConfigurationScr
     setState(() => _loading = true);
     try {
       final response = await _api.get('/v2/signiflow/configuration');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
       if (!mounted) return;
       setState(() {
@@ -67,7 +68,7 @@ class _SigniFlowConfigurationScreenState extends State<SigniFlowConfigurationScr
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load SigniFlow configuration: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load SigniFlow configuration: $error'))),
         );
       }
     } finally {
@@ -88,7 +89,7 @@ class _SigniFlowConfigurationScreenState extends State<SigniFlowConfigurationScr
         'sendWorkflowEmails': _sendWorkflowEmails,
         'sendFirstEmail': _sendFirstEmail,
       });
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -98,7 +99,7 @@ class _SigniFlowConfigurationScreenState extends State<SigniFlowConfigurationScr
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to save SigniFlow configuration: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Unable to save SigniFlow configuration: $error'))),
         );
       }
     } finally {
@@ -109,7 +110,7 @@ class _SigniFlowConfigurationScreenState extends State<SigniFlowConfigurationScr
   Future<void> _test() async {
     try {
       final response = await _api.post('/v2/signiflow/configuration/test');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +120,7 @@ class _SigniFlowConfigurationScreenState extends State<SigniFlowConfigurationScr
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('SigniFlow connection failed: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('SigniFlow connection failed: $error'))),
         );
       }
     }

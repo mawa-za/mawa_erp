@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../../home/models/workcenter.dart';
 import '../models/role.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class RoleService {
   final ApiClient _apiClient = ApiClient();
@@ -13,7 +14,7 @@ class RoleService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Role.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load roles: ${response.statusCode}');
+      throw AppException('Failed to load roles: ${response.statusCode}');
     }
   }
 
@@ -27,7 +28,7 @@ class RoleService {
       final data = jsonDecode(response.body);
       return Role.fromJson(data);
     } else {
-      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to create role: ${response.statusCode}');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to create role: ${response.statusCode}');
     }
   }
 
@@ -37,14 +38,14 @@ class RoleService {
       final data = jsonDecode(response.body);
       return Role.fromJson(Map<String, dynamic>.from(data as Map));
     }
-    throw Exception(response.body.isNotEmpty ? response.body : 'Failed to update role');
+    throw AppException(response.body.isNotEmpty ? response.body : 'Failed to update role');
   }
 
   Future<void> deleteRole(String roleId) async {
     final response = await _apiClient.delete('/v2/role/$roleId');
 
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to delete role: ${response.statusCode}');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to delete role: ${response.statusCode}');
     }
   }
 
@@ -55,7 +56,7 @@ class RoleService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Workcenter.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load all workcenters: ${response.statusCode}');
+      throw AppException('Failed to load all workcenters: ${response.statusCode}');
     }
   }
 
@@ -66,7 +67,7 @@ class RoleService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Workcenter.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load workcenters for role $roleId: ${response.statusCode}');
+      throw AppException('Failed to load workcenters for role $roleId: ${response.statusCode}');
     }
   }
 
@@ -77,7 +78,7 @@ class RoleService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception(response.body.isNotEmpty ? response.body : 'Failed to assign workcenters to role: ${response.statusCode}');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to assign workcenters to role: ${response.statusCode}');
     }
   }
 
@@ -88,7 +89,7 @@ class RoleService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to remove workcenter from role');
+      throw AppException('Failed to remove workcenter from role');
     }
   }
 }

@@ -4,6 +4,7 @@ import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
 import 'group_society_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class GroupSocietyCreateScreen extends StatefulWidget {
   const GroupSocietyCreateScreen({super.key});
@@ -80,7 +81,7 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to create: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

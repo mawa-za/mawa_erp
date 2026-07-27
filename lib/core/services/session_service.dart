@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'setting_service.dart';
 import '../api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class SessionService {
   static final SessionService _instance = SessionService._internal();
@@ -37,7 +38,7 @@ class SessionService {
         (s) => s.attribute == 'INACTIVE-TIMEOUT',
         orElse: () => settings.firstWhere(
           (s) => s.attribute == 'TIMEOUT', 
-          orElse: () => throw Exception('No timeout setting found')
+          orElse: () => throw AppException('No timeout setting found')
         ),
       );
       
