@@ -287,8 +287,8 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               padding: const EdgeInsets.only(bottom: 12),
               child: FuneralPackageCard(
                 package: p,
-                isSelected: _controller.selectedPackage?.id == p.id,
-                onTap: () => setState(() => _controller.selectedPackage = p),
+                isSelected: _controller.effectiveSelectedPackage?.id == p.id,
+                onTap: () => _controller.selectPackage(p),
               ),
             )),
         const Divider(height: 40),
@@ -375,16 +375,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
               cover: cover,
               isSelected: _controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == (cover.membershipId ?? cover.sourceReference)),
-              onTap: () {
-                setState(() {
-                  final id = cover.membershipId ?? cover.sourceReference;
-                  if (_controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == id)) {
-                    _controller.selectedCovers.removeWhere((c) => (c.membershipId ?? c.sourceReference) == id);
-                  } else {
-                    _controller.selectedCovers.add(cover);
-                  }
-                });
-              },
+              onTap: () => _controller.toggleCoverSelection(cover),
             )),
         if (_controller.selectedCovers.isNotEmpty) ...[
           const SizedBox(height:12),
@@ -713,7 +704,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       _controller.errorMessage = null;
       _controller.nextStep();
     } else if (_controller.currentStep == 3) {
-      if (_controller.selectedPackage == null) {
+      if (_controller.effectiveSelectedPackage == null) {
         _controller.errorMessage = 'Please select a funeral package.';
         return;
       }
