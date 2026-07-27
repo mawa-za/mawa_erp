@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PremiumGenerationSettingsScreen extends StatefulWidget {
   const PremiumGenerationSettingsScreen({super.key});
@@ -45,7 +46,7 @@ class _PremiumGenerationSettingsScreenState
       final response =
           await ApiClient().get('/v2/premium-generation/configuration');
       if (!_isSuccessful(response.statusCode)) {
-        throw Exception(_errorMessage(response.body, response.statusCode));
+        throw AppException(_errorMessage(response.body, response.statusCode));
       }
 
       final data = _decodeObject(response.body);
@@ -77,7 +78,7 @@ class _PremiumGenerationSettingsScreenState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _pageError = error.toString().replaceFirst('Exception: ', '');
+        _pageError = friendlyErrorMessage(error);
       });
     }
   }
@@ -96,7 +97,7 @@ class _PremiumGenerationSettingsScreenState
         },
       );
       if (!_isSuccessful(response.statusCode)) {
-        throw Exception(_errorMessage(response.body, response.statusCode));
+        throw AppException(_errorMessage(response.body, response.statusCode));
       }
 
       final data = _decodeObject(response.body);
@@ -112,7 +113,7 @@ class _PremiumGenerationSettingsScreenState
     } catch (error) {
       if (!mounted) return;
       _showMessage(
-        error.toString().replaceFirst('Exception: ', ''),
+        friendlyErrorMessage(error),
         isError: true,
       );
     } finally {
@@ -154,7 +155,7 @@ class _PremiumGenerationSettingsScreenState
       final response = await ApiClient()
           .post('/v2/premium-generation/backfill-six-periods');
       if (!_isSuccessful(response.statusCode)) {
-        throw Exception(_errorMessage(response.body, response.statusCode));
+        throw AppException(_errorMessage(response.body, response.statusCode));
       }
 
       final result = _decodeObject(response.body);
@@ -171,7 +172,7 @@ class _PremiumGenerationSettingsScreenState
     } catch (error) {
       if (!mounted) return;
       _showMessage(
-        error.toString().replaceFirst('Exception: ', ''),
+        friendlyErrorMessage(error),
         isError: true,
       );
     } finally {
@@ -385,20 +386,11 @@ class _PremiumGenerationSettingsScreenState
   }
 
   String _errorMessage(String body, int statusCode) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map) {
-        final message = decoded['message'] ?? decoded['error'] ?? decoded['reason'];
-        if (message != null && message.toString().trim().isNotEmpty) {
-          return message.toString();
-        }
-      }
-    } catch (_) {
-      // Fall back to the body text below.
-    }
-    final trimmed = body.trim();
-    if (trimmed.isNotEmpty && !trimmed.startsWith('<')) return trimmed;
-    return 'Premium generation request failed with HTTP $statusCode.';
+    return friendlyErrorMessage(
+      body,
+      statusCode: statusCode,
+      fallback: 'The premium generation request could not be completed. Please try again.',
+    );
   }
 
   int _asInt(Object? value, {int fallback = 0}) {

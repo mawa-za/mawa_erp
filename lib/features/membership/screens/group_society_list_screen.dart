@@ -6,6 +6,7 @@ import '../../partners/partner_service.dart';
 import '../../partners/models/partner.dart';
 import 'group_society_detail_screen.dart';
 import 'group_society_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class GroupSocietyListScreen extends StatefulWidget {
   const GroupSocietyListScreen({super.key});
@@ -70,7 +71,7 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }

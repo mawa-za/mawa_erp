@@ -9,6 +9,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../widgets/funeral_status_chip.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralServiceRequestPage extends StatefulWidget {
   const FuneralServiceRequestPage({super.key});
@@ -53,7 +54,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
       requests.sort((a, b) => b.funeralDate.compareTo(a.funeralDate));
       if (mounted) setState(() => _requests = requests);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

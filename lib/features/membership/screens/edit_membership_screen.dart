@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/membership_detail.dart';
 import '../services/membership_service.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class EditMembershipScreen extends StatefulWidget {
   final MembershipDetail membership;
@@ -52,7 +53,7 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Update failed: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {

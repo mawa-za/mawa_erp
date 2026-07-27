@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -48,7 +49,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e'))),
         );
       }
     } finally {

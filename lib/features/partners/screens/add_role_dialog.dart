@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddRoleDialog extends StatefulWidget {
   final String partnerId;
@@ -55,12 +56,12 @@ class _AddRoleDialogState extends State<AddRoleDialog> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (mounted) Navigator.of(context).pop(true);
       } else {
-        throw Exception('Failed to update roles');
+        throw AppException('Failed to update roles');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

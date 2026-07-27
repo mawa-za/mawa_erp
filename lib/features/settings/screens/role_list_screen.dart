@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
 import 'role_workcenter_assignment_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class RoleListScreen extends StatefulWidget {
   const RoleListScreen({super.key});
@@ -38,7 +39,7 @@ class _RoleListScreenState extends State<RoleListScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyErrorMessage(error);
         _loading = false;
       });
     }
@@ -273,7 +274,7 @@ class _RoleListScreenState extends State<RoleListScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$error'),
+        content: Text(friendlyErrorMessage('$error')),
         backgroundColor: Colors.red,
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/membership_claim.dart';
 import '../services/membership_service.dart';
 import 'membership_claim_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipClaimListScreen extends StatefulWidget {
   const MembershipClaimListScreen({super.key});
@@ -113,7 +114,7 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
     } catch (e) {
       if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isLoading = false;
         _isLoadingMore = false;
       });

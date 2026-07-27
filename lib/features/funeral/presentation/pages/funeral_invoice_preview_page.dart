@@ -5,6 +5,7 @@ import '../../data/models/funeral_invoice_preview_line_dto.dart';
 import '../../data/models/funeral_claim_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../widgets/invoice_split_summary.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralInvoicePreviewPage extends StatefulWidget {
   final String serviceRequestId;
@@ -42,7 +43,7 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     }
   }
@@ -75,7 +76,7 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

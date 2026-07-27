@@ -5,6 +5,7 @@ import '../../../../core/models/field_option.dart';
 import '../../../../core/services/field_service.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/create_pickup_request_dto.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CreatePickupRequestPage extends StatefulWidget {
   const CreatePickupRequestPage({super.key});
@@ -52,7 +53,7 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not load pickup areas: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Could not load pickup areas: $e'))),
         );
       }
     }
@@ -77,7 +78,7 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

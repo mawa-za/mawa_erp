@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/case_event.dart';
 import '../services/case_management_service.dart';
 import 'case_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class UpcomingEventsScreen extends StatefulWidget {
   const UpcomingEventsScreen({super.key});
@@ -34,7 +35,7 @@ class _UpcomingEventsScreenState extends State<UpcomingEventsScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     }

@@ -4,6 +4,7 @@ import '../../../core/api_client.dart';
 import '../models/partner.dart';
 import 'partner_create_screen.dart';
 import 'partner_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PartnerListScreen extends StatefulWidget {
   final String? role;
@@ -71,13 +72,17 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         });
       } else {
         setState(() {
-          _error = 'Failed to load partners: ${response.statusCode}';
+          _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'Partners could not be loaded. Please try again.',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }

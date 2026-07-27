@@ -8,6 +8,7 @@ import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CashupDetailScreen extends StatefulWidget {
   final String cashupId;
@@ -48,7 +49,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isLoading = false;
       });
     }
@@ -90,7 +91,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to submit: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -334,7 +335,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create deposit: $e'),
+          content: Text(friendlyErrorMessage('Failed to create deposit: $e')),
           backgroundColor: Colors.red,
         ),
       );
@@ -667,7 +668,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       _fetchDetails();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete deposit: $e'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to delete deposit: $e')), backgroundColor: Colors.red));
     }
   }
 

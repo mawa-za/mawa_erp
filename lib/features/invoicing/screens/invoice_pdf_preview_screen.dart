@@ -5,6 +5,7 @@ import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import '../services/invoice_pdf_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InvoicePdfPreviewScreen extends StatefulWidget {
   final String? invoiceId;
@@ -58,10 +59,14 @@ class _InvoicePdfPreviewScreenState extends State<InvoicePdfPreviewScreen> {
           }
         }
       } else {
-        _error = 'Failed to load invoice: ${response.statusCode}';
+        _error = friendlyErrorMessage(
+          response.body,
+          statusCode: response.statusCode,
+          fallback: 'The invoice could not be loaded. Please try again.',
+        );
       }
     } catch (e) {
-      _error = 'Error: $e';
+      _error = friendlyErrorMessage('Error: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

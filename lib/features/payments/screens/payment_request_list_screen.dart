@@ -3,6 +3,7 @@ import '../models/payment_request.dart';
 import '../services/payment_request_service.dart';
 import 'payment_request_detail_screen.dart';
 import 'payment_request_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PaymentRequestListScreen extends StatefulWidget {
   const PaymentRequestListScreen({super.key});
@@ -57,7 +58,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Failed to load payments: $e';
+          _error = friendlyErrorMessage('Failed to load payments: $e');
           _isLoading = false;
         });
       }

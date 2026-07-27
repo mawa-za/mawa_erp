@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -39,17 +39,24 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           Navigator.of(context).pop();
         }
       } else {
-        final error = jsonDecode(response.body);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${error['message'] ?? response.statusCode}')),
+            SnackBar(
+              content: Text(
+                friendlyErrorMessage(
+                  response.body,
+                  statusCode: response.statusCode,
+                  fallback: 'The password could not be updated. Please try again.',
+                ),
+              ),
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e'))),
         );
       }
     } finally {

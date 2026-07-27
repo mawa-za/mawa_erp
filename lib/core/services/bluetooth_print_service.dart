@@ -3,6 +3,7 @@ import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import '../../features/membership/models/receipt_response.dart';
 import 'setting_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class BluetoothPrintService {
   static final BluetoothPrintService _instance = BluetoothPrintService._internal();
@@ -19,7 +20,7 @@ class BluetoothPrintService {
     bool? isConnected = await bluetooth.isConnected;
     if (isConnected != true) {
       if (device == null) {
-        throw Exception('No printer connected. Please select a printer.');
+        throw AppException('No printer connected. Please select a printer.');
       }
       await bluetooth.connect(device);
     }

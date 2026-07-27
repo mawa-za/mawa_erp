@@ -10,6 +10,7 @@ import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import 'invoice_pdf_preview_screen.dart';
 import 'invoice_create_screen.dart' hide Partner;
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
   final String invoiceId;
@@ -61,13 +62,17 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         });
       } else {
         setState(() {
-          _error = 'Failed to load invoice details: ${response.statusCode}';
+          _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'The invoice details could not be loaded. Please try again.',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }
@@ -160,7 +165,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error emailing invoice: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Error emailing invoice: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {
@@ -199,7 +204,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit for approval: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to submit for approval: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

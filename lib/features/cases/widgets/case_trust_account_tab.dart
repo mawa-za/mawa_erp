@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/case_trust.dart';
 import '../services/case_trust_service.dart';
 import 'trust_receipt_preview_dialog.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CaseTrustAccountTab extends StatefulWidget {
   final String caseId;
@@ -39,7 +40,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     }
   }
@@ -381,7 +382,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                       );
                     }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                   }
                 }
               },
@@ -446,7 +447,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                     _fetchData();
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               }
             },
@@ -522,7 +523,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                       _fetchData();
                     }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                   }
                 }
               },
@@ -628,7 +629,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                       _fetchData();
                     }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                   }
                 }
               },
@@ -681,7 +682,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                     _fetchData();
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
                 }
               }
             },

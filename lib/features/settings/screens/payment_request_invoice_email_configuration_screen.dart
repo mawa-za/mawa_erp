@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PaymentRequestInvoiceEmailConfigurationScreen extends StatefulWidget {
   const PaymentRequestInvoiceEmailConfigurationScreen({super.key});
@@ -42,7 +43,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     setState(() => _loading = true);
     try {
       final response = await _api.get('/v2/payment-request/invoice-email/configuration');
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
       if (!mounted) return;
       setState(() {
@@ -58,7 +59,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load invoice email settings: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load invoice email settings: $error'))),
         );
       }
     } finally {
@@ -79,7 +80,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
           'bodyMessage': _body.text.trim(),
         },
       );
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -89,7 +90,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to save configuration: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Unable to save configuration: $error'))),
         );
       }
     } finally {
@@ -156,7 +157,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
           'retryFailed': retryFailed,
         },
       );
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
       final result = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
       await _load();
       if (mounted) {
@@ -182,7 +183,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Backfill failed: $error')),
+          SnackBar(content: Text(friendlyErrorMessage('Backfill failed: $error'))),
         );
       }
     }

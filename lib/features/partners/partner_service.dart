@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../../core/api_client.dart';
 import 'models/partner.dart';
 import 'models/partner_identity.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PartnerService {
   static final PartnerService _instance = PartnerService._internal();
@@ -19,7 +20,7 @@ class PartnerService {
         final dynamic decoded = jsonDecode(response.body);
         return Partner.fromJson(decoded as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to load partner: ${response.statusCode}');
+        throw AppException('Failed to load partner: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -38,7 +39,7 @@ class PartnerService {
         List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => Partner.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load partners: ${response.statusCode}');
+        throw AppException('Failed to load partners: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -56,7 +57,7 @@ class PartnerService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return Partner.fromJson(jsonDecode(response.body));
       } else {
-        throw Exception('Failed to create partner: ${response.body}');
+        throw AppException('Failed to create partner: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -69,7 +70,7 @@ class PartnerService {
       if (response.statusCode == 200) {
         return Partner.fromJson(jsonDecode(response.body));
       } else {
-        throw Exception('Failed to edit partner: ${response.body}');
+        throw AppException('Failed to edit partner: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -80,7 +81,7 @@ class PartnerService {
     try {
       final response = await _apiClient.put('/v2/partner/$id/archive');
       if (response.statusCode != 200) {
-        throw Exception('Failed to archive partner: ${response.body}');
+        throw AppException('Failed to archive partner: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -91,7 +92,7 @@ class PartnerService {
     try {
       final response = await _apiClient.put('/v2/partner/$id/unarchive');
       if (response.statusCode != 200) {
-        throw Exception('Failed to unarchive partner: ${response.body}');
+        throw AppException('Failed to unarchive partner: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -108,7 +109,7 @@ class PartnerService {
         final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerIdentity.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load partner identities: ${response.statusCode}');
+        throw AppException('Failed to load partner identities: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -119,7 +120,7 @@ class PartnerService {
     try {
       final response = await _apiClient.post('/v2/partner/$id/identity', body: identityCreateDto);
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to add identity: ${response.body}');
+        throw AppException('Failed to add identity: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -130,7 +131,7 @@ class PartnerService {
     try {
       final response = await _apiClient.put('/v2/partner/$id/identity', body: identityEditDto);
       if (response.statusCode != 200) {
-        throw Exception('Failed to edit identity: ${response.body}');
+        throw AppException('Failed to edit identity: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -161,7 +162,7 @@ class PartnerService {
         'idNumber': idNumber,
       });
       if (response.statusCode != 200) {
-        throw Exception('Failed to delete identity: ${response.body}');
+        throw AppException('Failed to delete identity: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -181,7 +182,7 @@ class PartnerService {
         final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerContact.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load partner contacts: ${response.statusCode}');
+        throw AppException('Failed to load partner contacts: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -200,7 +201,7 @@ class PartnerService {
         final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerContact.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load contacts: ${response.statusCode}');
+        throw AppException('Failed to load contacts: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -211,7 +212,7 @@ class PartnerService {
     try {
       final response = await _apiClient.post('/v2/partner/$id/contact', body: contactCreateDto);
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to add contact: ${response.body}');
+        throw AppException('Failed to add contact: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -226,7 +227,7 @@ class PartnerService {
         body: contactEditDto,
       );
       if (response.statusCode != 200) {
-        throw Exception('Failed to edit contact: ${response.body}');
+        throw AppException('Failed to edit contact: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -240,7 +241,7 @@ class PartnerService {
         queryParameters: {'type': type},
       );
       if (response.statusCode != 200) {
-        throw Exception('Failed to delete contact: ${response.body}');
+        throw AppException('Failed to delete contact: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -257,7 +258,7 @@ class PartnerService {
         final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerAttribute.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load attributes: ${response.statusCode}');
+        throw AppException('Failed to load attributes: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -268,7 +269,7 @@ class PartnerService {
     try {
       final response = await _apiClient.post('/v2/partner/$id/attribute', body: attributeCreateDto);
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to add attribute: ${response.body}');
+        throw AppException('Failed to add attribute: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -283,7 +284,7 @@ class PartnerService {
         body: attributeEditDto,
       );
       if (response.statusCode != 200) {
-        throw Exception('Failed to edit attribute: ${response.body}');
+        throw AppException('Failed to edit attribute: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -297,7 +298,7 @@ class PartnerService {
         queryParameters: {'attribute': attribute},
       );
       if (response.statusCode != 200) {
-        throw Exception('Failed to remove attribute: ${response.body}');
+        throw AppException('Failed to remove attribute: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -314,7 +315,7 @@ class PartnerService {
         final List<dynamic> data = decoded is List ? decoded : [];
         return data.map((json) => PartnerRole.fromJson(Map<String, dynamic>.from(json))).toList();
       } else {
-        throw Exception('Failed to load partner roles: ${response.statusCode}');
+        throw AppException('Failed to load partner roles: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -325,7 +326,7 @@ class PartnerService {
     try {
       final response = await _apiClient.post('/v2/partner/$id/role', body: roles);
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to assign roles: ${response.body}');
+        throw AppException('Failed to assign roles: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -339,7 +340,7 @@ class PartnerService {
         queryParameters: {'role': role},
       );
       if (response.statusCode != 200) {
-        throw Exception('Failed to delete role: ${response.body}');
+        throw AppException('Failed to delete role: ${response.body}');
       }
     } catch (e) {
       rethrow;
@@ -348,7 +349,7 @@ class PartnerService {
   Future<List<Map<String, dynamic>>> getSupplierBankAccounts(String partnerId) async {
     final response = await _apiClient.get('/v2/partner/$partnerId/bank-accounts');
     if (response.statusCode != 200) {
-      throw Exception('Failed to load supplier banking details: ${response.statusCode}');
+      throw AppException('Failed to load supplier banking details: ${response.statusCode}');
     }
     final dynamic decoded = jsonDecode(response.body);
     if (decoded is! Map) return [];
@@ -368,7 +369,7 @@ class PartnerService {
       body: details,
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to submit banking details for approval: ${response.body}');
+      throw AppException('Failed to submit banking details for approval: ${response.body}');
     }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }

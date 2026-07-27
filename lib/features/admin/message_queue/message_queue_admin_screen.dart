@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MessageQueueAdminScreen extends StatefulWidget {
   const MessageQueueAdminScreen({super.key});
@@ -48,7 +49,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
     try {
       final response = await _api.get('/v2/message-queue/schedule');
       if (response.statusCode != 200) {
-        throw Exception(response.body);
+        throw AppException(response.body);
       }
 
       final data = Map<String, dynamic>.from(
@@ -70,7 +71,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _scheduleError = 'Failed to load queue schedule: $e');
+      setState(() => _scheduleError = friendlyErrorMessage('Failed to load queue schedule: $e'));
     }
   }
 
@@ -101,7 +102,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
         body: _schedulePayload(enabled: enabled),
       );
       if (settingsResponse.statusCode != 200) {
-        throw Exception(settingsResponse.body);
+        throw AppException(settingsResponse.body);
       }
 
       final action = enabled ? 'start' : 'stop';
@@ -109,7 +110,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
         '/v2/message-queue/schedule/$action',
       );
       if (actionResponse.statusCode != 200) {
-        throw Exception(actionResponse.body);
+        throw AppException(actionResponse.body);
       }
 
       await _loadSchedule();
@@ -126,9 +127,9 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _scheduleError = 'Schedule action failed: $e');
+        setState(() => _scheduleError = friendlyErrorMessage('Schedule action failed: $e'));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Schedule action failed: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Schedule action failed: $e'))),
         );
       }
     } finally {
@@ -146,7 +147,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
         '/v2/message-queue/schedule',
         body: _schedulePayload(enabled: enabled),
       );
-      if (response.statusCode != 200) throw Exception(response.body);
+      if (response.statusCode != 200) throw AppException(response.body);
 
       await _loadSchedule();
       if (mounted) {
@@ -156,9 +157,9 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _scheduleError = 'Schedule update failed: $e');
+        setState(() => _scheduleError = friendlyErrorMessage('Schedule update failed: $e'));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Schedule update failed: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Schedule update failed: $e'))),
         );
       }
     } finally {
@@ -189,12 +190,12 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
       } else {
-        throw Exception(response.body);
+        throw AppException(response.body);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load queue: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load queue: $e'))),
         );
       }
     } finally {
@@ -206,7 +207,15 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
     final response = await _api.post('/v2/message-queue/$id/retry');
     if (response.statusCode != 200 && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Retry failed: ${response.body}')),
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage(
+              response.body,
+              statusCode: response.statusCode,
+              fallback: 'The queue item could not be retried. Please try again.',
+            ),
+          ),
+        ),
       );
     }
     await _load();
@@ -220,7 +229,11 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
           content: Text(
             response.statusCode == 200
                 ? 'Queue processing triggered'
-                : 'Failed: ${response.body}',
+                : friendlyErrorMessage(
+                    response.body,
+                    statusCode: response.statusCode,
+                    fallback: 'Queue processing could not be started. Please try again.',
+                  ),
           ),
         ),
       );

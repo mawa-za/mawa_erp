@@ -10,6 +10,7 @@ import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../models/partner.dart';
 import 'partner_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PartnerCreateScreen extends StatefulWidget {
   final Partner? existingPartner;
@@ -237,12 +238,12 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           }
         }
       } else {
-        throw Exception('Failed to save partner: ${response.statusCode}');
+        throw AppException('Failed to save partner: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {

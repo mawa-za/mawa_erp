@@ -5,6 +5,7 @@ import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
 import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PayrollBatchCreateScreen extends StatefulWidget {
   final String? batchId;
@@ -88,7 +89,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading batch: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error loading batch: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -146,7 +147,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
             .take(50)
             .toList();
       }
-      throw Exception('Failed to load active employees');
+      throw AppException('Failed to load active employees');
     } catch (e) {
       debugPrint('Error searching employees: $e');
       return [];
@@ -160,20 +161,20 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
         queryParameters: {'partnerId': partner.id, 'status': 'ACTIVE'},
       );
       if (employmentResponse.statusCode != 200) {
-        throw Exception('Unable to locate active employment');
+        throw AppException('Unable to locate active employment');
       }
       final employments = jsonDecode(employmentResponse.body) as List<dynamic>;
-      if (employments.isEmpty) throw Exception('Employee has no active employment record');
+      if (employments.isEmpty) throw AppException('Employee has no active employment record');
       final employmentId = (employments.first['id'] ?? '').toString();
       final bankResponse = await ApiClient().get('/v2/employment/$employmentId/bank-details');
-      if (bankResponse.statusCode != 200) throw Exception('Unable to load approved banking details');
+      if (bankResponse.statusCode != 200) throw AppException('Unable to load approved banking details');
       final body = jsonDecode(bankResponse.body);
       final accounts = body is Map && body['partnerBankAccountDtoList'] is List
           ? body['partnerBankAccountDtoList'] as List<dynamic>
           : const <dynamic>[];
       final active = accounts.cast<Map>().map((e) => Map<String, dynamic>.from(e)).where((e) =>
           (e['status'] ?? '').toString().toUpperCase() == 'ACTIVE').toList();
-      if (active.isEmpty) throw Exception('Employee has no approved active banking details');
+      if (active.isEmpty) throw AppException('Employee has no approved active banking details');
       final bank = active.first;
       if (!mounted || index >= _items.length) return;
       setState(() {
@@ -188,7 +189,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     } catch (e) {
       if (!mounted || index >= _items.length) return;
       setState(() {
-        _items[index]['bankError'] = e.toString().replaceFirst('Exception: ', '');
+        _items[index]['bankError'] = friendlyErrorMessage(e);
         _items[index]['bankName'] = null;
         _items[index]['accountNo'] = null;
       });
@@ -256,7 +257,7 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api_client.dart';
 import '../models/module_usage.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ModuleUsageService {
   static final ModuleUsageService _instance = ModuleUsageService._internal();
@@ -35,7 +36,7 @@ class ModuleUsageService {
       );
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to track module usage: ${response.body}');
+        throw AppException('Failed to track module usage: ${response.body}');
       }
     } catch (e) {
       // We often don't want to crash the app if tracking fails
@@ -62,7 +63,7 @@ class ModuleUsageService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => ModuleUsage.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load recent modules: ${response.statusCode}');
+        throw AppException('Failed to load recent modules: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -88,7 +89,7 @@ class ModuleUsageService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => ModuleUsage.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load frequent modules: ${response.statusCode}');
+        throw AppException('Failed to load frequent modules: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -106,7 +107,7 @@ class ModuleUsageService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to reset module usage: ${response.body}');
+      throw AppException('Failed to reset module usage: ${response.body}');
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../models/payroll_batch.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PayrollService {
   static final PayrollService _instance = PayrollService._internal();
@@ -19,7 +20,7 @@ class PayrollService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => PayrollBatchSummary.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load payroll batches: ${response.statusCode}');
+        throw AppException('Failed to load payroll batches: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -32,7 +33,7 @@ class PayrollService {
       if (response.statusCode == 200) {
         return PayrollBatchDetail.fromJson(jsonDecode(response.body));
       } else {
-        throw Exception('Failed to load payroll batch details');
+        throw AppException('Failed to load payroll batch details');
       }
     } catch (e) {
       rethrow;
@@ -46,7 +47,7 @@ class PayrollService {
         body: data,
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to create payroll batch: ${response.statusCode}');
+        throw AppException('Failed to create payroll batch: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -60,7 +61,7 @@ class PayrollService {
         body: data,
       );
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to update payroll batch: ${response.statusCode}');
+        throw AppException('Failed to update payroll batch: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -74,7 +75,7 @@ class PayrollService {
         body: payload,
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to copy payroll batch: ${response.statusCode}');
+        throw AppException('Failed to copy payroll batch: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -85,7 +86,7 @@ class PayrollService {
     try {
       final response = await _apiClient.post('/v2/payroll-payment-batch/$batchId/approve');
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to approve batch: ${response.statusCode}');
+        throw AppException('Failed to approve batch: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -98,7 +99,7 @@ class PayrollService {
       accept: 'application/pdf',
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to generate payroll verification printout: ${response.body}');
+      throw AppException('Failed to generate payroll verification printout: ${response.body}');
     }
     return response.bodyBytes;
   }
@@ -108,7 +109,7 @@ class PayrollService {
       '/v2/payroll-payment-batch/$batchId/bank-report/refresh',
     );
     if (response.statusCode != 200) {
-      throw Exception('Failed to retrieve payroll bank report: ${response.body}');
+      throw AppException('Failed to retrieve payroll bank report: ${response.body}');
     }
     return PayrollBatchDetail.fromJson(jsonDecode(response.body));
   }
@@ -117,7 +118,7 @@ class PayrollService {
     try {
       final response = await _apiClient.post('/v2/payroll-payment-batch/$batchId/cancel');
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to cancel batch: ${response.statusCode}');
+        throw AppException('Failed to cancel batch: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -131,7 +132,7 @@ class PayrollService {
         body: itemData,
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to add item to batch: ${response.statusCode}');
+        throw AppException('Failed to add item to batch: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

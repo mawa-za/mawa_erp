@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class TombstoneOrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -23,7 +24,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       final value = await _service.order(widget.orderId);
       if (mounted) setState(() { _order = value; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
+      if (mounted) setState(() { _error = friendlyErrorMessage(e); _loading = false; });
     }
   }
 
@@ -40,7 +41,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       if (mounted) setState(() => _order = value);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+        setState(() => _error = friendlyErrorMessage(e));
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_error!)));
       }
     } finally {
@@ -516,7 +517,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       final payment = await _service.supplierPaymentRequest(job['id'].toString(), result);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment request ${payment['requestNo'] ?? ''} submitted for approval')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
     } finally {
       if (mounted) setState(() => _working = false);
     }
@@ -630,7 +631,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
         await _load();
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Refund review required: R ${_cents(summary['refundRequiredCents']).toStringAsFixed(2)}')));
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       } finally {
         if (mounted) setState(() => _working = false);
       }

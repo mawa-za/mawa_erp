@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
+import '../../../core/errors/app_error.dart';
 import '../../../core/config.dart';
 import '../models/report_dashboard.dart';
 
@@ -11,7 +12,11 @@ class ReportingApiException implements Exception {
   final int? statusCode;
   const ReportingApiException(this.message, {this.statusCode});
   @override
-  String toString() => message;
+  String toString() => friendlyErrorMessage(
+        message,
+        statusCode: statusCode,
+        fallback: 'Reports could not be loaded. Please try again.',
+      );
 }
 
 class ReportingApiClient {
@@ -70,6 +75,6 @@ class ReportingApiClient {
       final body = jsonDecode(response.body);
       if (body is Map && body['message'] != null) return '${body['message']}';
     } catch (_) {}
-    return 'Unable to load reports (HTTP ${response.statusCode})';
+    return 'Reports could not be loaded. Please try again.';
   }
 }

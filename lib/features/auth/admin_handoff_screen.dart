@@ -8,6 +8,7 @@ import '../../core/api_client.dart';
 import '../../core/routing/app_routes.dart';
 import '../../core/services/session_service.dart';
 import '../../core/services/access_profile_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AdminHandoffScreen extends StatefulWidget {
   final String token;
@@ -46,9 +47,13 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       );
 
       if (response.statusCode != 200) {
-        setState(() => _error = response.body.isNotEmpty
-            ? response.body
-            : 'Admin handoff failed with HTTP ${response.statusCode}.');
+        setState(
+          () => _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'The secure admin session could not be opened. Please try again.',
+          ),
+        );
         return;
       }
 
@@ -108,7 +113,7 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       context.go(redirect.startsWith('/') ? redirect : '/$redirect');
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Admin handoff failed: $e');
+        setState(() => _error = friendlyErrorMessage('Admin handoff failed: $e'));
       }
     }
   }

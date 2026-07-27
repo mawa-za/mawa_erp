@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_tenant_option_dto.dart';
 import '../../data/models/tenant_trust_relationship_dto.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class TrustedTenantsPage extends StatefulWidget {
   const TrustedTenantsPage({super.key});
@@ -46,7 +47,7 @@ class _TrustedTenantsPageState extends State<TrustedTenantsPage> {
         return;
       }
 
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -167,7 +168,7 @@ class _TrustedTenantsPageState extends State<TrustedTenantsPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        SnackBar(content: Text(friendlyErrorMessage(error))),
       );
     }
   }
@@ -189,7 +190,7 @@ class _TrustedTenantsPageState extends State<TrustedTenantsPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        SnackBar(content: Text(friendlyErrorMessage(error))),
       );
     }
   }

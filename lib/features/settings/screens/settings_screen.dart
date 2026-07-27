@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/setting.dart';
 import '../../../core/services/setting_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class SystemSettingsScreen extends StatefulWidget {
   const SystemSettingsScreen({super.key});
@@ -36,7 +37,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -138,7 +139,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
           );
         }
       }
@@ -223,7 +224,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
           );
         }
       }

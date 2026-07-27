@@ -8,6 +8,7 @@ import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../models/payment_request.dart';
 import '../services/payment_request_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PaymentRequestDetailScreen extends StatefulWidget {
   final String paymentId;
@@ -62,7 +63,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
       });
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }
@@ -93,7 +94,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         _fetchData();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -122,7 +123,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         _fetchData();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -188,7 +189,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         _fetchData();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }

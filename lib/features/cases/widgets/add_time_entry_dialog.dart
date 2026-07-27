@@ -4,6 +4,7 @@ import '../models/case_time_entry.dart';
 import '../models/case_task.dart';
 import '../services/case_management_service.dart';
 import '../../../core/models/user.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddTimeEntryDialog extends StatefulWidget {
   final String caseId;
@@ -63,7 +64,7 @@ class _AddTimeEntryDialogState extends State<AddTimeEntryDialog> {
       await _caseService.createTimeEntry(widget.caseId, request);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
     }
   }
 

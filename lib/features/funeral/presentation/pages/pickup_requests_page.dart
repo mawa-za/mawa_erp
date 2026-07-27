@@ -11,6 +11,7 @@ import '../../../../core/api_client.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../../partners/models/partner.dart';
 import '../widgets/funeral_status_chip.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PickupRequestsPage extends StatefulWidget {
   const PickupRequestsPage({super.key});
@@ -48,7 +49,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
       if (!mounted) return;
       setState(() => _isLoadingEmployees = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading employees: $e')),
+        SnackBar(content: Text(friendlyErrorMessage('Error loading employees: $e'))),
       );
     }
   }
@@ -67,7 +68,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading pickup requests: $e')),
+        SnackBar(content: Text(friendlyErrorMessage('Error loading pickup requests: $e'))),
       );
     }
   }
@@ -154,7 +155,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error assigning pickup: $e')),
+            SnackBar(content: Text(friendlyErrorMessage('Error assigning pickup: $e'))),
           );
         }
       }
@@ -163,7 +164,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
 
   Future<List<Map<String, dynamic>>> _storageRows(String path, [Map<String, dynamic>? query]) async {
     final response = await ApiClient().get(path, queryParameters: query);
-    if (response.statusCode != 200) throw Exception(response.body);
+    if (response.statusCode != 200) throw AppException(response.body);
     final decoded = jsonDecode(response.body);
     return decoded is List
         ? decoded.map((item) => Map<String, dynamic>.from(item as Map)).toList()
@@ -181,7 +182,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
         'file': base64Encode(bytes),
       });
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Could not upload injury photo ${photo.name}: ${response.body}');
+        throw AppException('Could not upload injury photo ${photo.name}: ${response.body}');
       }
     }
   }
@@ -328,7 +329,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error recording arrival: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error recording arrival: $e'))),
         );
       }
     }
@@ -340,7 +341,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
       warehouses = await _storageRows('/v2/storage-configuration/warehouses');
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not load storage configuration: $e')),
+        SnackBar(content: Text(friendlyErrorMessage('Could not load storage configuration: $e'))),
       );
       return;
     }
@@ -456,7 +457,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
       _loadRequests();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error completing pickup: $e')),
+        SnackBar(content: Text(friendlyErrorMessage('Error completing pickup: $e'))),
       );
     }
   }

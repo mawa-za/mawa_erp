@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class TombstoneOrderFormScreen extends StatefulWidget {
   const TombstoneOrderFormScreen({super.key});
@@ -61,7 +62,7 @@ class _TombstoneOrderFormScreenState extends State<TombstoneOrderFormScreen> {
       if (!mounted) return;
       Navigator.of(context).pop<TombstoneOrder>(order);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

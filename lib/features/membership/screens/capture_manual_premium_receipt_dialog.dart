@@ -9,6 +9,7 @@ import '../../settings/models/manual_receipt_book.dart';
 import '../../settings/services/manual_receipt_book_service.dart';
 import '../models/membership_detail.dart';
 import '../services/membership_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CaptureManualPremiumReceiptDialog extends StatefulWidget {
   final MembershipDetail membership;
@@ -74,7 +75,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
         _loadingOptions = false;
       });
     } catch (e) {
-      if (mounted) setState(() { _loadingOptions = false; _error = e.toString(); });
+      if (mounted) setState(() { _loadingOptions = false; _error = friendlyErrorMessage(e); });
     }
   }
 
@@ -136,7 +137,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() { _saving = false; _error = e.toString(); });
+      if (mounted) setState(() { _saving = false; _error = friendlyErrorMessage(e); });
     }
   }
 

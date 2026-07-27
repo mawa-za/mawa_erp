@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/api_client.dart';
 import '../models/appointment_booking.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AppointmentBookingService {
   static final AppointmentBookingService _instance = AppointmentBookingService._internal();
@@ -47,7 +48,7 @@ class AppointmentBookingService {
       });
       return appointments;
     }
-    throw Exception('Failed to load appointments: ${response.statusCode} ${response.body}');
+    throw AppException('Failed to load appointments: ${response.statusCode} ${response.body}');
   }
 
   Future<AppointmentBooking> getAppointment(String id) async {
@@ -55,7 +56,7 @@ class AppointmentBookingService {
     if (response.statusCode == 200) {
       return AppointmentBooking.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
     }
-    throw Exception('Failed to load appointment: ${response.statusCode} ${response.body}');
+    throw AppException('Failed to load appointment: ${response.statusCode} ${response.body}');
   }
 
   Future<String> createAppointment({
@@ -78,7 +79,7 @@ class AppointmentBookingService {
       if (decoded is Map && decoded['id'] != null) return decoded['id'].toString();
       return '';
     }
-    throw Exception('Failed to create appointment: ${response.statusCode} ${response.body}');
+    throw AppException('Failed to create appointment: ${response.statusCode} ${response.body}');
   }
 
   Future<void> updateAppointment({
@@ -96,7 +97,7 @@ class AppointmentBookingService {
     });
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to update appointment: ${response.statusCode} ${response.body}');
+      throw AppException('Failed to update appointment: ${response.statusCode} ${response.body}');
     }
   }
 
@@ -109,7 +110,7 @@ class AppointmentBookingService {
     });
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to update appointment status: ${response.statusCode} ${response.body}');
+      throw AppException('Failed to update appointment status: ${response.statusCode} ${response.body}');
     }
   }
 
@@ -121,13 +122,13 @@ class AppointmentBookingService {
       if (decoded is Map) return Map<String, dynamic>.from(decoded);
       return <String, dynamic>{};
     }
-    throw Exception('Failed to invoice appointment: ${response.statusCode} ${response.body}');
+    throw AppException('Failed to invoice appointment: ${response.statusCode} ${response.body}');
   }
 
   Future<void> cancelAppointment(String id) async {
     final response = await _apiClient.delete('/v2/appointment/$id');
     if (response.statusCode != 200) {
-      throw Exception('Failed to cancel appointment: ${response.statusCode} ${response.body}');
+      throw AppException('Failed to cancel appointment: ${response.statusCode} ${response.body}');
     }
   }
 }

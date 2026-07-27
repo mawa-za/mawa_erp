@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/stock_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 enum InventoryDocumentType { quotation, purchaseOrder, goodsReceipt, salesOrder }
 
@@ -530,7 +531,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      _snack(e.toString(), isError: true);
+      _snack(friendlyErrorMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

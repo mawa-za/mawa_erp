@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/approval.dart';
 import '../services/approval_service.dart';
 import 'approval_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApprovalListScreen extends StatefulWidget {
   final String? approvalType;
@@ -132,7 +133,7 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isLoading = false;
       });
     }

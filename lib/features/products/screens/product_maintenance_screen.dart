@@ -5,6 +5,7 @@ import '../../../core/models/field_option.dart';
 import '../../../core/services/field_service.dart';
 import '../models/product_maintenance.dart';
 import '../services/product_maintenance_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ProductMaintenanceScreen extends StatefulWidget {
   const ProductMaintenanceScreen({super.key});
@@ -61,7 +62,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -103,7 +104,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -183,7 +184,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       await _loadProducts();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product deleted')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
     }
   }
 
@@ -473,7 +474,7 @@ class _ProductDialogState extends State<_ProductDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }
@@ -718,7 +719,7 @@ class _CategoryMaintenanceDialogState extends State<_CategoryMaintenanceDialog> 
       });
     } catch (e) {
       if (mounted) setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _loading = false;
       });
     }
@@ -747,7 +748,7 @@ class _CategoryMaintenanceDialogState extends State<_CategoryMaintenanceDialog> 
       _changed = true;
       await _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
     }
   }
 
@@ -890,7 +891,7 @@ class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }

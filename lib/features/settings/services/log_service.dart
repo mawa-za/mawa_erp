@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../../../core/models/paginated_response.dart';
 import '../../../core/models/api_endpoint_log.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class LogService {
   static final LogService _instance = LogService._internal();
@@ -32,7 +33,7 @@ class LogService {
           (json) => ApiEndpointLog.fromJson(json),
         );
       } else {
-        throw Exception('Failed to load API logs: ${response.statusCode}');
+        throw AppException('Failed to load API logs: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;

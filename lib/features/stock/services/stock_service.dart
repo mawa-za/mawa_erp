@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class StockService {
   final ApiClient _apiClient = ApiClient();
@@ -9,7 +10,7 @@ class StockService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return _decodeMap(response.body);
     }
-    throw Exception('Failed to load stock dashboard: ${response.statusCode} ${response.body}');
+    throw AppException('Failed to load stock dashboard: ${response.statusCode} ${response.body}');
   }
 
   Future<List<Map<String, dynamic>>> quotations({String? status}) async {
@@ -295,12 +296,12 @@ class StockService {
 
   Map<String, dynamic> _decodeMapResponse(String body, int statusCode, String label) {
     if (statusCode >= 200 && statusCode < 300) return _decodeMap(body);
-    throw Exception('Failed to save $label: $statusCode $body');
+    throw AppException('Failed to save $label: $statusCode $body');
   }
 
   List<Map<String, dynamic>> _decodeListResponse(String body, int statusCode, String label) {
     if (statusCode < 200 || statusCode >= 300) {
-      throw Exception('Failed to load $label: $statusCode $body');
+      throw AppException('Failed to load $label: $statusCode $body');
     }
     if (body.trim().isEmpty) return <Map<String, dynamic>>[];
     final decoded = jsonDecode(body);

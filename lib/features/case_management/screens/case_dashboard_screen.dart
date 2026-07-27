@@ -7,6 +7,7 @@ import 'create_case_screen.dart';
 import 'overdue_tasks_screen.dart';
 import 'upcoming_events_screen.dart';
 import 'unbilled_cases_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CaseDashboardScreen extends StatefulWidget {
   const CaseDashboardScreen({super.key});
@@ -38,7 +39,7 @@ class _CaseDashboardScreenState extends State<CaseDashboardScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading dashboard: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error loading dashboard: $e')), backgroundColor: Colors.red),
         );
       }
     }

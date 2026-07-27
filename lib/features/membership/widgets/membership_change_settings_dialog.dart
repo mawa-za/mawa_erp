@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/membership_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 Future<void> showMembershipChangeSettingsDialog(BuildContext context) async {
   final config = await MembershipService().getMembershipChangeConfiguration();
@@ -35,7 +36,7 @@ Future<void> showMembershipChangeSettingsDialog(BuildContext context) async {
       } catch (error) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to save settings: $error'), backgroundColor: Colors.red),
+            SnackBar(content: Text(friendlyErrorMessage('Failed to save settings: $error')), backgroundColor: Colors.red),
           );
         }
       }
