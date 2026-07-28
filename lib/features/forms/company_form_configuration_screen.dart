@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
 import '../../core/models/field_option.dart';
 import '../../core/services/field_service.dart';
+import '../../core/services/access_profile_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CompanyFormConfigurationScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _CompanyFormConfigurationScreenState extends State<CompanyFormConfiguratio
   List<Map<String, dynamic>> _forms = [];
   List<FieldOption> _categories = [];
   bool _loading = true;
+  bool _accessDenied = false;
 
   @override
   void initState() {
@@ -27,8 +29,23 @@ class _CompanyFormConfigurationScreenState extends State<CompanyFormConfiguratio
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _accessDenied = false;
+    });
     try {
+      final profile = await AccessProfileService().getProfile();
+      if (!profile.allWorkcentres) {
+        if (mounted) {
+          setState(() {
+            _accessDenied = true;
+            _forms = [];
+            _categories = [];
+          });
+        }
+        return;
+      }
+
       final results = await Future.wait([
         ApiClient().get('/v2/company-forms', queryParameters: {'activeOnly': false}),
         FieldService().getOptionsByField('COMPANY-FORM-CATEGORY'),
@@ -131,19 +148,67 @@ class _CompanyFormConfigurationScreenState extends State<CompanyFormConfiguratio
   }
 
   Future<void> _deactivate(Map<String, dynamic> form) async {
-    final response = await ApiClient().delete('/v2/company-forms/${form['id']}');
-    if (response.statusCode != 204 && response.statusCode != 200) throw AppException(response.body);
-    await _load();
+    try {
+      final response = await ApiClient().delete('/v2/company-forms/${form['id']}');
+      if (response.statusCode != 204 && response.statusCode != 200) {
+        throw AppException.fromHttp(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+          fallback: 'The company form could not be unpublished.',
+        );
+      }
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Company form unpublished.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage(e))),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Company Forms Configuration')),
-      floatingActionButton: FloatingActionButton.extended(onPressed: () => _upload(), icon: const Icon(Icons.upload_file), label: const Text('Upload Form')),
+      floatingActionButton: _accessDenied
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _upload(),
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Upload Form'),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
+          : _accessDenied
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.admin_panel_settings_outlined, size: 56),
+                        SizedBox(height: 16),
+                        Text(
+                          'Protected administrator access required',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Only a protected tenant administrator can publish, replace or unpublish company forms.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _forms.length,
               itemBuilder: (_, index) {
