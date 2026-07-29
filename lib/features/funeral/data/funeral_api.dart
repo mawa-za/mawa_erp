@@ -307,7 +307,7 @@ class FuneralApi {
 
   Future<GenerateFuneralInvoicesResponseDto> generateInvoices(Map<String, dynamic> request) async {
     final response = await _apiClient.post('/v2/funeral/generate-invoices', body: request);
-    if (response.statusCode == 200) {
+    if (response.statusCode == 200 || response.statusCode == 201) {
       return GenerateFuneralInvoicesResponseDto.fromJson(jsonDecode(response.body));
     }
     throw AppException('Failed to generate invoices: ${response.body}');

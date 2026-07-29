@@ -231,8 +231,36 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     final package = widget.package;
     _nameController = TextEditingController(text: package?.name ?? '');
     _products = List.of(package?.products ?? const []);
-    ProductLookupService().getProducts().then((value) { if (mounted) setState(() { _catalog = value; _loadingProducts = false; }); });
+    _loadProducts();
     _active = package?.active ?? true;
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final service = ProductLookupService();
+      final results = await Future.wait([
+        service.getProducts(forceRefresh: true),
+        service.getProducts(type: 'PHYSICAL-PRODUCT', forceRefresh: true),
+      ]);
+      final byId = <String, ProductLookup>{};
+      for (final product in results.expand((items) => items)) {
+        final key = product.id.isNotEmpty ? product.id : product.code;
+        if (key.isNotEmpty) byId[key] = product;
+      }
+      final catalog = byId.values.toList()
+        ..sort((a, b) => a.description.toLowerCase().compareTo(b.description.toLowerCase()));
+      if (!mounted) return;
+      setState(() {
+        _catalog = catalog;
+        _loadingProducts = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingProducts = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage('Failed to load products: $e'))),
+      );
+    }
   }
 
   @override

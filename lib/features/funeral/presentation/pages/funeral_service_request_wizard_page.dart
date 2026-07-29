@@ -39,6 +39,17 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     'Deceased', 'Cover', 'Representative', 'Package', 'Claims', 'Preview', 'Generate'
   ];
 
+  List<String> get _visibleStepTitles => _controller.selectedCovers.isEmpty
+      ? _stepTitles.where((title) => title != 'Claims').toList()
+      : _stepTitles;
+
+  int get _visibleCurrentStep {
+    if (_controller.selectedCovers.isEmpty && _controller.currentStep > 4) {
+      return _controller.currentStep - 1;
+    }
+    return _controller.currentStep;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -82,8 +93,8 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           body: Column(
             children: [
               FuneralWizardStepper(
-                currentStep: _controller.currentStep,
-                steps: _stepTitles,
+                currentStep: _visibleCurrentStep,
+                steps: _visibleStepTitles,
               ),
               if (_controller.errorMessage != null)
                 Container(
@@ -882,6 +893,11 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       }
       final success = await _controller.initiateArrangementAndClaims();
       if (success) {
+        if (_controller.selectedCovers.isEmpty) {
+          await _controller.loadInvoicePreview();
+          _controller.goToInvoicePreview();
+          return;
+        }
         for (final claim in _controller.claims) {
           final bytes = await _controller.downloadClaimForm(claim.id);
           await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: 'claim-form-${claim.claimNumber ?? claim.id}.pdf');
