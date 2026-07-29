@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_invoice_preview_line_dto.dart';
+import '../../data/models/funeral_invoice_preview_request_dto.dart';
 import '../../data/models/funeral_claim_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../widgets/invoice_split_summary.dart';
@@ -31,13 +32,18 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final claims = await _api.getClaims(widget.serviceRequestId);
-      
-      // In a production app, we would call the preview endpoint here.
-      // Since it requires a full request DTO, we might need to fetch the service request first.
-      
+      final results = await Future.wait([
+        _api.getClaims(widget.serviceRequestId),
+        _api.getInvoicePreview(
+          FuneralInvoicePreviewRequestDto(
+            funeralServiceId: widget.serviceRequestId,
+          ),
+        ),
+      ]);
+
       setState(() {
-        _claims = claims;
+        _claims = results[0] as List<FuneralClaimDto>;
+        _previewLines = results[1] as List<FuneralInvoicePreviewLineDto>;
         _isLoading = false;
       });
     } catch (e) {
@@ -51,7 +57,9 @@ class _FuneralInvoicePreviewPageState extends State<FuneralInvoicePreviewPage> {
   Future<void> _generateInvoices() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _api.generateInvoices({'serviceRequestId': widget.serviceRequestId});
+      final response = await _api.generateInvoices({
+        'funeralServiceId': widget.serviceRequestId,
+      });
       if (mounted) {
         showDialog(
           context: context,

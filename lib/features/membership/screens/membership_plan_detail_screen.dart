@@ -3,6 +3,8 @@ import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import 'membership_plan_create_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+import '../../../core/theme/mawa_design.dart';
+import '../../../core/widgets/mawa_ui.dart';
 
 class MembershipPlanDetailScreen extends StatefulWidget {
   final String planId;
@@ -435,158 +437,449 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
   }
 
   void _showRuleDialog({MembershipPlanPremiumRule? rule}) {
+    final formKey = GlobalKey<FormState>();
     DependentType selectedType = rule?.dependentType ?? DependentType.EXTENDED_FAMILY;
     final minAgeController = TextEditingController(text: rule?.minAge.toString() ?? '0');
     final maxAgeController = TextEditingController(text: rule?.maxAge.toString() ?? '100');
-    final premiumController = TextEditingController(text: rule != null ? rule.additionalPremium.toString() : '');
+    final premiumController = TextEditingController(
+      text: rule != null ? rule.additionalPremium.toStringAsFixed(2) : '',
+    );
+    bool active = rule?.active ?? true;
+    bool saving = false;
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(rule == null ? 'Add Premium Rule' : 'Edit Premium Rule'),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: SingleChildScrollView(
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(MawaDesign.dialogRadius),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 720),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<DependentType>(
-                  value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Dependent Type', border: OutlineInputBorder()),
-                  items: DependentType.values.map((type) => DropdownMenuItem(
-                    value: type,
-                    child: Text(type.name.replaceAll('_', ' ')),
-                  )).toList(),
-                  onChanged: (v) => setDialogState(() => selectedType = v!),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 16, 20),
+                  child: MawaDialogHeader(
+                    icon: Icons.price_change_outlined,
+                    title: rule == null ? 'Add Premium Rule' : 'Edit Premium Rule',
+                    description: 'Set the additional monthly premium for a dependent category and age range.',
+                    onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: minAgeController,
-                        decoration: const InputDecoration(labelText: 'Min Age', border: OutlineInputBorder()),
-                        keyboardType: TextInputType.number,
+                const Divider(height: 1),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rule criteria',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: MawaDesign.navy,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'The rule applies when both the dependent type and age range match.',
+                            style: TextStyle(color: MawaDesign.textMuted),
+                          ),
+                          const SizedBox(height: 20),
+                          DropdownButtonFormField<DependentType>(
+                            value: selectedType,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Dependent type',
+                              helperText: 'Choose who this premium applies to',
+                              prefixIcon: Icon(Icons.people_outline_rounded),
+                            ),
+                            items: DependentType.values
+                                .map(
+                                  (type) => DropdownMenuItem(
+                                    value: type,
+                                    child: Text(type.name.replaceAll('_', ' ')),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: saving
+                                ? null
+                                : (value) {
+                                    if (value != null) {
+                                      setDialogState(() => selectedType = value);
+                                    }
+                                  },
+                          ),
+                          const SizedBox(height: 18),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final minAgeField = TextFormField(
+                                controller: minAgeController,
+                                enabled: !saving,
+                                decoration: const InputDecoration(
+                                  labelText: 'Minimum age',
+                                  suffixText: 'years',
+                                  prefixIcon: Icon(Icons.person_outline_rounded),
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  final age = int.tryParse(value?.trim() ?? '');
+                                  if (age == null) return 'Enter a valid age';
+                                  if (age < 0 || age > 150) {
+                                    return 'Use an age from 0 to 150';
+                                  }
+                                  return null;
+                                },
+                              );
+                              final maxAgeField = TextFormField(
+                                controller: maxAgeController,
+                                enabled: !saving,
+                                decoration: const InputDecoration(
+                                  labelText: 'Maximum age',
+                                  suffixText: 'years',
+                                  prefixIcon: Icon(Icons.person_search_outlined),
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  final maxAge = int.tryParse(value?.trim() ?? '');
+                                  final minAge = int.tryParse(
+                                    minAgeController.text.trim(),
+                                  );
+                                  if (maxAge == null) return 'Enter a valid age';
+                                  if (maxAge < 0 || maxAge > 150) {
+                                    return 'Use an age from 0 to 150';
+                                  }
+                                  if (minAge != null && maxAge < minAge) {
+                                    return 'Must be at least $minAge';
+                                  }
+                                  return null;
+                                },
+                              );
+                              if (constraints.maxWidth < 460) {
+                                return Column(
+                                  children: [
+                                    minAgeField,
+                                    const SizedBox(height: 14),
+                                    maxAgeField,
+                                  ],
+                                );
+                              }
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: minAgeField),
+                                  const SizedBox(width: 14),
+                                  Expanded(child: maxAgeField),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          TextFormField(
+                            controller: premiumController,
+                            enabled: !saving,
+                            decoration: const InputDecoration(
+                              labelText: 'Additional monthly premium',
+                              prefixText: 'R ',
+                              helperText: 'Amount added to the plan premium when this rule applies',
+                              prefixIcon: Icon(Icons.payments_outlined),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (value) {
+                              final amount = double.tryParse(value?.trim().replaceAll(',', '.') ?? '');
+                              if (amount == null) return 'Enter a valid amount';
+                              if (amount < 0) return 'Amount cannot be negative';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: MawaDesign.surfaceMuted,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: MawaDesign.border),
+                            ),
+                            child: SwitchListTile.adaptive(
+                              value: active,
+                              onChanged: saving
+                                  ? null
+                                  : (value) => setDialogState(() => active = value),
+                              title: const Text('Rule is active', style: TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: const Text('Inactive rules remain saved but are not used in premium calculations.'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextField(
-                        controller: maxAgeController,
-                        decoration: const InputDecoration(labelText: 'Max Age', border: OutlineInputBorder()),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: premiumController,
-                  decoration: const InputDecoration(labelText: 'Additional Premium', prefixText: 'R ', border: OutlineInputBorder()),
-                  keyboardType: TextInputType.number,
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 12),
+                      FilledButton.icon(
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                if (!formKey.currentState!.validate()) return;
+                                setDialogState(() => saving = true);
+                                final payload = {
+                                  'dependentType': selectedType.name,
+                                  'minAge': int.parse(minAgeController.text.trim()),
+                                  'maxAge': int.parse(maxAgeController.text.trim()),
+                                  'additionalPremiumCents':
+                                      ((double.parse(premiumController.text.trim().replaceAll(',', '.'))) * 100).round(),
+                                  'active': active,
+                                };
+                                try {
+                                  if (rule == null) {
+                                    await MembershipService().addPremiumRule(widget.planId, payload);
+                                  } else {
+                                    await MembershipService().updatePremiumRule(widget.planId, rule.id!, payload);
+                                  }
+                                  if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                                  await _fetchPlanDetails();
+                                } catch (e) {
+                                  if (dialogContext.mounted) {
+                                    setDialogState(() => saving = false);
+                                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                      SnackBar(content: Text(friendlyErrorMessage('Failed to save premium rule: $e'))),
+                                    );
+                                  }
+                                }
+                              },
+                        icon: saving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.check_rounded),
+                        label: Text(rule == null ? 'Add Rule' : 'Save Changes'),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            FilledButton(
-              onPressed: () async {
-                final payload = {
-                  'dependentType': selectedType.name,
-                  'minAge': int.tryParse(minAgeController.text) ?? 0,
-                  'maxAge': int.tryParse(maxAgeController.text) ?? 100,
-                  'additionalPremiumCents': ((double.tryParse(premiumController.text) ?? 0.0) * 100).round(),
-                  'active': true,
-                };
-                try {
-                  if (rule == null) {
-                    await MembershipService().addPremiumRule(widget.planId, payload);
-                  } else {
-                    await MembershipService().updatePremiumRule(widget.planId, rule.id!, payload);
-                  }
-                  Navigator.pop(context);
-                  _fetchPlanDetails();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
-                }
-              },
-              child: Text(rule == null ? 'ADD' : 'SAVE'),
-            ),
-          ],
         ),
       ),
     );
   }
 
   void _showPayoutDialog({MembershipPlanClaimPayout? payout}) {
+    final formKey = GlobalKey<FormState>();
     ClaimType selectedClaimType = payout?.claimType ?? ClaimType.CASH;
     DependentType selectedDependentType = payout?.dependentType ?? DependentType.MAIN_MEMBER;
-    final amountController = TextEditingController(text: payout != null ? payout.payoutAmount.toString() : '');
+    final amountController = TextEditingController(
+      text: payout != null ? payout.payoutAmount.toStringAsFixed(2) : '',
+    );
+    bool active = payout?.active ?? true;
+    bool saving = false;
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(payout == null ? 'Add Claim Payout' : 'Edit Claim Payout'),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: SingleChildScrollView(
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(MawaDesign.dialogRadius),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 680),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<ClaimType>(
-                  value: selectedClaimType,
-                  decoration: const InputDecoration(labelText: 'Claim Type', border: OutlineInputBorder()),
-                  items: ClaimType.values.map((type) => DropdownMenuItem(
-                    value: type,
-                    child: Text(type.name),
-                  )).toList(),
-                  onChanged: (v) => setDialogState(() => selectedClaimType = v!),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 16, 20),
+                  child: MawaDialogHeader(
+                    icon: Icons.volunteer_activism_outlined,
+                    title: payout == null ? 'Add Plan Benefit' : 'Edit Plan Benefit',
+                    description: 'Configure the benefit amount available for a claim type and covered person.',
+                    onClose: saving ? null : () => Navigator.of(dialogContext).pop(),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<DependentType>(
-                  value: selectedDependentType,
-                  decoration: const InputDecoration(labelText: 'Recipient Type', border: OutlineInputBorder()),
-                  items: DependentType.values.map((type) => DropdownMenuItem(
-                    value: type,
-                    child: Text(type.name.replaceAll('_', ' ')),
-                  )).toList(),
-                  onChanged: (v) => setDialogState(() => selectedDependentType = v!),
+                const Divider(height: 1),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Benefit details',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: MawaDesign.navy,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'The benefit is selected during claim processing according to claim and recipient type.',
+                            style: TextStyle(color: MawaDesign.textMuted),
+                          ),
+                          const SizedBox(height: 20),
+                          DropdownButtonFormField<ClaimType>(
+                            value: selectedClaimType,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Claim type',
+                              helperText: 'Select the event or benefit category',
+                              prefixIcon: Icon(Icons.assignment_outlined),
+                            ),
+                            items: ClaimType.values
+                                .map(
+                                  (type) => DropdownMenuItem(
+                                    value: type,
+                                    child: Text(type.name.replaceAll('_', ' ')),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: saving
+                                ? null
+                                : (value) {
+                                    if (value != null) {
+                                      setDialogState(() => selectedClaimType = value);
+                                    }
+                                  },
+                          ),
+                          const SizedBox(height: 18),
+                          DropdownButtonFormField<DependentType>(
+                            value: selectedDependentType,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Covered person type',
+                              helperText: 'Choose whose death or claim activates this benefit',
+                              prefixIcon: Icon(Icons.family_restroom_outlined),
+                            ),
+                            items: DependentType.values
+                                .map(
+                                  (type) => DropdownMenuItem(
+                                    value: type,
+                                    child: Text(type.name.replaceAll('_', ' ')),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: saving
+                                ? null
+                                : (value) {
+                                    if (value != null) {
+                                      setDialogState(() => selectedDependentType = value);
+                                    }
+                                  },
+                          ),
+                          const SizedBox(height: 18),
+                          TextFormField(
+                            controller: amountController,
+                            enabled: !saving,
+                            decoration: const InputDecoration(
+                              labelText: 'Benefit amount',
+                              prefixText: 'R ',
+                              helperText: 'Maximum amount payable for this plan benefit',
+                              prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (value) {
+                              final amount = double.tryParse(value?.trim().replaceAll(',', '.') ?? '');
+                              if (amount == null) return 'Enter a valid amount';
+                              if (amount <= 0) return 'Benefit amount must be greater than zero';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: MawaDesign.surfaceMuted,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: MawaDesign.border),
+                            ),
+                            child: SwitchListTile.adaptive(
+                              value: active,
+                              onChanged: saving
+                                  ? null
+                                  : (value) => setDialogState(() => active = value),
+                              title: const Text('Benefit is active', style: TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: const Text('Inactive benefits remain saved but cannot be selected for new claims.'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: amountController,
-                  decoration: const InputDecoration(labelText: 'Payout Amount', prefixText: 'R ', border: OutlineInputBorder()),
-                  keyboardType: TextInputType.number,
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: saving ? null : () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 12),
+                      FilledButton.icon(
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                if (!formKey.currentState!.validate()) return;
+                                setDialogState(() => saving = true);
+                                final payload = {
+                                  'claimType': selectedClaimType.name,
+                                  'dependentType': selectedDependentType.name,
+                                  'payoutAmountCents':
+                                      ((double.parse(amountController.text.trim().replaceAll(',', '.'))) * 100).round(),
+                                  'active': active,
+                                };
+                                try {
+                                  if (payout == null) {
+                                    await MembershipService().addClaimPayout(widget.planId, payload);
+                                  } else {
+                                    await MembershipService().updateClaimPayout(widget.planId, payout.id!, payload);
+                                  }
+                                  if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                                  await _fetchPlanDetails();
+                                } catch (e) {
+                                  if (dialogContext.mounted) {
+                                    setDialogState(() => saving = false);
+                                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                      SnackBar(content: Text(friendlyErrorMessage('Failed to save plan benefit: $e'))),
+                                    );
+                                  }
+                                }
+                              },
+                        icon: saving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.check_rounded),
+                        label: Text(payout == null ? 'Add Benefit' : 'Save Changes'),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            FilledButton(
-              onPressed: () async {
-                final payload = {
-                  'claimType': selectedClaimType.name,
-                  'dependentType': selectedDependentType.name,
-                  'payoutAmountCents': ((double.tryParse(amountController.text) ?? 0.0) * 100).round(),
-                  'active': true,
-                };
-                try {
-                  if (payout == null) {
-                    await MembershipService().addClaimPayout(widget.planId, payload);
-                  } else {
-                    await MembershipService().updateClaimPayout(widget.planId, payout.id!, payload);
-                  }
-                  Navigator.pop(context);
-                  _fetchPlanDetails();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
-                }
-              },
-              child: Text(payout == null ? 'ADD' : 'SAVE'),
-            ),
-          ],
         ),
       ),
     );
