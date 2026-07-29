@@ -1,6 +1,7 @@
 import 'funeral_service_request_dto.dart';
 
 class FuneralInvoicePreviewRequestDto {
+  final String? funeralServiceId;
   final String deceasedName;
   final String packageId;
   final String familyRepId;
@@ -8,15 +9,18 @@ class FuneralInvoicePreviewRequestDto {
   final List<FuneralExtraDto> extras;
 
   FuneralInvoicePreviewRequestDto({
-    required this.deceasedName,
-    required this.packageId,
-    required this.familyRepId,
-    required this.memberships,
-    required this.extras,
+    this.funeralServiceId,
+    this.deceasedName = '',
+    this.packageId = '',
+    this.familyRepId = '',
+    this.memberships = const [],
+    this.extras = const [],
   });
 
   Map<String, dynamic> toJson() {
     return {
+      if (funeralServiceId != null && funeralServiceId!.trim().isNotEmpty)
+        'funeralServiceId': funeralServiceId!.trim(),
       'deceasedName': deceasedName,
       'packageId': packageId,
       'familyRepId': familyRepId,
@@ -27,6 +31,7 @@ class FuneralInvoicePreviewRequestDto {
 
   factory FuneralInvoicePreviewRequestDto.fromJson(Map<String, dynamic> json) {
     return FuneralInvoicePreviewRequestDto(
+      funeralServiceId: (json['funeralServiceId'] ?? json['serviceRequestId'])?.toString(),
       deceasedName: json['deceasedName']?.toString() ?? '',
       packageId: json['packageId']?.toString() ?? '',
       familyRepId: json['familyRepId']?.toString() ?? '',

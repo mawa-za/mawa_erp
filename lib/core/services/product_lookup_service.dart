@@ -11,9 +11,9 @@ class ProductLookupService {
 
   final Map<String, List<ProductLookup>> _cache = {};
 
-  Future<List<ProductLookup>> getProducts({String? type}) async {
+  Future<List<ProductLookup>> getProducts({String? type, bool forceRefresh = false}) async {
     final key = (type ?? 'ALL').toUpperCase();
-    if (_cache.containsKey(key)) return _cache[key]!;
+    if (!forceRefresh && _cache.containsKey(key)) return _cache[key]!;
 
     Future<List<ProductLookup>> fetch(String path) async {
       final response = await ApiClient().get(path);
@@ -46,5 +46,13 @@ class ProductLookupService {
     }
     _cache[key] = products;
     return products;
+  }
+
+  void clearCache({String? type}) {
+    if (type == null || type.trim().isEmpty) {
+      _cache.clear();
+      return;
+    }
+    _cache.remove(type.trim().toUpperCase());
   }
 }

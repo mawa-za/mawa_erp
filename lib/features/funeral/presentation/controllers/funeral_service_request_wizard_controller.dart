@@ -227,13 +227,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
 
   Future<void> loadInvoicePreview() async {
     isLoading = true;
+    errorMessage = null;
     notifyListeners();
     try {
       final request = FuneralInvoicePreviewRequestDto(
+        funeralServiceId: serviceRequestId,
         deceasedName: selectedDeceased?.deceasedName ?? '',
         packageId: effectiveSelectedPackage?.id ?? '',
         familyRepId: familyRepPartnerId ?? '',
-        memberships: selectedCovers.map((c) => c.membershipId ?? c.sourceReference ?? '').toList(),
+        memberships: selectedCovers
+            .map((c) => c.sourceReference ?? c.membershipId ?? '')
+            .where((id) => id.trim().isNotEmpty)
+            .toList(),
         extras: extras,
       );
       previewLines = await _api.getInvoicePreview(request);
@@ -248,9 +253,12 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   Future<bool> generateInvoices() async {
     if (serviceRequestId == null) return false;
     isLoading = true;
+    errorMessage = null;
     notifyListeners();
     try {
-      generationResponse = await _api.generateInvoices({'serviceRequestId': serviceRequestId});
+      generationResponse = await _api.generateInvoices({
+        'funeralServiceId': serviceRequestId,
+      });
       return true;
     } catch (e) {
       errorMessage = friendlyErrorMessage('Failed to generate invoices: $e');
@@ -355,9 +363,16 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
+  void goToInvoicePreview() {
+    currentStep = 5;
+    notifyListeners();
+  }
+
   void previousStep() {
     if (currentStep > 0) {
-      currentStep--;
+      currentStep = currentStep == 5 && selectedCovers.isEmpty
+          ? 3
+          : currentStep - 1;
       notifyListeners();
     }
   }
