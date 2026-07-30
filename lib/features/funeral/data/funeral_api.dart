@@ -229,12 +229,36 @@ class FuneralApi {
     throw AppException('Failed to load funeral service requests: ${response.body}');
   }
 
+  Future<FuneralServiceRequestDto> getServiceRequest(String id) async {
+    final response = await _apiClient.get('/v2/funeral/service-request/$id');
+    if (response.statusCode == 200) {
+      return FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw AppException('Failed to load funeral service request: ${response.body}');
+  }
+
   Future<FuneralServiceRequestDto> createServiceRequest(FuneralServiceRequestDto request) async {
     final response = await _apiClient.post('/v2/funeral/service-request', body: request.toJson());
     if (response.statusCode == 200 || response.statusCode == 201) {
       return FuneralServiceRequestDto.fromJson(jsonDecode(response.body));
     }
     throw AppException('Failed to create service request: ${response.body}');
+  }
+
+  Future<FuneralServiceRequestDto> updateServiceRequestPackage(
+      String id, FuneralServiceRequestDto request) async {
+    final response = await _apiClient.put('/v2/funeral/service-request/$id/package', body: request.toJson());
+    if (response.statusCode == 200) {
+      return FuneralServiceRequestDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw AppException('Failed to update funeral arrangement: ${response.body}');
+  }
+
+  Future<void> updateWizardStep(String id, int wizardStep) async {
+    final response = await _apiClient.put('/v2/funeral/service-request/$id/wizard-step/$wizardStep');
+    if (response.statusCode != 200) {
+      throw AppException('Failed to save funeral arrangement progress: ${response.body}');
+    }
   }
 
   Future<void> initiateClaims(String serviceRequestId, InitiateFuneralClaimsRequestDto request) async {
@@ -249,7 +273,7 @@ class FuneralApi {
 
 
   Future<List<int>> downloadClaimForm(String claimId) async {
-    final response = await _apiClient.get('/v2/membership-claim/$claimId/claim-form');
+    final response = await _apiClient.get('/v2/funeral/claims/$claimId/claim-form');
     if (response.statusCode == 200) return response.bodyBytes;
     throw AppException('Failed to download claim form: ${response.body}');
   }

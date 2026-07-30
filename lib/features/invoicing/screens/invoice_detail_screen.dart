@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:printing/printing.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
@@ -175,6 +176,178 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
+  Future<void> _issueCreditNote() async {
+    final detail = _detail;
+    if (detail == null) return;
+
+    final maximumCents = (detail.totalCents - detail.creditedCents).clamp(0, detail.totalCents);
+    if (maximumCents <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This invoice has already been fully credited.')),
+      );
+      return;
+    }
+
+    final amountController = TextEditingController(
+      text: (maximumCents / 100).toStringAsFixed(2),
+    );
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Issue Credit Note'),
+        content: Form(
+          key: formKey,
+          child: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: amountController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Credit amount',
+                    prefixText: 'R ',
+                    helperText: 'Maximum R ${(maximumCents / 100).toStringAsFixed(2)}',
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    final amount = double.tryParse((value ?? '').trim());
+                    if (amount == null || amount <= 0) return 'Enter a valid amount';
+                    if ((amount * 100).round() > maximumCents) {
+                      return 'Amount exceeds the remaining invoice value';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: reasonController,
+                  minLines: 3,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason',
+                    hintText: 'Explain why this credit note is being issued',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'A reason is required'
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(dialogContext, {
+                'amountCents': (double.parse(amountController.text.trim()) * 100).round(),
+                'reason': reasonController.text.trim(),
+              });
+            },
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: const Text('ISSUE CREDIT NOTE'),
+          ),
+        ],
+      ),
+    );
+
+    amountController.dispose();
+    reasonController.dispose();
+    if (result == null) return;
+
+    try {
+      final creditNote = await InvoiceService().issueCreditNote(
+        detail.id,
+        result['amountCents'] as int,
+        result['reason'] as String,
+      );
+      final id = creditNote['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        final pdf = await InvoiceService().getCreditNotePdf(id);
+        await Printing.sharePdf(
+          bytes: pdf,
+          filename: '${creditNote['creditNoteNo'] ?? 'credit-note'}.pdf',
+        );
+      }
+      await _fetchInvoiceDetails();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Credit note issued successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage('Unable to issue credit note: $e')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadCustomerStatement() async {
+    final partnerId = _detail?.customerId;
+    if (partnerId == null || partnerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This invoice is not linked to a customer.')),
+      );
+      return;
+    }
+
+    final today = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(today.year - 5),
+      lastDate: today,
+      initialDateRange: DateTimeRange(
+        start: DateTime(today.year, today.month - 3, today.day),
+        end: today,
+      ),
+      helpText: 'CUSTOMER STATEMENT PERIOD',
+      saveText: 'GENERATE',
+    );
+    if (range == null) return;
+
+    try {
+      final pdf = await InvoiceService().getCustomerStatementPdf(
+        partnerId,
+        range.start,
+        range.end,
+      );
+      await Printing.sharePdf(
+        bytes: pdf,
+        filename:
+            'customer-statement-${DateFormat('yyyyMMdd').format(range.start)}-${DateFormat('yyyyMMdd').format(range.end)}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage('Unable to generate statement: $e')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _submitForApproval() async {
     if (_detail == null) return;
 
@@ -273,6 +446,33 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                 foregroundColor: colorScheme.primary,
                 textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'More invoice actions',
+              onSelected: (value) {
+                if (value == 'credit-note') _issueCreditNote();
+                if (value == 'statement') _downloadCustomerStatement();
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'credit-note',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.receipt_long_outlined),
+                    title: Text('Issue credit note'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'statement',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.account_balance_wallet_outlined),
+                    title: Text('Customer statement'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 8),
           ],
@@ -552,11 +752,24 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           const SizedBox(width: 4),
           Expanded(flex: 40, child: Text(item.productName, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
           const SizedBox(width: 4),
-          Expanded(flex: 25, child: Text('R ${item.unitPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 10))),
+          Expanded(
+            flex: 25,
+            child: Text(
+              item.showAmount ? 'R ${item.unitPrice.toStringAsFixed(2)}' : '',
+              style: const TextStyle(fontSize: 10),
+            ),
+          ),
           const SizedBox(width: 4),
           SizedBox(width: 30, child: Text(item.quantity.toStringAsFixed(0), textAlign: TextAlign.center, style: const TextStyle(fontSize: 10))),
           const SizedBox(width: 4),
-          Expanded(flex: 25, child: Text('R ${item.lineTotal.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(
+            flex: 25,
+            child: Text(
+              item.showAmount ? 'R ${item.lineTotal.toStringAsFixed(2)}' : '',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );
@@ -628,21 +841,38 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             ),
             if (detail.paidAmount > 0) ...[
               const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Paid', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
-                  Text('R ${detail.paidAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
-                ],
+              _buildSummaryAmountRow(
+                'Less Amount Paid',
+                detail.paidAmount,
+                Colors.green,
               ),
+            ],
+            if (detail.creditedAmount > 0) ...[
               const SizedBox(height: 4),
+              _buildSummaryAmountRow(
+                'Less Credit Notes',
+                detail.creditedAmount,
+                Colors.deepOrange,
+              ),
+            ],
+            if (detail.paidAmount > 0 ||
+                detail.creditedAmount > 0 ||
+                detail.balanceCents != detail.totalCents) ...[
+              const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Balance Due', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                  const Text(
+                    'Balance Due',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                  ),
                   Text(
                     'R ${detail.balanceAmount.toStringAsFixed(2)}',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: colorScheme.primary),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: colorScheme.primary,
+                    ),
                   ),
                 ],
               ),
@@ -651,6 +881,22 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSummaryAmountRow(String label, double value, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+        ),
+        Text(
+          'R ${value.toStringAsFixed(2)}',
+          style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 
@@ -678,6 +924,12 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         break;
       case 'AWAITING-APPROVAL':
         color = Colors.orange;
+        break;
+      case 'CREDITED':
+        color = Colors.deepOrange;
+        break;
+      case 'PARTIALLY_CREDITED':
+        color = Colors.amber.shade800;
         break;
       default:
         color = Colors.orange;

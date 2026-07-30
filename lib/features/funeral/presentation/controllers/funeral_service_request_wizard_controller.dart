@@ -64,7 +64,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   // Step 7: Generated Invoices
   GenerateFuneralInvoicesResponseDto? generationResponse;
 
-  Future<void> loadInitialData() async {
+  Future<void> loadInitialData({String? resumeServiceRequestId}) async {
     isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -82,11 +82,58 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       causeOfDeathOptions = results[2] as List<FieldOption>;
       salesAreaOptions = results[3] as List<FieldOption>;
       products = results[4] as List<ProductLookup>;
+      if (resumeServiceRequestId != null && resumeServiceRequestId.isNotEmpty) {
+        await _restoreArrangement(resumeServiceRequestId);
+      }
     } catch (e) {
       errorMessage = friendlyErrorMessage('Failed to load initial data: $e');
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _restoreArrangement(String id) async {
+    final request = await _api.getServiceRequest(id);
+    serviceRequestId = request.id ?? id;
+    selectedDeceased = _firstWhereOrNull(inventory, (item) => item.id == request.mortuaryInventoryId);
+    selectedDeceased ??= MortuaryInventoryDto(
+      id: request.mortuaryInventoryId,
+      deceasedName: request.deceasedName,
+      identityNumber: request.deceasedIdentityNumber,
+      checkInDate: DateTime.now(),
+    );
+    deceasedIdentityNumber = request.deceasedIdentityNumber;
+    deathCertificateNo = request.deathCertificateNo;
+    causeOfDeath = request.causeOfDeath;
+    familyRepPartnerId = request.familyRepPartnerId;
+    funeralDate = request.funeralDate;
+    funeralLocation = request.funeralLocation;
+    extras = List.of(request.extras);
+    selectedPackage = _firstWhereOrNull(packages, (item) => item.id == request.packageId);
+    currentStep = request.status?.toUpperCase() == 'INVOICED'
+        ? 6
+        : request.wizardStep.clamp(0, 6).toInt();
+
+    if (deceasedIdentityNumber.isNotEmpty) {
+      availableCovers = await _api.checkMembership(deceasedIdentityNumber);
+    }
+    claims = await _api.getClaims(serviceRequestId!);
+    if (claims.isNotEmpty) {
+      final claimReferences = claims
+          .expand((claim) => [claim.sourceReference, claim.sourceMembershipId])
+          .whereType<String>()
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      selectedCovers = availableCovers.where((cover) {
+        final values = [cover.sourceReference, cover.sourceMembershipId, cover.membershipId]
+            .whereType<String>();
+        return values.any(claimReferences.contains);
+      }).toList();
+      if (currentStep < 4) currentStep = 4;
+    }
+    if (currentStep >= 5 && request.status?.toUpperCase() != 'INVOICED') {
+      await loadInvoicePreview();
     }
   }
 
@@ -147,8 +194,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         extras: extras,
       );
 
-      final result = await _api.createServiceRequest(request);
-      serviceRequestId = result.id;
+      final result = serviceRequestId == null
+          ? await _api.createServiceRequest(request)
+          : await _api.updateServiceRequestPackage(serviceRequestId!, request);
+      serviceRequestId = result.id ?? serviceRequestId;
       
       return true;
     } catch (e) {
@@ -184,6 +233,12 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
 
   Future<bool> submitClaimsForApproval() async {
     if (claims.isEmpty) return true;
+    final unprinted = claims.where((claim) => !claim.claimFormPrinted).toList();
+    if (unprinted.isNotEmpty) {
+      errorMessage = 'Print or download every claim form at least once before continuing.';
+      notifyListeners();
+      return false;
+    }
     isLoading = true; errorMessage = null; notifyListeners();
     try {
       for (final claim in claims.where((c) => c.rawStatus == 'DRAFT')) {
@@ -195,7 +250,13 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     finally { isLoading = false; notifyListeners(); }
   }
 
-  Future<List<int>> downloadClaimForm(String claimId) => _api.downloadClaimForm(claimId);
+  Future<List<int>> downloadClaimForm(String claimId) async {
+    final bytes = await _api.downloadClaimForm(claimId);
+    await loadClaims();
+    return bytes;
+  }
+
+  bool get allClaimFormsPrinted => claims.isEmpty || claims.every((claim) => claim.claimFormPrinted);
 
   Future<void> loadClaims() async {
     if (serviceRequestId == null) return;
@@ -359,12 +420,14 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   void nextStep() {
     if (currentStep < 6) {
       currentStep++;
+      _saveProgress();
       notifyListeners();
     }
   }
 
   void goToInvoicePreview() {
     currentStep = 5;
+    _saveProgress();
     notifyListeners();
   }
 
@@ -375,6 +438,19 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           : currentStep - 1;
       notifyListeners();
     }
+  }
+
+  void _saveProgress() {
+    final id = serviceRequestId;
+    if (id == null || id.isEmpty) return;
+    _api.updateWizardStep(id, currentStep).catchError((_) {});
+  }
+
+  T? _firstWhereOrNull<T>(Iterable<T> values, bool Function(T value) test) {
+    for (final value in values) {
+      if (test(value)) return value;
+    }
+    return null;
   }
 
   bool get hasPendingClaims => claims.any((c) {

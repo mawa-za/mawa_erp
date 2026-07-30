@@ -22,7 +22,9 @@ import '../../data/models/funeral_enums.dart';
 import '../../../../core/models/product_lookup.dart';
 
 class FuneralServiceRequestWizardPage extends StatefulWidget {
-  const FuneralServiceRequestWizardPage({super.key});
+  const FuneralServiceRequestWizardPage({super.key, this.serviceRequestId});
+
+  final String? serviceRequestId;
 
   @override
   State<FuneralServiceRequestWizardPage> createState() => _FuneralServiceRequestWizardPageState();
@@ -54,7 +56,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   void initState() {
     super.initState();
     _controller = FuneralServiceRequestWizardController();
-    _controller.loadInitialData();
+    _controller.loadInitialData(resumeServiceRequestId: widget.serviceRequestId);
     _controller.addListener(_onControllerChanged);
   }
 
@@ -627,9 +629,14 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                           final bytes = await _controller.downloadClaimForm(claim.id);
                           await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: 'claim-form-${claim.claimNumber ?? claim.id}.pdf');
                         },
-                        icon: const Icon(Icons.download),
-                        label: const Text('Download Claim Form'),
+                        icon: Icon(claim.claimFormPrinted ? Icons.check_circle_outline : Icons.download),
+                        label: Text(claim.claimFormPrinted ? 'Claim Form Downloaded' : 'Download Claim Form'),
                       ),
+                      if (claim.claimFormPrinted)
+                        Chip(
+                          avatar: const Icon(Icons.verified_outlined, size: 16),
+                          label: Text('Printed ${claim.claimFormPrintCount} time${claim.claimFormPrintCount == 1 ? '' : 's'}'),
+                        ),
                     ]),
                     AttachmentSection(objectId: claim.id, documentTypeField: 'DOCUMENT-TYPE-CLAIM'),
                     if (claim.status == ClaimStatus.PENDING &&
@@ -897,10 +904,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           await _controller.loadInvoicePreview();
           _controller.goToInvoicePreview();
           return;
-        }
-        for (final claim in _controller.claims) {
-          final bytes = await _controller.downloadClaimForm(claim.id);
-          await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: 'claim-form-${claim.claimNumber ?? claim.id}.pdf');
         }
         _controller.nextStep();
       }
