@@ -571,7 +571,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         const SizedBox(height: 8),
         const Text('Upload the signed claim form and supporting documents once. They will be attached to every generated claim and the claims will then be submitted for approval.'),
         const SizedBox(height: 16),
-        AttachmentSection(objectId: serviceId, documentTypeField: 'CLAIM-DOCUMENT-TYPE'),
+        AttachmentSection(objectId: serviceId, documentTypeField: 'DOCUMENT-TYPE-CLAIM'),
       ],
     );
   }
@@ -631,7 +631,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                         label: const Text('Download Claim Form'),
                       ),
                     ]),
-                    AttachmentSection(objectId: claim.id, documentTypeField: 'CLAIM-DOCUMENT-TYPE'),
+                    AttachmentSection(objectId: claim.id, documentTypeField: 'DOCUMENT-TYPE-CLAIM'),
                     if (claim.status == ClaimStatus.PENDING &&
                         !claim.managedExternally)
                       Row(
