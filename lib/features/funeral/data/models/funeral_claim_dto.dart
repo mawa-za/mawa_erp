@@ -12,6 +12,11 @@ class FuneralClaimDto {
   final CoverSource coverSource;
   final String claimStorageScope;
   final String? sourceTenantName;
+  final String? sourceMembershipId;
+  final String? sourceReference;
+  final bool claimFormPrinted;
+  final int claimFormPrintCount;
+  final DateTime? claimFormLastPrintedAt;
 
   FuneralClaimDto({
     required this.id,
@@ -25,6 +30,11 @@ class FuneralClaimDto {
     required this.coverSource,
     this.claimStorageScope = 'LOCAL',
     this.sourceTenantName,
+    this.sourceMembershipId,
+    this.sourceReference,
+    this.claimFormPrinted = false,
+    this.claimFormPrintCount = 0,
+    this.claimFormLastPrintedAt,
   });
 
   bool get managedExternally => claimStorageScope == 'EXTERNAL';
@@ -41,6 +51,10 @@ class FuneralClaimDto {
       'coverSource': coverSource.name,
       'claimStorageScope': claimStorageScope,
       if (sourceTenantName != null) 'sourceTenantName': sourceTenantName,
+      if (sourceMembershipId != null) 'sourceMembershipId': sourceMembershipId,
+      if (sourceReference != null) 'sourceReference': sourceReference,
+      'claimFormPrinted': claimFormPrinted,
+      'claimFormPrintCount': claimFormPrintCount,
     };
   }
 
@@ -60,6 +74,11 @@ class FuneralClaimDto {
       claimStorageScope:
           json['claimStorageScope']?.toString().toUpperCase() ?? 'LOCAL',
       sourceTenantName: json['sourceTenantName']?.toString(),
+      sourceMembershipId: json['sourceMembershipId']?.toString(),
+      sourceReference: json['sourceReference']?.toString(),
+      claimFormPrinted: json['claimFormPrinted'] == true || (json['claimFormPrintCount'] as num? ?? 0) > 0,
+      claimFormPrintCount: (json['claimFormPrintCount'] as num?)?.toInt() ?? 0,
+      claimFormLastPrintedAt: json['claimFormLastPrintedAt'] == null ? null : DateTime.tryParse(json['claimFormLastPrintedAt'].toString()),
     );
   }
 }

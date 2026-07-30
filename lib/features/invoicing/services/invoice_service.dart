@@ -39,6 +39,12 @@ class InvoiceService {
     throw AppException('Failed to create invoice');
   }
 
+  Future<Map<String, dynamic>> updateInvoice(String id, Map<String, dynamic> invoice) async {
+    final response = await _apiClient.put('/v2/invoice/$id', body: invoice);
+    if (response.statusCode == 200) return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    throw AppException('Failed to update invoice: ${response.body}');
+  }
+
   Future<Map<String, dynamic>> getInvoice(String id) async {
     final response = await _apiClient.get('/v2/invoice/$id');
     if (response.statusCode == 200) {
@@ -92,6 +98,52 @@ class InvoiceService {
       return jsonDecode(response.body);
     }
     throw AppException('Failed to load invoice lines');
+  }
+
+  Future<Map<String, dynamic>> issueCreditNote(
+      String invoiceId, int amountCents, String reason) async {
+    final response = await _apiClient.post(
+      '/v2/invoice/$invoiceId/credit-note',
+      body: {'amountCents': amountCents, 'reason': reason},
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    }
+    throw AppException('Failed to issue credit note: ${response.body}');
+  }
+
+  Future<Uint8List> getCreditNotePdf(String creditNoteId) async {
+    final response = await _apiClient.get('/v2/credit-note/$creditNoteId/pdf');
+    if (response.statusCode == 200) return response.bodyBytes;
+    throw AppException('Failed to download credit note: ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> getCustomerStatement(
+      String partnerId, DateTime fromDate, DateTime toDate) async {
+    final response = await _apiClient.get(
+      '/v2/customer-statement/$partnerId',
+      queryParameters: {
+        'fromDate': fromDate.toIso8601String().substring(0, 10),
+        'toDate': toDate.toIso8601String().substring(0, 10),
+      },
+    );
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    }
+    throw AppException('Failed to generate customer statement: ${response.body}');
+  }
+
+  Future<Uint8List> getCustomerStatementPdf(
+      String partnerId, DateTime fromDate, DateTime toDate) async {
+    final response = await _apiClient.get(
+      '/v2/customer-statement/$partnerId/pdf',
+      queryParameters: {
+        'fromDate': fromDate.toIso8601String().substring(0, 10),
+        'toDate': toDate.toIso8601String().substring(0, 10),
+      },
+    );
+    if (response.statusCode == 200) return response.bodyBytes;
+    throw AppException('Failed to download customer statement: ${response.body}');
   }
 
   Future<void> capturePayment(String invoiceId, Map<String, dynamic> payment) async {

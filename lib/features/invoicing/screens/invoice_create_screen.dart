@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice_detail.dart';
+import '../services/invoice_service.dart';
 import '../../partners/models/partner.dart';
 import 'invoice_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -175,8 +176,8 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           _isLoadingTypes = false;
           
           if (widget.existingInvoice == null) {
-            // Add 4 default items only if creating new
-            for (int i = 0; i < 4; i++) {
+            // Start with one clean row; users can add more as required.
+            for (int i = 0; i < 1; i++) {
               _items.add(InvoiceItemDraft(
                 selectedType: _productTypes.isNotEmpty ? _productTypes.first : null,
               ));
@@ -393,6 +394,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
           "taxCents": (lineTax * 100).round(),
           "subtotalCents": (lineSubtotal * 100).round(),
           "totalCents": (lineTotal * 100).round(),
+          "showAmount": true,
         };
       }).toList();
 
@@ -411,30 +413,33 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         "status": widget.existingInvoice?.status ?? "DRAFT",
       };
 
-      final response = widget.existingInvoice == null 
-        ? await ApiClient().post('/v2/invoice', body: payload)
-        : await ApiClient().post('/v2/invoice/${widget.existingInvoice!.id}', body: payload);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final String? createdId = responseData['id'];
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Invoice ${widget.existingInvoice == null ? "created" : "updated"} successfully'), behavior: SnackBarBehavior.floating),
-          );
-          
-          if (widget.existingInvoice == null && createdId != null) {
-            // Navigate to details for new invoice
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => InvoiceDetailScreen(invoiceId: createdId))
+      final Map<String, dynamic> responseData = widget.existingInvoice == null
+          ? await InvoiceService().createInvoice(payload)
+          : await InvoiceService().updateInvoice(
+              widget.existingInvoice!.id,
+              payload,
             );
-          } else {
-            Navigator.of(context).pop(true);
-          }
+      final String? savedId = responseData['id']?.toString();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Invoice ${widget.existingInvoice == null ? "created" : "updated"} successfully',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        if (widget.existingInvoice == null && savedId != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => InvoiceDetailScreen(invoiceId: savedId),
+            ),
+          );
+        } else {
+          Navigator.of(context).pop(true);
         }
-      } else {
-        throw AppException('Failed to save invoice: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
@@ -474,40 +479,47 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSectionHeader(Icons.person, 'Customer Information'),
-                          const SizedBox(height: 8),
-                          _buildCustomerSection(colorScheme),
-                          const SizedBox(height: 16),
-
-                          _buildSectionHeader(Icons.description, 'General Details'),
-                          const SizedBox(height: 8),
-                          _buildGeneralDetailsCard(colorScheme),
-                          const SizedBox(height: 16),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1400),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildSectionHeader(Icons.list_alt, 'Invoice Items'),
-                              TextButton.icon(
-                                onPressed: _addItem,
-                                icon: const Icon(Icons.add, size: 16),
-                                label: const Text('Add Item', style: TextStyle(fontSize: 12)),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                  visualDensity: VisualDensity.compact,
-                                ),
+                              _buildDocumentOverviewCard(colorScheme),
+                              const SizedBox(height: 20),
+                              _buildSectionHeader(Icons.person, 'Customer Information'),
+                              const SizedBox(height: 8),
+                              _buildCustomerSection(colorScheme),
+                              const SizedBox(height: 16),
+
+                              _buildSectionHeader(Icons.description, 'General Details'),
+                              const SizedBox(height: 8),
+                              _buildGeneralDetailsCard(colorScheme),
+                              const SizedBox(height: 16),
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildSectionHeader(Icons.list_alt, 'Invoice Items'),
+                                  TextButton.icon(
+                                    onPressed: _addItem,
+                                    icon: const Icon(Icons.add, size: 16),
+                                    label: const Text('Add Item', style: TextStyle(fontSize: 12)),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 8),
+                              _buildItemHeaderRow(),
+                              ...List.generate(_items.length, (index) => _buildItemForm(index)),
+                              const SizedBox(height: 100),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          _buildItemHeaderRow(),
-                          ...List.generate(_items.length, (index) => _buildItemForm(index)),
-                          const SizedBox(height: 100), // Space for bottom summary
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -515,6 +527,54 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildDocumentOverviewCard(ColorScheme colorScheme) {
+    final isEditing = widget.existingInvoice != null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.22),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.18)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.receipt_long_outlined, color: colorScheme.onPrimary),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEditing ? 'Update customer invoice' : 'New customer invoice',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Complete the customer, document details and line items below. Totals are recalculated automatically.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+          ),
+          if (isEditing)
+            Chip(
+              avatar: const Icon(Icons.edit_note, size: 16),
+              label: Text(widget.existingInvoice!.number),
+            ),
+        ],
+      ),
     );
   }
 
