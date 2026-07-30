@@ -3,6 +3,7 @@ class FuneralServiceRequestDto {
   final String? serviceRequestNo;
   final String? status;
   final int totalAmountCents;
+  final int wizardStep;
   final String mortuaryInventoryId;
   final String deceasedName;
   final String deceasedIdentityNumber;
@@ -19,6 +20,7 @@ class FuneralServiceRequestDto {
     this.serviceRequestNo,
     this.status,
     this.totalAmountCents = 0,
+    this.wizardStep = 0,
     required this.mortuaryInventoryId,
     required this.deceasedName,
     required this.deceasedIdentityNumber,
@@ -37,6 +39,7 @@ class FuneralServiceRequestDto {
       if (serviceRequestNo != null) 'serviceRequestNo': serviceRequestNo,
       if (status != null) 'status': status,
       'totalAmountCents': totalAmountCents,
+      'wizardStep': wizardStep,
       'mortuaryInventoryId': mortuaryInventoryId,
       'deceasedName': deceasedName,
       'deceasedIdentityNumber': deceasedIdentityNumber,
@@ -60,6 +63,7 @@ class FuneralServiceRequestDto {
       serviceRequestNo: json['serviceRequestNo']?.toString(),
       status: json['status']?.toString(),
       totalAmountCents: (json['totalAmountCents'] as num?)?.toInt() ?? 0,
+      wizardStep: (json['wizardStep'] as num?)?.toInt() ?? 0,
       mortuaryInventoryId: json['mortuaryInventoryId']?.toString() ?? '',
       deceasedName: json['deceasedName']?.toString() ?? '',
       deceasedIdentityNumber: json['deceasedIdentityNumber']?.toString() ?? '',
