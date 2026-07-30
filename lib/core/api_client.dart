@@ -32,9 +32,8 @@ class ApiClient {
   }
 
   Future<String?> _getTenantId() async {
-    if (kIsWeb) return Config.webTenant;
     final prefs = await SharedPreferences.getInstance();
-    final tenant = prefs.getString('tenant');
+    final tenant = prefs.getString('tenant')?.trim();
     if (tenant != null && tenant.isNotEmpty) return tenant;
     return Config.webTenant.isNotEmpty ? Config.webTenant : null;
   }

@@ -42,7 +42,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (kIsWeb) {
         apiHost = Config.apiHost;
-        tenantId = Config.webTenant;
+        tenantId = (prefs.getString('tenant') ?? '').trim();
+        if (tenantId.isEmpty) tenantId = Config.webTenant;
       } else {
         apiHost = prefs.getString('api_host') ?? '';
         tenantId = prefs.getString('tenant') ?? '';
@@ -56,6 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
             headers: {
               'Content-Type': 'application/json',
               'X-TenantID': tenantId,
+              'X-Tenant-Id': tenantId,
             },
             body: jsonEncode({
               'username': _usernameController.text.trim(),
@@ -72,8 +74,12 @@ class _LoginScreenState extends State<LoginScreen> {
         final refreshToken = data['refreshToken']?.toString() ?? '';
         final username = (data['username'] ?? _usernameController.text.trim()).toString();
         final displayName = (data['displayName'] ?? '').toString();
+        final resolvedTenantId = (data['tenantId'] ?? data['tenant_id'] ?? '').toString().trim();
 
         await prefs.setString('userId', userId);
+        if (resolvedTenantId.isNotEmpty) {
+          await prefs.setString('tenant', resolvedTenantId);
+        }
         await prefs.setString('username', username);
         await prefs.setString('displayName', displayName);
         await prefs.setString('accessToken', accessToken);
