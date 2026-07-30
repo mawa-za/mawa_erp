@@ -191,7 +191,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       }
       await loadClaims();
       return true;
-    } catch (e) { errorMessage = friendlyErrorMessage('Attach the signed claim form and supporting documents to every claim before continuing: $e'); return false; }
+    } catch (e) { errorMessage = friendlyErrorMessage('Upload the signed claim form once in Claim Documentation before continuing: $e'); return false; }
     finally { isLoading = false; notifyListeners(); }
   }
 
