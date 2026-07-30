@@ -95,6 +95,10 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       await prefs.setString('userId', userId);
       await prefs.setString('username', username);
       await prefs.setString('displayName', displayName);
+      final tenantId = _readString(tokenContainer, const ['tenantId', 'tenant_id', 'tenant']);
+      if (tenantId != null && tenantId.isNotEmpty) {
+        await prefs.setString('tenant', tenantId);
+      }
       await prefs.setString('selectedRole', roleId);
       await prefs.setString('selectedRoleDescription', roleDescription);
       await prefs.setBool('adminHandoffSession', true);
