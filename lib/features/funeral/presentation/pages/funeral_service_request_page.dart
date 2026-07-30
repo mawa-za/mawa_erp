@@ -164,13 +164,20 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
         itemBuilder: (_, index) {
           final request = _requests[index];
           final id = request.id ?? '';
+          final completed = request.status?.toUpperCase() == 'INVOICED';
           return Card(
+            clipBehavior: Clip.antiAlias,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
               side: BorderSide(color: Colors.grey.shade200),
             ),
-            child: Padding(
+            child: InkWell(
+              onTap: id.isEmpty || completed ? null : () async {
+                await context.push('/funeral/service-request/$id/resume');
+                await _load();
+              },
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,6 +213,15 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      if (!completed)
+                        FilledButton.tonalIcon(
+                          onPressed: id.isEmpty ? null : () async {
+                            await context.push('/funeral/service-request/$id/resume');
+                            await _load();
+                          },
+                          icon: const Icon(Icons.play_arrow_outlined),
+                          label: Text(request.wizardStep > 0 ? 'Resume Arrangement' : 'Continue Arrangement'),
+                        ),
                       OutlinedButton.icon(
                         onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/claims'),
                         icon: const Icon(Icons.request_quote_outlined),
@@ -219,6 +235,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                     ],
                   ),
                 ],
+              ),
               ),
             ),
           );

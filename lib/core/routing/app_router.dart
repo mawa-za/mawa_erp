@@ -454,6 +454,12 @@ class AppRouter {
         builder: (context, state) => const FuneralServiceRequestWizardPage(),
       ),
       GoRoute(
+        path: '/funeral/service-request/:id/resume',
+        builder: (context, state) => FuneralServiceRequestWizardPage(
+          serviceRequestId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.funeralClaims,
         builder: (context, state) => FuneralClaimsPage(
           serviceRequestId: state.pathParameters['id']!,

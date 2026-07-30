@@ -12,6 +12,7 @@ class FuneralPackageProductDto {
 class FuneralPackageDto {
   final String id;
   final String name;
+  final String pricingMode;
   final int basePriceCents;
   final List<String> inclusions;
   final String inclusionsJson;
@@ -21,6 +22,7 @@ class FuneralPackageDto {
   FuneralPackageDto({
     required this.id,
     required this.name,
+    this.pricingMode = 'ITEM_TOTAL',
     required this.basePriceCents,
     required this.inclusions,
     this.inclusionsJson = '[]',
@@ -33,6 +35,7 @@ class FuneralPackageDto {
     return {
       if (id.isNotEmpty) 'id': id,
       'name': name,
+      'pricingMode': pricingMode,
       'basePriceCents': basePriceCents,
       'inclusions': inclusions,
       'inclusionsJson': encodedInclusions,
@@ -49,6 +52,7 @@ class FuneralPackageDto {
     return FuneralPackageDto(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
+      pricingMode: json['pricingMode']?.toString().toUpperCase() ?? 'ITEM_TOTAL',
       basePriceCents: _parseInt(json['basePriceCents']),
       inclusions: parsedInclusions,
       inclusionsJson: rawInclusionsJson.isNotEmpty ? rawInclusionsJson : jsonEncode(parsedInclusions),

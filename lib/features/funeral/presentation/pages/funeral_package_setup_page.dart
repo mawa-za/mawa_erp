@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_package_dto.dart';
@@ -188,7 +189,13 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                FuneralMoneyText(cents: package.basePriceCents),
+                Row(
+                  children: [
+                    FuneralMoneyText(cents: package.basePriceCents),
+                    const SizedBox(width: 10),
+                    Chip(label: Text(package.pricingMode == 'FIXED_PRICE' ? 'Fixed package price' : 'Total of items')),
+                  ],
+                ),
                 if (package.inclusions.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Wrap(
@@ -219,6 +226,8 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
   final _formKey = GlobalKey<FormState>();
   final _api = FuneralApi();
   late final TextEditingController _nameController;
+  late final TextEditingController _fixedPriceController;
+  String _pricingMode = 'ITEM_TOTAL';
   List<ProductLookup> _catalog = [];
   late List<FuneralPackageProductDto> _products;
   bool _loadingProducts = true;
@@ -230,6 +239,10 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     super.initState();
     final package = widget.package;
     _nameController = TextEditingController(text: package?.name ?? '');
+    _pricingMode = package?.pricingMode ?? 'ITEM_TOTAL';
+    _fixedPriceController = TextEditingController(
+      text: package == null ? '' : (package.basePriceCents / 100).toStringAsFixed(2),
+    );
     _products = List.of(package?.products ?? const []);
     _loadProducts();
     _active = package?.active ?? true;
@@ -266,6 +279,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _fixedPriceController.dispose();
     super.dispose();
   }
 
@@ -274,11 +288,20 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
 
     setState(() => _saving = true);
     if (_products.isEmpty) { setState(() => _saving = false); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least one product'))); return; }
+    final fixedPriceCents = ((double.tryParse(_fixedPriceController.text.trim()) ?? 0) * 100).round();
+    if (_pricingMode == 'FIXED_PRICE' && fixedPriceCents <= 0) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a fixed package price greater than zero')));
+      return;
+    }
 
     final package = FuneralPackageDto(
       id: widget.package?.id ?? '',
       name: _nameController.text.trim(),
-      basePriceCents: _products.fold(0, (sum, item) => sum + item.lineTotalCents),
+      pricingMode: _pricingMode,
+      basePriceCents: _pricingMode == 'FIXED_PRICE'
+          ? fixedPriceCents
+          : _products.fold(0, (sum, item) => sum + item.lineTotalCents),
       inclusions: _products.map((e) => '${e.quantity} x ${e.productDescription}').toList(),
       inclusionsJson: jsonEncode(_products.map((e) => e.toJson()).toList()),
       products: _products,
@@ -318,6 +341,29 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                   validator: (value) => value == null || value.trim().isEmpty ? 'Package name is required' : null,
                 ),
                 const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _pricingMode,
+                  decoration: const InputDecoration(
+                    labelText: 'Package pricing',
+                    helperText: 'Choose a fixed package price or calculate the package from included items.',
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'FIXED_PRICE', child: Text('Fixed package price')),
+                    DropdownMenuItem(value: 'ITEM_TOTAL', child: Text('Price made up of included items')),
+                  ],
+                  onChanged: (value) => setState(() => _pricingMode = value ?? 'ITEM_TOTAL'),
+                ),
+                if (_pricingMode == 'FIXED_PRICE') ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _fixedPriceController,
+                    decoration: const InputDecoration(labelText: 'Fixed package price', prefixText: 'R '),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                    validator: (value) => (double.tryParse(value ?? '') ?? 0) <= 0 ? 'Enter a valid fixed price' : null,
+                  ),
+                ],
+                const SizedBox(height: 12),
                 if (_loadingProducts) const LinearProgressIndicator() else DropdownButtonFormField<ProductLookup>(
                   decoration: const InputDecoration(labelText: 'Add product'),
                   items: _catalog.map((p)=>DropdownMenuItem(value:p,child:Text('${p.code} - ${p.description}'))).toList(),
@@ -329,7 +375,15 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                   leading: SizedBox(width:70,child:TextFormField(initialValue:item.quantity.toString(),keyboardType:TextInputType.number,onChanged:(v){final q=int.tryParse(v)??0;_products[i]=FuneralPackageProductDto(productId:item.productId,productCode:item.productCode,productDescription:item.productDescription,quantity:q,unitPriceCents:item.unitPriceCents);})),
                   trailing: IconButton(icon:const Icon(Icons.delete_outline),onPressed:()=>setState(()=>_products.removeAt(i))),
                 );}),
-                Align(alignment:Alignment.centerRight,child:Text('Package total: R ${(_products.fold(0,(s,e)=>s+e.lineTotalCents)/100).toStringAsFixed(2)}',style:const TextStyle(fontWeight:FontWeight.bold))),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    _pricingMode == 'FIXED_PRICE'
+                        ? 'Included item value: R ${(_products.fold(0, (s, e) => s + e.lineTotalCents) / 100).toStringAsFixed(2)} (not used as package price)'
+                        : 'Package total: R ${(_products.fold(0, (s, e) => s + e.lineTotalCents) / 100).toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
