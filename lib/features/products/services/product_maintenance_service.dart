@@ -182,6 +182,36 @@ class ProductMaintenanceService {
     }
   }
 
+
+  Future<List<ProductAssetLink>> getLinkedAssets(String productId, {DateTime? startAt, DateTime? endAt}) async {
+    final params = <String, String>{};
+    if (startAt != null) params['startAt'] = startAt.toIso8601String();
+    if (endAt != null) params['endAt'] = endAt.toIso8601String();
+    final response = await ApiClient().get('/v2/product-hire/services/$productId/assets', queryParameters: params);
+    if (response.statusCode != 200) {
+      throw AppException(_errorMessage(response.body, 'Failed to load linked hire assets'));
+    }
+    final decoded = jsonDecode(response.body);
+    return (decoded is List ? decoded : const <dynamic>[])
+        .whereType<Map>()
+        .map((item) => ProductAssetLink.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  Future<List<ProductAssetLink>> replaceLinkedAssets(String productId, List<ProductAssetLink> assets) async {
+    final response = await ApiClient().put('/v2/product-hire/services/$productId/assets', body: {
+      'assets': assets.map((asset) => asset.toRequest()).toList(),
+    });
+    if (response.statusCode != 200) {
+      throw AppException(_errorMessage(response.body, 'Failed to save linked hire assets'));
+    }
+    final decoded = jsonDecode(response.body);
+    return (decoded is List ? decoded : const <dynamic>[])
+        .whereType<Map>()
+        .map((item) => ProductAssetLink.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
   String _errorMessage(String body, String fallback) {
     try {
       final decoded = jsonDecode(body);

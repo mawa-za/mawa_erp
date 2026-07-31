@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/field_option.dart';
 import '../../../core/services/field_service.dart';
+import '../../../core/routing/app_routes.dart';
+import '../../assets/services/asset_register_service.dart';
 import '../models/product_maintenance.dart';
 import '../services/product_maintenance_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -128,12 +131,17 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
   }
 
   Future<void> _openProductDialog({ProductMaintenanceItem? product}) async {
+    if (product?.type?.code == 'FUNERAL-PACKAGE' || product?.managedByFuneralPackage == true) {
+      context.go(AppRoutes.funeralPackageSetup);
+      return;
+    }
+    final selectableTypes = _productTypes.where((type) => type.code != 'FUNERAL-PACKAGE').toList();
     final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _ProductDialog(
         product: product,
-        productTypes: _productTypes,
+        productTypes: selectableTypes,
         categories: _categories.where((category) => category.active || category.id == product?.primaryCategory?.id).toList(),
         uoms: _uoms,
         pricingTypes: _pricingTypes,
@@ -195,6 +203,11 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       appBar: AppBar(
         title: const Text('Product Maintenance', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          TextButton.icon(
+            onPressed: () => context.go(AppRoutes.funeralPackageSetup),
+            icon: const Icon(Icons.inventory_2_outlined),
+            label: const Text('Funeral Packages'),
+          ),
           TextButton.icon(
             onPressed: _openCategoryMaintenance,
             icon: const Icon(Icons.account_tree_outlined),
@@ -314,12 +327,18 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
                                     ],
                                   ),
                                 ),
-                                trailing: Wrap(
-                                  children: [
-                                    IconButton(onPressed: () => _openProductDialog(product: product), tooltip: 'Edit', icon: const Icon(Icons.edit_outlined)),
-                                    IconButton(onPressed: () => _confirmDelete(product), tooltip: 'Delete', icon: const Icon(Icons.delete_outline)),
-                                  ],
-                                ),
+                                trailing: product.type?.code == 'FUNERAL-PACKAGE' || product.managedByFuneralPackage
+                                    ? FilledButton.tonalIcon(
+                                        onPressed: () => context.go(AppRoutes.funeralPackageSetup),
+                                        icon: const Icon(Icons.inventory_2_outlined),
+                                        label: const Text('Manage Package'),
+                                      )
+                                    : Wrap(
+                                        children: [
+                                          IconButton(onPressed: () => _openProductDialog(product: product), tooltip: 'Edit', icon: const Icon(Icons.edit_outlined)),
+                                          IconButton(onPressed: () => _confirmDelete(product), tooltip: 'Delete', icon: const Icon(Icons.delete_outline)),
+                                        ],
+                                      ),
                               );
                             },
                           ),
@@ -391,6 +410,11 @@ class _ProductDialogState extends State<_ProductDialog> {
   String? _pricingTypeCode;
   bool _availableForSale = true;
   bool _saving = false;
+  final AssetRegisterService _assetService = AssetRegisterService();
+  List<Map<String, dynamic>> _assets = const [];
+  final Map<String, int> _assetCapacities = <String, int>{};
+  final Map<String, String?> _assetNotes = <String, String?>{};
+  bool _assetsLoading = false;
 
   ProductTypeDefinition? get _selectedType {
     for (final type in widget.productTypes) {
@@ -420,6 +444,37 @@ class _ProductDialogState extends State<_ProductDialog> {
     _uomCode = product?.baseUnitOfMeasure?.code ?? (widget.uoms.isEmpty ? 'EA' : widget.uoms.first.code);
     _pricingTypeCode = product?.pricingType ?? (widget.pricingTypes.isEmpty ? 'SELLING-PRICE' : widget.pricingTypes.first.code);
     _availableForSale = product?.availableForSale ?? _selectedType?.defaultAvailableForSale ?? true;
+    _loadHireAssets();
+  }
+
+  Future<void> _loadHireAssets() async {
+    setState(() => _assetsLoading = true);
+    try {
+      final assets = await _assetService.list();
+      if (widget.product != null && widget.product!.type?.code == 'SERVICE') {
+        final links = await widget.service.getLinkedAssets(widget.product!.id);
+        for (final link in links.where((item) => item.active)) {
+          _assetCapacities[link.assetId] = link.capacity;
+          _assetNotes[link.assetId] = link.notes;
+        }
+      }
+      if (mounted) setState(() => _assets = assets);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage('Failed to load hire assets: $e'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _assetsLoading = false);
+    }
+  }
+
+  Map<String, dynamic>? _assetById(String id) {
+    for (final asset in _assets) {
+      if ((asset['id'] ?? '').toString() == id) return asset;
+    }
+    return null;
   }
 
   @override
@@ -470,6 +525,25 @@ class _ProductDialogState extends State<_ProductDialog> {
           .toSet()
           .toList();
       await widget.service.replaceBarcodes(productId, barcodes);
+      if (_typeCode == 'SERVICE') {
+        final links = _assetCapacities.entries.map((entry) {
+          final asset = _assetById(entry.key) ?? const <String, dynamic>{};
+          return ProductAssetLink(
+            assetId: entry.key,
+            assetNo: (asset['asset_no'] ?? '').toString(),
+            assetName: (asset['name'] ?? '').toString(),
+            capacity: entry.value,
+            reservedQuantity: 0,
+            availableCapacity: entry.value,
+            active: true,
+            available: true,
+            status: (asset['status'] ?? 'ACTIVE').toString(),
+            condition: (asset['condition_status'] ?? 'GOOD').toString(),
+            notes: _assetNotes[entry.key],
+          );
+        }).toList();
+        await widget.service.replaceLinkedAssets(productId, links);
+      }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -545,6 +619,9 @@ class _ProductDialogState extends State<_ProductDialog> {
                       if (widget.product == null && selected != null) {
                         _availableForSale = selected.defaultAvailableForSale;
                       }
+                      if (value == 'SERVICE' && _assets.isEmpty && !_assetsLoading) {
+                        _loadHireAssets();
+                      }
                     });
                   },
                   validator: (value) => value == null ? 'Product type is required' : null,
@@ -616,6 +693,79 @@ class _ProductDialogState extends State<_ProductDialog> {
                     ),
                   ],
                 ),
+                if (_typeCode == 'SERVICE') ...[
+                  const SizedBox(height: 14),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Reusable assets for this service', style: TextStyle(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 4),
+                          const Text('Link the actual vehicles or equipment that can fulfil this customer-facing service. Capacity supports sets such as 100 chairs.'),
+                          const SizedBox(height: 12),
+                          if (_assetsLoading) const LinearProgressIndicator() else DropdownButtonFormField<String>(
+                            value: null,
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'Add operational asset'),
+                            items: _assets
+                                .where((asset) {
+                                  final id = (asset['id'] ?? '').toString();
+                                  final status = (asset['status'] ?? '').toString().toUpperCase();
+                                  final condition = (asset['condition_status'] ?? '').toString().toUpperCase();
+                                  return id.isNotEmpty &&
+                                      !_assetCapacities.containsKey(id) &&
+                                      status == 'ACTIVE' &&
+                                      !const {'DAMAGED', 'POOR', 'LOST'}.contains(condition);
+                                })
+                                .map((asset) => DropdownMenuItem<String>(
+                                      value: (asset['id'] ?? '').toString(),
+                                      child: Text('${asset['asset_no'] ?? ''} - ${asset['name'] ?? ''}', overflow: TextOverflow.ellipsis),
+                                    ))
+                                .toList(),
+                            onChanged: (assetId) {
+                              if (assetId == null || assetId.isEmpty) return;
+                              setState(() => _assetCapacities[assetId] = 1);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          ..._assetCapacities.entries.map((entry) {
+                            final asset = _assetById(entry.key) ?? const <String, dynamic>{};
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text('${asset['asset_no'] ?? entry.key} - ${asset['name'] ?? 'Asset'}'),
+                              subtitle: Text('Status: ${asset['status'] ?? 'ACTIVE'} • Condition: ${asset['condition_status'] ?? 'GOOD'}'),
+                              leading: SizedBox(
+                                width: 90,
+                                child: TextFormField(
+                                  key: ValueKey('capacity-${entry.key}-${entry.value}'),
+                                  initialValue: entry.value.toString(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(labelText: 'Capacity'),
+                                  validator: (value) => (int.tryParse(value ?? '') ?? 0) <= 0 ? 'Required' : null,
+                                  onChanged: (value) {
+                                    final capacity = int.tryParse(value);
+                                    if (capacity != null && capacity > 0) _assetCapacities[entry.key] = capacity;
+                                  },
+                                ),
+                              ),
+                              trailing: IconButton(
+                                tooltip: 'Remove link',
+                                icon: const Icon(Icons.link_off_outlined),
+                                onPressed: () => setState(() {
+                                  _assetCapacities.remove(entry.key);
+                                  _assetNotes.remove(entry.key);
+                                }),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _barcodesController,

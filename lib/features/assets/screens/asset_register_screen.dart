@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../services/asset_register_service.dart';
+import '../../products/models/product_maintenance.dart';
+import '../../products/services/product_maintenance_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AssetRegisterScreen extends StatefulWidget {
@@ -140,6 +142,15 @@ class _AssetRegisterScreenState extends State<AssetRegisterScreen> {
     notes.dispose();
   }
 
+  Future<void> _openReservations() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _HireReservationsDialog(service: _service),
+    );
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'en_ZA', symbol: 'R ');
@@ -147,7 +158,7 @@ class _AssetRegisterScreenState extends State<AssetRegisterScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Asset Register'),
-        actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
+        actions: [TextButton.icon(onPressed: _openReservations, icon: const Icon(Icons.event_available_outlined), label: const Text('Hire Reservations')), IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _edit(),
@@ -372,7 +383,7 @@ class _AssetDialogState extends State<_AssetDialog> {
               const SizedBox(height: 12),
               Row(children: [Expanded(child: _dateButton('Acquisition Date', _acquisitionDate, (v) => setState(() => _acquisitionDate = v))), const SizedBox(width: 12), Expanded(child: _dateButton('Warranty Expiry', _warrantyDate, (v) => setState(() => _warrantyDate = v)))]),
               const SizedBox(height: 12),
-              Row(children: [Expanded(child: DropdownButtonFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: ['ACTIVE','IN_REPAIR','LOST','DISPOSED'].map((e) => DropdownMenuItem(value: e, child: Text(e.replaceAll('_', ' ')))).toList(), onChanged: (v) => setState(() => _status = v ?? 'ACTIVE'))), const SizedBox(width: 12), Expanded(child: DropdownButtonFormField<String>(value: _condition, decoration: const InputDecoration(labelText: 'Condition'), items: ['NEW','GOOD','FAIR','POOR','DAMAGED'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _condition = v ?? 'GOOD')))]),
+              Row(children: [Expanded(child: DropdownButtonFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: ['ACTIVE','IN_REPAIR','LOST','DISPOSED'].map((e) => DropdownMenuItem(value: e, child: Text(e.replaceAll('_', ' ')))).toList(), onChanged: (v) => setState(() => _status = v ?? 'ACTIVE'))), const SizedBox(width: 12), Expanded(child: DropdownButtonFormField<String>(value: _condition, decoration: const InputDecoration(labelText: 'Condition'), items: ['NEW','GOOD','FAIR','POOR','DAMAGED','LOST'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _condition = v ?? 'GOOD')))]),
               const SizedBox(height: 12),
               _field('notes', 'Notes', lines: 3),
             ]),
@@ -415,4 +426,372 @@ class _AssetAssignmentDialogState extends State<_AssetAssignmentDialog> {
   Future<void> _save() async { setState(() => _saving = true); try { await widget.service.assign(widget.asset['id'].toString(), partnerId: _partner?.id ?? widget.asset['custodian_partner_id']?.toString(), location: _location.text, notes: _notes.text); if (mounted) Navigator.pop(context, true); } catch (e) { if (mounted) { setState(() => _saving = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e)))); } } }
   @override
   Widget build(BuildContext context) => AlertDialog(title: const Text('Assign / Transfer Asset'), content: SizedBox(width: 480, child: Column(mainAxisSize: MainAxisSize.min, children: [ListTile(contentPadding: EdgeInsets.zero, title: Text(_partner?.fullName ?? (widget.asset['custodian_name'] ?? 'No custodian').toString()), subtitle: const Text('Asset custodian'), trailing: OutlinedButton(onPressed: _pick, child: const Text('Select'))), TextField(controller: _location, decoration: const InputDecoration(labelText: 'Location')), const SizedBox(height: 12), TextField(controller: _notes, maxLines: 3, decoration: const InputDecoration(labelText: 'Transfer Notes'))])), actions: [TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Saving...' : 'Assign'))]);
+}
+
+
+class _HireReservationsDialog extends StatefulWidget {
+  final AssetRegisterService service;
+  const _HireReservationsDialog({required this.service});
+
+  @override
+  State<_HireReservationsDialog> createState() => _HireReservationsDialogState();
+}
+
+class _HireReservationsDialogState extends State<_HireReservationsDialog> {
+  final TextEditingController _search = TextEditingController();
+  List<Map<String, dynamic>> _rows = const [];
+  bool _loading = true;
+  String _status = 'ALL';
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final rows = await widget.service.listReservations(query: _search.text, status: _status);
+      if (mounted) setState(() => _rows = rows);
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _create() async {
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _NewHireReservationDialog(service: widget.service),
+    );
+    if (saved == true) await _load();
+  }
+
+  Future<void> _issue(Map<String, dynamic> row) async {
+    try {
+      await widget.service.issueReservation(row['id'].toString(), condition: (row['asset_condition'] ?? 'GOOD').toString());
+      await _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+    }
+  }
+
+  Future<void> _cancel(Map<String, dynamic> row) async {
+    final notes = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cancel Reservation'),
+        content: TextField(controller: notes, maxLines: 3, decoration: const InputDecoration(labelText: 'Cancellation notes')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep Reservation')),
+          FilledButton.tonal(onPressed: () => Navigator.pop(context, true), child: const Text('Cancel Reservation')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await widget.service.cancelReservation(row['id'].toString(), notes: notes.text);
+        await _load();
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+      }
+    }
+    notes.dispose();
+  }
+
+  Future<void> _return(Map<String, dynamic> row) async {
+    String condition = 'GOOD';
+    bool lost = false;
+    final damage = TextEditingController();
+    final notes = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (_, setDialogState) => AlertDialog(
+          title: Text('Return ${row['asset_no'] ?? 'Asset'}'),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: condition,
+                  decoration: const InputDecoration(labelText: 'Return condition'),
+                  items: ['NEW','GOOD','FAIR','POOR','DAMAGED','LOST'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                  onChanged: (value) => setDialogState(() => condition = value ?? 'GOOD'),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: lost,
+                  title: const Text('Asset lost / not returned'),
+                  onChanged: (value) => setDialogState(() => lost = value),
+                ),
+                TextField(controller: damage, maxLines: 3, decoration: const InputDecoration(labelText: 'Damage or loss details')),
+                const SizedBox(height: 12),
+                TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Return notes')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Confirm Return')),
+          ],
+        ),
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await widget.service.returnReservation(
+          row['id'].toString(), condition: condition, lost: lost, damageNotes: damage.text, notes: notes.text,
+        );
+        await _load();
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+      }
+    }
+    damage.dispose();
+    notes.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: SizedBox(
+        width: 1050,
+        height: 720,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Text('Hire Reservations', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  FilledButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: const Text('New Reservation')),
+                  const SizedBox(width: 8),
+                  IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: TextField(controller: _search, onSubmitted: (_) => _load(), decoration: const InputDecoration(labelText: 'Search asset, service or reference', prefixIcon: Icon(Icons.search)))),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 210,
+                    child: DropdownButtonFormField<String>(
+                      value: _status,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      items: ['ALL','RESERVED','ISSUED','RETURNED','CANCELLED'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                      onChanged: (value) { setState(() => _status = value ?? 'ALL'); _load(); },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(child: Text(_error!))
+                      : _rows.isEmpty
+                          ? const Center(child: Text('No hire reservations found.'))
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              itemCount: _rows.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (_, index) {
+                                final row = _rows[index];
+                                final status = (row['status'] ?? '').toString();
+                                final start = DateTime.tryParse((row['start_at'] ?? '').toString());
+                                final end = DateTime.tryParse((row['end_at'] ?? '').toString());
+                                return ListTile(
+                                  leading: CircleAvatar(child: Icon(status == 'ISSUED' ? Icons.outbox_outlined : Icons.event_available_outlined)),
+                                  title: Text('${row['asset_no'] ?? ''} · ${row['asset_name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  subtitle: Text([
+                                    '${row['service_product_code'] ?? ''} - ${row['service_product_description'] ?? ''}',
+                                    if (start != null && end != null) '${DateFormat('dd MMM yyyy HH:mm').format(start)} → ${DateFormat('dd MMM yyyy HH:mm').format(end)}',
+                                    'Qty: ${row['reserved_quantity'] ?? 1}',
+                                    if ((row['source_reference'] ?? '').toString().isNotEmpty) 'Ref: ${row['source_reference']}',
+                                  ].join(' • ')),
+                                  trailing: Wrap(
+                                    spacing: 8,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Chip(label: Text(status)),
+                                      if (status == 'RESERVED') OutlinedButton(onPressed: () => _issue(row), child: const Text('Issue')),
+                                      if (status == 'RESERVED') TextButton(onPressed: () => _cancel(row), child: const Text('Cancel')),
+                                      if (status == 'ISSUED') FilledButton.tonal(onPressed: () => _return(row), child: const Text('Return')),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NewHireReservationDialog extends StatefulWidget {
+  final AssetRegisterService service;
+  const _NewHireReservationDialog({required this.service});
+
+  @override
+  State<_NewHireReservationDialog> createState() => _NewHireReservationDialogState();
+}
+
+class _NewHireReservationDialogState extends State<_NewHireReservationDialog> {
+  final _key = GlobalKey<FormState>();
+  final ProductMaintenanceService _productService = ProductMaintenanceService();
+  final TextEditingController _quantity = TextEditingController(text: '1');
+  final TextEditingController _reference = TextEditingController();
+  final TextEditingController _customer = TextEditingController();
+  final TextEditingController _notes = TextEditingController();
+  List<ProductMaintenanceItem> _services = const [];
+  List<Map<String, dynamic>> _assets = const [];
+  String? _productId;
+  String? _assetId;
+  DateTime _start = DateTime.now().add(const Duration(days: 1));
+  DateTime _end = DateTime.now().add(const Duration(days: 1, hours: 9));
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+  }
+
+  @override
+  void dispose() {
+    _quantity.dispose(); _reference.dispose(); _customer.dispose(); _notes.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadServices() async {
+    try {
+      final services = await _productService.getProducts(type: 'SERVICE');
+      if (mounted) setState(() { _services = services; _loading = false; });
+    } catch (e) {
+      if (mounted) { setState(() => _loading = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e)))); }
+    }
+  }
+
+  Future<void> _loadAssets() async {
+    if (_productId == null) return;
+    setState(() { _loading = true; _assetId = null; });
+    try {
+      final assets = await widget.service.linkedAssets(_productId!, startAt: _start, endAt: _end);
+      if (mounted) setState(() => _assets = assets.where((asset) => asset['available'] == true || asset['available'].toString() == '1').toList());
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<DateTime?> _pickDateTime(DateTime current) async {
+    final date = await showDatePicker(context: context, firstDate: DateTime.now().subtract(const Duration(days: 365)), lastDate: DateTime.now().add(const Duration(days: 3650)), initialDate: current);
+    if (date == null || !mounted) return null;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(current));
+    if (time == null) return null;
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  Future<void> _save() async {
+    if (!_key.currentState!.validate() || _productId == null || _assetId == null) return;
+    if (!_end.isAfter(_start)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('End date and time must be after the start.')));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.service.createReservation(
+        assetId: _assetId!, serviceProductId: _productId!, quantity: int.parse(_quantity.text),
+        startAt: _start, endAt: _end, sourceReference: _reference.text,
+        customerPartnerId: _customer.text, notes: _notes.text,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) { setState(() => _saving = false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e)))); }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New Hire Reservation'),
+      content: SizedBox(
+        width: 650,
+        child: Form(
+          key: _key,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_loading) const LinearProgressIndicator(),
+                DropdownButtonFormField<String>(
+                  value: _productId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Hire service product'),
+                  items: _services.map((service) => DropdownMenuItem(value: service.id, child: Text('${service.code} - ${service.description}'))).toList(),
+                  onChanged: (value) { setState(() => _productId = value); _loadAssets(); },
+                  validator: (value) => value == null ? 'Select a service product' : null,
+                ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: OutlinedButton.icon(onPressed: () async { final value = await _pickDateTime(_start); if (value != null) { setState(() => _start = value); _loadAssets(); } }, icon: const Icon(Icons.login), label: Text('Start: ${DateFormat('dd MMM yyyy HH:mm').format(_start)}'))),
+                  const SizedBox(width: 12),
+                  Expanded(child: OutlinedButton.icon(onPressed: () async { final value = await _pickDateTime(_end); if (value != null) { setState(() => _end = value); _loadAssets(); } }, icon: const Icon(Icons.logout), label: Text('End: ${DateFormat('dd MMM yyyy HH:mm').format(_end)}'))),
+                ]),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _assetId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Available linked asset'),
+                  items: _assets.map((asset) => DropdownMenuItem(value: asset['asset_id'].toString(), child: Text('${asset['asset_no']} - ${asset['name']} (available ${asset['available_capacity']})'))).toList(),
+                  onChanged: (value) => setState(() => _assetId = value),
+                  validator: (value) => value == null ? 'Select an available asset' : null,
+                ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextFormField(controller: _quantity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Quantity / capacity'), validator: (value) => (int.tryParse(value ?? '') ?? 0) <= 0 ? 'Enter a valid quantity' : null)),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextField(controller: _reference, decoration: const InputDecoration(labelText: 'Reference'))),
+                ]),
+                const SizedBox(height: 12),
+                TextField(controller: _customer, decoration: const InputDecoration(labelText: 'Customer partner ID (optional)')),
+                const SizedBox(height: 12),
+                TextField(controller: _notes, maxLines: 3, decoration: const InputDecoration(labelText: 'Notes')),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton.icon(onPressed: _saving ? null : _save, icon: const Icon(Icons.event_available), label: Text(_saving ? 'Saving...' : 'Reserve')),
+      ],
+    );
+  }
 }

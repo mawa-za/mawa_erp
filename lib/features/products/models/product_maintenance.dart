@@ -115,6 +115,8 @@ class ProductMaintenanceItem {
   final DateTime? validTo;
   final List<ProductPrice> pricings;
   final List<String> barcodes;
+  final bool managedByFuneralPackage;
+  final String? funeralPackageId;
 
   const ProductMaintenanceItem({
     required this.id,
@@ -131,6 +133,8 @@ class ProductMaintenanceItem {
     this.validTo,
     this.pricings = const [],
     this.barcodes = const [],
+    this.managedByFuneralPackage = false,
+    this.funeralPackageId,
   });
 
   factory ProductMaintenanceItem.fromJson(Map<String, dynamic> json) {
@@ -158,6 +162,8 @@ class ProductMaintenanceItem {
           .map((value) => value.toString())
           .where((value) => value.trim().isNotEmpty)
           .toList(),
+      managedByFuneralPackage: ProductTypeDefinition._bool(json['managedByFuneralPackage']),
+      funeralPackageId: ProductCategoryDefinition._nullable(json['funeralPackageId']),
     );
   }
 
@@ -244,4 +250,53 @@ class ProductPrice {
       value: ProductMaintenanceItem._parseDouble(json['value']),
     );
   }
+}
+
+
+class ProductAssetLink {
+  final String assetId;
+  final String assetNo;
+  final String assetName;
+  final int capacity;
+  final int reservedQuantity;
+  final int availableCapacity;
+  final bool active;
+  final bool available;
+  final String status;
+  final String condition;
+  final String? notes;
+
+  const ProductAssetLink({
+    required this.assetId,
+    required this.assetNo,
+    required this.assetName,
+    required this.capacity,
+    required this.reservedQuantity,
+    required this.availableCapacity,
+    required this.active,
+    required this.available,
+    required this.status,
+    required this.condition,
+    this.notes,
+  });
+
+  factory ProductAssetLink.fromJson(Map<String, dynamic> json) => ProductAssetLink(
+        assetId: (json['asset_id'] ?? json['assetId'] ?? '').toString(),
+        assetNo: (json['asset_no'] ?? json['assetNo'] ?? '').toString(),
+        assetName: (json['name'] ?? json['asset_name'] ?? json['assetName'] ?? '').toString(),
+        capacity: int.tryParse((json['capacity'] ?? '1').toString()) ?? 1,
+        reservedQuantity: int.tryParse((json['reserved_quantity'] ?? '0').toString()) ?? 0,
+        availableCapacity: int.tryParse((json['available_capacity'] ?? '0').toString()) ?? 0,
+        active: ProductTypeDefinition._bool(json['active']),
+        available: ProductTypeDefinition._bool(json['available']),
+        status: (json['status'] ?? '').toString(),
+        condition: (json['condition_status'] ?? json['condition'] ?? '').toString(),
+        notes: ProductCategoryDefinition._nullable(json['link_notes'] ?? json['notes']),
+      );
+
+  Map<String, dynamic> toRequest() => {
+        'assetId': assetId,
+        'capacity': capacity,
+        'notes': notes,
+      };
 }
