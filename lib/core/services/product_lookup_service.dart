@@ -11,8 +11,8 @@ class ProductLookupService {
 
   final Map<String, List<ProductLookup>> _cache = {};
 
-  Future<List<ProductLookup>> getProducts({String? type, bool forceRefresh = false}) async {
-    final key = (type ?? 'ALL').toUpperCase();
+  Future<List<ProductLookup>> getProducts({String? type, bool forceRefresh = false, bool strictType = false}) async {
+    final key = '${(type ?? 'ALL').toUpperCase()}:${strictType ? 'STRICT' : 'FALLBACK'}';
     if (!forceRefresh && _cache.containsKey(key)) return _cache[key]!;
 
     Future<List<ProductLookup>> fetch(String path) async {
@@ -41,7 +41,7 @@ class ProductLookupService {
         products = [];
       }
     }
-    if (products.isEmpty) {
+    if (products.isEmpty && !strictType) {
       products = await fetch('/product');
     }
     _cache[key] = products;

@@ -167,9 +167,13 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        package.name,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(package.name, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          if (package.productCode.isNotEmpty)
+                            Text(package.productCode, style: Theme.of(context).textTheme.bodySmall),
+                        ],
                       ),
                     ),
                     Chip(
@@ -225,6 +229,7 @@ class _FuneralPackageDialog extends StatefulWidget {
 class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
   final _formKey = GlobalKey<FormState>();
   final _api = FuneralApi();
+  late final TextEditingController _productCodeController;
   late final TextEditingController _nameController;
   late final TextEditingController _fixedPriceController;
   String _pricingMode = 'ITEM_TOTAL';
@@ -238,6 +243,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
   void initState() {
     super.initState();
     final package = widget.package;
+    _productCodeController = TextEditingController(text: package?.productCode ?? '');
     _nameController = TextEditingController(text: package?.name ?? '');
     _pricingMode = package?.pricingMode ?? 'ITEM_TOTAL';
     _fixedPriceController = TextEditingController(
@@ -252,8 +258,10 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     try {
       final service = ProductLookupService();
       final results = await Future.wait([
-        service.getProducts(forceRefresh: true),
-        service.getProducts(type: 'PHYSICAL-PRODUCT', forceRefresh: true),
+        service.getProducts(type: 'PHYSICAL-PRODUCT', forceRefresh: true, strictType: true),
+        service.getProducts(type: 'CONSUMABLE', forceRefresh: true, strictType: true),
+        service.getProducts(type: 'SERVICE', forceRefresh: true, strictType: true),
+        service.getProducts(type: 'TOMBSTONE', forceRefresh: true, strictType: true),
       ]);
       final byId = <String, ProductLookup>{};
       for (final product in results.expand((items) => items)) {
@@ -278,6 +286,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
 
   @override
   void dispose() {
+    _productCodeController.dispose();
     _nameController.dispose();
     _fixedPriceController.dispose();
     super.dispose();
@@ -297,6 +306,8 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
 
     final package = FuneralPackageDto(
       id: widget.package?.id ?? '',
+      productId: widget.package?.productId ?? '',
+      productCode: _productCodeController.text.trim(),
       name: _nameController.text.trim(),
       pricingMode: _pricingMode,
       basePriceCents: _pricingMode == 'FIXED_PRICE'
@@ -336,6 +347,15 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
+                  controller: _productCodeController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'Package product code',
+                    helperText: 'Leave blank to generate a code automatically. This is the linked Product Maintenance code.',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Package name'),
                   validator: (value) => value == null || value.trim().isEmpty ? 'Package name is required' : null,
@@ -365,7 +385,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                 ],
                 const SizedBox(height: 12),
                 if (_loadingProducts) const LinearProgressIndicator() else DropdownButtonFormField<ProductLookup>(
-                  decoration: const InputDecoration(labelText: 'Add product'),
+                  decoration: const InputDecoration(labelText: 'Add package component', helperText: 'Only Physical Products, Consumables, Services and Tombstones are allowed.'),
                   items: _catalog.map((p)=>DropdownMenuItem(value:p,child:Text('${p.code} - ${p.description}'))).toList(),
                   onChanged: (p) { if (p == null || _products.any((e)=>e.productId==p.id)) return; setState(()=>_products.add(FuneralPackageProductDto(productId:p.id,productCode:p.code,productDescription:p.description,quantity:1,unitPriceCents:p.priceCents))); },
                 ),
