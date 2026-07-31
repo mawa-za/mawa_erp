@@ -42,11 +42,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (kIsWeb) {
         apiHost = Config.apiHost;
-        tenantId = (prefs.getString('tenant') ?? '').trim();
-        if (tenantId.isEmpty) tenantId = Config.webTenant;
+        final tenantFromAddress = Config.webTenant;
+        final storedTenant = (prefs.getString('tenant') ?? '').trim();
+        tenantId = tenantFromAddress.isNotEmpty ? tenantFromAddress : storedTenant;
+        if (Config.isSharedApplicationHost(tenantId)) tenantId = '';
       } else {
         apiHost = prefs.getString('api_host') ?? '';
         tenantId = prefs.getString('tenant') ?? '';
+      }
+
+      if (tenantId.trim().isEmpty) {
+        throw AppException(
+          'This MAWA address does not identify a tenant. Open the tenant-specific link or launch MAWA from the Admin portal.',
+        );
       }
 
       final url = Uri.parse('https://$apiHost/v2/authenticate');
@@ -56,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
             url,
             headers: {
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
               'X-TenantID': tenantId,
               'X-Tenant-Id': tenantId,
             },
