@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../../../core/api_client.dart';
 import '../../../core/models/paginated_response.dart';
@@ -21,8 +22,8 @@ class MembershipService {
   MembershipService._internal();
 
   Future<PaginatedResponse<Membership>> getMemberships({
-    int page = 0, 
-    int size = 20, 
+    int page = 0,
+    int size = 20,
     List<String>? sort,
     String query = '',
     List<String>? memberIds,
@@ -31,7 +32,7 @@ class MembershipService {
     try {
       final bool isSearch = query.isNotEmpty || (memberIds != null && memberIds.isNotEmpty);
       String path = (isSearch ? '/v2/membership' : '/v2/membership/all') + '?page=$page&size=$size';
-      
+
       if (query.isNotEmpty) {
         path += '&query=${Uri.encodeComponent(query)}';
       }
@@ -52,7 +53,7 @@ class MembershipService {
       final response = await ApiClient().get(path);
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        
+
         if (decoded is List) {
           return PaginatedResponse<Membership>(
             content: decoded.map((item) => Membership.fromJson(Map<String, dynamic>.from(item))).toList(),
@@ -66,7 +67,7 @@ class MembershipService {
             empty: decoded.isEmpty,
           );
         }
-        
+
         return PaginatedResponse<Membership>.fromJson(
           decoded as Map<String, dynamic>,
           (json) => Membership.fromJson(json),
@@ -233,7 +234,7 @@ class MembershipService {
       for (var response in responses) {
         if (response.statusCode == 200) {
           final dynamic decoded = jsonDecode(response.body);
-          
+
           List<dynamic> data;
           if (decoded is List) {
             data = decoded;
@@ -284,7 +285,7 @@ class MembershipService {
       final response = await ApiClient().get('/v2/membership/plans?page=$page&size=$size');
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        
+
         if (decoded is List) {
           return PaginatedResponse<MembershipPlan>(
             content: decoded.map((item) => MembershipPlan.fromJson(Map<String, dynamic>.from(item))).toList(),
@@ -420,8 +421,8 @@ class MembershipService {
 
   Future<List<MembershipPlanClaimPayout>> getClaimPayouts(String planId, {bool all = false}) async {
     try {
-      final String path = all 
-          ? '/v2/membership/plans/$planId/claim-payout/all' 
+      final String path = all
+          ? '/v2/membership/plans/$planId/claim-payout/all'
           : '/v2/membership/plans/$planId/claim-payout';
       final response = await ApiClient().get(path);
       if (response.statusCode == 200) {
@@ -532,7 +533,7 @@ class MembershipService {
       if (membershipId != null && membershipId.isNotEmpty) {
         path += '?membershipId=$membershipId';
       }
-      
+
       final response = await ApiClient().get(path);
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
@@ -668,7 +669,7 @@ class MembershipService {
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         List<dynamic> data;
-        
+
         if (decoded is List) {
           data = decoded;
         } else if (decoded is Map && decoded.containsKey('content')) {
@@ -749,9 +750,9 @@ class MembershipService {
     }
   }
 
-  Future<void> suspendGroupSociety(String id) async {
+  Future<void> suspendGroupSociety(String id, Map<String, dynamic> payload) async {
     try {
-      final response = await ApiClient().post('/v2/group-society/$id/suspend');
+      final response = await ApiClient().post('/v2/group-society/$id/suspend', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
         throw AppException(error['message'] ?? 'Failed to suspend group society: ${response.statusCode}');
@@ -761,9 +762,9 @@ class MembershipService {
     }
   }
 
-  Future<void> activateGroupSociety(String id) async {
+  Future<void> activateGroupSociety(String id, Map<String, dynamic> payload) async {
     try {
-      final response = await ApiClient().post('/v2/group-society/$id/activate');
+      final response = await ApiClient().post('/v2/group-society/$id/activate', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
         throw AppException(error['message'] ?? 'Failed to activate group society: ${response.statusCode}');
@@ -773,9 +774,9 @@ class MembershipService {
     }
   }
 
-  Future<void> closeGroupSociety(String id) async {
+  Future<void> closeGroupSociety(String id, Map<String, dynamic> payload) async {
     try {
-      final response = await ApiClient().post('/v2/group-society/$id/close');
+      final response = await ApiClient().post('/v2/group-society/$id/close', body: payload);
       if (response.statusCode != 200 && response.statusCode != 201) {
         final error = jsonDecode(response.body);
         throw AppException(error['message'] ?? 'Failed to close group society: ${response.statusCode}');
@@ -831,26 +832,14 @@ class MembershipService {
     }
   }
 
-  Future<GroupSocietyPayment> addGroupSocietyPayment(String id, Map<String, dynamic> payload) async {
+  Future<PaymentBatchResponse> addGroupSocietyPayment(String id, Map<String, dynamic> payload) async {
     try {
       final response = await ApiClient().post('/v2/group-society/$id/payments', body: payload);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return GroupSocietyPayment.fromJson(jsonDecode(response.body));
+        return PaymentBatchResponse.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
         final error = jsonDecode(response.body);
         throw AppException(error['message'] ?? 'Failed to add payment: ${response.statusCode}');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<void> debitGroupSocietyClaim(String id, Map<String, dynamic> payload) async {
-    try {
-      final response = await ApiClient().post('/v2/group-society/$id/claims/debit', body: payload);
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        final error = jsonDecode(response.body);
-        throw AppException(error['message'] ?? 'Failed to process claim debit: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -893,6 +882,35 @@ class MembershipService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<List<String>> getGroupSocietyAttachmentIds(String id) async {
+    final response = await ApiClient().get('/v2/attachment', queryParameters: {'objectId': id});
+    if (response.statusCode != 200) {
+      throw AppException('Unable to load group society documents: ${response.statusCode}');
+    }
+    final decoded = jsonDecode(response.body);
+    final List<dynamic> data = decoded is List
+        ? decoded
+        : decoded is Map && decoded['content'] is List
+            ? decoded['content'] as List
+            : const [];
+    return data
+        .whereType<Map>()
+        .map((item) => (item['id'] ?? '').toString())
+        .where((id) => id.isNotEmpty)
+        .toList();
+  }
+
+  Future<Uint8List> downloadGroupSocietyAgreement(String id) async {
+    final response = await ApiClient().get(
+      '/v2/group-society/$id/agreement',
+      accept: 'application/pdf',
+    );
+    if (response.statusCode != 200) {
+      throw AppException('Unable to generate the group society agreement: ${response.statusCode}');
+    }
+    return response.bodyBytes;
   }
 
   Future<GroupSociety?> getGroupSocietyByPartner(String partnerId) async {
