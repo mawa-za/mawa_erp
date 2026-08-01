@@ -22,6 +22,8 @@ import 'models/funeral_payment_summary_dto.dart';
 import 'models/funeral_tenant_integration_configuration_dto.dart';
 import 'models/funeral_tenant_option_dto.dart';
 import 'models/tenant_trust_relationship_dto.dart';
+import 'models/group_society_cover_option_dto.dart';
+import 'models/group_society_funeral_claim_dto.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralApi {
@@ -292,6 +294,44 @@ class FuneralApi {
           .toList();
     }
     throw AppException('Failed to load claims: ${response.body}');
+  }
+
+  Future<List<GroupSocietyCoverOptionDto>> getActiveGroupSocieties() async {
+    final response = await _apiClient.get(
+      '/v2/group-society/master-data',
+      queryParameters: const {'status': 'ACTIVE'},
+    );
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map((item) => GroupSocietyCoverOptionDto.fromJson(Map<String, dynamic>.from(item as Map)))
+          .where((item) => item.id.isNotEmpty && item.status.toUpperCase() == 'ACTIVE')
+          .toList();
+    }
+    throw AppException('Failed to load active group societies: ${response.body}');
+  }
+
+  Future<List<GroupSocietyFuneralClaimDto>> getGroupSocietyCover(String serviceRequestId) async {
+    final response = await _apiClient.get('/v2/funeral/service-request/$serviceRequestId/group-society-cover');
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map((item) => GroupSocietyFuneralClaimDto.fromJson(Map<String, dynamic>.from(item as Map)))
+          .toList();
+    }
+    throw AppException('Failed to load group society cover: ${response.body}');
+  }
+
+  Future<GroupSocietyFuneralClaimDto> submitGroupSocietyCover(
+    String serviceRequestId,
+    Map<String, dynamic> request,
+  ) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceRequestId/group-society-cover',
+      body: request,
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return GroupSocietyFuneralClaimDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+    }
+    throw AppException('Failed to submit group society cover: ${response.body}');
   }
 
   Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -85,7 +86,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
           }
 
           return AlertDialog(
-            title: const Text('Select member or dependent'),
+            title: const Row(children: [CircleAvatar(child: Icon(Icons.person_search_outlined)), SizedBox(width: 12), Text('Select Member or Dependent')]),
             content: SizedBox(
               width: 680,
               height: 470,
@@ -173,7 +174,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
-          title: const Text('Underwrite funeral cover'),
+          title: const Row(children: [CircleAvatar(child: Icon(Icons.policy_outlined)), SizedBox(width: 12), Text('Underwrite Funeral Cover')]),
           content: SizedBox(
             width: 660,
             child: Form(
@@ -273,6 +274,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
     );
     if (save != true || party == null) return;
     try {
+      final prefs = await SharedPreferences.getInstance();
       final response = await _api.post('/v2/funeral-underwriting/covers', body: {
         'underwriterId': underwriterId,
         'externalPolicyNo': policyNo.text.trim(),
@@ -283,8 +285,8 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
         'coverAmountCents': (double.parse(amount.text) * 100).round(),
         'effectiveFrom': effectiveFrom.text,
         'effectiveTo': effectiveTo.text.trim().isEmpty ? null : effectiveTo.text,
-        'status': 'PENDING_UNDERWRITING',
         'underwritingNotes': notes.text.trim(),
+        'requestedBy': prefs.getString('userId') ?? 'unknown',
         'beneficiaries': const [],
       });
       if (response.statusCode != 200 && response.statusCode != 201) {
@@ -306,13 +308,25 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
   }
 
   Future<void> _decide(Map<String, dynamic> row, String status) async {
+    final current = (row['status'] ?? '').toString().toUpperCase();
+    if (current.startsWith('PENDING_')) return;
     try {
+      final prefs = await SharedPreferences.getInstance();
       final response = await _api.post(
         '/v2/funeral-underwriting/covers/${row['id']}/decision',
-        body: {'status': status},
+        body: {
+          'status': status,
+          'requestedBy': prefs.getString('userId') ?? 'unknown',
+          'notes': 'Requested from Funeral Cover Underwriting',
+        },
       );
       if (response.statusCode != 200) throw AppException(response.body);
       await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$status request submitted for approval.')),
+        );
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -363,15 +377,19 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
                             'R ${(cents / 100).toStringAsFixed(2)} • ${row['status'] ?? ''}',
                           ),
                           isThreeLine: true,
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (status) => _decide(row, status),
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'APPROVED', child: Text('Approve')),
-                              PopupMenuItem(value: 'DECLINED', child: Text('Decline')),
-                              PopupMenuItem(value: 'SUSPENDED', child: Text('Suspend')),
-                              PopupMenuItem(value: 'ACTIVE', child: Text('Activate')),
-                            ],
-                          ),
+                          trailing: (row['status'] ?? '').toString().toUpperCase().startsWith('PENDING_')
+                              ? const Tooltip(message: 'Approval pending', child: Icon(Icons.hourglass_top_rounded, color: Colors.orange))
+                              : PopupMenuButton<String>(
+                                  onSelected: (status) => _decide(row, status),
+                                  itemBuilder: (_) {
+                                    final current = (row['status'] ?? '').toString().toUpperCase();
+                                    return [
+                                      if (current != 'ACTIVE') const PopupMenuItem(value: 'ACTIVE', child: Text('Request Activation')),
+                                      if (current != 'SUSPENDED') const PopupMenuItem(value: 'SUSPENDED', child: Text('Request Suspension')),
+                                      if (current != 'CANCELLED') const PopupMenuItem(value: 'CANCELLED', child: Text('Request Cancellation')),
+                                    ];
+                                  },
+                                ),
                         ),
                       );
                     },

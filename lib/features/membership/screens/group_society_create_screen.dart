@@ -20,11 +20,7 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
 
   Partner? _selectedPartner;
   final _groupNoController = TextEditingController();
-  final _openingBalanceController = TextEditingController(text: '0.00');
   String _selectedType = 'GROUP';
-  String _selectedStatus = 'ACTIVE';
-
-  final List<String> _statusOptions = ['ACTIVE', 'INACTIVE', 'DORMANT'];
   final List<String> _typeOptions = ['GROUP', 'SOCIETY', 'BURIAL'];
 
   Future<List<Partner>> _searchPartners(String query) async {
@@ -53,13 +49,12 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final double amount = double.tryParse(_openingBalanceController.text) ?? 0.0;
       final payload = {
         "partnerId": _selectedPartner!.id,
         "groupNo": _groupNoController.text.trim(),
         "societyType": _selectedType,
-        "status": _selectedStatus,
-        "openingBalanceCents": (amount * 100).toInt()
+        "status": "ACTIVE",
+        "openingBalanceCents": 0
       };
 
       final response = await _membershipService.createGroupSociety(payload);
@@ -69,7 +64,7 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Group Society created successfully'), backgroundColor: Colors.green),
         );
-        
+
         if (createdId != null) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => GroupSocietyDetailScreen(societyId: createdId))
@@ -124,7 +119,7 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
                   style: FilledButton.styleFrom(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: _isSubmitting 
+                  child: _isSubmitting
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('CREATE GROUP SOCIETY', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
@@ -237,31 +232,11 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
               onChanged: (v) => setState(() => _selectedType = v!),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedStatus,
-              decoration: const InputDecoration(
-                labelText: 'Initial Status',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.info_outline),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'New group societies start active with a zero balance. Use Balance Adjustment after creation to load an approved opening balance with supporting documents.',
               ),
-              items: _statusOptions.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (v) => setState(() => _selectedStatus = v!),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _openingBalanceController,
-              decoration: const InputDecoration(
-                labelText: 'Opening Balance',
-                prefixText: 'R ',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Required';
-                if (double.tryParse(v) == null) return 'Invalid amount';
-                return null;
-              },
             ),
           ],
         ),
@@ -272,7 +247,6 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
   @override
   void dispose() {
     _groupNoController.dispose();
-    _openingBalanceController.dispose();
     super.dispose();
   }
 }
