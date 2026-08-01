@@ -51,10 +51,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<FuneralExtraDto> extras = [];
   List<ProductLookup> products = [];
 
-  // Step 4: Membership Cover
+  // Cover step: Funding selection
   List<FuneralMembershipCoverDto> availableCovers = [];
   List<FuneralMembershipCoverDto> selectedCovers = [];
   String? groceryCoverSelectionId;
+  String? selectedGroupSocietyId;
+  String groupSocietyDeceasedFirstNames = '';
+  String groupSocietyDeceasedLastName = '';
+  String groupSocietyIdentityType = 'SA-ID';
+  String groupSocietyIdentityNumber = '';
+  int groupSocietyRequestedCoverCents = 0;
+  String groupSocietyRequestedBy = 'SYSTEM';
+  String? groupSocietyNotes;
 
   // Step 5: Claims
   String? serviceRequestId;
@@ -126,6 +134,16 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
     claims = await _api.getClaims(serviceRequestId!);
     groupSocietyClaims = await _api.getGroupSocietyCover(serviceRequestId!);
+    if (groupSocietyClaims.isNotEmpty) {
+      final claim = groupSocietyClaims.first;
+      selectedGroupSocietyId = claim.groupSocietyId;
+      groupSocietyDeceasedFirstNames = claim.deceasedFirstNames;
+      groupSocietyDeceasedLastName = claim.deceasedLastName;
+      groupSocietyIdentityType = claim.identityType;
+      groupSocietyIdentityNumber = claim.identityNumber;
+      groupSocietyRequestedCoverCents = claim.requestedCoverCents;
+      groupSocietyNotes = claim.notes;
+    }
     if (claims.isNotEmpty || groupSocietyClaims.isNotEmpty) {
       final claimReferences = claims
           .expand((claim) => [claim.sourceReference, claim.sourceMembershipId])
@@ -148,6 +166,24 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     selectedDeceased = item;
     if (item.identityNumber != null && item.identityNumber!.isNotEmpty) {
       deceasedIdentityNumber = item.identityNumber!;
+      if (groupSocietyIdentityNumber.isEmpty) {
+        groupSocietyIdentityNumber = item.identityNumber!;
+      }
+    }
+    if (groupSocietyDeceasedFirstNames.isEmpty &&
+        groupSocietyDeceasedLastName.isEmpty) {
+      final parts = item.deceasedName
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((part) => part.isNotEmpty)
+          .toList();
+      if (parts.length > 1) {
+        groupSocietyDeceasedFirstNames =
+            parts.sublist(0, parts.length - 1).join(' ');
+        groupSocietyDeceasedLastName = parts.last;
+      } else if (parts.isNotEmpty) {
+        groupSocietyDeceasedFirstNames = parts.first;
+      }
     }
     notifyListeners();
   }
@@ -219,23 +255,50 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   Future<bool> initiateArrangementAndClaims() async {
     final created = await createServiceRequest();
     if (!created) return false;
+
+    // Group-society funding is chosen on the Cover step, but the approval
+    // request can only be created after the funeral service request exists.
+    // Submit it first so a validation failure does not leave duplicate
+    // membership claims behind when the user retries.
+    if (selectedGroupSocietyId != null && groupSocietyClaims.isEmpty) {
+      final submitted = await _submitConfiguredGroupSocietyCover();
+      if (!submitted) return false;
+    }
+
     if (selectedCovers.isEmpty) {
       await loadClaims();
       return true;
     }
-    isLoading = true; errorMessage = null; notifyListeners();
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
     try {
-      final selectionIds = selectedCovers.map((c) => c.sourceReference ?? c.membershipId)
-          .whereType<String>().map((v) => v.trim()).where((v) => v.isNotEmpty).toSet().toList();
-      claims = await _api.initiateClaimsAndReturn(serviceRequestId!, InitiateFuneralClaimsRequestDto(
-        membershipIds: selectionIds,
-        claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
-        groceryCoverSelectionId: groceryCoverSelectionId,
-      ));
+      if (claims.isEmpty) {
+        final selectionIds = selectedCovers
+            .map((c) => c.sourceReference ?? c.membershipId)
+            .whereType<String>()
+            .map((v) => v.trim())
+            .where((v) => v.isNotEmpty)
+            .toSet()
+            .toList();
+        claims = await _api.initiateClaimsAndReturn(
+          serviceRequestId!,
+          InitiateFuneralClaimsRequestDto(
+            membershipIds: selectionIds,
+            claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
+            groceryCoverSelectionId: groceryCoverSelectionId,
+          ),
+        );
+      }
       await loadClaims();
       return true;
-    } catch (e) { errorMessage = friendlyErrorMessage('Failed to initiate funeral claims: $e'); return false; }
-    finally { isLoading = false; notifyListeners(); }
+    } catch (e) {
+      errorMessage = friendlyErrorMessage('Failed to initiate funeral claims: $e');
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> submitClaimsForApproval() async {
@@ -284,7 +347,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
-  Future<bool> submitGroupSocietyCover({
+  GroupSocietyCoverOptionDto? get selectedGroupSociety {
+    final id = selectedGroupSocietyId;
+    if (id == null || id.isEmpty) return null;
+    return _firstWhereOrNull(groupSocieties, (society) => society.id == id);
+  }
+
+  bool get hasConfiguredGroupSocietyCover =>
+      selectedGroupSocietyId != null &&
+      selectedGroupSocietyId!.isNotEmpty &&
+      groupSocietyRequestedCoverCents > 0;
+
+  void configureGroupSocietyCover({
     required String groupSocietyId,
     required String deceasedFirstNames,
     required String deceasedLastName,
@@ -293,30 +367,56 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     required int requestedCoverCents,
     required String requestedBy,
     String? notes,
-  }) async {
+  }) {
+    selectedGroupSocietyId = groupSocietyId;
+    groupSocietyDeceasedFirstNames = deceasedFirstNames.trim();
+    groupSocietyDeceasedLastName = deceasedLastName.trim();
+    groupSocietyIdentityType = identityType.trim().toUpperCase();
+    groupSocietyIdentityNumber = identityNumber.trim();
+    groupSocietyRequestedCoverCents = requestedCoverCents;
+    groupSocietyRequestedBy = requestedBy.trim().isEmpty ? 'SYSTEM' : requestedBy.trim();
+    groupSocietyNotes = notes?.trim();
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  void clearConfiguredGroupSocietyCover() {
+    if (groupSocietyClaims.isNotEmpty) return;
+    selectedGroupSocietyId = null;
+    groupSocietyRequestedCoverCents = 0;
+    groupSocietyNotes = null;
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  Future<bool> _submitConfiguredGroupSocietyCover() async {
     if (serviceRequestId == null) {
       errorMessage = 'Create the funeral arrangement before requesting group society cover.';
       notifyListeners();
       return false;
     }
+    if (!hasConfiguredGroupSocietyCover) return true;
+
     isLoading = true;
     errorMessage = null;
     notifyListeners();
     try {
       final claim = await _api.submitGroupSocietyCover(serviceRequestId!, {
-        'groupSocietyId': groupSocietyId,
-        'deceasedFirstNames': deceasedFirstNames.trim(),
-        'deceasedLastName': deceasedLastName.trim(),
-        'identityType': identityType,
-        'identityNumber': identityNumber.trim(),
-        'requestedCoverCents': requestedCoverCents,
-        'requestedBy': requestedBy,
-        'notes': notes,
+        'groupSocietyId': selectedGroupSocietyId,
+        'deceasedFirstNames': groupSocietyDeceasedFirstNames,
+        'deceasedLastName': groupSocietyDeceasedLastName,
+        'identityType': groupSocietyIdentityType,
+        'identityNumber': groupSocietyIdentityNumber,
+        'requestedCoverCents': groupSocietyRequestedCoverCents,
+        'requestedBy': groupSocietyRequestedBy,
+        'notes': groupSocietyNotes,
       });
       groupSocietyClaims = [claim];
       return true;
     } catch (error) {
-      errorMessage = friendlyErrorMessage('Failed to request group society cover: $error');
+      errorMessage = friendlyErrorMessage(
+        'Failed to request group society cover: $error',
+      );
       return false;
     } finally {
       isLoading = false;
@@ -404,6 +504,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           sum + _coverAmountCents(cover, useCombinationBenefit: useCombinationBenefit),
     );
   }
+  int get requestedGroupSocietyCoverCents {
+    if (groupSocietyClaims.isNotEmpty) {
+      return groupSocietyClaims.fold(
+        0,
+        (sum, claim) => sum + claim.requestedCoverCents,
+      );
+    }
+    return hasConfiguredGroupSocietyCover
+        ? groupSocietyRequestedCoverCents
+        : 0;
+  }
+
   int get approvedGroupSocietyCoverCents => groupSocietyClaims
       .where((claim) => claim.isApproved)
       .fold(0, (sum, claim) => sum + claim.approvedCoverCents);

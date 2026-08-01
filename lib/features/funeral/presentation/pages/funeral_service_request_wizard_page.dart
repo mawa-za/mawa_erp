@@ -195,7 +195,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
             border: OutlineInputBorder(),
             helperText: 'Required for membership cover check',
           ),
-          onChanged: (val) => _controller.deceasedIdentityNumber = val,
+          onChanged: (val) {
+            _controller.deceasedIdentityNumber = val;
+            if (_controller.groupSocietyClaims.isEmpty) {
+              _controller.groupSocietyIdentityNumber = val;
+            }
+          },
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
@@ -456,10 +461,25 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
             bold: true,
           ),
           _moneySummaryRow(
-            'Selected cover total',
+            'Membership cover selected',
             _controller.selectedCoverTotalCents,
             bold: true,
           ),
+          if (_controller.requestedGroupSocietyCoverCents > 0)
+            _moneySummaryRow(
+              'Group society cover requested',
+              _controller.requestedGroupSocietyCoverCents,
+              bold: true,
+            ),
+          if (_controller.requestedGroupSocietyCoverCents >
+              _controller.approvedGroupSocietyCoverCents)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Pending group society cover is not deducted from the family shortfall until it is approved.',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 10),
             child: Divider(),
@@ -513,10 +533,19 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const MawaSectionHeader(
+          title: 'Select funding cover',
+          description:
+              'Use one or more membership covers, a group society, or both to fund the funeral service.',
+        ),
+        const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Membership Cover', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Membership Cover',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             ElevatedButton.icon(
               onPressed: _controller.checkMembership,
               icon: const Icon(Icons.search),
@@ -526,31 +555,77 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ),
         const SizedBox(height: 16),
         if (_controller.availableCovers.isEmpty)
-          const Center(
+          const Card(
+            elevation: 0,
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 48.0),
-              child: Text('No memberships found or check not performed.', textAlign: TextAlign.center),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'No membership cover was found. You may still continue with group society funding or family payment.',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ..._controller.availableCovers.map((cover) => MembershipCoverSelectionCard(
-              cover: cover,
-              isSelected: _controller.selectedCovers.any((c) => (c.membershipId ?? c.sourceReference) == (cover.membershipId ?? cover.sourceReference)),
-              onTap: () => _controller.toggleCoverSelection(cover),
-            )),
+        ..._controller.availableCovers.map(
+          (cover) => MembershipCoverSelectionCard(
+            cover: cover,
+            isSelected: _controller.selectedCovers.any(
+              (selected) =>
+                  (selected.membershipId ?? selected.sourceReference) ==
+                  (cover.membershipId ?? cover.sourceReference),
+            ),
+            onTap: () => _controller.toggleCoverSelection(cover),
+          ),
+        ),
         if (_controller.selectedCovers.isNotEmpty) ...[
-          const SizedBox(height:12),
+          const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value:_controller.groceryCoverSelectionId,
-            decoration:const InputDecoration(labelText:'Cover to use for grocery claim',border:OutlineInputBorder()),
-            items:_controller.selectedCovers.map((c){final id=c.membershipId??c.sourceReference??'';return DropdownMenuItem(value:id,child:Text('${c.membershipNumber} • ${c.burialSocietyName}'));}).toList(),
-            onChanged:(v)=>setState(()=>_controller.groceryCoverSelectionId=v),
+            value: _controller.groceryCoverSelectionId,
+            decoration: const InputDecoration(
+              labelText: 'Cover to use for grocery claim',
+              border: OutlineInputBorder(),
+            ),
+            items: _controller.selectedCovers.map((cover) {
+              final id = cover.membershipId ?? cover.sourceReference ?? '';
+              return DropdownMenuItem(
+                value: id,
+                child: Text(
+                  '${cover.membershipNumber} • ${cover.burialSocietyName}',
+                ),
+              );
+            }).toList(),
+            onChanged: (value) =>
+                setState(() => _controller.groceryCoverSelectionId = value),
           ),
         ],
         if (_controller.availableCovers.isNotEmpty)
           const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text('Select one or more memberships to use for claim initiation.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            padding: EdgeInsets.all(8),
+            child: Text(
+              'Select one or more memberships to use for claim initiation.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
+        const SizedBox(height: 24),
+        const Divider(),
+        const SizedBox(height: 16),
+        const Text(
+          'Group Society Cover',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Select an active group society and the amount it should fund. The approval request will be created when the funeral arrangement is initiated.',
+          style: TextStyle(color: Colors.grey),
+        ),
+        const SizedBox(height: 14),
+        _buildGroupSocietyCoverCard(),
       ],
     );
   }
@@ -584,8 +659,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           ],
         ),
         const SizedBox(height: 8),
-        _buildGroupSocietyCoverCard(),
-        const SizedBox(height: 16),
+        if (_controller.groupSocietyClaims.isNotEmpty) ...[
+          _buildGroupSocietyCoverCard(),
+          const SizedBox(height: 16),
+        ],
         if (_controller.claims.isEmpty && _controller.groupSocietyClaims.isEmpty)
           const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text('No cover claims have been initiated for this request.'))),
         ..._controller.claims.map((claim) => Card(
@@ -695,175 +772,510 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               : Colors.orange;
       return Card(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: statusColor.withOpacity(.35))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: statusColor.withOpacity(.35)),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              CircleAvatar(backgroundColor: statusColor.withOpacity(.12), child: Icon(Icons.groups_2_outlined, color: statusColor)),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(claim.societyName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                Text('${claim.groupNo} • ${claim.claimNo}', style: TextStyle(color: Colors.grey.shade600)),
-              ])),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: statusColor.withOpacity(.12), borderRadius: BorderRadius.circular(30)),
-                child: Text(status.replaceAll('_', ' '), style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 11)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: statusColor.withOpacity(.12),
+                    child: Icon(Icons.groups_2_outlined, color: statusColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          claim.societyName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '${claim.groupNo} • ${claim.claimNo}',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Text(
+                      status.replaceAll('_', ' '),
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ]),
-            const SizedBox(height: 14),
-            Row(children: [
-              Expanded(child: _groupClaimAmount('Requested Cover', claim.requestedCoverCents)),
-              const SizedBox(width: 12),
-              Expanded(child: _groupClaimAmount('Approved Cover', claim.approvedCoverCents)),
-            ]),
-            const SizedBox(height: 12),
-            Text('Deceased: ${claim.deceasedFirstNames} ${claim.deceasedLastName} • ${claim.identityType}: ${claim.identityNumber}'),
-            if (claim.isPending) ...[
-              const SizedBox(height: 10),
-              const Row(children: [Icon(Icons.hourglass_top_rounded, size: 18, color: Colors.orange), SizedBox(width: 8), Expanded(child: Text('This request is awaiting approval. Pending amounts will remain part of the family shortfall until approved.'))]),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _groupClaimAmount(
+                      'Requested Cover',
+                      claim.requestedCoverCents,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _groupClaimAmount(
+                      'Approved Cover',
+                      claim.approvedCoverCents,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Deceased: ${claim.deceasedFirstNames} ${claim.deceasedLastName} • ${claim.identityType}: ${claim.identityNumber}',
+              ),
+              if (claim.isPending) ...[
+                const SizedBox(height: 10),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.hourglass_top_rounded,
+                      size: 18,
+                      color: Colors.orange,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This request is awaiting approval. Pending amounts remain part of the family shortfall until approved.',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ]),
+          ),
+        ),
+      );
+    }
+
+    final selected = _controller.selectedGroupSociety;
+    if (selected != null && _controller.hasConfiguredGroupSocietyCover) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.primary.withOpacity(.35),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    child: const Icon(Icons.groups_2_outlined),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selected.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '${selected.groupNo} • Selected for this arrangement',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'change') {
+                        _showGroupSocietyCoverDialog();
+                      } else if (value == 'remove') {
+                        _controller.clearConfiguredGroupSocietyCover();
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'change', child: Text('Change')),
+                      PopupMenuItem(value: 'remove', child: Text('Remove')),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _groupClaimAmount(
+                      'Requested Cover',
+                      _controller.groupSocietyRequestedCoverCents,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _groupClaimAmount(
+                      'Available Balance',
+                      selected.availableBalanceCents,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Deceased: ${_controller.groupSocietyDeceasedFirstNames} ${_controller.groupSocietyDeceasedLastName} • ${_controller.groupSocietyIdentityType}: ${_controller.groupSocietyIdentityNumber}',
+              ),
+              const SizedBox(height: 10),
+              const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'The group society approval request will be submitted after the package and arrangement details are saved.',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(.25))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.primary.withOpacity(.25),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(children: [
-          CircleAvatar(child: const Icon(Icons.groups_2_outlined)),
-          const SizedBox(width: 12),
-          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Group Society Cover', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            SizedBox(height: 4),
-            Text('Fund this funeral from an active group society balance. The request will be submitted for approval.'),
-          ])),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            onPressed: _controller.groupSocieties.isEmpty ? null : _showGroupSocietyCoverDialog,
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('Request Cover'),
-          ),
-        ]),
+        child: Row(
+          children: [
+            CircleAvatar(child: const Icon(Icons.groups_2_outlined)),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Add Group Society Funding',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Fund all or part of the funeral from an active group society balance.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton.icon(
+              onPressed: _controller.groupSocieties.isEmpty
+                  ? null
+                  : _showGroupSocietyCoverDialog,
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Select Society'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _groupClaimAmount(String label, int cents) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-      const SizedBox(height: 4),
-      FuneralMoneyText(cents: cents, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-    ]),
-  );
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 4),
+            FuneralMoneyText(
+              cents: cents,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+            ),
+          ],
+        ),
+      );
 
   Future<void> _showGroupSocietyCoverDialog() async {
     final societies = _controller.groupSocieties;
     if (societies.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active group societies are available.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active group societies are available.')),
+      );
       return;
     }
-    var selectedSocietyId = societies.first.id;
-    final fullName = (_controller.selectedDeceased?.deceasedName ?? '').trim();
-    final nameParts = fullName.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
-    final firstNames = TextEditingController(text: nameParts.length > 1 ? nameParts.sublist(0, nameParts.length - 1).join(' ') : fullName);
-    final lastName = TextEditingController(text: nameParts.length > 1 ? nameParts.last : '');
-    final identity = TextEditingController(text: _controller.deceasedIdentityNumber);
-    final amount = TextEditingController();
-    final notes = TextEditingController();
-    var identityType = 'SA-ID';
-    bool submitting = false;
 
-    final submitted = await showDialog<bool>(
+    var selectedSocietyId = _controller.selectedGroupSocietyId ?? societies.first.id;
+    final fullName = (_controller.selectedDeceased?.deceasedName ?? '').trim();
+    final nameParts = fullName
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final firstNames = TextEditingController(
+      text: _controller.groupSocietyDeceasedFirstNames.isNotEmpty
+          ? _controller.groupSocietyDeceasedFirstNames
+          : nameParts.length > 1
+              ? nameParts.sublist(0, nameParts.length - 1).join(' ')
+              : fullName,
+    );
+    final lastName = TextEditingController(
+      text: _controller.groupSocietyDeceasedLastName.isNotEmpty
+          ? _controller.groupSocietyDeceasedLastName
+          : nameParts.length > 1
+              ? nameParts.last
+              : '',
+    );
+    final identity = TextEditingController(
+      text: _controller.groupSocietyIdentityNumber.isNotEmpty
+          ? _controller.groupSocietyIdentityNumber
+          : _controller.deceasedIdentityNumber,
+    );
+    final amount = TextEditingController(
+      text: _controller.groupSocietyRequestedCoverCents > 0
+          ? (_controller.groupSocietyRequestedCoverCents / 100)
+              .toStringAsFixed(2)
+          : '',
+    );
+    final notes = TextEditingController(text: _controller.groupSocietyNotes ?? '');
+    var identityType = _controller.groupSocietyIdentityType;
+
+    final configured = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final selected = societies.firstWhere((item) => item.id == selectedSocietyId);
+          final selected =
+              societies.firstWhere((item) => item.id == selectedSocietyId);
           return AlertDialog(
-            title: const Row(children: [CircleAvatar(child: Icon(Icons.groups_2_outlined)), SizedBox(width: 12), Expanded(child: Text('Request Group Society Cover'))]),
+            title: const Row(
+              children: [
+                CircleAvatar(child: Icon(Icons.groups_2_outlined)),
+                SizedBox(width: 12),
+                Expanded(child: Text('Select Group Society Cover')),
+              ],
+            ),
             content: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: SingleChildScrollView(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  DropdownButtonFormField<String>(
-                    value: selectedSocietyId,
-                    decoration: const InputDecoration(labelText: 'Group Society'),
-                    items: societies.map((society) => DropdownMenuItem(
-                      value: society.id,
-                      child: Text('${society.name} (${society.groupNo}) — R ${society.availableBalance.toStringAsFixed(2)}'),
-                    )).toList(),
-                    onChanged: submitting ? null : (value) => setDialogState(() => selectedSocietyId = value!),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(alignment: Alignment.centerLeft, child: Text('Available balance: R ${selected.availableBalance.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green))),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: TextFormField(controller: firstNames, decoration: const InputDecoration(labelText: 'Deceased First Names'))),
-                    const SizedBox(width: 12),
-                    Expanded(child: TextFormField(controller: lastName, decoration: const InputDecoration(labelText: 'Deceased Last Name'))),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    SizedBox(width: 180, child: DropdownButtonFormField<String>(
-                      value: identityType,
-                      decoration: const InputDecoration(labelText: 'ID Type'),
-                      items: const [DropdownMenuItem(value: 'SA-ID', child: Text('SA ID')), DropdownMenuItem(value: 'PASSPORT', child: Text('Passport')), DropdownMenuItem(value: 'OTHER', child: Text('Other'))],
-                      onChanged: submitting ? null : (value) => setDialogState(() => identityType = value!),
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: TextFormField(controller: identity, decoration: const InputDecoration(labelText: 'Identification Number'))),
-                  ]),
-                  const SizedBox(height: 12),
-                  TextFormField(controller: amount, decoration: const InputDecoration(labelText: 'Requested Cover Amount (R)', prefixText: 'R '), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-                  const SizedBox(height: 12),
-                  TextFormField(controller: notes, decoration: const InputDecoration(labelText: 'Notes'), maxLines: 3),
-                ]),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedSocietyId,
+                      isExpanded: true,
+                      decoration:
+                          const InputDecoration(labelText: 'Group Society'),
+                      items: societies
+                          .map(
+                            (society) => DropdownMenuItem(
+                              value: society.id,
+                              child: Text(
+                                '${society.name} (${society.groupNo}) — R ${society.availableBalance.toStringAsFixed(2)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) => setDialogState(
+                        () => selectedSocietyId = value!,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Available balance: R ${selected.availableBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: firstNames,
+                            decoration: const InputDecoration(
+                              labelText: 'Deceased First Names',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: lastName,
+                            decoration: const InputDecoration(
+                              labelText: 'Deceased Last Name',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 180,
+                          child: DropdownButtonFormField<String>(
+                            value: identityType,
+                            decoration:
+                                const InputDecoration(labelText: 'ID Type'),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'SA-ID',
+                                child: Text('SA ID'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'PASSPORT',
+                                child: Text('Passport'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'OTHER',
+                                child: Text('Other'),
+                              ),
+                            ],
+                            onChanged: (value) => setDialogState(
+                              () => identityType = value!,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: identity,
+                            decoration: const InputDecoration(
+                              labelText: 'Identification Number',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: amount,
+                      decoration: const InputDecoration(
+                        labelText: 'Requested Cover Amount (R)',
+                        prefixText: 'R ',
+                        helperText:
+                            'The amount will be validated against the final funeral total after package selection.',
+                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: notes,
+                      decoration: const InputDecoration(labelText: 'Notes'),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
-              TextButton(onPressed: submitting ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
               FilledButton.icon(
-                onPressed: submitting ? null : () async {
-                  final requestedAmount = double.tryParse(amount.text.trim().replaceAll(',', '.'));
-                  if (firstNames.text.trim().isEmpty || lastName.text.trim().isEmpty || identity.text.trim().isEmpty || requestedAmount == null || requestedAmount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete the deceased details and enter a valid cover amount.')));
+                onPressed: () async {
+                  final requestedAmount = double.tryParse(
+                    amount.text.trim().replaceAll(',', '.'),
+                  );
+                  if (firstNames.text.trim().isEmpty ||
+                      lastName.text.trim().isEmpty ||
+                      identity.text.trim().isEmpty ||
+                      requestedAmount == null ||
+                      requestedAmount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Complete the deceased details and enter a valid cover amount.',
+                        ),
+                      ),
+                    );
                     return;
                   }
-                  if ((requestedAmount * 100).round() > selected.availableBalanceCents) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The requested amount exceeds the available group society balance.')));
+                  final requestedCents = (requestedAmount * 100).round();
+                  if (requestedCents > selected.availableBalanceCents) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'The requested amount exceeds the available group society balance.',
+                        ),
+                      ),
+                    );
                     return;
                   }
-                  setDialogState(() => submitting = true);
                   final prefs = await SharedPreferences.getInstance();
-                  final success = await _controller.submitGroupSocietyCover(
+                  _controller.configureGroupSocietyCover(
                     groupSocietyId: selectedSocietyId,
                     deceasedFirstNames: firstNames.text,
                     deceasedLastName: lastName.text,
                     identityType: identityType,
                     identityNumber: identity.text,
-                    requestedCoverCents: (requestedAmount * 100).round(),
-                    requestedBy: prefs.getString('userId') ?? 'unknown',
-                    notes: notes.text.trim(),
+                    requestedCoverCents: requestedCents,
+                    requestedBy: prefs.getString('userId') ?? 'SYSTEM',
+                    notes: notes.text,
                   );
-                  if (context.mounted && success) Navigator.pop(context, true);
-                  if (context.mounted && !success) setDialogState(() => submitting = false);
+                  if (context.mounted) Navigator.pop(context, true);
                 },
-                icon: submitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.approval_outlined),
-                label: Text(submitting ? 'Submitting...' : 'Submit for Approval'),
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Use This Cover'),
               ),
             ],
           );
         },
       ),
     );
-    if (submitted == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group society funeral cover submitted for approval.')));
+
+    firstNames.dispose();
+    lastName.dispose();
+    identity.dispose();
+    amount.dispose();
+    notes.dispose();
+
+    if (configured == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Group society funding selected. It will be submitted for approval when the arrangement is initiated.',
+          ),
+        ),
+      );
     }
   }
 
