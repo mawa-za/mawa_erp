@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../controllers/funeral_service_request_wizard_controller.dart';
 import '../widgets/funeral_wizard_stepper.dart';
 import '../widgets/funeral_package_card.dart';
@@ -41,16 +42,9 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     'Deceased', 'Cover', 'Representative', 'Package', 'Claims', 'Preview', 'Generate'
   ];
 
-  List<String> get _visibleStepTitles => _controller.selectedCovers.isEmpty
-      ? _stepTitles.where((title) => title != 'Claims').toList()
-      : _stepTitles;
+  List<String> get _visibleStepTitles => _stepTitles;
 
-  int get _visibleCurrentStep {
-    if (_controller.selectedCovers.isEmpty && _controller.currentStep > 4) {
-      return _controller.currentStep - 1;
-    }
-    return _controller.currentStep;
-  }
+  int get _visibleCurrentStep => _controller.currentStep;
 
   @override
   void initState() {
@@ -589,9 +583,11 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
             IconButton(onPressed: _controller.loadClaims, icon: const Icon(Icons.refresh)),
           ],
         ),
+        const SizedBox(height: 8),
+        _buildGroupSocietyCoverCard(),
         const SizedBox(height: 16),
-        if (_controller.claims.isEmpty)
-          const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text('No claims initiated for this request.'))),
+        if (_controller.claims.isEmpty && _controller.groupSocietyClaims.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text('No cover claims have been initiated for this request.'))),
         ..._controller.claims.map((claim) => Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: Padding(
@@ -685,6 +681,190 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           ),
       ],
     );
+  }
+
+  Widget _buildGroupSocietyCoverCard() {
+    final claims = _controller.groupSocietyClaims;
+    if (claims.isNotEmpty) {
+      final claim = claims.first;
+      final status = claim.status.toUpperCase();
+      final statusColor = status == 'APPROVED'
+          ? Colors.green
+          : status == 'REJECTED'
+              ? Colors.red
+              : Colors.orange;
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: statusColor.withOpacity(.35))),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              CircleAvatar(backgroundColor: statusColor.withOpacity(.12), child: Icon(Icons.groups_2_outlined, color: statusColor)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(claim.societyName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                Text('${claim.groupNo} • ${claim.claimNo}', style: TextStyle(color: Colors.grey.shade600)),
+              ])),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: statusColor.withOpacity(.12), borderRadius: BorderRadius.circular(30)),
+                child: Text(status.replaceAll('_', ' '), style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 11)),
+              ),
+            ]),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: _groupClaimAmount('Requested Cover', claim.requestedCoverCents)),
+              const SizedBox(width: 12),
+              Expanded(child: _groupClaimAmount('Approved Cover', claim.approvedCoverCents)),
+            ]),
+            const SizedBox(height: 12),
+            Text('Deceased: ${claim.deceasedFirstNames} ${claim.deceasedLastName} • ${claim.identityType}: ${claim.identityNumber}'),
+            if (claim.isPending) ...[
+              const SizedBox(height: 10),
+              const Row(children: [Icon(Icons.hourglass_top_rounded, size: 18, color: Colors.orange), SizedBox(width: 8), Expanded(child: Text('This request is awaiting approval. Pending amounts will remain part of the family shortfall until approved.'))]),
+            ],
+          ]),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(.25))),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          CircleAvatar(child: const Icon(Icons.groups_2_outlined)),
+          const SizedBox(width: 12),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Group Society Cover', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            SizedBox(height: 4),
+            Text('Fund this funeral from an active group society balance. The request will be submitted for approval.'),
+          ])),
+          const SizedBox(width: 12),
+          FilledButton.icon(
+            onPressed: _controller.groupSocieties.isEmpty ? null : _showGroupSocietyCoverDialog,
+            icon: const Icon(Icons.add_circle_outline),
+            label: const Text('Request Cover'),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _groupClaimAmount(String label, int cents) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+      const SizedBox(height: 4),
+      FuneralMoneyText(cents: cents, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+    ]),
+  );
+
+  Future<void> _showGroupSocietyCoverDialog() async {
+    final societies = _controller.groupSocieties;
+    if (societies.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active group societies are available.')));
+      return;
+    }
+    var selectedSocietyId = societies.first.id;
+    final fullName = (_controller.selectedDeceased?.deceasedName ?? '').trim();
+    final nameParts = fullName.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+    final firstNames = TextEditingController(text: nameParts.length > 1 ? nameParts.sublist(0, nameParts.length - 1).join(' ') : fullName);
+    final lastName = TextEditingController(text: nameParts.length > 1 ? nameParts.last : '');
+    final identity = TextEditingController(text: _controller.deceasedIdentityNumber);
+    final amount = TextEditingController();
+    final notes = TextEditingController();
+    var identityType = 'SA-ID';
+    bool submitting = false;
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final selected = societies.firstWhere((item) => item.id == selectedSocietyId);
+          return AlertDialog(
+            title: const Row(children: [CircleAvatar(child: Icon(Icons.groups_2_outlined)), SizedBox(width: 12), Expanded(child: Text('Request Group Society Cover'))]),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedSocietyId,
+                    decoration: const InputDecoration(labelText: 'Group Society'),
+                    items: societies.map((society) => DropdownMenuItem(
+                      value: society.id,
+                      child: Text('${society.name} (${society.groupNo}) — R ${society.availableBalance.toStringAsFixed(2)}'),
+                    )).toList(),
+                    onChanged: submitting ? null : (value) => setDialogState(() => selectedSocietyId = value!),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerLeft, child: Text('Available balance: R ${selected.availableBalance.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green))),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: TextFormField(controller: firstNames, decoration: const InputDecoration(labelText: 'Deceased First Names'))),
+                    const SizedBox(width: 12),
+                    Expanded(child: TextFormField(controller: lastName, decoration: const InputDecoration(labelText: 'Deceased Last Name'))),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    SizedBox(width: 180, child: DropdownButtonFormField<String>(
+                      value: identityType,
+                      decoration: const InputDecoration(labelText: 'ID Type'),
+                      items: const [DropdownMenuItem(value: 'SA-ID', child: Text('SA ID')), DropdownMenuItem(value: 'PASSPORT', child: Text('Passport')), DropdownMenuItem(value: 'OTHER', child: Text('Other'))],
+                      onChanged: submitting ? null : (value) => setDialogState(() => identityType = value!),
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: TextFormField(controller: identity, decoration: const InputDecoration(labelText: 'Identification Number'))),
+                  ]),
+                  const SizedBox(height: 12),
+                  TextFormField(controller: amount, decoration: const InputDecoration(labelText: 'Requested Cover Amount (R)', prefixText: 'R '), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                  const SizedBox(height: 12),
+                  TextFormField(controller: notes, decoration: const InputDecoration(labelText: 'Notes'), maxLines: 3),
+                ]),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: submitting ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+              FilledButton.icon(
+                onPressed: submitting ? null : () async {
+                  final requestedAmount = double.tryParse(amount.text.trim().replaceAll(',', '.'));
+                  if (firstNames.text.trim().isEmpty || lastName.text.trim().isEmpty || identity.text.trim().isEmpty || requestedAmount == null || requestedAmount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete the deceased details and enter a valid cover amount.')));
+                    return;
+                  }
+                  if ((requestedAmount * 100).round() > selected.availableBalanceCents) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The requested amount exceeds the available group society balance.')));
+                    return;
+                  }
+                  setDialogState(() => submitting = true);
+                  final prefs = await SharedPreferences.getInstance();
+                  final success = await _controller.submitGroupSocietyCover(
+                    groupSocietyId: selectedSocietyId,
+                    deceasedFirstNames: firstNames.text,
+                    deceasedLastName: lastName.text,
+                    identityType: identityType,
+                    identityNumber: identity.text,
+                    requestedCoverCents: (requestedAmount * 100).round(),
+                    requestedBy: prefs.getString('userId') ?? 'unknown',
+                    notes: notes.text.trim(),
+                  );
+                  if (context.mounted && success) Navigator.pop(context, true);
+                  if (context.mounted && !success) setDialogState(() => submitting = false);
+                },
+                icon: submitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.approval_outlined),
+                label: Text(submitting ? 'Submitting...' : 'Submit for Approval'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (submitted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group society funeral cover submitted for approval.')));
+    }
   }
 
   Widget _buildPreviewStep() {
@@ -900,11 +1080,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       }
       final success = await _controller.initiateArrangementAndClaims();
       if (success) {
-        if (_controller.selectedCovers.isEmpty) {
-          await _controller.loadInvoicePreview();
-          _controller.goToInvoicePreview();
-          return;
-        }
         _controller.nextStep();
       }
     } else if (_controller.currentStep == 4) {

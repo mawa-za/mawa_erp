@@ -15,6 +15,8 @@ import '../../data/models/funeral_invoice_preview_request_dto.dart';
 import '../../data/models/generate_funeral_invoices_response_dto.dart';
 import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
+import '../../data/models/group_society_cover_option_dto.dart';
+import '../../data/models/group_society_funeral_claim_dto.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralServiceRequestWizardController extends ChangeNotifier {
@@ -57,6 +59,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   // Step 5: Claims
   String? serviceRequestId;
   List<FuneralClaimDto> claims = [];
+  List<GroupSocietyCoverOptionDto> groupSocieties = [];
+  List<GroupSocietyFuneralClaimDto> groupSocietyClaims = [];
 
   // Step 6: Invoice Preview
   List<FuneralInvoicePreviewLineDto> previewLines = [];
@@ -75,6 +79,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         _fieldService.getOptionsByField('CAUSE-OF-DEATH'),
         _fieldService.getOptionsByField('SALES-AREA'),
         _productService.getProducts(),
+        _api.getActiveGroupSocieties(),
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
@@ -82,6 +87,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       causeOfDeathOptions = results[2] as List<FieldOption>;
       salesAreaOptions = results[3] as List<FieldOption>;
       products = results[4] as List<ProductLookup>;
+      groupSocieties = results[5] as List<GroupSocietyCoverOptionDto>;
       if (resumeServiceRequestId != null && resumeServiceRequestId.isNotEmpty) {
         await _restoreArrangement(resumeServiceRequestId);
       }
@@ -119,7 +125,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       availableCovers = await _api.checkMembership(deceasedIdentityNumber);
     }
     claims = await _api.getClaims(serviceRequestId!);
-    if (claims.isNotEmpty) {
+    groupSocietyClaims = await _api.getGroupSocietyCover(serviceRequestId!);
+    if (claims.isNotEmpty || groupSocietyClaims.isNotEmpty) {
       final claimReferences = claims
           .expand((claim) => [claim.sourceReference, claim.sourceMembershipId])
           .whereType<String>()
@@ -198,7 +205,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           ? await _api.createServiceRequest(request)
           : await _api.updateServiceRequestPackage(serviceRequestId!, request);
       serviceRequestId = result.id ?? serviceRequestId;
-      
+
       return true;
     } catch (e) {
       errorMessage = friendlyErrorMessage('Failed to create service request: $e');
@@ -263,9 +270,54 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      claims = await _api.getClaims(serviceRequestId!);
+      final results = await Future.wait([
+        _api.getClaims(serviceRequestId!),
+        _api.getGroupSocietyCover(serviceRequestId!),
+      ]);
+      claims = results[0] as List<FuneralClaimDto>;
+      groupSocietyClaims = results[1] as List<GroupSocietyFuneralClaimDto>;
     } catch (e) {
       errorMessage = friendlyErrorMessage('Failed to load claims: $e');
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> submitGroupSocietyCover({
+    required String groupSocietyId,
+    required String deceasedFirstNames,
+    required String deceasedLastName,
+    required String identityType,
+    required String identityNumber,
+    required int requestedCoverCents,
+    required String requestedBy,
+    String? notes,
+  }) async {
+    if (serviceRequestId == null) {
+      errorMessage = 'Create the funeral arrangement before requesting group society cover.';
+      notifyListeners();
+      return false;
+    }
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final claim = await _api.submitGroupSocietyCover(serviceRequestId!, {
+        'groupSocietyId': groupSocietyId,
+        'deceasedFirstNames': deceasedFirstNames.trim(),
+        'deceasedLastName': deceasedLastName.trim(),
+        'identityType': identityType,
+        'identityNumber': identityNumber.trim(),
+        'requestedCoverCents': requestedCoverCents,
+        'requestedBy': requestedBy,
+        'notes': notes,
+      });
+      groupSocietyClaims = [claim];
+      return true;
+    } catch (error) {
+      errorMessage = friendlyErrorMessage('Failed to request group society cover: $error');
+      return false;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -352,7 +404,12 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           sum + _coverAmountCents(cover, useCombinationBenefit: useCombinationBenefit),
     );
   }
-  int get shortfallCents => (arrangementTotalCents - selectedCoverTotalCents).clamp(0, 1 << 62).toInt();
+  int get approvedGroupSocietyCoverCents => groupSocietyClaims
+      .where((claim) => claim.isApproved)
+      .fold(0, (sum, claim) => sum + claim.approvedCoverCents);
+  int get shortfallCents => (arrangementTotalCents - selectedCoverTotalCents - approvedGroupSocietyCoverCents)
+      .clamp(0, 1 << 62)
+      .toInt();
 
   void selectPackage(FuneralPackageDto package) {
     selectedPackage = package;
@@ -433,9 +490,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
 
   void previousStep() {
     if (currentStep > 0) {
-      currentStep = currentStep == 5 && selectedCovers.isEmpty
-          ? 3
-          : currentStep - 1;
+      currentStep--;
       notifyListeners();
     }
   }
@@ -453,8 +508,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     return null;
   }
 
-  bool get hasPendingClaims => claims.any((c) {
-        final status = c.status.name.toUpperCase();
+  bool get hasPendingClaims => claims.any((claim) {
+        final status = claim.status.name.toUpperCase();
         return status == 'PENDING' || status == 'DRAFT' || status == 'SUBMITTED';
-      });
+      }) || groupSocietyClaims.any((claim) => claim.isPending);
 }
