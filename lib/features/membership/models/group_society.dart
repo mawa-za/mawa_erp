@@ -1,6 +1,9 @@
 class GroupSociety {
   final String id;
   final String partnerId;
+  final String displayName;
+  final String? partnerNumber;
+  final bool partnerAvailable;
   final String groupNo;
   final String societyType;
   final String status;
@@ -23,6 +26,9 @@ class GroupSociety {
   GroupSociety({
     required this.id,
     required this.partnerId,
+    required this.displayName,
+    this.partnerNumber,
+    this.partnerAvailable = true,
     required this.groupNo,
     required this.societyType,
     required this.status,
@@ -80,6 +86,9 @@ class GroupSociety {
     return GroupSociety(
       id: (json['id'] ?? '').toString(),
       partnerId: (json['partnerId'] ?? '').toString(),
+      displayName: (json['displayName'] ?? json['name'] ?? json['groupNo'] ?? 'Group Society').toString(),
+      partnerNumber: json['partnerNumber']?.toString() ?? json['partnerNo']?.toString(),
+      partnerAvailable: json['partnerAvailable'] == null ? true : json['partnerAvailable'] == true,
       groupNo: (json['groupNo'] ?? '').toString(),
       societyType: (json['societyType'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
