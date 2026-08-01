@@ -51,7 +51,45 @@ class Config {
 
   static String get webTenant {
     if (!kIsWeb) return '';
-    return normalizeTenantReference(Uri.base.toString());
+    return resolveWebTenantReference(Uri.base.toString());
+  }
+
+  /// Resolves the tenant from an explicit query parameter first, then from a
+  /// tenant-specific hostname. Shared environment hosts (for example
+  /// dev.app.mawa.co.za) deliberately return an empty value because they do
+  /// not identify one tenant in a multi-tenant environment.
+  @visibleForTesting
+  static String resolveWebTenantReference(String value) {
+    final candidate = value.trim();
+    if (candidate.isEmpty) return '';
+
+    final uri = Uri.tryParse(candidate.contains('://') ? candidate : 'https://$candidate');
+    if (uri != null) {
+      final explicitTenant = _firstNonBlank([
+        uri.queryParameters['tenantId'],
+        uri.queryParameters['tenant_id'],
+        uri.queryParameters['tenant'],
+        ..._fragmentTenantValues(uri.fragment),
+      ]);
+      if (explicitTenant.isNotEmpty) return explicitTenant;
+    }
+
+    final host = normalizeTenantReference(candidate);
+    return isSharedApplicationHost(host) ? '' : host;
+  }
+
+  @visibleForTesting
+  static bool isSharedApplicationHost(String value) {
+    final host = normalizeTenantReference(value);
+    return const {
+      'app.mawa.co.za',
+      'dev.app.mawa.co.za',
+      'prep.app.mawa.co.za',
+      'alpha.app.mawa.co.za',
+      'beta.app.mawa.co.za',
+      'localhost',
+      '127.0.0.1',
+    }.contains(host);
   }
 
   /// Converts the browser URL (including Flutter hash routes) into the
@@ -86,5 +124,30 @@ class Config {
         .first
         .trim()
         .toLowerCase();
+  }
+
+  static List<String?> _fragmentTenantValues(String fragment) {
+    final queryIndex = fragment.indexOf('?');
+    if (queryIndex < 0 || queryIndex == fragment.length - 1) {
+      return const [];
+    }
+    try {
+      final parameters = Uri.splitQueryString(fragment.substring(queryIndex + 1));
+      return [
+        parameters['tenantId'],
+        parameters['tenant_id'],
+        parameters['tenant'],
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static String _firstNonBlank(Iterable<String?> values) {
+    for (final value in values) {
+      final trimmed = value?.trim() ?? '';
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return '';
   }
 }
