@@ -51,7 +51,8 @@ String friendlyErrorMessage(
   final envelope = _readErrorEnvelope(raw);
   final resolvedStatus = statusCode ?? envelope.statusCode ?? _statusFromText(raw);
   final candidate = _cleanMessage(envelope.message ?? raw);
-  final embeddedFriendlyMessage = _embeddedFriendlyMessage(raw);
+  final embeddedFriendlyMessage =
+      _embeddedFriendlyMessage(candidate) ?? _embeddedFriendlyMessage(raw);
   if (embeddedFriendlyMessage != null) return embeddedFriendlyMessage;
   final lower = '$raw $candidate'.toLowerCase();
 

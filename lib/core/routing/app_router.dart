@@ -18,6 +18,7 @@ import '../../features/cases/screens/create_case_screen.dart';
 import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
+import '../../features/inbox/screens/inbox_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
 import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
 import '../../features/settings/screens/xero_integration_screen.dart';
@@ -233,6 +234,10 @@ class AppRouter {
             allowCreate: isBusinessPartner || role == 'SUPPLIER',
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.inbox,
+        builder: (context, state) => const InboxScreen(),
       ),
       GoRoute(
         path: AppRoutes.approvals,

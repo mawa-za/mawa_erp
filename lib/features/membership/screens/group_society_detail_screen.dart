@@ -74,12 +74,14 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
           _isLoading = false;
         });
 
-        _partnerService.getPartnerById(society.partnerId).then((p) {
-          if (mounted) setState(() => _partner = p);
-        }).catchError((e) {
-          debugPrint('Error loading partner for society: $e');
-          return null;
-        });
+        if (society.partnerAvailable && society.partnerId.isNotEmpty) {
+          _partnerService.getPartnerById(society.partnerId).then((p) {
+            if (mounted) setState(() => _partner = p);
+          }).catchError((e) {
+            debugPrint('Error loading partner for society: $e');
+            return null;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -469,7 +471,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_partner?.fullName ?? 'Society Details'),
+        title: Text(_partner?.fullName ?? _society?.displayName ?? 'Society Details'),
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         foregroundColor: Colors.black,
         elevation: 0,
