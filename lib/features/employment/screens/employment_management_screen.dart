@@ -232,7 +232,7 @@ class _EmploymentManagementScreenState
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  '${record['employeeNumber'] ?? 'No employee number'} • ${record['position'] ?? 'No position'}\n${record['startDate'] ?? '-'} to ${record['endDate'] ?? '-'}',
+                  '${record['employeeNumber'] ?? 'No employee number'} • ${_positionLabel(record)}\n${record['startDate'] ?? '-'} to ${record['endDate'] ?? '-'}',
                 ),
               ),
               isThreeLine: true,
@@ -284,6 +284,22 @@ class _EmploymentManagementScreenState
         .toList();
     return values.isEmpty ? 'Unknown employee' : values.join(' ');
   }
+
+  static String _positionLabel(Map<String, dynamic> record) {
+    final description = (record['positionDescription'] ?? '').toString().trim();
+    if (description.isNotEmpty) return description;
+    final code = (record['position'] ?? '').toString().trim();
+    if (code.isEmpty) return 'No position';
+    return code
+        .split(RegExp(r'[-_\s]+'))
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) => part.length == 1
+              ? part.toUpperCase()
+              : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+        )
+        .join(' ');
+  }
 }
 
 class _EmploymentDialog extends StatefulWidget {
@@ -299,7 +315,7 @@ class _EmploymentDialog extends StatefulWidget {
 class _EmploymentDialogState extends State<_EmploymentDialog> {
   final _key = GlobalKey<FormState>();
   late final TextEditingController _number;
-  late final TextEditingController _position;
+  String? _position;
   String? _branch;
   String? _department;
   DateTime _start = DateTime.now();
@@ -315,7 +331,7 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
     super.initState();
     final r = widget.record ?? const <String, dynamic>{};
     _number = TextEditingController(text: (r['employeeNumber'] ?? '').toString());
-    _position = TextEditingController(text: (r['position'] ?? '').toString());
+    _position = _optionCode(r['position']);
     _branch = _optionCode(r['branch']);
     _department = _optionCode(r['department']);
     _type = _optionCode(r['type']).isEmpty ? 'PERMANENT' : _optionCode(r['type']);
@@ -329,7 +345,6 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
   @override
   void dispose() {
     _number.dispose();
-    _position.dispose();
     super.dispose();
   }
 
@@ -353,7 +368,7 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
     final payload = <String, dynamic>{
       if (!editing) 'partnerId': _partner?.id,
       'employeeNumber': _number.text.trim(),
-      'position': _position.text.trim(),
+      'position': _position,
       'type': _type,
       'branch': _branch,
       'department': _department,
@@ -411,10 +426,13 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
                   decoration: const InputDecoration(labelText: 'Employee Number'),
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _position,
-                  decoration: const InputDecoration(labelText: 'Position'),
-                  validator: (v) => v == null || v.trim().isEmpty
+                AppDropdownField(
+                  field: 'EMPLOYMENT-POSITION',
+                  label: 'Position',
+                  icon: Icons.work_outline_rounded,
+                  value: _position,
+                  onChanged: (value) => setState(() => _position = value),
+                  validator: (value) => value == null || value.trim().isEmpty
                       ? 'Position is required'
                       : null,
                 ),
