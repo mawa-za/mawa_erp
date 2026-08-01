@@ -17,7 +17,11 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw AppException('Failed to submit approval: ${response.statusCode}');
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The approval request could not be submitted. Review the information and try again.',
+      );
     }
   }
 
@@ -94,7 +98,11 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw AppException('Failed to approve: ${response.statusCode}');
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The approval could not be completed. Please try again.',
+      );
     }
   }
 
@@ -111,7 +119,11 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw AppException('Failed to reject: ${response.statusCode}');
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The approval request could not be rejected. Please try again.',
+      );
     }
   }
 
@@ -128,7 +140,11 @@ class ApprovalService {
       final data = jsonDecode(response.body);
       return Approval.fromJson(data);
     } else {
-      throw AppException('Failed to cancel: ${response.statusCode}');
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The approval request could not be cancelled. Please try again.',
+      );
     }
   }
 }
