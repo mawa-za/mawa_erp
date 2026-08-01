@@ -16,6 +16,30 @@ import '../models/approval.dart';
 import '../services/approval_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+class _ApprovalComparisonHeader extends StatelessWidget {
+  final String text;
+  final bool emphasise;
+
+  const _ApprovalComparisonHeader(this.text, {this.emphasise = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      color: emphasise ? const Color(0xFFDCFCE7) : null,
+      child: Text(
+        text,
+        style: TextStyle(
+          color: emphasise ? const Color(0xFF166534) : const Color(0xFF64748B),
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.7,
+        ),
+      ),
+    );
+  }
+}
+
 class ApprovalDetailScreen extends StatefulWidget {
   final Approval approval;
 
@@ -376,10 +400,11 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
             style: const TextStyle(color: Color(0xFF475569), fontSize: 16, height: 1.5, fontWeight: FontWeight.w400),
           ),
           const SizedBox(height: 28),
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
             children: [
               _buildMiniIndicator(Icons.tag_rounded, _approval.referenceNo),
-              const SizedBox(width: 16),
               _buildMiniIndicator(Icons.account_tree_outlined, 'Step ${_approval.currentStepNo}'),
             ],
           ),
@@ -417,9 +442,15 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       icon: Icons.fingerprint_rounded,
       child: Column(
         children: [
-          _buildInfoRow('Reference', '${_approval.referenceNo} (${_approval.referenceId})'),
+          _buildInfoRow(
+            'Reference Number',
+            _approval.referenceNo.trim().isNotEmpty
+                ? _approval.referenceNo
+                : _approval.referenceId,
+          ),
           _buildInfoRow('Requester', _getDisplayName(_approval.requesterId)),
           _buildInfoRow('Workflow Step', 'Step ${_approval.currentStepNo}'),
+          _buildInfoRow('Created', _formatShortDate(_approval.createdAt)),
           if (_approval.finalActionBy != null)
             _buildInfoRow('Processed By', _getDisplayName(_approval.finalActionBy!)),
           const Divider(height: 24, color: Color(0xFFF1F5F9)),
@@ -446,10 +477,32 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500)),
-          Text(value, style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w800)),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 3,
+            child: SelectableText(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF1E293B),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -491,58 +544,52 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           .toList();
       if (entries.isEmpty) return const Text('No additional request details were supplied.');
 
-      final current = value['currentValues'] ?? value['currentBankingDetails'];
-      final proposed = value['proposedValues'] ?? value['proposedBankingDetails'];
+      final current = value['currentValues'] ??
+          value['currentBankingDetails'] ??
+          value['oldValues'] ??
+          value['oldValue'] ??
+          value['previousValues'] ??
+          value['previousValue'];
+      final proposed = value['proposedValues'] ??
+          value['proposedBankingDetails'] ??
+          value['newValues'] ??
+          value['newValue'] ??
+          value['requestedValues'] ??
+          value['requestedValue'];
       final remaining = entries.where((entry) => !{
         'currentValues',
         'currentBankingDetails',
+        'oldValues',
+        'oldValue',
+        'previousValues',
+        'previousValue',
         'proposedValues',
         'proposedBankingDetails',
+        'newValues',
+        'newValue',
+        'requestedValues',
+        'requestedValue',
       }.contains(entry.key.toString())).toList();
+      final technicalEntries = remaining
+          .where((entry) => _isTechnicalIdentifier(entry.key.toString()))
+          .toList();
+      final descriptiveEntries = remaining
+          .where((entry) => !_isTechnicalIdentifier(entry.key.toString()))
+          .toList();
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...remaining.map((entry) => _buildPayloadEntry(
+          ...descriptiveEntries.map((entry) => _buildPayloadEntry(
                 entry.key.toString(),
                 entry.value,
                 level: level,
               )),
+          if (technicalEntries.isNotEmpty)
+            _buildTechnicalIdentifiers(technicalEntries, level: level),
           if (current != null || proposed != null) ...[
             if (remaining.isNotEmpty) const SizedBox(height: 8),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final narrow = constraints.maxWidth < 760;
-                final currentCard = _buildComparisonCard(
-                  title: 'CURRENT',
-                  icon: Icons.history_rounded,
-                  value: current,
-                );
-                final proposedCard = _buildComparisonCard(
-                  title: 'PROPOSED',
-                  icon: Icons.trending_flat_rounded,
-                  value: proposed,
-                  emphasise: true,
-                );
-                if (narrow) {
-                  return Column(
-                    children: [
-                      currentCard,
-                      const SizedBox(height: 12),
-                      proposedCard,
-                    ],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: currentCard),
-                    const SizedBox(width: 12),
-                    Expanded(child: proposedCard),
-                  ],
-                );
-              },
-            ),
+            _buildComparisonTable(current: current, proposed: proposed),
           ],
         ],
       );
@@ -646,48 +693,246 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     );
   }
 
-  Widget _buildComparisonCard({
-    required String title,
-    required IconData icon,
-    required dynamic value,
-    bool emphasise = false,
+  bool _isTechnicalIdentifier(String key) {
+    final value = key.trim();
+    final lower = value.toLowerCase();
+    return lower == 'id' ||
+        lower == 'ids' ||
+        lower.contains('uuid') ||
+        RegExp(r'(^|[_\-\s])ids?$').hasMatch(lower) ||
+        RegExp(r'Ids?$').hasMatch(value);
+  }
+
+  Widget _buildTechnicalIdentifiers(
+    List<MapEntry<dynamic, dynamic>> entries, {
+    required int level,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: emphasise ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: emphasise ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
-        ),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        leading: const Icon(Icons.data_object_rounded, size: 18, color: Color(0xFF94A3B8)),
+        title: const Text(
+          'TECHNICAL IDENTIFIERS',
+          style: TextStyle(
+            color: Color(0xFF64748B),
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+          ),
+        ),
+        subtitle: const Text(
+          'System references are available when needed',
+          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+        ),
+        children: entries
+            .map((entry) => _buildPayloadEntry(
+                  entry.key.toString(),
+                  entry.value,
+                  level: level + 1,
+                ))
+            .toList(),
+      ),
+    );
+  }
+
+  Map<String, dynamic> _comparisonValues(dynamic value) {
+    if (value == null) return <String, dynamic>{};
+    if (value is Map) {
+      return value.map((key, item) => MapEntry(key.toString(), item));
+    }
+    if (value is List) {
+      if (value.isEmpty) return <String, dynamic>{};
+      final first = value.first;
+      if (first is Map) {
+        final result = first.map((key, item) => MapEntry(key.toString(), item));
+        if (value.length > 1) {
+          result['additionalRecords'] = value.length - 1;
+        }
+        return result;
+      }
+      return <String, dynamic>{'value': value};
+    }
+    return <String, dynamic>{'value': value};
+  }
+
+  Widget _buildComparisonTable({required dynamic current, required dynamic proposed}) {
+    final currentValues = _comparisonValues(current);
+    final proposedValues = _comparisonValues(proposed);
+    final orderedKeys = <String>[];
+    for (final key in [...currentValues.keys, ...proposedValues.keys]) {
+      if (!orderedKeys.contains(key)) orderedKeys.add(key);
+    }
+
+    final descriptiveKeys = orderedKeys
+        .where((key) => !_isTechnicalIdentifier(key))
+        .where((key) => currentValues[key] != null || proposedValues[key] != null)
+        .toList();
+    final technicalKeys = orderedKeys
+        .where(_isTechnicalIdentifier)
+        .where((key) => currentValues[key] != null || proposedValues[key] != null)
+        .toList();
+    final rows = descriptiveKeys.isNotEmpty ? descriptiveKeys : technicalKeys;
+
+    if (rows.isEmpty) {
+      return const Text('No old or new values were supplied.');
+    }
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: Colors.white,
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: emphasise ? const Color(0xFF15803D) : const Color(0xFF64748B)),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: emphasise ? const Color(0xFF15803D) : const Color(0xFF475569),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            color: const Color(0xFFF8FAFC),
+            child: const Row(
+              children: [
+                Icon(Icons.compare_arrows_rounded, size: 18, color: Color(0xFF475569)),
+                SizedBox(width: 8),
+                Text(
+                  'CHANGE COMPARISON',
+                  style: TextStyle(
+                    color: Color(0xFF334155),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
-          if (value == null)
-            const Text('No existing values', style: TextStyle(color: Color(0xFF94A3B8)))
-          else
-            _buildPayloadValue(value, level: 1),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final minWidth = constraints.maxWidth < 680 ? 680.0 : constraints.maxWidth;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: minWidth,
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(1.25),
+                      1: FlexColumnWidth(2),
+                      2: FlexColumnWidth(2),
+                    },
+                    border: const TableBorder(
+                      horizontalInside: BorderSide(color: Color(0xFFE2E8F0)),
+                      verticalInside: BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    children: [
+                      const TableRow(
+                        decoration: BoxDecoration(color: Color(0xFFF1F5F9)),
+                        children: [
+                          _ApprovalComparisonHeader('FIELD'),
+                          _ApprovalComparisonHeader('CURRENT / OLD'),
+                          _ApprovalComparisonHeader('PROPOSED / NEW', emphasise: true),
+                        ],
+                      ),
+                      ...rows.map((key) {
+                        final oldValue = currentValues[key];
+                        final newValue = proposedValues[key];
+                        final changed = _comparisonText(key, oldValue) != _comparisonText(key, newValue);
+                        return TableRow(
+                          decoration: BoxDecoration(
+                            color: changed ? const Color(0xFFFCFDFD) : Colors.white,
+                          ),
+                          children: [
+                            _buildComparisonCell(_fieldLabel(key), label: true),
+                            _buildComparisonCell(_comparisonText(key, oldValue)),
+                            _buildComparisonCell(
+                              _comparisonText(key, newValue),
+                              proposed: true,
+                              changed: changed,
+                            ),
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          if (technicalKeys.isNotEmpty && descriptiveKeys.isNotEmpty)
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                dense: true,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                title: const Text(
+                  'Show technical identifiers',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                children: technicalKeys
+                    .map((key) => Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: _buildInfoRow(
+                            _fieldLabel(key),
+                            '${_comparisonText(key, currentValues[key])} → ${_comparisonText(key, proposedValues[key])}',
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Widget _buildComparisonCell(
+    String value, {
+    bool label = false,
+    bool proposed = false,
+    bool changed = false,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 50),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      color: proposed && changed ? const Color(0xFFF0FDF4) : null,
+      alignment: Alignment.centerLeft,
+      child: SelectableText(
+        value,
+        style: TextStyle(
+          color: label
+              ? const Color(0xFF475569)
+              : proposed && changed
+                  ? const Color(0xFF166534)
+                  : const Color(0xFF1E293B),
+          fontSize: 12,
+          fontWeight: label || (proposed && changed) ? FontWeight.w800 : FontWeight.w600,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
+
+  String _comparisonText(String key, dynamic value) {
+    if (value is Map || value is List) {
+      try {
+        return const JsonEncoder.withIndent('  ').convert(value);
+      } catch (_) {
+        return value.toString();
+      }
+    }
+    return _formatPayloadValue(key, value);
   }
 
   String _fieldLabel(String key) {
