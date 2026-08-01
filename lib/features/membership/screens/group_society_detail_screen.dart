@@ -1,10 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/group_society.dart';
 import '../models/group_society_contact.dart';
 import '../models/group_society_payment.dart';
 import '../services/membership_service.dart';
+import '../../../core/widgets/attachment_section.dart';
+import '../../settings/services/pos_printing_service.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -29,11 +35,12 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
   List<GroupSocietyPayment> _payments = [];
   bool _isLoading = true;
   String? _error;
+  int _attachmentCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _fetchDetails();
   }
 
@@ -161,199 +168,297 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
   Future<void> _showAddPaymentDialog() async {
     final amountController = TextEditingController();
     final refController = TextEditingController();
-    final periodController = TextEditingController(text: DateFormat('yyyyMM').format(DateTime.now()));
     final notesController = TextEditingController();
     DateTime selectedDate = DateTime.now();
     String selectedMethod = 'CASH';
+    bool submitting = false;
 
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Record Payment'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(controller: amountController, decoration: const InputDecoration(labelText: 'Amount (R)'), keyboardType: TextInputType.number),
-                InkWell(
-                  onTap: () async {
-                    final picked = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime(2020), lastDate: DateTime.now());
-                    if (picked != null) setDialogState(() => selectedDate = picked);
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Payment Date'),
-                    child: Text(DateFormat('yyyy-MM-dd').format(selectedDate)),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          title: const Row(children: [
+            CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
+            SizedBox(width: 12),
+            Expanded(child: Text('Record Group Society Payment')),
+          ]),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: amountController,
+                    decoration: const InputDecoration(labelText: 'Amount (R)', prefixText: 'R '),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),
-                ),
-                DropdownButtonFormField<String>(
-                  value: selectedMethod,
-                  decoration: const InputDecoration(labelText: 'Method'),
-                  items: ['CASH', 'EFT', 'DEBIT_ORDER', 'OTHER'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                  onChanged: (v) => setDialogState(() => selectedMethod = v!),
-                ),
-                TextFormField(controller: periodController, decoration: const InputDecoration(labelText: 'Period (YYYYMM)')),
-                TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference')),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            FilledButton(
-              onPressed: () async {
-                final amountText = amountController.text.trim();
-                if (amountText.isEmpty) return;
-                final amount = double.tryParse(amountText);
-                if (amount == null) return;
-
-                final payload = {
-                  "amountCents": (amount * 100).toInt(),
-                  "paymentDate": DateFormat('yyyy-MM-dd').format(selectedDate),
-                  "paymentMethod": selectedMethod,
-                  "period": periodController.text.trim(),
-                  "referenceNo": refController.text.trim(),
-                  "notes": notesController.text.trim()
-                };
-                try {
-                  await _membershipService.addGroupSocietyPayment(widget.societyId, payload);
-                  if (context.mounted) Navigator.pop(context, true);
-                } catch (e) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
-                }
-              },
-              child: const Text('RECORD'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (result == true) _fetchDetails();
-  }
-
-  Future<void> _showClaimDebitDialog() async {
-    final amountController = TextEditingController();
-    final claimNoController = TextEditingController();
-    final notesController = TextEditingController();
-    DateTime claimDate = DateTime.now();
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Debit Claim'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(controller: amountController, decoration: const InputDecoration(labelText: 'Claim Amount (R)'), keyboardType: TextInputType.number),
-              TextFormField(controller: claimNoController, decoration: const InputDecoration(labelText: 'Claim Number')),
-              InkWell(
-                onTap: () async {
-                  final picked = await showDatePicker(context: context, initialDate: claimDate, firstDate: DateTime(2020), lastDate: DateTime.now());
-                  if (picked != null) setDialogState(() => claimDate = picked);
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Claim Date'),
-                  child: Text(DateFormat('yyyy-MM-dd').format(claimDate)),
-                ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: submitting ? null : () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) setDialogState(() => selectedDate = picked);
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Payment Date', prefixIcon: Icon(Icons.calendar_today_outlined)),
+                      child: Text(DateFormat('dd MMMM yyyy').format(selectedDate)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedMethod,
+                    decoration: const InputDecoration(labelText: 'Payment Method', prefixIcon: Icon(Icons.payments_outlined)),
+                    items: ['CASH', 'CARD', 'EFT', 'DEBIT_ORDER', 'OTHER']
+                        .map((method) => DropdownMenuItem(value: method, child: Text(method.replaceAll('_', ' '))))
+                        .toList(),
+                    onChanged: submitting ? null : (value) => setDialogState(() => selectedMethod = value!),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference Number')),
+                  const SizedBox(height: 12),
+                  TextFormField(controller: notesController, decoration: const InputDecoration(labelText: 'Notes'), maxLines: 3),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer.withOpacity(.35), borderRadius: BorderRadius.circular(12)),
+                    child: const Row(children: [
+                      Icon(Icons.info_outline, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(child: Text('Group society receipts do not have a premium period. The receipt will be included in the normal cashup.')),
+                    ]),
+                  ),
+                ],
               ),
-              TextFormField(controller: notesController, decoration: const InputDecoration(labelText: 'Notes')),
-            ],
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            FilledButton(
-              onPressed: () async {
-                final amountText = amountController.text.trim();
-                if (amountText.isEmpty) return;
-                final amount = double.tryParse(amountText);
-                if (amount == null) return;
-
-                final payload = {
-                  "amountCents": (amount * 100).toInt(),
-                  "claimDate": DateFormat('yyyy-MM-dd').format(claimDate),
-                  "claimNo": claimNoController.text.trim(),
-                  "notes": notesController.text.trim()
-                };
+            TextButton(onPressed: submitting ? null : () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton.icon(
+              icon: submitting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.check_circle_outline),
+              label: Text(submitting ? 'Recording...' : 'Record & Print'),
+              onPressed: submitting ? null : () async {
+                final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an amount greater than zero.')));
+                  return;
+                }
+                setDialogState(() => submitting = true);
                 try {
-                  await _membershipService.debitGroupSocietyClaim(widget.societyId, payload);
+                  final prefs = await SharedPreferences.getInstance();
+                  final response = await _membershipService.addGroupSocietyPayment(widget.societyId, {
+                    'amountCents': (amount * 100).round(),
+                    'paymentDate': DateFormat('yyyy-MM-dd').format(selectedDate),
+                    'paymentMethod': selectedMethod,
+                    'referenceNo': refController.text.trim(),
+                    'notes': notesController.text.trim(),
+                    'createdBy': prefs.getString('userId') ?? 'unknown',
+                    'deviceId': prefs.getString('deviceId') ?? 'ERP-ONLINE',
+                    'terminalId': prefs.getString('terminalId'),
+                    'location': prefs.getString('location'),
+                  });
+                  if (response.receipts.isNotEmpty) {
+                    try {
+                      await PosPrintingService().queueReceipt(response.receipts.first.id);
+                    } catch (printError) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Payment recorded. Receipt could not be queued: ${friendlyErrorMessage(printError)}'),
+                        ));
+                      }
+                    }
+                  }
                   if (context.mounted) Navigator.pop(context, true);
-                } catch (e) {
-                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
+                } catch (error) {
+                  setDialogState(() => submitting = false);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Payment failed: $error'))));
+                  }
                 }
               },
-              child: const Text('DEBIT'),
             ),
           ],
         ),
       ),
     );
-    if (result == true) _fetchDetails();
+    if (result == true) {
+      await _fetchDetails();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment recorded and added to cashup.')));
+    }
   }
 
   Future<void> _showAdjustmentDialog() async {
     final amountController = TextEditingController();
     final refController = TextEditingController();
+    final notesController = TextEditingController();
     String direction = 'CREDIT';
+    bool submitting = false;
 
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Balance Adjustment'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: direction,
-                items: const [DropdownMenuItem(value: 'CREDIT', child: Text('Credit (Add)')), DropdownMenuItem(value: 'DEBIT', child: Text('Debit (Remove)'))],
-                onChanged: (v) => setDialogState(() => direction = v!),
-              ),
-              TextFormField(controller: amountController, decoration: const InputDecoration(labelText: 'Adjustment Amount (R)'), keyboardType: TextInputType.number),
-              TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference')),
-            ],
+          title: const Row(children: [
+            CircleAvatar(child: Icon(Icons.tune_rounded)),
+            SizedBox(width: 12),
+            Expanded(child: Text('Request Balance Adjustment')),
+          ]),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                DropdownButtonFormField<String>(
+                  value: direction,
+                  decoration: const InputDecoration(labelText: 'Adjustment Direction'),
+                  items: const [
+                    DropdownMenuItem(value: 'CREDIT', child: Text('Credit — add to balance')),
+                    DropdownMenuItem(value: 'DEBIT', child: Text('Debit — reduce balance')),
+                  ],
+                  onChanged: submitting ? null : (value) => setDialogState(() => direction = value!),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: amountController,
+                  decoration: const InputDecoration(labelText: 'Adjustment Amount (R)', prefixText: 'R '),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference Number')),
+                const SizedBox(height: 12),
+                TextFormField(controller: notesController, decoration: const InputDecoration(labelText: 'Reason / Notes'), maxLines: 3),
+                const SizedBox(height: 12),
+                _approvalDocumentNotice('A supporting document must be attached in the Documents tab before this request can be submitted.'),
+              ]),
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-            FilledButton(
-              onPressed: () async {
-                final amountText = amountController.text.trim();
-                if (amountText.isEmpty) return;
-                final amount = double.tryParse(amountText);
-                if (amount == null) return;
-
-                final payload = {
-                  "amountCents": (amount * 100).toInt(),
-                  "adjustmentDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                  "direction": direction,
-                  "referenceNo": refController.text.trim(),
-                };
+            TextButton(onPressed: submitting ? null : () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton.icon(
+              onPressed: submitting ? null : () async {
+                final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an amount greater than zero.')));
+                  return;
+                }
+                setDialogState(() => submitting = true);
                 try {
-                  await _membershipService.adjustGroupSocietyBalance(widget.societyId, payload);
+                  final attachments = await _membershipService.getGroupSocietyAttachmentIds(widget.societyId);
+                  if (attachments.isEmpty) throw AppException('Attach at least one supporting document before submitting the adjustment.');
+                  final prefs = await SharedPreferences.getInstance();
+                  await _membershipService.adjustGroupSocietyBalance(widget.societyId, {
+                    'amountCents': (amount * 100).round(),
+                    'adjustmentDate': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                    'direction': direction,
+                    'referenceNo': refController.text.trim(),
+                    'notes': notesController.text.trim(),
+                    'requestedBy': prefs.getString('userId') ?? 'unknown',
+                    'supportingAttachmentIds': attachments,
+                  });
                   if (context.mounted) Navigator.pop(context, true);
-                } catch (e) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
+                } catch (error) {
+                  setDialogState(() => submitting = false);
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$error'))));
                 }
               },
-              child: const Text('APPLY'),
+              icon: submitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.approval_outlined),
+              label: Text(submitting ? 'Submitting...' : 'Submit for Approval'),
             ),
           ],
         ),
       ),
     );
-    if (result == true) _fetchDetails();
+    if (result == true) {
+      await _fetchDetails();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Balance adjustment submitted for approval.')));
+    }
   }
 
-  Future<void> _statusAction(Future<void> Function(String) action, String msg) async {
+  Widget _approvalDocumentNotice(String text) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber.shade200)),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(Icons.attach_file_rounded, size: 20, color: Colors.amber.shade900),
+      const SizedBox(width: 8),
+      Expanded(child: Text(text, style: TextStyle(color: Colors.amber.shade900))),
+    ]),
+  );
+
+  Future<void> _requestStatus(String targetStatus) async {
+    final requiresDocument = targetStatus == 'SUSPENDED' || targetStatus == 'CLOSED';
+    final notesController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(children: [
+          CircleAvatar(child: Icon(targetStatus == 'ACTIVE' ? Icons.play_arrow_rounded : targetStatus == 'SUSPENDED' ? Icons.pause_rounded : Icons.lock_outline_rounded)),
+          const SizedBox(width: 12),
+          Expanded(child: Text('Request ${targetStatus == 'CLOSED' ? 'Closure' : targetStatus[0] + targetStatus.substring(1).toLowerCase()}')),
+        ]),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextFormField(controller: notesController, decoration: const InputDecoration(labelText: 'Reason / Notes'), maxLines: 4),
+            if (requiresDocument) ...[
+              const SizedBox(height: 12),
+              _approvalDocumentNotice('Suspension and closure require supporting documentation in the Documents tab.'),
+            ],
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit for Approval')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
-      await action(widget.societyId);
-      _fetchDetails();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    } catch (e) {
+      final attachments = requiresDocument
+          ? await _membershipService.getGroupSocietyAttachmentIds(widget.societyId)
+          : <String>[];
+      if (requiresDocument && attachments.isEmpty) {
+        throw AppException('Attach at least one supporting document before requesting this status change.');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      final payload = <String, dynamic>{
+        'requestedBy': prefs.getString('userId') ?? 'unknown',
+        'notes': notesController.text.trim(),
+        'supportingAttachmentIds': attachments,
+      };
+      if (targetStatus == 'ACTIVE') {
+        await _membershipService.activateGroupSociety(widget.societyId, payload);
+      } else if (targetStatus == 'SUSPENDED') {
+        await _membershipService.suspendGroupSociety(widget.societyId, payload);
+      } else {
+        await _membershipService.closeGroupSociety(widget.societyId, payload);
+      }
+      await _fetchDetails();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$targetStatus request submitted for approval.')));
+    } catch (error) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e'))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$error'))));
       }
+    }
+  }
+
+  Future<void> _printAgreement() async {
+    try {
+      final Uint8List bytes = await _membershipService.downloadGroupSocietyAgreement(widget.societyId);
+      await Printing.layoutPdf(
+        name: 'Group Society Agreement - ${_society?.groupNo ?? widget.societyId}',
+        onLayout: (_) async => bytes,
+      );
+      await _fetchDetails();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Agreement could not be printed: $error'))));
     }
   }
 
@@ -374,17 +479,17 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             PopupMenuButton<String>(
               onSelected: (val) {
                 if (val == 'edit') _showEditDialog();
-                if (val == 'activate') _statusAction(_membershipService.activateGroupSociety, 'Society activated');
-                if (val == 'suspend') _statusAction(_membershipService.suspendGroupSociety, 'Society suspended');
-                if (val == 'close') _statusAction(_membershipService.closeGroupSociety, 'Account closed');
-                if (val == 'delete') _deleteSociety();
+                if (val == 'agreement') _printAgreement();
+                if (val == 'activate') _requestStatus('ACTIVE');
+                if (val == 'suspend') _requestStatus('SUSPENDED');
+                if (val == 'close') _requestStatus('CLOSED');
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit'), contentPadding: EdgeInsets.zero)),
-                if (_society!.status != 'ACTIVE') const PopupMenuItem(value: 'activate', child: ListTile(leading: Icon(Icons.play_circle_outline), title: Text('Activate'), contentPadding: EdgeInsets.zero)),
-                if (_society!.status != 'SUSPENDED') const PopupMenuItem(value: 'suspend', child: ListTile(leading: Icon(Icons.pause_circle_outline), title: Text('Suspend'), contentPadding: EdgeInsets.zero)),
-                if (_society!.status != 'CLOSED') const PopupMenuItem(value: 'close', child: ListTile(leading: Icon(Icons.cancel_outlined), title: Text('Close Account'), contentPadding: EdgeInsets.zero)),
-                const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline, color: Colors.red), title: Text('Delete'), contentPadding: EdgeInsets.zero)),
+                const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit Details'), contentPadding: EdgeInsets.zero)),
+                const PopupMenuItem(value: 'agreement', child: ListTile(leading: Icon(Icons.description_outlined), title: Text('Print Agreement'), contentPadding: EdgeInsets.zero)),
+                if (_society!.pendingAction == null && _society!.status != 'ACTIVE') const PopupMenuItem(value: 'activate', child: ListTile(leading: Icon(Icons.play_circle_outline), title: Text('Request Activation'), contentPadding: EdgeInsets.zero)),
+                if (_society!.pendingAction == null && _society!.status != 'SUSPENDED') const PopupMenuItem(value: 'suspend', child: ListTile(leading: Icon(Icons.pause_circle_outline), title: Text('Request Suspension'), contentPadding: EdgeInsets.zero)),
+                if (_society!.pendingAction == null && _society!.status != 'CLOSED') const PopupMenuItem(value: 'close', child: ListTile(leading: Icon(Icons.cancel_outlined), title: Text('Request Closure'), contentPadding: EdgeInsets.zero)),
               ],
             ),
         ],
@@ -393,7 +498,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
           indicatorSize: TabBarIndicatorSize.label,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-          tabs: const [Tab(text: 'Dashboard'), Tab(text: 'Contacts'), Tab(text: 'Statement')],
+          tabs: const [Tab(text: 'Dashboard'), Tab(text: 'Contacts'), Tab(text: 'Documents'), Tab(text: 'Statement')],
           labelColor: colorScheme.primary,
           unselectedLabelColor: Colors.grey,
         ),
@@ -407,6 +512,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   children: [
                     _society != null ? _buildOverviewTab(colorScheme) : const Center(child: Text('No data available')),
                     _buildContactsTab(colorScheme),
+                    _buildDocumentsTab(),
                     _buildHistoryTab(colorScheme)
                   ],
                 ),
@@ -419,7 +525,6 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     return PopupMenuButton<String>(
       onSelected: (val) {
         if (val == 'pay') _showAddPaymentDialog();
-        if (val == 'claim') _showClaimDebitDialog();
         if (val == 'adjust') _showAdjustmentDialog();
       },
       child: Container(
@@ -440,8 +545,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
       ),
       itemBuilder: (context) => [
         const PopupMenuItem(value: 'pay', child: ListTile(leading: Icon(Icons.add_card, color: Colors.green), title: Text('Record Payment'), contentPadding: EdgeInsets.zero)),
-        const PopupMenuItem(value: 'claim', child: ListTile(leading: Icon(Icons.money_off, color: Colors.red), title: Text('Debit Claim'), contentPadding: EdgeInsets.zero)),
-        const PopupMenuItem(value: 'adjust', child: ListTile(leading: Icon(Icons.tune, color: Colors.blue), title: Text('Adjustment'), contentPadding: EdgeInsets.zero)),
+        const PopupMenuItem(value: 'adjust', child: ListTile(leading: Icon(Icons.tune, color: Colors.blue), title: Text('Request Balance Adjustment'), contentPadding: EdgeInsets.zero)),
       ],
     );
   }
@@ -457,6 +561,19 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildBalanceHeader(s, colorScheme),
+            if (s.pendingAction != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.amber.shade200)),
+                child: Row(children: [
+                  Icon(Icons.hourglass_top_rounded, color: Colors.amber.shade900),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('Approval pending${s.requestedStatus == null ? '' : ' for ${s.requestedStatus}'}', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.amber.shade900))),
+                ]),
+              ),
+            ],
             const SizedBox(height: 24),
             _buildQuickStats(s),
             const SizedBox(height: 32),
@@ -704,6 +821,44 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     ]);
   }
 
+  Widget _buildDocumentsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Card(
+          elevation: 0,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              const CircleAvatar(child: Icon(Icons.description_outlined)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Group Society Agreement', style: TextStyle(fontWeight: FontWeight.w800)),
+                Text('Printed ${_society?.agreementPrintCount ?? 0} time(s)${_society?.agreementLastPrintedAt == null ? '' : ' • Last ${_society!.agreementLastPrintedAt}'}'),
+              ])),
+              FilledButton.icon(onPressed: _printAgreement, icon: const Icon(Icons.print_outlined), label: const Text('Print')),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text('Signed Agreement & Supporting Documents', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        AttachmentSection(
+          objectId: widget.societyId,
+          documentTypeField: 'DOCUMENT-TYPE-GROUP-SOCIETY',
+          onAttachmentCountChanged: (count) {
+            if (mounted) setState(() => _attachmentCount = count);
+          },
+        ),
+        if (_attachmentCount == 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('Upload the signed agreement and supporting documents here.', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+      ]),
+    );
+  }
+
   Widget _buildHistoryTab(ColorScheme colorScheme) {
     if (_payments.isEmpty) return _buildEmptyWidget(Icons.history, 'No transactions found');
     return ListView.builder(
@@ -756,29 +911,50 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
   Widget _buildEmptyWidget(IconData i, String m) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, size: 48, color: Colors.grey[200]), const SizedBox(height: 12), Text(m, style: const TextStyle(color: Colors.grey))]));
   Widget _buildErrorWidget() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.error_outline, size: 48, color: Colors.red), const SizedBox(height: 16), Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center), const SizedBox(height: 16), ElevatedButton(onPressed: _fetchDetails, child: const Text('RETRY'))]));
 
-  Future<void> _deleteSociety() async {
-    final bool? confirm = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Delete Society'), content: const Text('Permanently delete this society?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')), TextButton(onPressed: () => Navigator.pop(context, true), style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('DELETE'))]));
-    if (confirm == true) { setState(() => _isLoading = true); try { await _membershipService.deleteGroupSociety(widget.societyId); if (mounted) Navigator.pop(context, true); } catch (e) { if (mounted) setState(() => _isLoading = false); } }
-  }
-
   Future<void> _showEditDialog() async {
     if (_society == null) return;
-    final groupNoController = TextEditingController(text: _society!.groupNo);
-    final balanceController = TextEditingController(text: _society!.availableBalance.toStringAsFixed(2));
-    String selectedType = _society!.societyType; String selectedStatus = _society!.status;
-    final result = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(title: const Text('Edit Society'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextFormField(controller: groupNoController, decoration: const InputDecoration(labelText: 'Group Number')), DropdownButtonFormField<String>(value: selectedType, items: ['GROUP', 'SOCIETY', 'BURIAL'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(), onChanged: (v) => setDialogState(() => selectedType = v!)), DropdownButtonFormField<String>(value: selectedStatus, items: ['ACTIVE', 'INACTIVE', 'DORMANT'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(), onChanged: (v) => setDialogState(() => selectedStatus = v!))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')), FilledButton(onPressed: () async {
-      final amountText = balanceController.text.trim();
-      final amount = double.tryParse(amountText) ?? 0;
-      final payload = {"partnerId": _society!.partnerId, "groupNo": groupNoController.text, "societyType": selectedType, "status": selectedStatus, "openingBalanceCents": (amount * 100).toInt() };
-      try {
-        await _membershipService.postGroupSocietyUpdate(widget.societyId, payload);
-        if (context.mounted) Navigator.pop(context, true);
-      } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
-      }
-    }, child: const Text('SAVE'))])));
-    if (result == true) _fetchDetails();
+    String selectedType = _society!.societyType;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Row(children: [CircleAvatar(child: Icon(Icons.edit_outlined)), SizedBox(width: 12), Text('Edit Society Details')]),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(initialValue: _society!.groupNo, enabled: false, decoration: const InputDecoration(labelText: 'Group Number', helperText: 'The allocated group number cannot be changed.')),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedType,
+                decoration: const InputDecoration(labelText: 'Society Type'),
+                items: ['GROUP', 'SOCIETY', 'BURIAL'].map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+                onChanged: (value) => setDialogState(() => selectedType = value!),
+              ),
+              const SizedBox(height: 12),
+              const Text('Status changes are submitted separately for approval.', style: TextStyle(color: Colors.grey)),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(onPressed: () async {
+              try {
+                await _membershipService.postGroupSocietyUpdate(widget.societyId, {
+                  'partnerId': _society!.partnerId,
+                  'groupNo': _society!.groupNo,
+                  'societyType': selectedType,
+                });
+                if (context.mounted) Navigator.pop(context, true);
+              } catch (error) {
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Update failed: $error'))));
+              }
+            }, child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (result == true) await _fetchDetails();
   }
 
-  @override void dispose() { _tabController.dispose(); super.dispose(); }
+  @override
+  void dispose() { _tabController.dispose(); super.dispose(); }
 }

@@ -16,6 +16,11 @@ class GroupSocietyPayment {
   final String? notes;
   final String createdAt;
   final String createdBy;
+  final String status;
+  final String? approvalRequestId;
+  final String? paymentBatchId;
+  final String? receiptId;
+  final String? requestedBy;
 
   GroupSocietyPayment({
     required this.id,
@@ -35,6 +40,11 @@ class GroupSocietyPayment {
     this.notes,
     required this.createdAt,
     required this.createdBy,
+    this.status = 'POSTED',
+    this.approvalRequestId,
+    this.paymentBatchId,
+    this.receiptId,
+    this.requestedBy,
   });
 
   double get amount => amountCents / 100.0;
@@ -89,6 +99,11 @@ class GroupSocietyPayment {
       notes: json['notes']?.toString(),
       createdAt: parseDate(json['createdAt']),
       createdBy: (json['createdBy'] ?? '').toString(),
+      status: (json['status'] ?? 'POSTED').toString(),
+      approvalRequestId: json['approvalRequestId']?.toString(),
+      paymentBatchId: json['paymentBatchId']?.toString(),
+      receiptId: json['receiptId']?.toString(),
+      requestedBy: json['requestedBy']?.toString(),
     );
   }
 }

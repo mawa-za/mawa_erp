@@ -5,6 +5,7 @@ class PaymentBatchResponse {
   final String paymentBatchNo;
   final String sourceType;
   final String membershipId;
+  final String? receivedFromPartnerId;
   final String paymentMethod;
   final int totalAmountCents;
   final String paymentDate;
@@ -18,6 +19,7 @@ class PaymentBatchResponse {
     required this.paymentBatchNo,
     required this.sourceType,
     required this.membershipId,
+    this.receivedFromPartnerId,
     required this.paymentMethod,
     required this.totalAmountCents,
     required this.paymentDate,
@@ -38,8 +40,9 @@ class PaymentBatchResponse {
       paymentBatchNo: (json['paymentBatchNo'] ?? '').toString(),
       sourceType: (json['sourceType'] ?? '').toString(),
       membershipId: (json['membershipId'] ?? '').toString(),
+      receivedFromPartnerId: json['receivedFromPartnerId']?.toString(),
       paymentMethod: (json['paymentMethod'] ?? '').toString(),
-      totalAmountCents: json['totalAmountCents'] ?? 0,
+      totalAmountCents: (json['totalAmountCents'] as num?)?.toInt() ?? int.tryParse('${json['totalAmountCents'] ?? 0}') ?? 0,
       paymentDate: (json['paymentDate'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
       syncStatus: (json['syncStatus'] ?? '').toString(),
