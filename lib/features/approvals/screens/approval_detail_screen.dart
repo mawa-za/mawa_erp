@@ -148,12 +148,28 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     final payload = _approval.payloadJson;
     if (payload == null || payload.trim().isEmpty) return null;
     try {
-      final decoded = jsonDecode(payload);
-      if (decoded is Map && decoded['membershipId'] != null) {
-        final value = decoded['membershipId'].toString().trim();
-        return value.isEmpty ? null : value;
+      return _findStringField(jsonDecode(payload), 'membershipId');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _findStringField(dynamic value, String fieldName) {
+    if (value is Map) {
+      final direct = value[fieldName];
+      if (direct != null && direct.toString().trim().isNotEmpty) {
+        return direct.toString().trim();
       }
-    } catch (_) {}
+      for (final nested in value.values) {
+        final found = _findStringField(nested, fieldName);
+        if (found != null) return found;
+      }
+    } else if (value is List) {
+      for (final nested in value) {
+        final found = _findStringField(nested, fieldName);
+        if (found != null) return found;
+      }
+    }
     return null;
   }
 
@@ -272,6 +288,10 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                         _buildHeroHeader(),
                         const SizedBox(height: 16),
                         _buildIdentificationSheet(),
+                        if (_hasRequestDetails) ...[
+                          const SizedBox(height: 16),
+                          _buildRequestDetailsSection(),
+                        ],
                         const SizedBox(height: 16),
                         _buildAttachmentSection(),
                         const SizedBox(height: 16),
@@ -435,13 +455,302 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     );
   }
 
+  dynamic get _decodedPayload {
+    final payload = _approval.payloadJson;
+    if (payload == null || payload.trim().isEmpty) return null;
+    try {
+      return jsonDecode(payload);
+    } catch (_) {
+      return payload.trim();
+    }
+  }
+
+  bool get _hasRequestDetails {
+    final value = _decodedPayload;
+    if (value == null) return false;
+    if (value is Map) {
+      return value.entries.any((entry) => entry.key.toString() != 'attachmentObjectIds');
+    }
+    if (value is List) return value.isNotEmpty;
+    return value.toString().trim().isNotEmpty;
+  }
+
+  Widget _buildRequestDetailsSection() {
+    final payload = _decodedPayload;
+    return _buildSectionLayout(
+      title: 'REQUEST DETAILS',
+      icon: Icons.fact_check_outlined,
+      child: _buildPayloadValue(payload, level: 0),
+    );
+  }
+
+  Widget _buildPayloadValue(dynamic value, {required int level, String? fieldName}) {
+    if (value is Map) {
+      final entries = value.entries
+          .where((entry) => entry.key.toString() != 'attachmentObjectIds')
+          .toList();
+      if (entries.isEmpty) return const Text('No additional request details were supplied.');
+
+      final current = value['currentValues'] ?? value['currentBankingDetails'];
+      final proposed = value['proposedValues'] ?? value['proposedBankingDetails'];
+      final remaining = entries.where((entry) => !{
+        'currentValues',
+        'currentBankingDetails',
+        'proposedValues',
+        'proposedBankingDetails',
+      }.contains(entry.key.toString())).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...remaining.map((entry) => _buildPayloadEntry(
+                entry.key.toString(),
+                entry.value,
+                level: level,
+              )),
+          if (current != null || proposed != null) ...[
+            if (remaining.isNotEmpty) const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 760;
+                final currentCard = _buildComparisonCard(
+                  title: 'CURRENT',
+                  icon: Icons.history_rounded,
+                  value: current,
+                );
+                final proposedCard = _buildComparisonCard(
+                  title: 'PROPOSED',
+                  icon: Icons.trending_flat_rounded,
+                  value: proposed,
+                  emphasise: true,
+                );
+                if (narrow) {
+                  return Column(
+                    children: [
+                      currentCard,
+                      const SizedBox(height: 12),
+                      proposedCard,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: currentCard),
+                    const SizedBox(width: 12),
+                    Expanded(child: proposedCard),
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      );
+    }
+
+    if (value is List) {
+      if (value.isEmpty) return const Text('None');
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: value.asMap().entries.map((entry) {
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: _buildPayloadValue(entry.value, level: level + 1),
+          );
+        }).toList(),
+      );
+    }
+
+    return SelectableText(
+      _formatPayloadValue(fieldName, value),
+      style: const TextStyle(
+        color: Color(0xFF1E293B),
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
+  Widget _buildPayloadEntry(String key, dynamic value, {required int level}) {
+    if (value == null || (value is String && value.trim().isEmpty)) {
+      return const SizedBox.shrink();
+    }
+    final complex = value is Map || value is List;
+    if (complex) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: level == 0 ? const Color(0xFFF8FAFC) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _fieldLabel(key).toUpperCase(),
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildPayloadValue(value, level: level + 1, fieldName: key),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              _fieldLabel(key),
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: SelectableText(
+              _formatPayloadValue(key, value),
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF1E293B),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComparisonCard({
+    required String title,
+    required IconData icon,
+    required dynamic value,
+    bool emphasise = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: emphasise ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: emphasise ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: emphasise ? const Color(0xFF15803D) : const Color(0xFF64748B)),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: emphasise ? const Color(0xFF15803D) : const Color(0xFF475569),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (value == null)
+            const Text('No existing values', style: TextStyle(color: Color(0xFF94A3B8)))
+          else
+            _buildPayloadValue(value, level: 1),
+        ],
+      ),
+    );
+  }
+
+  String _fieldLabel(String key) {
+    final withSpaces = key
+        .replaceAll('_', ' ')
+        .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (match) => '${match.group(1)} ${match.group(2)}');
+    return withSpaces
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => part.length <= 3 && part.toUpperCase() == part
+            ? part
+            : '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
+  String _formatPayloadValue(String? key, dynamic value) {
+    if (value == null) return 'Not supplied';
+    if (value is bool) return value ? 'Yes' : 'No';
+    final text = value.toString();
+    final normalizedKey = key?.toLowerCase() ?? '';
+    if (normalizedKey.endsWith('cents')) {
+      final cents = num.tryParse(text);
+      if (cents != null) return NumberFormat.currency(symbol: 'R ').format(cents / 100);
+    }
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}(T.*)?$').hasMatch(text)) {
+      try {
+        final date = DateTime.parse(text);
+        return text.contains('T')
+            ? DateFormat('dd MMM yyyy, HH:mm').format(date)
+            : DateFormat('dd MMM yyyy').format(date);
+      } catch (_) {}
+    }
+    return text.replaceAll('_', ' ');
+  }
+
+  List<String> _attachmentObjectIds() {
+    final decoded = _decodedPayload;
+    if (decoded is Map && decoded['attachmentObjectIds'] is List) {
+      final ids = (decoded['attachmentObjectIds'] as List)
+          .map((value) => value?.toString().trim() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList();
+      if (ids.isNotEmpty) return ids;
+    }
+    return [_approval.referenceId];
+  }
+
   Widget _buildAttachmentSection() {
+    final objectIds = _attachmentObjectIds();
     return _buildSectionLayout(
       title: 'EVIDENCE & DOCUMENTS',
       icon: Icons.attach_file_rounded,
-      child: AttachmentSection(
-        objectId: _approval.referenceId,
-        readOnly: true,
+      child: Column(
+        children: objectIds.asMap().entries.map((entry) {
+          return Padding(
+            padding: EdgeInsets.only(top: entry.key == 0 ? 0 : 16),
+            child: AttachmentSection(
+              objectId: entry.value,
+              readOnly: true,
+            ),
+          );
+        }).toList(),
       ),
     );
   }

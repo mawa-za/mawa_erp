@@ -7,8 +7,8 @@ import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../partners/models/partner.dart';
 import '../models/appointment_booking.dart';
 import '../services/appointment_booking_service.dart';
-import '../services/appointment_service_order_service.dart';
-import 'appointment_service_order_screen.dart';
+import '../../service_orders/services/service_order_service.dart';
+import '../../service_orders/screens/service_order_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AppointmentCalendarScreen extends StatefulWidget {
@@ -20,8 +20,8 @@ class AppointmentCalendarScreen extends StatefulWidget {
 
 class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
   final AppointmentBookingService _service = AppointmentBookingService();
-  final AppointmentServiceOrderService _serviceOrderService =
-      AppointmentServiceOrderService();
+  final ServiceOrderService _serviceOrderService =
+      ServiceOrderService();
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime _selectedDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   String _statusFilter = 'ALL';
@@ -138,7 +138,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => AppointmentServiceOrderScreen(
+          builder: (_) => ServiceOrderScreen(
             serviceOrderId: serviceOrder.id,
           ),
         ),
