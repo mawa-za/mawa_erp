@@ -1,6 +1,10 @@
 class Membership {
   final String id;
   final String memberId;
+  final String memberNumber;
+  final String memberName;
+  final String memberIdentityType;
+  final String memberIdentityNumber;
   final String membershipNo;
   final String planId;
   final String? startDate;
@@ -17,6 +21,10 @@ class Membership {
   Membership({
     required this.id,
     required this.memberId,
+    this.memberNumber = '',
+    this.memberName = '',
+    this.memberIdentityType = '',
+    this.memberIdentityNumber = '',
     required this.membershipNo,
     required this.planId,
     this.startDate,
@@ -63,6 +71,10 @@ class Membership {
     return Membership(
       id: (json['id'] ?? '').toString(),
       memberId: (json['memberId'] ?? '').toString(),
+      memberNumber: (json['memberNumber'] ?? '').toString(),
+      memberName: (json['memberName'] ?? '').toString(),
+      memberIdentityType: (json['memberIdentityType'] ?? '').toString(),
+      memberIdentityNumber: (json['memberIdentityNumber'] ?? '').toString(),
       membershipNo: (json['membershipNo'] ?? '').toString(),
       planId: (json['planId'] ?? '').toString(),
       startDate: parseDateArray(json['startDate']),

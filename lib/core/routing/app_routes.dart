@@ -19,6 +19,7 @@ class AppRoutes {
   static const String caseBilling = '/cases/:caseId/billing';
   static const String caseInvoicePreview = '/cases/:caseId/invoice-preview';
   static const String approvals = '/approvals';
+  static const String inbox = '/inbox';
   static const String settings = '/settings';
   static const String systemConfiguration = '/system-configuration';
   static const String fnbIntegration = '/system-configuration/fnb-integration';

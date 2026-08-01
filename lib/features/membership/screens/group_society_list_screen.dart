@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/group_society.dart';
 import '../services/membership_service.dart';
-import '../../partners/partner_service.dart';
-import '../../partners/models/partner.dart';
 import 'group_society_detail_screen.dart';
 import 'group_society_create_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -17,10 +15,7 @@ class GroupSocietyListScreen extends StatefulWidget {
 
 class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
   final MembershipService _membershipService = MembershipService();
-  final PartnerService _partnerService = PartnerService();
-  
   List<GroupSociety> _societies = [];
-  Map<String, Partner> _partners = {};
   bool _isLoading = true;
   String? _error;
 
@@ -48,23 +43,9 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
 
       societies.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      // Fetch unique partner details for names
-      final partnerIds = societies.map((s) => s.partnerId).toSet();
-      final Map<String, Partner> partners = {};
-      
-      await Future.wait(partnerIds.map((id) async {
-        try {
-          final p = await _partnerService.getPartnerById(id);
-          partners[id] = p;
-        } catch (e) {
-          debugPrint('Error fetching partner $id: $e');
-        }
-      }));
-
       if (mounted) {
         setState(() {
           _societies = societies;
-          _partners = partners;
           _isLoading = false;
         });
       }
@@ -200,8 +181,7 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
   }
 
   Widget _buildSocietyCard(GroupSociety society, ColorScheme colorScheme) {
-    final partner = _partners[society.partnerId];
-    final displayName = partner?.fullName ?? 'Unknown Society';
+    final displayName = society.displayName.isEmpty ? society.groupNo : society.displayName;
     final statusColor = _getStatusColor(society.status);
 
     return Card(
@@ -233,9 +213,9 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(displayName, 
+                        Text(displayName,
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('No: ${society.groupNo} • ${society.societyType}', 
+                        Text('No: ${society.groupNo} • ${society.societyType}',
                           style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                       ],
                     ),

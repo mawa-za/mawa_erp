@@ -133,7 +133,12 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(friendlyErrorMessage('Failed to submit: $e')),
+              content: Text(
+                friendlyErrorMessage(
+                  e,
+                  fallback: 'The claim could not be submitted. Review the claim and try again.',
+                ),
+              ),
               backgroundColor: Colors.red[700],
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

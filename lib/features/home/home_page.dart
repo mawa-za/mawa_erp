@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -32,6 +33,8 @@ import '../membership/screens/group_society_list_screen.dart';
 import '../payments/screens/payment_request_list_screen.dart';
 import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
+import '../inbox/models/inbox.dart';
+import '../inbox/services/inbox_service.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -59,6 +62,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   final ModuleUsageService _moduleUsageService = ModuleUsageService();
   final TenantExperienceService _tenantExperienceService = TenantExperienceService();
   TenantExperience? _tenantExperience;
+  final InboxService _inboxService = InboxService();
+  InboxCounts _inboxCounts = const InboxCounts.empty();
+  Timer? _inboxTimer;
 
   @override
   void initState() {
@@ -72,6 +78,21 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     _loadAppVersion();
     _fetchRecentModules();
     _fetchFrequentModules();
+    _loadInboxCounts();
+    _inboxTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadInboxCounts(silent: true),
+    );
+  }
+
+  Future<void> _loadInboxCounts({bool silent = false}) async {
+    try {
+      final counts = await _inboxService.getCounts();
+      if (!mounted) return;
+      setState(() => _inboxCounts = counts);
+    } catch (error) {
+      if (!silent) debugPrint('Unable to load inbox counts: $error');
+    }
   }
 
   Future<void> _loadAppVersion() async {
@@ -656,6 +677,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 ),
               ),
             ),
+          _buildInboxButton(),
+          const SizedBox(width: 8),
           _buildUserMenu(),
         ],
       ),
@@ -703,6 +726,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               label: 'Home',
               selected: true,
               onTap: () {},
+            ),
+            _sidebarItem(
+              icon: Icons.inbox_rounded,
+              label: _inboxCounts.pendingApprovalCount > 0
+                  ? 'Inbox (${_inboxCounts.pendingApprovalCount})'
+                  : 'Inbox',
+              onTap: () => context.push(AppRoutes.inbox),
             ),
             ...navigationModules.map(
               (workcenter) => _sidebarItem(
@@ -1303,6 +1333,58 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildInboxButton() {
+    final badgeCount = _inboxCounts.unreadCount;
+    return Tooltip(
+      message: _inboxCounts.pendingApprovalCount > 0
+          ? '${_inboxCounts.pendingApprovalCount} approval item(s) waiting'
+          : 'Inbox',
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () async {
+            await context.push(AppRoutes.inbox);
+            _loadInboxCounts();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_none_rounded, color: MawaDesign.textMuted),
+                if (badgeCount > 0)
+                  Positioned(
+                    right: -7,
+                    top: -7,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: MawaDesign.red,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: MawaDesign.surface, width: 2),
+                      ),
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildUserMenu() {
     final theme = Theme.of(context);
     final displayName = _displayName?.trim().isNotEmpty == true ? _displayName! : 'User';
@@ -1437,6 +1519,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _inboxTimer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
