@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice.dart';
-import '../../partners/models/partner.dart';
 import 'invoice_create_screen.dart' hide Partner;
 import 'invoice_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -32,7 +31,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   String? _error;
   String _selectedStatus = 'ALL';
   DateTime? _selectedDate;
-  final Map<String, String> _partnerNames = {};
 
   final List<String> _statuses = ['ALL', 'DRAFT', 'PAID', 'NEW', 'OVERDUE'];
 
@@ -63,12 +61,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         queryParams['invoiceDate'] = DateFormat('yyyy-MM-dd').format(_selectedDate!);
       }
 
-      String url = '/v2/invoice';
-      if (queryParams.isNotEmpty) {
-        url += '?' + queryParams.entries.map((e) => '${e.key}=${e.value}').join('&');
-      }
-
-      final response = await ApiClient().get(url);
+      final response = await ApiClient().get(
+        '/v2/invoice',
+        queryParameters: queryParams,
+      );
       
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -78,7 +74,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           _invoices = invoices;
           _isLoading = false;
         });
-        _resolvePartnerNames(invoices);
       } else {
         setState(() {
           _error = friendlyErrorMessage(
@@ -94,30 +89,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _resolvePartnerNames(List<Invoice> invoices) async {
-    final uniquePartnerIds = invoices
-        .map((inv) => inv.partnerId)
-        .where((id) => id.isNotEmpty && !_partnerNames.containsKey(id))
-        .toSet();
-
-    for (final id in uniquePartnerIds) {
-      try {
-        final response = await ApiClient().get('/v2/partner/$id');
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final partner = Partner.fromJson(data);
-          if (mounted) {
-            setState(() {
-              _partnerNames[id] = partner.fullName;
-            });
-          }
-        }
-      } catch (e) {
-        debugPrint('Error resolving partner name for $id: $e');
-      }
     }
   }
 
@@ -363,7 +334,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   }
 
   Widget _buildInvoiceCard(Invoice invoice, ColorScheme colorScheme) {
-    final displayCustomerName = _partnerNames[invoice.partnerId] ?? invoice.customerName;
+    final displayCustomerName = invoice.customerName;
 
     return Card(
       elevation: 0,
