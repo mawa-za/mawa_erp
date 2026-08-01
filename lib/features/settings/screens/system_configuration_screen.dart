@@ -1,330 +1,827 @@
 import 'package:flutter/material.dart';
-import 'user_list_screen.dart';
-import 'company_info_screen.dart';
-import 'role_list_screen.dart';
-import 'field_option_list_screen.dart';
-import 'api_log_list_screen.dart';
-import '../../approvals/screens/approval_workflow_list_screen.dart';
-import '../../membership/screens/membership_plan_list_screen.dart';
-import '../../integrations/fnb/fnb_integration_admin_screen.dart';
-import '../../admin/message_queue/message_queue_admin_screen.dart';
-import 'xero_integration_screen.dart';
-import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
-import '../../funeral/presentation/pages/trusted_tenants_page.dart';
-import 'pos_printing_settings_screen.dart';
-import 'manual_receipt_cutover_settings_screen.dart';
-import 'manual_receipt_book_maintenance_screen.dart';
-import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
-import 'premium_generation_settings_screen.dart';
-import 'membership_lapse_settings_screen.dart';
-import '../../payments/screens/payment_account_configuration_screen.dart';
-import 'number_range_configuration_screen.dart';
-import 'storage_configuration_screen.dart';
-import 'claim_type_configuration_screen.dart';
-import 'membership_policy_configuration_screen.dart';
-import '../../forms/company_form_configuration_screen.dart';
-import 'payment_request_invoice_email_configuration_screen.dart';
-import 'signiflow_configuration_screen.dart';
 
-class SystemConfigurationScreen extends StatelessWidget {
+import '../../../core/theme/mawa_design.dart';
+import '../../../core/widgets/mawa_ui.dart';
+import '../../admin/message_queue/message_queue_admin_screen.dart';
+import '../../approvals/screens/approval_workflow_list_screen.dart';
+import '../../forms/company_form_configuration_screen.dart';
+import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
+import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
+import '../../funeral/presentation/pages/trusted_tenants_page.dart';
+import '../../integrations/fnb/fnb_integration_admin_screen.dart';
+import '../../membership/screens/membership_plan_list_screen.dart';
+import '../../payments/screens/payment_account_configuration_screen.dart';
+import 'api_log_list_screen.dart';
+import 'claim_type_configuration_screen.dart';
+import 'company_info_screen.dart';
+import 'field_option_list_screen.dart';
+import 'manual_receipt_book_maintenance_screen.dart';
+import 'manual_receipt_cutover_settings_screen.dart';
+import 'membership_lapse_settings_screen.dart';
+import 'membership_policy_configuration_screen.dart';
+import 'number_range_configuration_screen.dart';
+import 'payment_request_invoice_email_configuration_screen.dart';
+import 'pos_printing_settings_screen.dart';
+import 'premium_generation_settings_screen.dart';
+import 'role_list_screen.dart';
+import 'signiflow_configuration_screen.dart';
+import 'storage_configuration_screen.dart';
+import 'user_list_screen.dart';
+import 'xero_integration_screen.dart';
+
+class SystemConfigurationScreen extends StatefulWidget {
   const SystemConfigurationScreen({super.key});
 
   @override
+  State<SystemConfigurationScreen> createState() =>
+      _SystemConfigurationScreenState();
+}
+
+class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  String _searchTerm = '';
+  _ConfigurationCategory? _selectedCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_onSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final value = _searchController.text.trim().toLowerCase();
+    if (value == _searchTerm) return;
+    setState(() => _searchTerm = value);
+  }
+
+  List<_ConfigurationItem> _configurationItems(BuildContext context) => [
+        _ConfigurationItem(
+          title: 'Company Profile',
+          description:
+              'Maintain company details, contact information and branding used across documents.',
+          icon: Icons.business_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(
+            context,
+            const CompanyInfoScreen(isReadOnly: false),
+          ),
+        ),
+        _ConfigurationItem(
+          title: 'User Management',
+          description:
+              'Create users, maintain access and manage who can work in the tenant.',
+          icon: Icons.people_outline_rounded,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const UserListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Role Management',
+          description:
+              'Define system roles and control the permissions assigned to each role.',
+          icon: Icons.admin_panel_settings_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const RoleListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Approval Workflows',
+          description:
+              'Configure approval levels, approvers and routing for controlled business processes.',
+          icon: Icons.account_tree_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const ApprovalWorkflowListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Field Options',
+          description:
+              'Maintain tenant-specific values available in system dropdown fields.',
+          icon: Icons.tune_rounded,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const FieldOptionListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Company Forms',
+          description:
+              'Upload, replace and centrally publish the forms used by the organisation.',
+          icon: Icons.description_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const CompanyFormConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Membership Plans',
+          description:
+              'Configure membership products, cover benefits, plan rules and pricing.',
+          icon: Icons.card_membership_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () => _open(context, const MembershipPlanListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Membership Policy',
+          description:
+              'Control multiple memberships and approval requirements for additional cover.',
+          icon: Icons.policy_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () =>
+              _open(context, const MembershipPolicyConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Claim Types',
+          description:
+              'Choose which claim types are available during claim registration and processing.',
+          icon: Icons.fact_check_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () => _open(context, const ClaimTypeConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Automatic Premium Generation',
+          description:
+              'Select the monthly generation date and backfill missing premium periods.',
+          icon: Icons.calendar_month_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () => _open(context, const PremiumGenerationSettingsScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Membership Lapse Rules',
+          description:
+              'Set when memberships lapse after consecutive premiums have been missed.',
+          icon: Icons.event_busy_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () => _open(context, const MembershipLapseSettingsScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Funeral Cover Underwriters',
+          description:
+              'Maintain organisations permitted to underwrite third-party funeral cover.',
+          icon: Icons.business_center_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () => _open(
+            context,
+            const ThirdPartyFuneralUnderwriterConfigurationPage(),
+          ),
+        ),
+        _ConfigurationItem(
+          title: 'Payment Accounts',
+          description:
+              'Map debtor and creditor accounts used by each payment request type.',
+          icon: Icons.account_balance_wallet_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () =>
+              _open(context, const PaymentAccountConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'FNB Integration',
+          description:
+              'Activate and configure secure FNB payment instruction processing.',
+          icon: Icons.account_balance_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(context, const FnbIntegrationAdminScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Xero Integration',
+          description:
+              'Connect Xero and select the organisation used for invoice synchronisation.',
+          icon: Icons.sync_alt_rounded,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(context, const XeroIntegrationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Supplier Invoice Email',
+          description:
+              'Email approved supplier invoice attachments and manage the once-off backfill.',
+          icon: Icons.attach_email_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(
+            context,
+            const PaymentRequestInvoiceEmailConfigurationScreen(),
+          ),
+        ),
+        _ConfigurationItem(
+          title: 'Manual Receipt Books',
+          description:
+              'Maintain valid receipt-book numbers, ranges and employee assignments.',
+          icon: Icons.menu_book_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () =>
+              _open(context, const ManualReceiptBookMaintenanceScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Manual Receipt Cutover',
+          description:
+              'Configure MAWAPay go-live, legacy capture and emergency receipt rules.',
+          icon: Icons.receipt_long_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () =>
+              _open(context, const ManualReceiptCutoverSettingsScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Number Ranges',
+          description:
+              'Manage document sequences, operational number ranges and device allocations.',
+          icon: Icons.format_list_numbered_rounded,
+          category: _ConfigurationCategory.finance,
+          onTap: () =>
+              _open(context, const NumberRangeConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Warehouse & Storage',
+          description:
+              'Configure warehouses, storage locations, location types and bins.',
+          icon: Icons.warehouse_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(context, const StorageConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'POS Printing',
+          description:
+              'Pair payment terminals, Windows print agents and receipt printers.',
+          icon: Icons.point_of_sale_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(context, const PosPrintingSettingsScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Message Queue Processing',
+          description:
+              'Schedule, start, stop and monitor asynchronous message processing.',
+          icon: Icons.queue_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(context, const MessageQueueAdminScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'API Activity Logs',
+          description:
+              'Review backend requests, response outcomes and system performance.',
+          icon: Icons.monitor_heart_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(context, const ApiLogListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Trusted Tenants',
+          description:
+              'Request, approve, suspend or revoke secure cross-tenant relationships.',
+          icon: Icons.verified_user_outlined,
+          category: _ConfigurationCategory.integrations,
+          onTap: () => _open(context, const TrustedTenantsPage()),
+        ),
+        _ConfigurationItem(
+          title: 'Funeral Tenant Integration',
+          description:
+              'Configure local and external membership and claim data sources.',
+          icon: Icons.hub_outlined,
+          category: _ConfigurationCategory.integrations,
+          onTap: () =>
+              _open(context, const FuneralTenantIntegrationSetupPage()),
+        ),
+        _ConfigurationItem(
+          title: 'SigniFlow Electronic Signatures',
+          description:
+              'Configure electronic signing for generated claim forms and documents.',
+          icon: Icons.draw_outlined,
+          category: _ConfigurationCategory.integrations,
+          onTap: () => _open(context, const SigniFlowConfigurationScreen()),
+        ),
+      ];
+
+  void _open(BuildContext context, Widget screen) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final allItems = _configurationItems(context);
+    final visibleItems = allItems.where((item) {
+      final categoryMatches = _selectedCategory == null ||
+          item.category == _selectedCategory;
+      if (!categoryMatches) return false;
+      if (_searchTerm.isEmpty) return true;
+
+      final searchableText = [
+        item.title,
+        item.description,
+        item.category.title,
+        item.category.description,
+      ].join(' ').toLowerCase();
+      return searchableText.contains(_searchTerm);
+    }).toList();
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: MawaDesign.page,
       appBar: AppBar(
-        title: const Text('System Configuration', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        title: const Text('System Configuration'),
+        backgroundColor: MawaDesign.surface,
+        surfaceTintColor: MawaDesign.surface,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: MawaDesign.responsivePagePadding(constraints.maxWidth),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHero(context, allItems.length),
+                    const SizedBox(height: 22),
+                    _buildSearchAndFilters(context, visibleItems.length),
+                    const SizedBox(height: 26),
+                    if (visibleItems.isEmpty)
+                      MawaEmptyState(
+                        icon: Icons.manage_search_rounded,
+                        title: 'No configuration found',
+                        description:
+                            'Try a different search term or select another configuration area.',
+                        action: TextButton.icon(
+                          onPressed: _clearFilters,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Clear filters'),
+                        ),
+                      )
+                    else
+                      ..._buildCategorySections(context, visibleItems),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHero(BuildContext context, int configurationCount) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [MawaDesign.navy, MawaDesign.navySoft],
+        ),
+        borderRadius: BorderRadius.circular(MawaDesign.cardRadius),
+        boxShadow: MawaDesign.cardShadow,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+          final introduction = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Text(
+                  'ADMINISTRATION CONTROL CENTRE',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Configure how MAWA operates',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Text(
+                  'Manage organisation rules, memberships, finance, operations and integrations from one organised workspace.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          );
+
+          final summary = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.16),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: MawaDesign.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.settings_suggest_outlined,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$configurationCount',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Configuration areas',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                introduction,
+                const SizedBox(height: 22),
+                Align(alignment: Alignment.centerLeft, child: summary),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: introduction),
+              const SizedBox(width: 28),
+              summary,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSearchAndFilters(BuildContext context, int resultCount) {
+    final theme = Theme.of(context);
+    return MawaSurface(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildConfigTile(
-            context,
-            title: 'Warehouse & Storage',
-            subtitle: 'Configure reusable warehouses, storage locations and bins',
-            icon: Icons.warehouse_outlined,
-            color: Colors.brown,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StorageConfigurationScreen())),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final search = TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'Search configuration',
+                  hintText: 'Search by name, purpose or business area',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchTerm.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: _searchController.clear,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
+              );
+              final count = Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                decoration: BoxDecoration(
+                  color: MawaDesign.surfaceMuted,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: MawaDesign.border),
+                ),
+                child: Text(
+                  '$resultCount ${resultCount == 1 ? 'result' : 'results'}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: MawaDesign.textMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+
+              if (constraints.maxWidth < 640) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    search,
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerLeft, child: count),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: search),
+                  const SizedBox(width: 14),
+                  count,
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Claim Types',
-            subtitle: 'Choose which claim types are available during claim processing',
-            icon: Icons.fact_check_outlined,
-            color: Colors.deepPurple,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ClaimTypeConfigurationScreen())),
+          const SizedBox(height: 18),
+          Text(
+            'Configuration areas',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: MawaDesign.textMuted,
+            ),
           ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Membership Policy',
-            subtitle: 'Control multiple memberships and additional-membership approval',
-            icon: Icons.card_membership_outlined,
-            color: Colors.indigo,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MembershipPolicyConfigurationScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Company Forms',
-            subtitle: 'Upload and replace centrally published forms',
-            icon: Icons.description_outlined,
-            color: Colors.teal,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CompanyFormConfigurationScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'FNB Integration',
-            subtitle: 'Activate and configure FNB payment processing',
-            icon: Icons.account_balance_outlined,
-            color: Colors.green,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FnbIntegrationAdminScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Xero Integration',
-            subtitle: 'Activate Xero and select the invoice organisation',
-            icon: Icons.account_balance_wallet_outlined,
-            color: Colors.blue,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const XeroIntegrationScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Message Queue Processing',
-            subtitle: 'Schedule, start, stop and monitor message queue processing',
-            icon: Icons.queue_outlined,
-            color: Colors.blueGrey,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const MessageQueueAdminScreen(),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('All areas'),
+                selected: _selectedCategory == null,
+                onSelected: (_) => setState(() => _selectedCategory = null),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(context,title:'Payment Accounts',subtitle:'Configure debtor accounts by payment type and petty-cash/cash-claim creditor accounts',icon:Icons.account_balance_wallet_outlined,color:Colors.teal,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PaymentAccountConfigurationScreen()))),
-          const SizedBox(height:12),
-          _buildConfigTile(context,title:'Automatic Premium Generation',subtitle:'Choose the monthly generation date and backfill six missing periods',icon:Icons.calendar_month_outlined,color:Colors.indigo,onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const PremiumGenerationSettingsScreen()))),
-          const SizedBox(height:12),
-          _buildConfigTile(
-            context,
-            title: 'Membership Lapse Configuration',
-            subtitle: 'Lapse active memberships after a configured number of consecutive missed premiums',
-            icon: Icons.event_busy_outlined,
-            color: Colors.deepOrange,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const MembershipLapseSettingsScreen(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Funeral Cover Underwriter Configuration',
-            subtitle: 'Maintain the organisations that underwrite third-party funeral cover',
-            icon: Icons.business_center_outlined,
-            color: Colors.deepPurple,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ThirdPartyFuneralUnderwriterConfigurationPage(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Payment Request Invoice Email',
-            subtitle: 'Email approved supplier invoice attachments and run the once-off backfill',
-            icon: Icons.attach_email_outlined,
-            color: Colors.green,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PaymentRequestInvoiceEmailConfigurationScreen(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'SigniFlow Electronic Signatures',
-            subtitle: 'Configure electronic signing of generated claim forms',
-            icon: Icons.draw_outlined,
-            color: Colors.indigo,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SigniFlowConfigurationScreen()),
-            ),
-          ),
-          const SizedBox(height:12),
-          _buildConfigTile(
-            context,
-            title: 'Manual Receipt Books',
-            subtitle: 'Maintain valid receipt-book numbers, ranges and assignments',
-            icon: Icons.menu_book_outlined,
-            color: Colors.orange,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualReceiptBookMaintenanceScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Manual Receipt Cutover',
-            subtitle: 'Configure MAWAPay go-live, legacy catch-up and emergency receipt rules',
-            icon: Icons.receipt_long_outlined,
-            color: Colors.purple,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManualReceiptCutoverSettingsScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'POS Printing',
-            subtitle: 'Pair terminals, Windows agents and receipt printers',
-            icon: Icons.point_of_sale_outlined,
-            color: Colors.deepOrange,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PosPrintingSettingsScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Number Range Configuration',
-            subtitle: 'Manage operational sequences, document ranges and device allocations',
-            icon: Icons.format_list_numbered_rounded,
-            color: Colors.cyan,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const NumberRangeConfigurationScreen()),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Field Options',
-            subtitle: 'Manage dropdown lists and field values',
-            icon: Icons.list_alt_outlined,
-            color: Colors.indigo,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const FieldOptionListScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Role Management',
-            subtitle: 'Manage system roles and access levels',
-            icon: Icons.admin_panel_settings_outlined,
-            color: Colors.red,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RoleListScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Approval Workflows',
-            subtitle: 'Configure multi-level approval processes',
-            icon: Icons.account_tree_outlined,
-            color: Colors.orange,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ApprovalWorkflowListScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'User Management',
-            subtitle: 'Manage system users and permissions',
-            icon: Icons.people_outline,
-            color: Colors.green,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserListScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'API Activity Logs',
-            subtitle: 'Monitor backend requests and system performance',
-            icon: Icons.api_outlined,
-            color: Colors.brown,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ApiLogListScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Membership Plans',
-            subtitle: 'Configure products, plans and pricing',
-            icon: Icons.card_membership_outlined,
-            color: Colors.teal,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MembershipPlanListScreen())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Trusted Tenants',
-            subtitle: 'Request, approve, suspend or revoke cross-tenant access',
-            icon: Icons.verified_user_outlined,
-            color: Colors.indigo,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TrustedTenantsPage())),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Funeral Tenant Integration',
-            subtitle: 'Configure local and external membership and claim sources',
-            icon: Icons.hub_outlined,
-            color: Colors.deepPurple,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const FuneralTenantIntegrationSetupPage(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildConfigTile(
-            context,
-            title: 'Company Profile',
-            subtitle: 'Manage company information and branding',
-            icon: Icons.business_outlined,
-            color: Colors.purple,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CompanyInfoScreen(isReadOnly: false))),
+              for (final category in _ConfigurationCategory.values)
+                ChoiceChip(
+                  avatar: Icon(category.icon, size: 17),
+                  label: Text(category.title),
+                  selected: _selectedCategory == category,
+                  onSelected: (_) => setState(
+                    () => _selectedCategory =
+                        _selectedCategory == category ? null : category,
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildConfigTile(BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 24),
+  List<Widget> _buildCategorySections(
+    BuildContext context,
+    List<_ConfigurationItem> visibleItems,
+  ) {
+    final sections = <Widget>[];
+    for (final category in _ConfigurationCategory.values) {
+      final categoryItems = visibleItems
+          .where((item) => item.category == category)
+          .toList(growable: false);
+      if (categoryItems.isEmpty) continue;
+
+      sections.add(
+        _ConfigurationSection(
+          category: category,
+          items: categoryItems,
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-        trailing: const Icon(Icons.chevron_right, size: 20),
-        onTap: onTap,
+      );
+      sections.add(const SizedBox(height: 30));
+    }
+    if (sections.isNotEmpty) sections.removeLast();
+    return sections;
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() => _selectedCategory = null);
+  }
+}
+
+class _ConfigurationSection extends StatelessWidget {
+  final _ConfigurationCategory category;
+  final List<_ConfigurationItem> items;
+
+  const _ConfigurationSection({
+    required this.category,
+    required this.items,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MawaSectionHeader(
+          title: category.title,
+          description: category.description,
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: MawaDesign.iconBackground(category.color),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '${items.length}',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: category.color,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = MawaDesign.responsiveGridCount(
+              constraints.maxWidth,
+              minimumCardWidth: 350,
+              maxColumns: 3,
+            );
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                mainAxisExtent: 174,
+              ),
+              itemBuilder: (context, index) => _ConfigurationCard(
+                item: items[index],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ConfigurationCard extends StatelessWidget {
+  final _ConfigurationItem item;
+
+  const _ConfigurationCard({
+    required this.item,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = item.category.color;
+    return Material(
+      color: MawaDesign.surface,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(MawaDesign.cardRadius),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(MawaDesign.cardRadius),
+        onTap: item.onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: MawaDesign.surface,
+            borderRadius: BorderRadius.circular(MawaDesign.cardRadius),
+            border: Border.all(color: MawaDesign.border),
+            boxShadow: MawaDesign.cardShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(19),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MawaIconBadge(
+                      icon: item.icon,
+                      color: color,
+                      size: 46,
+                    ),
+                    const Spacer(),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: MawaDesign.surfaceMuted,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 17,
+                        color: MawaDesign.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: MawaDesign.text,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: Text(
+                    item.description,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: MawaDesign.textMuted,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
+}
+
+class _ConfigurationItem {
+  final String title;
+  final String description;
+  final IconData icon;
+  final _ConfigurationCategory category;
+  final VoidCallback onTap;
+
+  const _ConfigurationItem({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.category,
+    required this.onTap,
+  });
+}
+
+enum _ConfigurationCategory {
+  organisation(
+    title: 'Organisation & Access',
+    description:
+        'Manage company identity, users, roles, approvals and reusable business values.',
+    icon: Icons.corporate_fare_outlined,
+    color: MawaDesign.info,
+  ),
+  membership(
+    title: 'Memberships & Claims',
+    description:
+        'Control membership products, policy rules, premiums, lapses and claim options.',
+    icon: Icons.groups_2_outlined,
+    color: Color(0xFF8B5CF6),
+  ),
+  finance(
+    title: 'Finance & Documents',
+    description:
+        'Configure payment processing, accounting, receipt controls and document numbering.',
+    icon: Icons.payments_outlined,
+    color: MawaDesign.success,
+  ),
+  operations(
+    title: 'Operations & Monitoring',
+    description:
+        'Maintain storage, printing, background processing and technical activity monitoring.',
+    icon: Icons.settings_suggest_outlined,
+    color: Color(0xFFF97316),
+  ),
+  integrations(
+    title: 'Tenant & Service Integrations',
+    description:
+        'Connect trusted tenants and external services used by funeral and signing workflows.',
+    icon: Icons.hub_outlined,
+    color: Color(0xFF0EA5A8),
+  );
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color color;
+
+  const _ConfigurationCategory({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+  });
 }
