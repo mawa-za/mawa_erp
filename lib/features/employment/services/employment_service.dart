@@ -28,6 +28,7 @@ class EmploymentService {
       final haystack = [
         row['employeeNumber'],
         row['position'],
+        row['positionDescription'],
         employee['number'],
         employee['name1'],
         employee['name2'],

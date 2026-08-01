@@ -28,18 +28,6 @@ class FieldService {
     }
   }
 
-  Future<void> addField(Map<String, dynamic> data) async {
-    try {
-      final response = await ApiClient().post('/v2/field', body: data);
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw AppException('Failed to add field: ${response.body.isNotEmpty ? response.body : response.statusCode}');
-      }
-      _cachedFields = null; // Clear cache
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   Future<List<FieldOption>> getOptions() async {
     try {
       final response = await ApiClient().get('/v2/field/option');
