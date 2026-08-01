@@ -28,7 +28,11 @@ class UserService {
       if (response.statusCode == 200) {
         return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
       } else {
-        throw AppException('Failed to load user: ${response.statusCode}');
+        throw AppException.fromHttp(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+          fallback: 'User details could not be loaded. Please try again.',
+        );
       }
     } catch (e) {
       rethrow;
@@ -104,7 +108,11 @@ class UserService {
         },
       );
       if (response.statusCode != 200 && response.statusCode != 201) {
-        throw AppException('Failed to create user: ${response.body}');
+        throw AppException.fromHttp(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+          fallback: 'The user could not be created. Review the details and try again.',
+        );
       }
       return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     } catch (e) {
