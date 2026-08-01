@@ -64,11 +64,17 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
       final submission = ApprovalSubmission(
         approvalType: 'LEAVE',
         referenceId: _request!.id,
-        referenceNo: _request!.id, // Leave requests might not have a separate human-readable number
-        title: 'Leave Request: ${_request!.type}',
+        referenceNo: '${_request!.employeeName ?? _request!.employeeId} | ${_request!.startDate}',
+        title: '${_request!.type} leave - ${_request!.employeeName ?? _request!.employeeId} - ${_request!.startDate} to ${_request!.endDate}',
         description: 'Approval requested for ${_request!.days} day(s) from ${_request!.startDate} to ${_request!.endDate} for ${_request!.employeeName ?? _request!.employeeId}',
         requesterId: userId,
-        payloadJson: jsonEncode(_request!.toJson()),
+        payloadJson: jsonEncode({
+          ..._request!.toJson(),
+          'employeeName': _request!.employeeName,
+          'approverName': _request!.approverName,
+          'leaveRequestId': _request!.id,
+          'attachmentObjectIds': [_request!.id],
+        }),
       );
 
       await _approvalService.submitApproval(submission);

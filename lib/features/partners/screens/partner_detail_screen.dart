@@ -578,7 +578,7 @@ class _SupplierBankingApprovalDialogState
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'The details will only become active after final approval.',
+                  'Attach a bank confirmation letter or other banking evidence in the supplier Documents section before submitting. The approver will compare that evidence with these proposed details.',
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

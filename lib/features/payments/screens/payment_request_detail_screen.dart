@@ -80,7 +80,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         approvalType: 'PAYMENT_REQUEST',
         referenceId: _detail!.id,
         referenceNo: _detail!.requestNo,
-        title: 'Payment Approval: ${_detail!.requestNo}',
+        title: 'Payment request ${_detail!.requestNo} - ${_detail!.payeeName} - ${_detail!.currency} ${_detail!.amount.toStringAsFixed(2)}',
         description: 'Approval requested for payment to ${_detail!.payeeName} for ${_detail!.currency} ${_detail!.amount.toStringAsFixed(2)}',
         requesterId: userId,
         payloadJson: jsonEncode(_detail!.toJson()),
