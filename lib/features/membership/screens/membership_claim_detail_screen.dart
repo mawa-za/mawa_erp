@@ -110,7 +110,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           approvalType: 'CLAIM',
           referenceId: _claim!.id,
           referenceNo: _claim!.claimNo,
-          title: 'Death Claim: ${_claim!.claimNo}',
+          title: 'Death claim ${_claim!.claimNo} - ${_deceasedPartner?.fullName ?? "Deceased not identified"}',
           description: 'Claim for R ${_claim!.claimAmount.toStringAsFixed(2)} (Deceased: ${_deceasedPartner?.fullName ?? "Unknown"})',
           requesterId: userId,
           payloadJson: jsonEncode(_claim!.toJson()),

@@ -65,9 +65,21 @@ class _PayrollBatchDetailScreenState extends State<PayrollBatchDetailScreen> {
         approvalType: 'PAYROLL_BATCH',
         referenceId: _batch!.id,
         referenceNo: _batch!.batchNo,
-        title: 'Payroll Batch Approval: ${_batch!.batchNo}',
+        title: 'Payroll batch ${_batch!.batchNo} - ${_batch!.payPeriod} - ${_batch!.items.length} employees',
         description: 'Approval requested for ${_batch!.items.length} salary payments for period ${_batch!.payPeriod}. Total: R ${_calculateTotal()}',
         requesterId: userId,
+        payloadJson: jsonEncode({
+          'batchNumber': _batch!.batchNo,
+          'description': _batch!.description,
+          'payPeriod': _batch!.payPeriod,
+          'paymentDate': _batch!.paymentDate,
+          'status': _batch!.status,
+          'employeeCount': _batch!.items.length,
+          'totalAmountCents': (_batch!.totalAmount * 100).round(),
+          'employees': _batch!.items.map((item) => item.toJson()).toList(),
+          'batchId': _batch!.id,
+          'attachmentObjectIds': [_batch!.id],
+        }),
       );
 
       await _approvalService.submitApproval(submission);

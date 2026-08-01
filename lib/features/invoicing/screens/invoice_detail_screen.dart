@@ -360,10 +360,16 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         approvalType: 'INVOICE',
         referenceId: _detail!.id,
         referenceNo: _detail!.number,
-        title: 'Invoice Approval: ${_detail!.number}',
+        title: 'Invoice ${_detail!.number} - ${_partner?.fullName ?? _detail!.customerName} - R ${_detail!.totalAmount.toStringAsFixed(2)}',
         description: 'Approval requested for invoice to ${_partner?.fullName ?? _detail!.customerName} for R ${_detail!.totalAmount.toStringAsFixed(2)}',
         requesterId: userId,
-        payloadJson: jsonEncode(_detail!.toJson()),
+        payloadJson: jsonEncode({
+          ..._detail!.toJson(),
+          'invoiceNumber': _detail!.number,
+          'customerName': _partner?.fullName ?? _detail!.customerName,
+          'totalAmountCents': _detail!.totalCents,
+          'attachmentObjectIds': [_detail!.id, _detail!.customerId],
+        }),
       );
 
       await ApprovalService().submitApproval(submission);
