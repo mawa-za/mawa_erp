@@ -7,7 +7,8 @@ import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../partners/models/partner.dart';
 import '../models/appointment_booking.dart';
 import '../services/appointment_booking_service.dart';
-import '../../invoicing/screens/invoice_pdf_preview_screen.dart';
+import '../services/appointment_service_order_service.dart';
+import 'appointment_service_order_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AppointmentCalendarScreen extends StatefulWidget {
@@ -19,6 +20,8 @@ class AppointmentCalendarScreen extends StatefulWidget {
 
 class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
   final AppointmentBookingService _service = AppointmentBookingService();
+  final AppointmentServiceOrderService _serviceOrderService =
+      AppointmentServiceOrderService();
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime _selectedDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   String _statusFilter = 'ALL';
@@ -128,24 +131,29 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
     }
   }
 
-  Future<void> _invoiceAppointment(AppointmentBooking appointment) async {
+  Future<void> _openServiceOrder(AppointmentBooking appointment) async {
     try {
-      final invoice = await _service.createInvoiceForAppointment(appointment.id);
-      final invoiceId = (invoice['id'] ?? '').toString();
+      final serviceOrder =
+          await _serviceOrderService.createFromAppointment(appointment.id);
       if (!mounted) return;
-      if (invoiceId.isNotEmpty) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => InvoicePdfPreviewScreen(invoiceId: invoiceId)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice created, but preview id was not returned')),
-        );
-      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AppointmentServiceOrderScreen(
+            serviceOrderId: serviceOrder.id,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      await _loadAppointments();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyErrorMessage('Failed to create invoice: $e')), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage('Failed to open service order: $e'),
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -536,12 +544,22 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
                 if (value == 'processed') _updateStatus(appointment, 'PROCESSED');
                 if (value == 'missed') _updateStatus(appointment, 'MISSED');
                 if (value == 'booked') _updateStatus(appointment, 'BOOKED');
-                if (value == 'invoice') _invoiceAppointment(appointment);
+                if (value == 'service-order') {
+                  _openServiceOrder(appointment);
+                }
                 if (value == 'cancel') _cancelAppointment(appointment);
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit / Reschedule'))),
-                const PopupMenuItem(value: 'invoice', child: ListTile(leading: Icon(Icons.receipt_long_outlined), title: Text('Create / Open Invoice'))),
+                if (!appointment.isCancelled &&
+                    appointment.status.toUpperCase() != 'MISSED')
+                  const PopupMenuItem(
+                    value: 'service-order',
+                    child: ListTile(
+                      leading: Icon(Icons.assignment_outlined),
+                      title: Text('Create / Open Service Order'),
+                    ),
+                  ),
                 if (!appointment.isProcessed)
                   const PopupMenuItem(value: 'processed', child: ListTile(leading: Icon(Icons.check_circle_outline), title: Text('Mark Processed'))),
                 const PopupMenuItem(value: 'missed', child: ListTile(leading: Icon(Icons.person_off_outlined), title: Text('Mark Missed'))),
