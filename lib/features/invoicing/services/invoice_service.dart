@@ -141,6 +141,7 @@ class InvoiceService {
         'fromDate': fromDate.toIso8601String().substring(0, 10),
         'toDate': toDate.toIso8601String().substring(0, 10),
       },
+      accept: 'application/pdf',
     );
     if (response.statusCode == 200) return response.bodyBytes;
     throw AppException('Failed to download customer statement: ${response.body}');

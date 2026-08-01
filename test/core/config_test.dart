@@ -26,4 +26,42 @@ void main() {
       );
     });
   });
+
+  group('Config.resolveWebTenantReference', () {
+    test('does not treat a shared environment host as a tenant', () {
+      expect(
+        Config.resolveWebTenantReference(
+          'https://dev.app.mawa.co.za/#/login',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('uses an explicit tenant id from the URL', () {
+      expect(
+        Config.resolveWebTenantReference(
+          'https://dev.app.mawa.co.za/?tenantId=ff8080818aa2c02c018aa2c3eb500003#/login',
+        ),
+        'ff8080818aa2c02c018aa2c3eb500003',
+      );
+    });
+
+    test('uses an explicit tenant id from a Flutter hash route', () {
+      expect(
+        Config.resolveWebTenantReference(
+          'https://dev.app.mawa.co.za/#/login?tenant=tenant-123',
+        ),
+        'tenant-123',
+      );
+    });
+
+    test('keeps a tenant-specific hostname', () {
+      expect(
+        Config.resolveWebTenantReference(
+          'https://phanka.dev.app.mawa.co.za/#/login',
+        ),
+        'phanka.dev.app.mawa.co.za',
+      );
+    });
+  });
 }
