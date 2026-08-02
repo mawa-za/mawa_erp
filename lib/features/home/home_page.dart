@@ -87,6 +87,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Future<void> _loadInboxCounts({bool silent = false}) async {
     try {
+      final authenticated = await ApiClient().ensureFreshAccessToken();
+      if (!authenticated) return;
       final counts = await _inboxService.getCounts();
       if (!mounted) return;
       setState(() => _inboxCounts = counts);
