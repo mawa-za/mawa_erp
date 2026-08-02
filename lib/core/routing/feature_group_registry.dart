@@ -207,18 +207,31 @@ class FeatureGroupRegistry {
       aliases: ['partner-management', 'human-resources', 'hr'],
     ),
     FeatureGroupDefinition(
+      id: 'approvals',
+      title: 'Approvals',
+      description:
+          'Review and action every approval request from one central workspace.',
+      routePath: '/feature-groups/approvals',
+      sectionCode: 'BUSINESS_SERVICES',
+      iconKey: 'approvals',
+      displayOrder: 45,
+      childWorkcenterIds: [
+        'approval', 'approvals', 'approval-inbox',
+      ],
+      aliases: ['approval-management', 'approval-centre', 'approval-center'],
+    ),
+    FeatureGroupDefinition(
       id: 'work-management',
       title: 'Work Management',
       description:
-          'Coordinate approvals, tasks, appointments, calendars, forms and internal communication.',
+          'Coordinate tasks, appointments, calendars, forms and internal communication.',
       routePath: '/feature-groups/work-management',
       sectionCode: 'BUSINESS_SERVICES',
       iconKey: 'work',
       displayOrder: 50,
       childWorkcenterIds: [
-        'approvals', 'approval-inbox', 'calendar', 'appointment',
-        'appointments', 'employee-engagement', 'internal-communications',
-        'company-forms', 'forms', 'tasks', 'diary',
+        'calendar', 'appointment', 'appointments', 'employee-engagement',
+        'internal-communications', 'company-forms', 'forms', 'tasks', 'diary',
       ],
       aliases: ['scheduling', 'communications', 'engagement'],
     ),
@@ -256,25 +269,10 @@ class FeatureGroupRegistry {
     ),
   ];
 
-  static const Map<String, String> approvalTypeGroups = {
-    'CLAIM': 'membership-cover',
-    'MEMBERSHIP_TRANSFER': 'membership-cover',
-    'MEMBERSHIP_PLAN_CHANGE': 'membership-cover',
-    'PAYMENT': 'finance-payments',
-    'PAYMENT_REQUEST': 'finance-payments',
-    'INVOICE': 'finance-payments',
-    'CASHUP': 'finance-payments',
-    'JOURNAL': 'finance-payments',
-    'CUSTOMER_REFUND': 'finance-payments',
-    'PURCHASE_ORDER': 'procurement-suppliers',
-    'SUPPLIER_INVOICE': 'procurement-suppliers',
-    'SUPPLIER_ONBOARDING': 'procurement-suppliers',
-    'SUPPLIER_BANKING_DETAILS': 'procurement-suppliers',
-    'LEAVE': 'people-workplace',
-  };
-
-  static String approvalGroup(String approvalType) =>
-      approvalTypeGroups[normalize(approvalType)] ?? 'work-management';
+  /// Approval requests are intentionally presented in one operational area.
+  /// The originating module remains available from the approval detail, while
+  /// the approval cards themselves are never scattered across business groups.
+  static String approvalGroup(String approvalType) => 'approvals';
 
   static String approvalLabel(String approvalType) => approvalType
       .split('_')
