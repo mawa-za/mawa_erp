@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../leave_requests/models/leave_request.dart';
 import '../../leave_requests/screens/leave_request_list_screen.dart';
 import '../../leave_requests/services/leave_service.dart';
-import 'leave_configuration_screen.dart';
+import 'leave_balance_management_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class LeaveManagementScreen extends StatelessWidget {
@@ -15,12 +15,8 @@ class LeaveManagementScreen extends StatelessWidget {
     final cards = <_LeaveDestination>[
       _LeaveDestination('Leave Requests', 'Create, submit and track employee leave requests.', Icons.event_note_outlined, () => const LeaveRequestListScreen()),
       _LeaveDestination('Leave Calendar', 'Review approved and pending leave across the workforce.', Icons.calendar_month_outlined, () => const _LeaveCalendarScreen()),
-      _LeaveDestination('Employee Balances', 'Review entitlements, accruals, usage and current available balances.', Icons.account_balance_wallet_outlined, () => const LeaveConfigurationScreen(initialTab: 4)),
-      _LeaveDestination('Balance Adjustments', 'Submit documented leave balance corrections for approval.', Icons.tune_rounded, () => const LeaveConfigurationScreen(initialTab: 4)),
-      _LeaveDestination('Leave Types', 'Maintain paid, unpaid, hourly and document-controlled leave types.', Icons.category_outlined, () => const LeaveConfigurationScreen(initialTab: 0)),
-      _LeaveDestination('Leave Profiles', 'Configure entitlements, accruals, carry-over and waiting periods.', Icons.rule_folder_outlined, () => const LeaveConfigurationScreen(initialTab: 1)),
-      _LeaveDestination('Profile Assignments', 'Assign leave profiles to positions or individual employees.', Icons.assignment_ind_outlined, () => const LeaveConfigurationScreen(initialTab: 3)),
-      _LeaveDestination('Working Calendars', 'Maintain working days, daily hours and public holidays.', Icons.today_outlined, () => const LeaveConfigurationScreen(initialTab: 2)),
+      _LeaveDestination('Employee Balances', 'Review entitlements, accruals, usage and immutable ledger entries.', Icons.account_balance_wallet_outlined, () => const LeaveBalanceManagementScreen(initialTab: 0)),
+      _LeaveDestination('Balance Adjustments', 'Submit documented leave balance corrections for approval.', Icons.tune_rounded, () => const LeaveBalanceManagementScreen(initialTab: 1)),
     ];
     return Scaffold(
       appBar: AppBar(title: const Text('Leave Management')),
@@ -44,9 +40,9 @@ class LeaveManagementScreen extends StatelessWidget {
                     Icon(Icons.beach_access_outlined, size: 52),
                     SizedBox(width: 18),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Leave administration', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+                      Text('Leave operations', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
                       SizedBox(height: 6),
-                      Text('Configure tenant leave rules and manage employee requests, balances, calendars and profile assignments from one control centre.'),
+                      Text('Manage employee leave requests, workforce availability, balances and approved corrections. Leave types, profiles, assignments and working calendars are maintained under System Configuration.'),
                     ])),
                   ]),
                 ),

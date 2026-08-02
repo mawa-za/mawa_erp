@@ -354,7 +354,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       }
       if (identity.contains('AUDIT')) return AppRoutes.inventoryAudit;
       if (identity.contains('SETUP') || identity.contains('CONFIG')) {
-        return AppRoutes.inventorySetup;
+        return AppRoutes.systemConfiguration;
       }
     }
 
