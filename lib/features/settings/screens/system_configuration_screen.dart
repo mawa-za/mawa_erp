@@ -9,6 +9,7 @@ import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.d
 import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import '../../integrations/fnb/fnb_integration_admin_screen.dart';
+import '../../leave_management/screens/leave_configuration_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 import '../../payments/screens/payment_account_configuration_screen.dart';
 import 'api_log_list_screen.dart';
@@ -106,6 +107,38 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.tune_rounded,
           category: _ConfigurationCategory.organisation,
           onTap: () => _open(context, const FieldOptionListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Leave Types',
+          description:
+              'Maintain paid, unpaid, day and hour leave types with document and balance rules.',
+          icon: Icons.category_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 0)),
+        ),
+        _ConfigurationItem(
+          title: 'Leave Profiles',
+          description:
+              'Configure leave entitlements, accrual, carry-over, waiting periods and profile rules.',
+          icon: Icons.rule_folder_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 1)),
+        ),
+        _ConfigurationItem(
+          title: 'Leave Profile Assignments',
+          description:
+              'Assign effective-dated leave profiles to positions or individual employees.',
+          icon: Icons.assignment_ind_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 3)),
+        ),
+        _ConfigurationItem(
+          title: 'Working Calendars',
+          description:
+              'Maintain working days, daily hours and holidays used for leave calculations.',
+          icon: Icons.today_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 2)),
         ),
         _ConfigurationItem(
           title: 'Company Forms',

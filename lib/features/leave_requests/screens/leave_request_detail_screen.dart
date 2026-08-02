@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../approvals/models/approval.dart';
-import '../../approvals/services/approval_service.dart';
+
+import '../../../core/widgets/attachment_section.dart';
 import '../models/leave_request.dart';
 import '../services/leave_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -17,223 +15,174 @@ class LeaveRequestDetailScreen extends StatefulWidget {
 
 class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
   final _service = LeaveService();
-  final _approvalService = ApprovalService();
-
-  bool _isLoading = true;
-  bool _isActionLoading = false;
   LeaveRequest? _request;
+  bool _loading = true;
+  bool _working = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchDetails();
+    _load();
   }
 
-  Future<void> _fetchDetails() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
     try {
       final request = await _service.getLeaveRequestById(widget.requestId);
-      if (mounted) {
-        setState(() {
-          _request = request;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = friendlyErrorMessage(e);
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _request = request);
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _submitForApproval() async {
-    if (_request == null) return;
-    setState(() => _isActionLoading = true);
+  Future<void> _submit() async {
+    setState(() => _working = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId') ?? '';
-
-      final submission = ApprovalSubmission(
-        approvalType: 'LEAVE',
-        referenceId: _request!.id,
-        referenceNo: '${_request!.employeeName ?? _request!.employeeId} | ${_request!.startDate}',
-        title: '${_request!.type} leave - ${_request!.employeeName ?? _request!.employeeId} - ${_request!.startDate} to ${_request!.endDate}',
-        description: 'Approval requested for ${_request!.days} day(s) from ${_request!.startDate} to ${_request!.endDate} for ${_request!.employeeName ?? _request!.employeeId}',
-        requesterId: userId,
-        payloadJson: jsonEncode({
-          ..._request!.toJson(),
-          'employeeName': _request!.employeeName,
-          'approverName': _request!.approverName,
-          'leaveRequestId': _request!.id,
-          'attachmentObjectIds': [_request!.id],
-        }),
-      );
-
-      await _approvalService.submitApproval(submission);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Leave request submitted for approval'), backgroundColor: Colors.green),
-        );
-        _fetchDetails();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
-      }
+      await _service.submitLeaveRequest(widget.requestId);
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Leave request submitted for approval.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     } finally {
-      if (mounted) setState(() => _isActionLoading = false);
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _cancel() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Leave Request'),
+        content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(labelText: 'Cancellation reason')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Cancel Request')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || reason.isEmpty) return;
+    setState(() => _working = true);
+    try {
+      await _service.cancelLeaveRequest(widget.requestId, reason);
+      await _load();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
+    } finally {
+      if (mounted) setState(() => _working = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Leave Request Details'),
-        actions: [
-          if (_request != null && _request!.status == 'PENDING')
-            IconButton(
-              icon: _isActionLoading 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.send_rounded),
-              onPressed: _isActionLoading ? null : _submitForApproval,
-              tooltip: 'Submit for Approval',
-            ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchDetails),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorWidget()
-              : _buildContent(colorScheme),
+      appBar: AppBar(title: const Text('Leave Request'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))]),
+      body: _body(),
     );
   }
 
-  Widget _buildContent(ColorScheme colorScheme) {
+  Widget _body() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!));
     final request = _request!;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildStatusHeader(request, colorScheme),
-        const SizedBox(height: 16),
-        _buildInfoCard(colorScheme),
-        const SizedBox(height: 16),
-        _buildPersonnelCard(colorScheme),
-      ],
-    );
-  }
-
-  Widget _buildStatusHeader(LeaveRequest request, ColorScheme colorScheme) {
-    Color color;
-    switch (request.status.toUpperCase()) {
-      case 'APPROVED': color = Colors.green; break;
-      case 'REJECTED': color = Colors.red; break;
-      case 'PENDING': color = Colors.orange; break;
-      case 'AWAITING-APPROVAL': color = Colors.deepOrange; break;
-      default: color = Colors.grey;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            request.status.toUpperCase(),
-            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.2),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${request.days} Day(s) - ${request.type}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(ColorScheme colorScheme) {
-    final request = _request!;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('TIME OFF PERIOD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const Divider(),
-            _buildDetailRow('Start Date', request.startDate),
-            _buildDetailRow('End Date', request.endDate),
-            _buildDetailRow('Total Days', '${request.days}'),
-            _buildDetailRow('Created At', request.createdAt ?? 'N/A'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPersonnelCard(ColorScheme colorScheme) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('PERSONNEL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const Divider(),
-            _buildDetailRow('Employee', _request!.employeeName ?? _request!.employeeId),
-            _buildDetailRow('Approver', _request!.approverName ?? _request!.approverId ?? 'Not Assigned'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(_error!),
-          ElevatedButton(onPressed: _fetchDetails, child: const Text('Retry')),
-        ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1050),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  runSpacing: 16,
+                  children: [
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(request.requestNumber, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 5),
+                      Text('${request.employeeName} • ${request.employeeNumber}'),
+                    ]),
+                    Chip(label: Text(_label(request.status))),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _section('Request information', Icons.info_outline_rounded, [
+              _grid([
+                ('Leave type', request.leaveTypeName),
+                ('Dates', '${request.startDate} to ${request.endDate}'),
+                ('Requested', '${request.amount.toStringAsFixed(2)} ${request.unit.toLowerCase()}'),
+                ('Profile', request.leaveProfileName),
+                ('Working calendar', request.workingCalendarName),
+                ('Profile source', request.assignmentSource),
+                ('Available before request', request.availableBalance.toStringAsFixed(2)),
+                ('Projected balance', request.projectedBalance.toStringAsFixed(2)),
+              ]),
+              const SizedBox(height: 16),
+              const Text('Reason', style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 5),
+              Text(request.reason.isEmpty ? 'No reason recorded.' : request.reason),
+              if (request.statusReason?.isNotEmpty == true) ...[
+                const SizedBox(height: 14),
+                Text('Status reason: ${request.statusReason}'),
+              ],
+            ]),
+            const SizedBox(height: 14),
+            _section('Supporting documents', Icons.attach_file_rounded, [
+              if (request.attachmentObjectIds.isEmpty)
+                Text(request.supportingDocumentRequired ? 'Required supporting document has not been attached.' : 'No supporting documents attached.')
+              else
+                ...request.attachmentObjectIds.map((objectId) => AttachmentSection(objectId: objectId, readOnly: true)),
+            ]),
+            const SizedBox(height: 14),
+            _section('Status history', Icons.history_rounded, [
+              if (request.history.isEmpty)
+                const Text('No status events recorded.')
+              else
+                ...request.history.map((event) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.circle_outlined, size: 18),
+                  title: Text(_label(_fieldCode(event['status']))),
+                  subtitle: Text('${event['changedAt'] ?? event['createdAt'] ?? '-'} • ${event['changedBy'] ?? '-'}${event['reason'] != null ? '\n${event['reason']}' : ''}'),
+                )),
+            ]),
+            if (request.status == 'PENDING') ...[
+              const SizedBox(height: 20),
+              FilledButton.icon(onPressed: _working ? null : _submit, icon: const Icon(Icons.send_rounded), label: const Text('Submit for Approval')),
+            ],
+            if (['PENDING', 'SUBMITTED', 'AWAITING-APPROVAL'].contains(request.status)) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(onPressed: _working ? null : _cancel, icon: const Icon(Icons.cancel_outlined), label: const Text('Cancel Request')),
+            ],
+          ],
+        ),
       ),
     );
   }
+
+  Widget _section(String title, IconData icon, List<Widget> children) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Icon(icon), const SizedBox(width: 10), Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))]),
+            const SizedBox(height: 14),
+            ...children,
+          ]),
+        ),
+      );
+
+  Widget _grid(List<(String, String)> values) => LayoutBuilder(builder: (context, constraints) {
+        final width = constraints.maxWidth < 650 ? constraints.maxWidth : (constraints.maxWidth - 24) / 3;
+        return Wrap(spacing: 12, runSpacing: 12, children: values.map((item) => SizedBox(width: width, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.$1, style: Theme.of(context).textTheme.labelMedium), const SizedBox(height: 3), Text(item.$2.isEmpty ? '—' : item.$2, style: const TextStyle(fontWeight: FontWeight.w700))]))).toList());
+      });
+
+  String _fieldCode(dynamic value) => value is Map ? (value['code'] ?? value['description'] ?? '').toString() : (value ?? '').toString();
+  String _label(String value) => value.replaceAll(RegExp(r'[-_]+'), ' ').split(' ').map((part) => part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}').join(' ');
 }

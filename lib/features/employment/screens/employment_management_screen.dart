@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/widgets/app_dropdown.dart';
-
+import '../../../core/widgets/attachment_section.dart';
+import '../../leave_management/screens/leave_configuration_screen.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -13,18 +14,19 @@ class EmploymentManagementScreen extends StatefulWidget {
   const EmploymentManagementScreen({super.key});
 
   @override
-  State<EmploymentManagementScreen> createState() =>
-      _EmploymentManagementScreenState();
+  State<EmploymentManagementScreen> createState() => _EmploymentManagementScreenState();
 }
 
-class _EmploymentManagementScreenState
-    extends State<EmploymentManagementScreen> {
+class _EmploymentManagementScreenState extends State<EmploymentManagementScreen> {
   final EmploymentService _service = EmploymentService();
   final TextEditingController _search = TextEditingController();
-  List<Map<String, dynamic>> _rows = const [];
+  List<Map<String, dynamic>> _employees = const [];
+  List<Map<String, dynamic>> _actions = const [];
+  List<Map<String, dynamic>> _history = const [];
   bool _loading = true;
   String? _error;
   String _status = 'ALL';
+  int _section = 0;
 
   @override
   void initState() {
@@ -44,76 +46,54 @@ class _EmploymentManagementScreenState
       _error = null;
     });
     try {
-      final rows = await _service.list(status: _status, query: _search.text);
-      if (mounted) setState(() => _rows = rows);
-    } catch (e) {
-      if (mounted) setState(() => _error = friendlyErrorMessage(e));
+      if (_section == 0) {
+        _employees = await _service.list(status: _status, query: _search.text);
+      } else if (_section == 1) {
+        _actions = await _service.listActions();
+      } else {
+        _history = await _service.history();
+      }
+    } catch (error) {
+      _error = friendlyErrorMessage(error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _openForm([Map<String, dynamic>? record]) async {
+  Future<void> _hire() async {
     final changed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _EmploymentDialog(record: record, service: _service),
+      builder: (_) => _EmploymentFormDialog(service: _service),
+    );
+    if (changed == true) {
+      setState(() => _section = 1);
+      await _load();
+    }
+  }
+
+  Future<void> _edit(Map<String, dynamic> record) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _EmploymentFormDialog(service: _service, record: record),
     );
     if (changed == true) await _load();
   }
 
-  Future<void> _terminate(Map<String, dynamic> record) async {
-    final employee = _employee(record);
-    final confirmed = await showDialog<bool>(
+  Future<void> _action(Map<String, dynamic> record, String actionType) async {
+    final changed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Terminate employment'),
-        content: Text(
-          'Terminate ${_employeeName(employee)}? The employee role will be removed and the employment end date set to today.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.tonal(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Terminate'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (_) => _EmploymentActionDialog(
+        service: _service,
+        record: record,
+        actionType: actionType,
       ),
     );
-    if (confirmed != true) return;
-    try {
-      await _service.terminate((record['id'] ?? '').toString());
+    if (changed == true) {
+      setState(() => _section = 1);
       await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
-      }
-    }
-  }
-
-  Future<void> _rehire(Map<String, dynamic> record) async {
-    final start = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      initialDate: DateTime.now(),
-    );
-    if (start == null) return;
-    try {
-      await _service.rehire(
-        (record['id'] ?? '').toString(),
-        startDate: DateFormat('yyyy-MM-dd').format(start),
-      );
-      await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
-      }
     }
   }
 
@@ -135,44 +115,118 @@ class _EmploymentManagementScreenState
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final padding = width >= 1200 ? 32.0 : width >= 700 ? 24.0 : 16.0;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Employment Management'),
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(
+            tooltip: 'Leave profile assignments',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LeaveConfigurationScreen(initialTab: 3)),
+            ),
+            icon: const Icon(Icons.assignment_ind_outlined),
+          ),
+          IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('Hire Employee'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
-              controller: _search,
-              onSubmitted: (_) => _load(),
-              decoration: InputDecoration(
-                labelText: 'Search employees',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  onPressed: _load,
-                  icon: const Icon(Icons.arrow_forward),
+      floatingActionButton: _section == 0
+          ? FloatingActionButton.extended(
+              onPressed: _hire,
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              label: const Text('Hire Employee'),
+            )
+          : null,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1500),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(padding, padding, padding, 0),
+            child: Column(
+              children: [
+                _hero(context),
+                const SizedBox(height: 16),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(value: 0, icon: Icon(Icons.badge_outlined), label: Text('Employees')),
+                    ButtonSegment(value: 1, icon: Icon(Icons.approval_outlined), label: Text('Employment Actions')),
+                    ButtonSegment(value: 2, icon: Icon(Icons.history_rounded), label: Text('History')),
+                  ],
+                  selected: {_section},
+                  onSelectionChanged: (value) {
+                    setState(() => _section = value.first);
+                    _load();
+                  },
                 ),
-              ),
+                const SizedBox(height: 16),
+                if (_section == 0) _employeeTools(),
+                Expanded(child: _content()),
+              ],
             ),
           ),
-          SizedBox(
-            height: 52,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              scrollDirection: Axis.horizontal,
-              children: ['ALL', 'ACTIVE', 'SUSPENDED', 'TERMINATED']
-                  .map(
-                    (status) => Padding(
+        ),
+      ),
+    );
+  }
+
+  Widget _hero(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [scheme.primaryContainer, scheme.surfaceContainerHighest],
+          ),
+        ),
+        child: Wrap(
+          spacing: 24,
+          runSpacing: 16,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Icon(Icons.groups_2_outlined, size: 46, color: scheme.onPrimaryContainer),
+            const SizedBox(
+              width: 600,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Employee lifecycle control centre', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                  SizedBox(height: 6),
+                  Text(
+                    'Hire, suspend, reinstate, terminate and rehire employees through controlled approvals. Employee numbers are allocated only after final hire approval.',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _employeeTools() {
+    return Column(
+      children: [
+        TextField(
+          controller: _search,
+          onSubmitted: (_) => _load(),
+          decoration: InputDecoration(
+            labelText: 'Search employee number, name, identity or position',
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: IconButton(onPressed: _load, icon: const Icon(Icons.arrow_forward_rounded)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: ['ALL', 'ACTIVE', 'SUSPENDED', 'TERMINATED']
+                .map((status) => Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
                         label: Text(status),
@@ -182,89 +236,85 @@ class _EmploymentManagementScreenState
                           _load();
                         },
                       ),
-                    ),
-                  )
-                  .toList(),
-            ),
+                    ))
+                .toList(),
           ),
-          Expanded(child: _body()),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _body() {
+  Widget _content() {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_error!, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: _load, child: const Text('Retry')),
-          ],
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(_error!, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+        ]),
       );
     }
-    if (_rows.isEmpty) {
-      return const Center(child: Text('No employee records found.'));
-    }
+    if (_section == 0) return _employeeList();
+    if (_section == 1) return _actionList();
+    return _historyList();
+  }
+
+  Widget _employeeList() {
+    if (_employees.isEmpty) return const Center(child: Text('No employee records found.'));
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 90),
-        itemCount: _rows.length,
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
+        itemCount: _employees.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, index) {
-          final record = _rows[index];
-          final employee = _employee(record);
+          final record = _employees[index];
+          final employee = _map(record['employee']);
           final status = (record['status'] ?? '').toString().toUpperCase();
           return Card(
-            elevation: 0,
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: const CircleAvatar(child: Icon(Icons.badge_outlined)),
-              title: Text(
-                _employeeName(employee),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  '${record['employeeNumber'] ?? 'No employee number'} • ${_positionLabel(record)}\n${record['startDate'] ?? '-'} to ${record['endDate'] ?? '-'}',
-                ),
-              ),
-              isThreeLine: true,
-              trailing: PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'edit') _openForm(record);
-                  if (value == 'terminate') _terminate(record);
-                  if (value == 'rehire') _rehire(record);
-                  if (value == 'banking') _openBanking(record);
-                  if (value == 'partner' && employee['id'] != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PartnerDetailScreen(
-                          partnerId: employee['id'].toString(),
-                          title: 'Employee Details',
-                        ),
-                      ),
-                    );
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'partner', child: Text('Employee details')),
-                  const PopupMenuItem(value: 'edit', child: Text('Edit employment')),
-                  const PopupMenuItem(value: 'banking', child: Text('Banking details')),
-                  if (status == 'TERMINATED')
-                    const PopupMenuItem(value: 'rehire', child: Text('Rehire')),
-                  if (status != 'TERMINATED')
-                    const PopupMenuItem(value: 'terminate', child: Text('Terminate')),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  const CircleAvatar(radius: 25, child: Icon(Icons.badge_outlined)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_employeeName(employee), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 5),
+                      Text('${record['employeeNumber'] ?? 'Number pending'} • ${_positionLabel(record)}'),
+                      const SizedBox(height: 3),
+                      Text('${record['startDate'] ?? '-'} to ${record['endDate'] ?? '-'}', style: Theme.of(context).textTheme.bodySmall),
+                    ]),
+                  ),
+                  _statusChip(status),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'details' && employee['id'] != null) {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => PartnerDetailScreen(
+                          partnerId: employee['id'].toString(), title: 'Employee Details')));
+                      } else if (value == 'edit') {
+                        _edit(record);
+                      } else if (value == 'banking') {
+                        _openBanking(record);
+                      } else {
+                        _action(record, value);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'details', child: Text('Employee details')),
+                      const PopupMenuItem(value: 'edit', child: Text('Edit employment details')),
+                      const PopupMenuItem(value: 'banking', child: Text('Banking details')),
+                      if (status == 'ACTIVE') const PopupMenuItem(value: 'SUSPEND', child: Text('Request suspension')),
+                      if (status == 'SUSPENDED') const PopupMenuItem(value: 'REINSTATE', child: Text('Request reinstatement')),
+                      if (status == 'ACTIVE' || status == 'SUSPENDED')
+                        const PopupMenuItem(value: 'TERMINATE', child: Text('Request termination')),
+                      if (status == 'TERMINATED') const PopupMenuItem(value: 'REHIRE', child: Text('Request rehire')),
+                    ],
+                  ),
                 ],
               ),
-              onTap: () => _openForm(record),
             ),
           );
         },
@@ -272,121 +322,182 @@ class _EmploymentManagementScreenState
     );
   }
 
-  static Map<String, dynamic> _employee(Map<String, dynamic> row) =>
-      row['employee'] is Map
-          ? Map<String, dynamic>.from(row['employee'] as Map)
-          : <String, dynamic>{};
+  Widget _actionList() {
+    if (_actions.isEmpty) return const Center(child: Text('No employment actions found.'));
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+        itemCount: _actions.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, index) {
+          final action = _actions[index];
+          final employee = _map(action['employee']);
+          return Card(
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(18),
+              leading: CircleAvatar(child: Icon(_actionIcon((action['actionType'] ?? '').toString()))),
+              title: Text('${action['requestNumber'] ?? '-'} • ${_label(action['actionType'])}',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${_employeeName(employee)}\nEffective ${action['effectiveDate'] ?? '-'} • ${action['reason'] ?? ''}'),
+              ),
+              isThreeLine: true,
+              trailing: _statusChip((action['status'] ?? '').toString()),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _historyList() {
+    if (_history.isEmpty) return const Center(child: Text('No employment history found.'));
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+        itemCount: _history.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (_, index) {
+          final event = _history[index];
+          return Card(
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              leading: const CircleAvatar(child: Icon(Icons.history_toggle_off_rounded)),
+              title: Text(_label(event['eventType']), style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text(
+                'Employment ${event['employmentId'] ?? '-'} • ${event['effectiveDate'] ?? '-'}\n'
+                '${event['oldStatus'] ?? '—'} → ${event['newStatus'] ?? '—'} • ${event['reason'] ?? ''}',
+              ),
+              isThreeLine: true,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _statusChip(String status) {
+    final normalized = status.toUpperCase();
+    final scheme = Theme.of(context).colorScheme;
+    final color = normalized.contains('APPROVED') || normalized == 'ACTIVE'
+        ? scheme.primaryContainer
+        : normalized.contains('REJECT') || normalized == 'TERMINATED'
+            ? scheme.errorContainer
+            : scheme.secondaryContainer;
+    return Chip(label: Text(_label(normalized)), backgroundColor: color, visualDensity: VisualDensity.compact);
+  }
+
+  IconData _actionIcon(String action) => switch (action.toUpperCase()) {
+        'HIRE' => Icons.person_add_alt_1_rounded,
+        'SUSPEND' => Icons.pause_circle_outline_rounded,
+        'TERMINATE' => Icons.person_off_outlined,
+        'REHIRE' => Icons.replay_circle_filled_outlined,
+        'REINSTATE' => Icons.play_circle_outline_rounded,
+        _ => Icons.approval_outlined,
+      };
+
+  static Map<String, dynamic> _map(dynamic value) =>
+      value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
 
   static String _employeeName(Map<String, dynamic> employee) {
     final values = [employee['name2'], employee['name3'], employee['name1']]
-        .map((e) => (e ?? '').toString().trim())
-        .where((e) => e.isNotEmpty)
+        .map((value) => (value ?? '').toString().trim())
+        .where((value) => value.isNotEmpty)
         .toList();
     return values.isEmpty ? 'Unknown employee' : values.join(' ');
   }
 
   static String _positionLabel(Map<String, dynamic> record) {
     final description = (record['positionDescription'] ?? '').toString().trim();
-    if (description.isNotEmpty) return description;
-    final code = (record['position'] ?? '').toString().trim();
-    if (code.isEmpty) return 'No position';
-    return code
-        .split(RegExp(r'[-_\s]+'))
-        .where((part) => part.isNotEmpty)
-        .map(
-          (part) => part.length == 1
-              ? part.toUpperCase()
-              : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-        )
-        .join(' ');
+    return description.isNotEmpty ? description : _label(record['position']);
+  }
+
+  static String _label(dynamic value) {
+    final text = (value ?? '').toString().replaceAll(RegExp(r'[-_]+'), ' ').trim();
+    if (text.isEmpty) return 'Not specified';
+    return text.split(' ').map((part) => part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}').join(' ');
   }
 }
 
-class _EmploymentDialog extends StatefulWidget {
-  final Map<String, dynamic>? record;
+class _EmploymentFormDialog extends StatefulWidget {
   final EmploymentService service;
-
-  const _EmploymentDialog({required this.record, required this.service});
+  final Map<String, dynamic>? record;
+  const _EmploymentFormDialog({required this.service, this.record});
 
   @override
-  State<_EmploymentDialog> createState() => _EmploymentDialogState();
+  State<_EmploymentFormDialog> createState() => _EmploymentFormDialogState();
 }
 
-class _EmploymentDialogState extends State<_EmploymentDialog> {
-  final _key = GlobalKey<FormState>();
-  late final TextEditingController _number;
+class _EmploymentFormDialogState extends State<_EmploymentFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _reason = TextEditingController();
+  Partner? _partner;
+  String? _type;
   String? _position;
   String? _branch;
   String? _department;
-  DateTime _start = DateTime.now();
-  DateTime? _end;
-  Partner? _partner;
+  DateTime _startDate = DateTime.now();
+  DateTime? _endDate;
   bool _saving = false;
-  String _type = 'PERMANENT';
 
   bool get editing => widget.record != null;
 
   @override
   void initState() {
     super.initState();
-    final r = widget.record ?? const <String, dynamic>{};
-    _number = TextEditingController(text: (r['employeeNumber'] ?? '').toString());
-    _position = _optionCode(r['position']);
-    _branch = _optionCode(r['branch']);
-    _department = _optionCode(r['department']);
-    _type = _optionCode(r['type']).isEmpty ? 'PERMANENT' : _optionCode(r['type']);
-    _start = DateTime.tryParse((r['startDate'] ?? '').toString()) ?? DateTime.now();
-    _end = DateTime.tryParse((r['endDate'] ?? '').toString());
-    if (r['employee'] is Map) {
-      _partner = Partner.fromJson(Map<String, dynamic>.from(r['employee'] as Map));
-    }
+    final record = widget.record ?? const <String, dynamic>{};
+    _type = _optionCode(record['type']);
+    _position = _optionCode(record['position']);
+    _branch = _optionCode(record['branch']);
+    _department = _optionCode(record['department']);
+    _startDate = DateTime.tryParse((record['startDate'] ?? '').toString()) ?? DateTime.now();
+    _endDate = DateTime.tryParse((record['endDate'] ?? '').toString());
+    if (record['employee'] is Map) _partner = Partner.fromJson(Map<String, dynamic>.from(record['employee'] as Map));
   }
 
   @override
   void dispose() {
-    _number.dispose();
+    _reason.dispose();
     super.dispose();
   }
 
   Future<void> _selectPartner() async {
-    final selected = await showDialog<Partner>(
-      context: context,
-      builder: (_) => const _PartnerPickerDialog(),
-    );
-    if (selected != null) setState(() => _partner = selected);
+    final partner = await showDialog<Partner>(context: context, builder: (_) => const _PartnerPickerDialog());
+    if (partner != null) setState(() => _partner = partner);
   }
 
   Future<void> _save() async {
-    if (!_key.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     if (!editing && _partner == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select the person being hired.')),
-      );
+      _message('Select the person being hired.');
       return;
     }
     setState(() => _saving = true);
     final payload = <String, dynamic>{
-      if (!editing) 'partnerId': _partner?.id,
-      'employeeNumber': _number.text.trim(),
-      'position': _position,
+      if (!editing) 'partnerId': _partner!.id,
       'type': _type,
+      'position': _position,
       'branch': _branch,
       'department': _department,
-      'startDate': DateFormat('yyyy-MM-dd').format(_start),
-      if (_end != null) 'endDate': DateFormat('yyyy-MM-dd').format(_end!),
+      if (!editing) 'startDate': _date(_startDate),
+      if (!editing) 'effectiveDate': _date(_startDate),
+      if (!editing && _endDate != null) 'endDate': _date(_endDate!),
+      if (!editing) 'reason': _reason.text.trim(),
     };
     try {
       if (editing) {
         await widget.service.update(widget.record!['id'].toString(), payload);
       } else {
-        await widget.service.hire(payload);
+        await widget.service.requestHire(payload);
       }
       if (mounted) Navigator.pop(context, true);
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+        _message(friendlyErrorMessage(error));
       }
     }
   }
@@ -394,151 +505,292 @@ class _EmploymentDialogState extends State<_EmploymentDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(editing ? 'Edit Employment Record' : 'Hire Employee'),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(editing ? 'Edit Employment Details' : 'Submit Hire Request'),
       content: SizedBox(
-        width: 560,
+        width: 680,
         child: Form(
-          key: _key,
+          key: _formKey,
           child: SingleChildScrollView(
-            child: Column(
-              children: [
-                if (!editing) ...[
-                  const Text(
-                    'Hiring uses an existing Business Partner record. A person who is already a member or dependent must be selected here; MAWA adds the Employee role without creating a duplicate person.',
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(child: Icon(Icons.person)),
-                  title: Text(_partner?.fullName ?? 'Select employee'),
-                  subtitle: Text(_partner?.number ?? 'Choose an existing member, dependent or business partner'),
-                  trailing: editing
-                      ? null
-                      : OutlinedButton(
-                          onPressed: _selectPartner,
-                          child: const Text('Select'),
-                        ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (!editing)
+                _notice(
+                  Icons.auto_awesome_outlined,
+                  'The employee number and live employment record will be created only after final approval.',
                 ),
+              if (editing)
+                _notice(
+                  Icons.lock_outline_rounded,
+                  'Employee number and employment-period dates are protected. Use approved lifecycle actions to suspend, terminate or rehire.',
+                ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
+                title: Text(_partner?.fullName ?? 'Select employee'),
+                subtitle: Text(editing
+                    ? (widget.record?['employeeNumber'] ?? '').toString()
+                    : (_partner?.number ?? 'Choose an existing business partner')),
+                trailing: editing ? null : OutlinedButton(onPressed: _selectPartner, child: const Text('Select')),
+              ),
+              const SizedBox(height: 12),
+              AppDropdownField(
+                field: 'EMPLOYMENT-TYPE', label: 'Employment Type', value: _type,
+                onChanged: (value) => setState(() => _type = value),
+                validator: (value) => value == null || value.isEmpty ? 'Employment type is required' : null,
+              ),
+              const SizedBox(height: 12),
+              AppDropdownField(
+                field: 'EMPLOYMENT-POSITION', label: 'Position', value: _position,
+                onChanged: (value) => setState(() => _position = value),
+                validator: (value) => value == null || value.isEmpty ? 'Position is required' : null,
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: AppDropdownField(field: 'BRANCH', label: 'Branch', value: _branch, onChanged: (value) => setState(() => _branch = value))),
+                const SizedBox(width: 12),
+                Expanded(child: AppDropdownField(field: 'DEPARTMENT', label: 'Department', value: _department, onChanged: (value) => setState(() => _department = value))),
+              ]),
+              if (!editing) ...[
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: _dateButton('Start date', _startDate, (value) => setState(() => _startDate = value))),
+                  const SizedBox(width: 12),
+                  Expanded(child: _dateButton('End date', _endDate, (value) => setState(() => _endDate = value), optional: true)),
+                ]),
+                const SizedBox(height: 12),
                 TextFormField(
-                  controller: _number,
-                  decoration: const InputDecoration(labelText: 'Employee Number'),
-                ),
-                const SizedBox(height: 12),
-                AppDropdownField(
-                  field: 'EMPLOYMENT-POSITION',
-                  label: 'Position',
-                  icon: Icons.work_outline_rounded,
-                  value: _position,
-                  onChanged: (value) => setState(() => _position = value),
-                  validator: (value) => value == null || value.trim().isEmpty
-                      ? 'Position is required'
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: _type,
-                  decoration: const InputDecoration(labelText: 'Employment Type'),
-                  items: const [
-                    DropdownMenuItem(value: 'PERMANENT', child: Text('Permanent')),
-                    DropdownMenuItem(value: 'TEMP', child: Text('Temporary')),
-                    DropdownMenuItem(value: 'FIXED-TERM', child: Text('Fixed-term Contract')),
-                    DropdownMenuItem(value: 'CASUAL', child: Text('Casual')),
-                  ],
-                  onChanged: (v) => setState(() => _type = v ?? 'PERMANENT'),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppDropdownField(
-                        field: 'BRANCH',
-                        label: 'Branch',
-                        value: _branch,
-                        onChanged: (value) => setState(() => _branch = value),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AppDropdownField(
-                        field: 'DEPARTMENT',
-                        label: 'Department',
-                        value: _department,
-                        onChanged: (value) => setState(() => _department = value),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            firstDate: DateTime(1950),
-                            lastDate: DateTime(2100),
-                            initialDate: _start,
-                          );
-                          if (date != null) setState(() => _start = date);
-                        },
-                        icon: const Icon(Icons.event),
-                        label: Text('Start ${DateFormat('yyyy-MM-dd').format(_start)}'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            firstDate: _start,
-                            lastDate: DateTime(2100),
-                            initialDate: _end ?? _start,
-                          );
-                          if (date != null) setState(() => _end = date);
-                        },
-                        icon: const Icon(Icons.event_busy),
-                        label: Text(_end == null
-                            ? 'No end date'
-                            : 'End ${DateFormat('yyyy-MM-dd').format(_end!)}'),
-                      ),
-                    ),
-                  ],
+                  controller: _reason,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Reason for hire'),
+                  validator: (value) => value == null || value.trim().isEmpty ? 'Reason is required' : null,
                 ),
               ],
-            ),
+            ]),
           ),
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
         FilledButton.icon(
           onPressed: _saving ? null : _save,
-          icon: _saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save),
-          label: Text(_saving ? 'Saving...' : 'Save'),
+          icon: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(editing ? Icons.save_outlined : Icons.approval_outlined),
+          label: Text(_saving ? 'Saving...' : editing ? 'Save Changes' : 'Submit for Approval'),
         ),
       ],
     );
   }
 
-  static String _optionCode(dynamic value) {
+  Widget _notice(IconData icon, String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(14)),
+        child: Row(children: [Icon(icon), const SizedBox(width: 12), Expanded(child: Text(text))]),
+      );
+
+  Widget _dateButton(String label, DateTime? value, ValueChanged<DateTime> changed, {bool optional = false}) {
+    return OutlinedButton.icon(
+      onPressed: () async {
+        final selected = await showDatePicker(
+          context: context,
+          firstDate: DateTime(1950),
+          lastDate: DateTime(2100),
+          initialDate: value ?? DateTime.now(),
+        );
+        if (selected != null) changed(selected);
+      },
+      icon: const Icon(Icons.event_outlined),
+      label: Text(value == null && optional ? '$label: Open ended' : '$label: ${_date(value!)}'),
+    );
+  }
+
+  void _message(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  static String _date(DateTime value) => DateFormat('yyyy-MM-dd').format(value);
+  static String? _optionCode(dynamic value) {
     if (value is Map) return (value['code'] ?? '').toString();
-    return (value ?? '').toString();
+    final text = (value ?? '').toString();
+    return text.isEmpty ? null : text;
   }
 }
 
+class _EmploymentActionDialog extends StatefulWidget {
+  final EmploymentService service;
+  final Map<String, dynamic> record;
+  final String actionType;
+  const _EmploymentActionDialog({required this.service, required this.record, required this.actionType});
+
+  @override
+  State<_EmploymentActionDialog> createState() => _EmploymentActionDialogState();
+}
+
+class _EmploymentActionDialogState extends State<_EmploymentActionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _reason = TextEditingController();
+  late DateTime _effectiveDate;
+  DateTime? _expectedReturnDate;
+  DateTime? _endDate;
+  String? _type;
+  String? _position;
+  String? _branch;
+  String? _department;
+  bool _affectsPayroll = false;
+  bool _suspendAccess = false;
+  bool _saving = false;
+  int _attachmentCount = 0;
+  late final String _attachmentObjectId;
+
+  bool get isRehire => widget.actionType == 'REHIRE';
+  bool get documentsRequired => widget.actionType == 'SUSPEND' || widget.actionType == 'TERMINATE';
+
+  @override
+  void initState() {
+    super.initState();
+    _attachmentObjectId = 'EMPLOYMENT-ACTION-${DateTime.now().microsecondsSinceEpoch}';
+    final previousEnd = DateTime.tryParse((widget.record['endDate'] ?? '').toString());
+    _effectiveDate = isRehire && previousEnd != null ? previousEnd.add(const Duration(days: 1)) : DateTime.now();
+    _type = _optionCode(widget.record['type']);
+    _position = _optionCode(widget.record['position']);
+    _branch = _optionCode(widget.record['branch']);
+    _department = _optionCode(widget.record['department']);
+    _affectsPayroll = widget.actionType == 'TERMINATE' || widget.actionType == 'SUSPEND';
+    _suspendAccess = widget.actionType == 'TERMINATE';
+  }
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (documentsRequired && _attachmentCount == 0) {
+      _message('Upload at least one supporting document.');
+      return;
+    }
+    setState(() => _saving = true);
+    final payload = <String, dynamic>{
+      'effectiveDate': _date(_effectiveDate),
+      'reason': _reason.text.trim(),
+      'affectsPayroll': _affectsPayroll,
+      'suspendSystemAccess': _suspendAccess,
+      if (_expectedReturnDate != null) 'expectedReturnDate': _date(_expectedReturnDate!),
+      if (isRehire) 'type': _type,
+      if (isRehire) 'position': _position,
+      if (isRehire) 'branch': _branch,
+      if (isRehire) 'department': _department,
+      if (isRehire && _endDate != null) 'endDate': _date(_endDate!),
+      if (_attachmentCount > 0) 'attachmentObjectIds': [_attachmentObjectId],
+    };
+    try {
+      await widget.service.requestAction(widget.record['id'].toString(), widget.actionType, payload);
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _saving = false);
+        _message(friendlyErrorMessage(error));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final employee = widget.record['employee'] is Map ? Map<String, dynamic>.from(widget.record['employee'] as Map) : <String, dynamic>{};
+    final name = _EmploymentManagementScreenState._employeeName(employee);
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text('${_EmploymentManagementScreenState._label(widget.actionType)} Request'),
+      content: SizedBox(
+        width: 720,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const CircleAvatar(child: Icon(Icons.badge_outlined)),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text('${widget.record['employeeNumber'] ?? '-'} • ${_EmploymentManagementScreenState._positionLabel(widget.record)}'),
+              ),
+              const Divider(),
+              _dateButton('Effective date', _effectiveDate, (value) => setState(() => _effectiveDate = value)),
+              if (widget.actionType == 'SUSPEND') ...[
+                const SizedBox(height: 10),
+                _dateButton('Expected return date', _expectedReturnDate, (value) => setState(() => _expectedReturnDate = value), optional: true),
+              ],
+              if (isRehire) ...[
+                const SizedBox(height: 12),
+                AppDropdownField(field: 'EMPLOYMENT-TYPE', label: 'Employment Type', value: _type, onChanged: (value) => setState(() => _type = value), validator: _required),
+                const SizedBox(height: 12),
+                AppDropdownField(field: 'EMPLOYMENT-POSITION', label: 'Position', value: _position, onChanged: (value) => setState(() => _position = value), validator: _required),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: AppDropdownField(field: 'BRANCH', label: 'Branch', value: _branch, onChanged: (value) => setState(() => _branch = value))),
+                  const SizedBox(width: 12),
+                  Expanded(child: AppDropdownField(field: 'DEPARTMENT', label: 'Department', value: _department, onChanged: (value) => setState(() => _department = value))),
+                ]),
+                const SizedBox(height: 12),
+                _dateButton('New employment end date', _endDate, (value) => setState(() => _endDate = value), optional: true),
+              ],
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _reason,
+                maxLines: 4,
+                decoration: InputDecoration(labelText: '${_EmploymentManagementScreenState._label(widget.actionType)} reason'),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Reason is required' : null,
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _affectsPayroll,
+                onChanged: (value) => setState(() => _affectsPayroll = value),
+                title: const Text('Affects payroll'),
+              ),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: _suspendAccess,
+                onChanged: (value) => setState(() => _suspendAccess = value),
+                title: const Text('Suspend system access after approval'),
+              ),
+              const SizedBox(height: 8),
+              Text(documentsRequired ? 'Supporting documents (required)' : 'Supporting documents', style: const TextStyle(fontWeight: FontWeight.w800)),
+              AttachmentSection(
+                objectId: _attachmentObjectId,
+                onAttachmentCountChanged: (count) => _attachmentCount = count,
+              ),
+            ]),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton.icon(
+          onPressed: _saving ? null : _submit,
+          icon: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.approval_outlined),
+          label: Text(_saving ? 'Submitting...' : 'Submit for Approval'),
+        ),
+      ],
+    );
+  }
+
+  Widget _dateButton(String label, DateTime? value, ValueChanged<DateTime> changed, {bool optional = false}) => OutlinedButton.icon(
+        onPressed: () async {
+          final selected = await showDatePicker(context: context, firstDate: DateTime(1950), lastDate: DateTime(2100), initialDate: value ?? DateTime.now());
+          if (selected != null) changed(selected);
+        },
+        icon: const Icon(Icons.event_outlined),
+        label: Text(value == null && optional ? '$label: Not specified' : '$label: ${_date(value!)}'),
+      );
+
+  String? _required(String? value) => value == null || value.isEmpty ? 'Required' : null;
+  void _message(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  static String _date(DateTime value) => DateFormat('yyyy-MM-dd').format(value);
+  static String? _optionCode(dynamic value) {
+    if (value is Map) return (value['code'] ?? '').toString();
+    final text = (value ?? '').toString();
+    return text.isEmpty ? null : text;
+  }
+}
 
 class _EmployeeBankingDialog extends StatefulWidget {
   final String employmentId;
