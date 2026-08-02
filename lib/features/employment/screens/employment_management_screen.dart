@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
-import '../../leave_management/screens/leave_configuration_screen.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -121,14 +120,6 @@ class _EmploymentManagementScreenState extends State<EmploymentManagementScreen>
       appBar: AppBar(
         title: const Text('Employment Management'),
         actions: [
-          IconButton(
-            tooltip: 'Leave profile assignments',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LeaveConfigurationScreen(initialTab: 3)),
-            ),
-            icon: const Icon(Icons.assignment_ind_outlined),
-          ),
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),

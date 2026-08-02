@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/widgets/app_dropdown.dart';
-import '../../../core/widgets/attachment_section.dart';
 import '../../employment/services/employment_service.dart';
 import '../services/leave_configuration_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -27,14 +26,12 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
   List<Map<String, dynamic>> _calendars = const [];
   List<Map<String, dynamic>> _employeeAssignments = const [];
   List<Map<String, dynamic>> _positionAssignments = const [];
-  List<Map<String, dynamic>> _balances = const [];
-  List<Map<String, dynamic>> _adjustments = const [];
   List<Map<String, dynamic>> _employments = const [];
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this, initialIndex: widget.initialTab.clamp(0, 4));
+    _tabs = TabController(length: 4, vsync: this, initialIndex: widget.initialTab.clamp(0, 3));
     _load();
   }
 
@@ -53,8 +50,6 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
         _service.calendars(),
         _service.employeeAssignments(),
         _service.positionAssignments(),
-        _service.balances(),
-        _service.adjustments(),
         _employmentService.list(),
       ]);
       if (!mounted) return;
@@ -64,9 +59,7 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
         _calendars = values[2];
         _employeeAssignments = values[3];
         _positionAssignments = values[4];
-        _balances = values[5];
-        _adjustments = values[6];
-        _employments = values[7];
+        _employments = values[5];
       });
     } catch (error) {
       if (mounted) setState(() => _error = friendlyErrorMessage(error));
@@ -89,7 +82,6 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
             Tab(icon: Icon(Icons.rule_folder_outlined), text: 'Leave Profiles'),
             Tab(icon: Icon(Icons.today_outlined), text: 'Working Calendars'),
             Tab(icon: Icon(Icons.assignment_ind_outlined), text: 'Assignments'),
-            Tab(icon: Icon(Icons.account_balance_wallet_outlined), text: 'Balances'),
           ],
         ),
       ),
@@ -107,7 +99,6 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
                         _profilesTab(),
                         _calendarsTab(),
                         _assignmentsTab(),
-                        _balancesTab(),
                       ],
                     ),
                   ),
@@ -204,23 +195,6 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
         ],
       );
 
-  Widget _balancesTab() => DefaultTabController(
-        length: 2,
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: _sectionHeader(
-              'Leave Balances & Adjustments',
-              'Balances are backed by an immutable ledger. Manual adjustments require evidence and approval.',
-              Icons.account_balance_wallet_outlined,
-              actions: [FilledButton.icon(onPressed: () => _requestAdjustment(), icon: const Icon(Icons.tune_rounded), label: const Text('Request Adjustment'))],
-            ),
-          ),
-          const TabBar(tabs: [Tab(text: 'Employee Balances'), Tab(text: 'Adjustment Requests')]),
-          Expanded(child: TabBarView(children: [_balanceList(), _adjustmentList()])),
-        ]),
-      );
-
   Widget _configurationList({required String title, required String description, required IconData icon, required String actionLabel, required VoidCallback onAction, required List<Widget> children}) => ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -256,51 +230,6 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
           trailing: assignment['active'] == true ? const Chip(label: Text('Active')) : const Chip(label: Text('Inactive')),
         ),
       );
-
-  Widget _balanceList() {
-    if (_balances.isEmpty) return const Center(child: Text('No leave balances found.'));
-    return ListView.separated(
-      padding: const EdgeInsets.all(20),
-      itemCount: _balances.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, index) {
-        final balance = _balances[index];
-        return Card(
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(17),
-            leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet_outlined)),
-            title: Text('${balance['employeeName'] ?? '-'} • ${balance['leaveTypeName'] ?? balance['leaveTypeCode']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text('${balance['employeeNumber'] ?? '-'} • Cycle ${balance['cycleStart'] ?? '-'} to ${balance['cycleEnd'] ?? '-'}\nAccrued ${balance['accrued'] ?? 0} • Taken ${balance['taken'] ?? 0} • Adjusted ${balance['adjusted'] ?? 0}'),
-            isThreeLine: true,
-            trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('Available'), Text('${balance['availableBalance'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))]),
-            onTap: () => _showLedger(balance['employmentId']?.toString() ?? ''),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _adjustmentList() {
-    if (_adjustments.isEmpty) return const Center(child: Text('No leave balance adjustment requests found.'));
-    return ListView.separated(
-      padding: const EdgeInsets.all(20),
-      itemCount: _adjustments.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, index) {
-        final item = _adjustments[index];
-        return Card(
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(17),
-            leading: const CircleAvatar(child: Icon(Icons.tune_rounded)),
-            title: Text('${item['requestNumber'] ?? '-'} • ${item['employeeName'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text('${item['leaveTypeName'] ?? '-'}: ${item['adjustmentAmount'] ?? 0} effective ${item['effectiveDate'] ?? '-'}\n${item['reason'] ?? ''}'),
-            isThreeLine: true,
-            trailing: Chip(label: Text(_label(item['status']))),
-          ),
-        );
-      },
-    );
-  }
 
   Future<void> _editLeaveType([Map<String, dynamic>? existing]) async {
     final result = await showDialog<Map<String, dynamic>>(
@@ -348,52 +277,6 @@ class _LeaveConfigurationScreenState extends State<LeaveConfigurationScreen>
     );
     if (result == null) return;
     await _save(() => _service.assignPosition(result), 'Position leave profile assigned.');
-  }
-
-  Future<void> _requestAdjustment() async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _BalanceAdjustmentDialog(employments: _employments, leaveTypes: _types.where((item) => item['active'] == true).toList()),
-    );
-    if (result == null) return;
-    await _save(() => _service.requestAdjustment(result), 'Leave balance adjustment submitted for approval.');
-  }
-
-  Future<void> _showLedger(String employmentId) async {
-    if (employmentId.isEmpty) return;
-    try {
-      final ledger = await _service.ledger(employmentId);
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Leave Balance Ledger'),
-          content: SizedBox(
-            width: 760,
-            child: ledger.isEmpty
-                ? const Center(child: Text('No ledger entries found.'))
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: ledger.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (_, index) {
-                      final item = ledger[index];
-                      return ListTile(
-                        leading: const Icon(Icons.receipt_long_outlined),
-                        title: Text('${_label(item['transactionType'])} • ${item['amount'] ?? 0}'),
-                        subtitle: Text('${item['transactionDate'] ?? '-'} • ${item['description'] ?? ''}'),
-                        trailing: Text('${item['balanceAfter'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      );
-                    },
-                  ),
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-        ),
-      );
-    } catch (error) {
-      _message(friendlyErrorMessage(error));
-    }
   }
 
   Future<void> _save(Future<dynamic> Function() action, String success) async {
@@ -922,61 +805,4 @@ class _PositionAssignmentDialogState extends State<_PositionAssignmentDialog> {
         ])),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton(onPressed: _position == null || _profileId == null ? null : () => Navigator.pop(context, {'positionCode': _position, 'leaveProfileId': _profileId, 'effectiveFrom': DateFormat('yyyy-MM-dd').format(_from), 'effectiveTo': '9999-12-31'}), child: const Text('Assign'))],
       );
-}
-
-class _BalanceAdjustmentDialog extends StatefulWidget {
-  final List<Map<String, dynamic>> employments;
-  final List<Map<String, dynamic>> leaveTypes;
-  const _BalanceAdjustmentDialog({required this.employments, required this.leaveTypes});
-  @override
-  State<_BalanceAdjustmentDialog> createState() => _BalanceAdjustmentDialogState();
-}
-
-class _BalanceAdjustmentDialogState extends State<_BalanceAdjustmentDialog> {
-  final _key = GlobalKey<FormState>();
-  final _amount = TextEditingController();
-  final _reason = TextEditingController();
-  String? _employmentId;
-  String? _leaveTypeId;
-  DateTime _date = DateTime.now();
-  int _attachmentCount = 0;
-  late final String _attachmentId;
-
-  @override
-  void initState() { super.initState(); _attachmentId = 'LEAVE-ADJUSTMENT-DOC-${DateTime.now().microsecondsSinceEpoch}'; }
-  @override
-  void dispose() { _amount.dispose(); _reason.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Request Leave Balance Adjustment'),
-        content: SizedBox(width: 720, child: Form(key: _key, child: SingleChildScrollView(child: Column(children: [
-          DropdownButtonFormField<String>(value: _employmentId, decoration: const InputDecoration(labelText: 'Employee'), items: widget.employments.map((employment) => DropdownMenuItem(value: employment['id'].toString(), child: Text('${_employeeName(employment)} • ${employment['employeeNumber'] ?? '-'}'))).toList(), onChanged: (value) => setState(() => _employmentId = value), validator: (value) => value == null ? 'Employee is required' : null),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(value: _leaveTypeId, decoration: const InputDecoration(labelText: 'Leave type'), items: widget.leaveTypes.map((type) => DropdownMenuItem(value: type['id'].toString(), child: Text(type['name']?.toString() ?? '-'))).toList(), onChanged: (value) => setState(() => _leaveTypeId = value), validator: (value) => value == null ? 'Leave type is required' : null),
-          const SizedBox(height: 12),
-          TextFormField(controller: _amount, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Adjustment amount', helperText: 'Use a negative value to reduce the balance.'), validator: (value) => (double.tryParse(value ?? '') ?? 0) == 0 ? 'Enter a non-zero amount' : null),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(onPressed: () async { final date = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime(2100), initialDate: _date); if (date != null) setState(() => _date = date); }, icon: const Icon(Icons.event), label: Text('Effective ${DateFormat('yyyy-MM-dd').format(_date)}')),
-          const SizedBox(height: 12),
-          TextFormField(controller: _reason, maxLines: 3, decoration: const InputDecoration(labelText: 'Reason'), validator: (value) => value == null || value.trim().isEmpty ? 'Reason is required' : null),
-          const SizedBox(height: 14),
-          const Align(alignment: Alignment.centerLeft, child: Text('Supporting documents (required)', style: TextStyle(fontWeight: FontWeight.w800))),
-          AttachmentSection(objectId: _attachmentId, onAttachmentCountChanged: (count) => _attachmentCount = count),
-        ])))),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton.icon(onPressed: _submit, icon: const Icon(Icons.approval_outlined), label: const Text('Submit for Approval'))],
-      );
-
-  void _submit() {
-    if (!(_key.currentState?.validate() ?? false)) return;
-    if (_attachmentCount == 0) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload at least one supporting document.'))); return; }
-    Navigator.pop(context, {'employmentId': _employmentId, 'leaveTypeId': _leaveTypeId, 'adjustmentAmount': double.parse(_amount.text.trim()), 'effectiveDate': DateFormat('yyyy-MM-dd').format(_date), 'reason': _reason.text.trim(), 'attachmentObjectIds': [_attachmentId]});
-  }
-
-  String _employeeName(Map<String, dynamic> employment) {
-    final employee = employment['employee'] is Map ? Map<String, dynamic>.from(employment['employee'] as Map) : <String, dynamic>{};
-    final names = [employee['name2'], employee['name3'], employee['name1']].map((v) => (v ?? '').toString().trim()).where((v) => v.isNotEmpty).toList();
-    return names.isEmpty ? 'Unknown employee' : names.join(' ');
-  }
 }

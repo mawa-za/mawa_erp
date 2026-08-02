@@ -370,7 +370,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.inventorySetup,
-        builder: (context, state) => const InventoryManagementScreen(initialSection: 'inventory-setup'),
+        redirect: (context, state) => AppRoutes.systemConfiguration,
       ),
 
       // Tombstone Management
@@ -489,6 +489,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.funeralPackageSetup,
         builder: (context, state) => const FuneralPackageSetupPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.legacyFuneralPackageSetup,
+        redirect: (context, state) => AppRoutes.funeralPackageSetup,
       ),
       GoRoute(
         path: AppRoutes.funeralAllClaims,

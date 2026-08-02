@@ -119,8 +119,8 @@ class WorkcenterRouteRegistry {
     'SALES_ORDERS': AppRoutes.inventorySalesOrders,
     'INVENTORY_AUDIT': AppRoutes.inventoryAudit,
     'STOCK_AUDIT': AppRoutes.inventoryAudit,
-    'INVENTORY_SETUP': AppRoutes.inventorySetup,
-    'WAREHOUSE_SETUP': AppRoutes.inventorySetup,
+    'INVENTORY_SETUP': AppRoutes.systemConfiguration,
+    'WAREHOUSE_SETUP': AppRoutes.systemConfiguration,
 
     // Tombstone Management
     'TOMBSTONE': AppRoutes.tombstones,
@@ -259,7 +259,7 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('INVENTORY') &&
         (normalized.contains('SETUP') || normalized.contains('CONFIG'))) {
-      return AppRoutes.inventorySetup;
+      return AppRoutes.systemConfiguration;
     }
 
     return null;
