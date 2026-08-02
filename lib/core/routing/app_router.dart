@@ -28,7 +28,7 @@ import '../../features/admin/message_queue/message_queue_admin_screen.dart';
 import '../../features/appointments/screens/appointment_calendar_screen.dart';
 import '../../features/cashup/screens/cashup_list_screen.dart';
 import '../../features/payments/screens/payment_request_list_screen.dart';
-import '../../features/leave_requests/screens/leave_request_list_screen.dart';
+import '../../features/leave_management/screens/leave_management_screen.dart';
 import '../../features/employment/screens/employment_management_screen.dart';
 import '../../features/assets/screens/asset_register_screen.dart';
 import '../../features/products/screens/product_maintenance_screen.dart';
@@ -301,7 +301,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.employeeRequests,
-        builder: (context, state) => const LeaveRequestListScreen(),
+        builder: (context, state) => const LeaveManagementScreen(),
       ),
       GoRoute(
         path: AppRoutes.products,
