@@ -2,6 +2,10 @@ class NumberSequenceConfiguration {
   final int id;
   final String seqType;
   final String description;
+  final String? prefix;
+  final String? separator;
+  final int paddingLength;
+  final String? nextFormattedNumber;
   final int startNo;
   final int nextNo;
   final int endNo;
@@ -21,6 +25,10 @@ class NumberSequenceConfiguration {
     required this.id,
     required this.seqType,
     required this.description,
+    required this.prefix,
+    required this.separator,
+    required this.paddingLength,
+    required this.nextFormattedNumber,
     required this.startNo,
     required this.nextNo,
     required this.endNo,
@@ -42,6 +50,10 @@ class NumberSequenceConfiguration {
       id: _asInt(json['id']),
       seqType: json['seqType']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
+      prefix: json['prefix']?.toString(),
+      separator: json['separator']?.toString(),
+      paddingLength: _asInt(json['paddingLength']),
+      nextFormattedNumber: json['nextFormattedNumber']?.toString(),
       startNo: _asInt(json['startNo']),
       nextNo: _asInt(json['nextNo']),
       endNo: _asInt(json['endNo']),
@@ -61,6 +73,9 @@ class NumberSequenceConfiguration {
 
   Map<String, dynamic> toUpdateJson({
     required String description,
+    required String? prefix,
+    required String? separator,
+    required int paddingLength,
     required int nextNo,
     required int endNo,
     required int defaultAllocationSize,
@@ -71,6 +86,9 @@ class NumberSequenceConfiguration {
       'id': id,
       'seqType': seqType,
       'description': description,
+      'prefix': prefix,
+      'separator': separator,
+      'paddingLength': paddingLength,
       'startNo': startNo,
       'nextNo': nextNo,
       'endNo': endNo,

@@ -1016,13 +1016,4 @@ const List<_InventoryCardDefinition> _inventoryCardCatalog = [
     workcenterAliases: ['inventory-audit', 'stock-audit', 'stock-audit-log'],
     sectionAliases: ['audit', 'inventory-audit', 'stock-audit'],
   ),
-  _InventoryCardDefinition(
-    section: _InventorySection.setup,
-    title: 'Inventory Setup',
-    subtitle: 'Maintain warehouses and storage locations.',
-    icon: Icons.store_mall_directory_outlined,
-    defaultOrder: 100,
-    workcenterAliases: ['inventory-setup', 'warehouse-setup', 'warehouse', 'storage-location'],
-    sectionAliases: ['setup', 'inventory-setup', 'warehouse-setup'],
-  ),
 ];

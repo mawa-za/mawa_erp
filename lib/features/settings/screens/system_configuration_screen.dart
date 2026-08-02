@@ -5,10 +5,12 @@ import '../../../core/widgets/mawa_ui.dart';
 import '../../admin/message_queue/message_queue_admin_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../forms/company_form_configuration_screen.dart';
+import '../../funeral/presentation/pages/funeral_package_setup_page.dart';
 import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
 import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import '../../integrations/fnb/fnb_integration_admin_screen.dart';
+import '../../leave_management/screens/leave_configuration_screen.dart';
 import '../../membership/screens/membership_plan_list_screen.dart';
 import '../../payments/screens/payment_account_configuration_screen.dart';
 import 'api_log_list_screen.dart';
@@ -106,6 +108,38 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.tune_rounded,
           category: _ConfigurationCategory.organisation,
           onTap: () => _open(context, const FieldOptionListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Leave Types',
+          description:
+              'Maintain paid, unpaid, day and hour leave types with document and balance rules.',
+          icon: Icons.category_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 0)),
+        ),
+        _ConfigurationItem(
+          title: 'Leave Profiles',
+          description:
+              'Configure leave entitlements, accrual, carry-over, waiting periods and profile rules.',
+          icon: Icons.rule_folder_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 1)),
+        ),
+        _ConfigurationItem(
+          title: 'Leave Profile Assignments',
+          description:
+              'Assign effective-dated leave profiles to positions or individual employees.',
+          icon: Icons.assignment_ind_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 3)),
+        ),
+        _ConfigurationItem(
+          title: 'Working Calendars',
+          description:
+              'Maintain working days, daily hours and holidays used for leave calculations.',
+          icon: Icons.today_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 2)),
         ),
         _ConfigurationItem(
           title: 'Company Forms',
@@ -222,13 +256,21 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
               _open(context, const ManualReceiptCutoverSettingsScreen()),
         ),
         _ConfigurationItem(
-          title: 'Number Ranges',
+          title: 'Number Allocation',
           description:
-              'Manage document sequences, operational number ranges and device allocations.',
+              'Configure employee numbers, document sequences, operational ranges and device allocations.',
           icon: Icons.format_list_numbered_rounded,
-          category: _ConfigurationCategory.finance,
+          category: _ConfigurationCategory.operations,
           onTap: () =>
               _open(context, const NumberRangeConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Funeral Packages',
+          description:
+              'Configure fixed-price or item-based funeral packages and their included products.',
+          icon: Icons.inventory_2_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(context, const FuneralPackageSetupPage()),
         ),
         _ConfigurationItem(
           title: 'Warehouse & Storage',
@@ -778,9 +820,9 @@ class _ConfigurationItem {
 
 enum _ConfigurationCategory {
   organisation(
-    title: 'Organisation & Access',
+    title: 'Organisation, People & Access',
     description:
-        'Manage company identity, users, roles, approvals and reusable business values.',
+        'Manage company identity, users, roles, approvals, workforce rules and reusable business values.',
     icon: Icons.corporate_fare_outlined,
     color: MawaDesign.info,
   ),
@@ -794,14 +836,14 @@ enum _ConfigurationCategory {
   finance(
     title: 'Finance & Documents',
     description:
-        'Configure payment processing, accounting, receipt controls and document numbering.',
+        'Configure payment processing, accounting, receipt controls and finance documents.',
     icon: Icons.payments_outlined,
     color: MawaDesign.success,
   ),
   operations(
     title: 'Operations & Monitoring',
     description:
-        'Maintain storage, printing, background processing and technical activity monitoring.',
+        'Configure operational numbering, funeral packages, storage, printing and technical processing.',
     icon: Icons.settings_suggest_outlined,
     color: Color(0xFFF97316),
   ),
