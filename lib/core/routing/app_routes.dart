@@ -79,7 +79,8 @@ class AppRoutes {
   static const String funeralInvoicePreview = '/funeral/service-request/:id/invoice-preview';
   static const String funeralInvoicePayment = '/funeral/invoice/:invoiceId/payment';
   static const String funeralPayments = '/funeral/payments';
-  static const String funeralPackageSetup = '/funeral/packages/setup';
+  static const String funeralPackageSetup = '/system-configuration/funeral-packages';
+  static const String legacyFuneralPackageSetup = '/funeral/packages/setup';
   static const String funeralCoverUnderwriting = '/funeral/cover-underwriting';
 
   // Legacy routes for redirection

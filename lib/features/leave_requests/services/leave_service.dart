@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import '../../../core/api_client.dart';
 import '../models/leave_request.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -8,90 +9,78 @@ class LeaveService {
   factory LeaveService() => _instance;
   LeaveService._internal();
 
-  final ApiClient _apiClient = ApiClient();
+  final ApiClient _api = ApiClient();
 
   Future<List<LeaveRequest>> getLeaveRequests({String? status}) async {
-    try {
-      final response = await _apiClient.get(
-        '/v2/leave-request',
-        queryParameters: {
-          if (status != null) 'status': status,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
-        final List<dynamic> data = decoded is List
-            ? decoded
-            : (decoded is Map && decoded['content'] is List ? decoded['content'] as List<dynamic> : const []);
-        return data
-            .whereType<Map>()
-            .map((json) => LeaveRequest.fromJson(Map<String, dynamic>.from(json)))
-            .toList();
-      } else {
-        throw AppException('Failed to load leave requests (${response.statusCode}): ${response.body}');
-      }
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _api.get('/v2/leave-request', queryParameters: {
+      if (status != null && status != 'ALL') 'status': status,
+    });
+    _ensureSuccess(response.statusCode, response.body, 'load leave requests');
+    final decoded = jsonDecode(response.body);
+    final values = decoded is List ? decoded : (decoded is Map && decoded['content'] is List ? decoded['content'] as List : const []);
+    return values.whereType<Map>().map((item) => LeaveRequest.fromJson(Map<String, dynamic>.from(item))).toList();
   }
 
   Future<LeaveRequest> getLeaveRequestById(String id) async {
-    final response = await _apiClient.get('/v2/leave-request/$id');
-    if (response.statusCode == 200) {
-      return LeaveRequest.fromJson(jsonDecode(response.body));
-    }
-    throw AppException('Failed to load leave request');
+    final response = await _api.get('/v2/leave-request/$id');
+    _ensureSuccess(response.statusCode, response.body, 'load leave request');
+    return LeaveRequest.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+  }
+
+  Future<LeaveRequestPreview> preview(Map<String, dynamic> data) async {
+    final response = await _api.post('/v2/leave-request/preview', body: data);
+    _ensureSuccess(response.statusCode, response.body, 'calculate leave request');
+    return LeaveRequestPreview.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
   }
 
   Future<LeaveRequest> createLeaveRequest(Map<String, dynamic> data) async {
-    final response = await _apiClient.post('/v2/leave-request', body: data);
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return LeaveRequest.fromJson(jsonDecode(response.body));
-    }
-    throw AppException('Failed to create leave request');
+    final response = await _api.post('/v2/leave-request', body: data);
+    _ensureSuccess(response.statusCode, response.body, 'create leave request');
+    return LeaveRequest.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
   }
 
   Future<LeaveRequest> updateLeaveRequest(String id, Map<String, dynamic> data) async {
-    final response = await _apiClient.put('/v2/leave-request/$id', body: data);
-    if (response.statusCode == 200) {
-      return LeaveRequest.fromJson(jsonDecode(response.body));
-    }
-    throw AppException('Failed to update leave request');
+    final response = await _api.put('/v2/leave-request/$id', body: data);
+    _ensureSuccess(response.statusCode, response.body, 'update leave request');
+    return LeaveRequest.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+  }
+
+  Future<LeaveRequest> submitLeaveRequest(String id) async {
+    final response = await _api.put('/v2/leave-request/$id/submit');
+    _ensureSuccess(response.statusCode, response.body, 'submit leave request');
+    return LeaveRequest.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+  }
+
+  Future<LeaveRequest> cancelLeaveRequest(String id, String reason) async {
+    final response = await _api.put('/v2/leave-request/$id/cancel', body: {'reason': reason});
+    _ensureSuccess(response.statusCode, response.body, 'cancel leave request');
+    return LeaveRequest.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
   }
 
   Future<void> deleteLeaveRequest(String id) async {
-    final response = await _apiClient.delete('/v2/leave-request/$id');
-    if (response.statusCode != 200 && response.statusCode != 204) {
-      throw AppException('Failed to delete leave request');
-    }
+    final response = await _api.delete('/v2/leave-request/$id');
+    _ensureSuccess(response.statusCode, response.body, 'delete leave request');
   }
 
-  Future<void> submitLeaveRequest(String id) async {
-    final response = await _apiClient.put('/v2/leave-request/$id/submit');
-    if (response.statusCode != 200) {
-      throw AppException('Failed to submit leave request');
-    }
+  Future<List<Map<String, dynamic>>> getLeaveTypes() async {
+    final response = await _api.get('/v2/leave-configuration/types', queryParameters: {'activeOnly': true});
+    _ensureSuccess(response.statusCode, response.body, 'load leave types');
+    final decoded = jsonDecode(response.body);
+    return (decoded is List ? decoded : const <dynamic>[])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
   }
 
-  Future<void> approveLeaveRequest(String id) async {
-    final response = await _apiClient.put('/v2/leave-request/$id/approve');
-    if (response.statusCode != 200) {
-      throw AppException('Failed to approve leave request');
+  void _ensureSuccess(int statusCode, String body, String action) {
+    if (statusCode >= 200 && statusCode < 300) return;
+    String message = body.trim();
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['message'] != null) message = decoded['message'].toString();
+    } catch (_) {
+      // Preserve non-JSON response text.
     }
-  }
-
-  Future<void> rejectLeaveRequest(String id) async {
-    final response = await _apiClient.put('/v2/leave-request/$id/reject');
-    if (response.statusCode != 200) {
-      throw AppException('Failed to reject leave request');
-    }
-  }
-
-  Future<void> cancelLeaveRequest(String id, Map<String, dynamic> data) async {
-    final response = await _apiClient.put('/v2/leave-request/$id/cancel', body: data);
-    if (response.statusCode != 200) {
-      throw AppException('Failed to cancel leave request');
-    }
+    throw AppException(message.isEmpty ? 'Failed to $action' : message);
   }
 }

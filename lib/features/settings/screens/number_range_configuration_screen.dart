@@ -245,6 +245,8 @@ class _NumberRangeConfigurationScreenState extends State<NumberRangeConfiguratio
               children: [
                 _metric('Start', _number(item.startNo)),
                 _metric('Next', _number(item.nextNo)),
+                _metric('Next formatted', item.nextFormattedNumber ?? _number(item.nextNo)),
+                _metric('Format', '${item.prefix ?? ''}${item.prefix?.isNotEmpty == true ? (item.separator ?? '') : ''}${item.paddingLength > 0 ? List.filled(item.paddingLength, '0').join() : '#'}'),
                 _metric('End', _number(item.endNo)),
                 _metric('Remaining', _number(item.remainingNumbers)),
                 _metric('Device block', _number(item.defaultAllocationSize)),
@@ -362,6 +364,9 @@ class _NumberRangeConfigurationScreenState extends State<NumberRangeConfiguratio
     final formKey = GlobalKey<FormState>();
     final type = TextEditingController(text: existing?.seqType ?? '');
     final description = TextEditingController(text: existing?.description ?? '');
+    final prefix = TextEditingController(text: existing?.prefix ?? '');
+    final separator = TextEditingController(text: existing?.separator ?? '-');
+    final padding = TextEditingController(text: (existing?.paddingLength ?? 0).toString());
     final start = TextEditingController(text: (existing?.startNo ?? 1).toString());
     final next = TextEditingController(text: (existing?.nextNo ?? 1).toString());
     final end = TextEditingController(text: (existing?.endNo ?? 9999999999).toString());
@@ -393,6 +398,23 @@ class _NumberRangeConfigurationScreenState extends State<NumberRangeConfiguratio
                     ),
                     const SizedBox(height: 12),
                     TextFormField(controller: description, decoration: const InputDecoration(labelText: 'Description'), validator: _required),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: TextFormField(controller: prefix, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Prefix', hintText: 'e.g. EMP'))),
+                        const SizedBox(width: 12),
+                        Expanded(child: TextFormField(controller: separator, decoration: const InputDecoration(labelText: 'Separator', hintText: '-'))),
+                        const SizedBox(width: 12),
+                        Expanded(child: _numberField(padding, 'Minimum Digits')),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(10)),
+                      child: Text('Preview: ${prefix.text.trim().toUpperCase()}${prefix.text.trim().isEmpty ? '' : separator.text}${(int.tryParse(padding.text) ?? 0) > 0 ? next.text.padLeft(int.tryParse(padding.text) ?? 0, '0') : next.text}'),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -444,6 +466,9 @@ class _NumberRangeConfigurationScreenState extends State<NumberRangeConfiguratio
                       final body = {
                         'seqType': type.text.trim().toUpperCase().replaceAll(' ', '_'),
                         'description': description.text.trim(),
+                        'prefix': prefix.text.trim().isEmpty ? null : prefix.text.trim().toUpperCase(),
+                        'separator': prefix.text.trim().isEmpty ? null : separator.text,
+                        'paddingLength': int.tryParse(padding.text) ?? 0,
                         'startNo': int.parse(start.text),
                         'nextNo': int.parse(next.text),
                         'endNo': int.parse(end.text),
@@ -479,7 +504,7 @@ class _NumberRangeConfigurationScreenState extends State<NumberRangeConfiguratio
       ),
     );
 
-    for (final controller in [type, description, start, next, end, allocation, warning]) {
+    for (final controller in [type, description, prefix, separator, padding, start, next, end, allocation, warning]) {
       controller.dispose();
     }
   }

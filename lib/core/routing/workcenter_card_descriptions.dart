@@ -5,6 +5,8 @@ import 'feature_group_registry.dart';
 /// exposed in the UI.
 class WorkcenterCardDescriptions {
   static const Map<String, String> _groupDescriptions = {
+    'APPROVALS':
+        'Review every approval type from one central workspace while keeping the originating business record linked.',
     'MEMBERSHIP_MANAGEMENT':
         'Run the complete member lifecycle, from plan enrolment and premiums to dependants, claims and group societies.',
     'TOMBSTONE_MANAGEMENT':

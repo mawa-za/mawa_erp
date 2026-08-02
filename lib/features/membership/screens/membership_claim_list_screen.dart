@@ -18,7 +18,6 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
     'ALL': 'All',
     'DRAFT': 'Draft',
     'SUBMITTED': 'Submitted',
-    'IN_PROGRESS': 'In progress',
     'APPROVED': 'Approved',
     'PAYMENT_PENDING': 'Payment pending',
     'PAYMENT_PROCESSING': 'Payment processing',
