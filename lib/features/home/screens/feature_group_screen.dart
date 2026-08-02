@@ -113,42 +113,56 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
           ),
         );
       }
+      final activeGroupId =
+          experienceGroup?.code ?? fallbackGroup?.id ?? canonicalGroupId;
+      final isCentralApprovalsGroup =
+          FeatureGroupRegistry.normalize(activeGroupId) == 'APPROVALS';
+
+      if (!isCentralApprovalsGroup) {
+        // Existing tenant experience documents may still place the generic
+        // approval inbox under Work Management. Keep it out of every legacy
+        // group so approvals have one unambiguous home.
+        allowed.removeWhere(_isCentralApprovalWorkcenter);
+      }
       allowed.sort((a, b) => a.position.compareTo(b.position));
 
-      // Active approval workflows are first-class features. Surface each type
-      // in the group that owns the business object.
-      try {
-        final workflows = await _approvalWorkflowService.getActiveWorkflows();
-        var nextPosition = allowed.isEmpty
-            ? 900
-            : allowed.map((item) => item.position).reduce((a, b) => a > b ? a : b) + 1;
-        final activeGroupId = experienceGroup?.code ?? fallbackGroup?.id ?? canonicalGroupId;
-        for (final workflow in workflows) {
-          final type = FeatureGroupRegistry.normalize(workflow.approvalType);
-          if (FeatureGroupRegistry.normalize(FeatureGroupRegistry.approvalGroup(type)) !=
-              FeatureGroupRegistry.normalize(activeGroupId)) {
-            continue;
+      // Active approval workflows are first-class cards, but they are all
+      // surfaced together in the dedicated Approvals workspace.
+      if (isCentralApprovalsGroup) {
+        try {
+          final workflows = await _approvalWorkflowService.getActiveWorkflows();
+          var nextPosition = allowed.isEmpty
+              ? 900
+              : allowed
+                      .map((item) => item.position)
+                      .reduce((a, b) => a > b ? a : b) +
+                  1;
+          for (final workflow in workflows) {
+            final type = FeatureGroupRegistry.normalize(workflow.approvalType);
+            if (allowed.any((item) =>
+                FeatureGroupRegistry.normalize(item.id) ==
+                'APPROVAL_$type')) {
+              continue;
+            }
+            final label = FeatureGroupRegistry.approvalLabel(type);
+            allowed.add(Workcenter(
+              id: 'approval-$type',
+              description: '$label Approvals',
+              defaultFunction: 'APPROVALS',
+              path: AppRoutes.approvals,
+              position: nextPosition++,
+              routeKey: 'APPROVAL_$type',
+              routePath:
+                  '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
+              iconKey: 'APPROVAL',
+              cardDescription:
+                  'Review and process $label approval requests assigned to your role.',
+            ));
           }
-          if (allowed.any((item) =>
-              FeatureGroupRegistry.normalize(item.id) == 'APPROVAL_$type')) {
-            continue;
-          }
-          final label = FeatureGroupRegistry.approvalLabel(type);
-          allowed.add(Workcenter(
-            id: 'approval-$type',
-            description: '$label Approvals',
-            defaultFunction: 'APPROVALS',
-            path: AppRoutes.approvals,
-            position: nextPosition++,
-            routeKey: 'APPROVAL_$type',
-            routePath:
-                '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
-            iconKey: 'APPROVAL',
-            cardDescription: 'Review and process $label approval requests assigned to your role.',
-          ));
+        } catch (_) {
+          // The generic Approval Inbox remains available when workflow
+          // discovery is temporarily unavailable.
         }
-      } catch (_) {
-        // Role workcenters remain usable when workflow discovery is unavailable.
       }
 
       if (!mounted) return;
@@ -168,6 +182,20 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         _loading = false;
       });
     }
+  }
+
+  bool _isCentralApprovalWorkcenter(Workcenter workcenter) {
+    const approvalKeys = <String>{
+      'APPROVAL',
+      'APPROVALS',
+      'APPROVAL_INBOX',
+    };
+    final candidates = <String>{
+      FeatureGroupRegistry.normalize(workcenter.id),
+      FeatureGroupRegistry.normalize(workcenter.routeKey),
+      FeatureGroupRegistry.normalize(workcenter.defaultFunction),
+    };
+    return candidates.any(approvalKeys.contains);
   }
 
   Workcenter? _findConfiguredWorkcenter(

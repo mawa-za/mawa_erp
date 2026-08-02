@@ -87,8 +87,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   Future<void> _loadInboxCounts({bool silent = false}) async {
     try {
-      final authenticated = await ApiClient().ensureFreshAccessToken();
-      if (!authenticated) return;
       final counts = await _inboxService.getCounts();
       if (!mounted) return;
       setState(() => _inboxCounts = counts);
@@ -419,6 +417,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         : _fallbackExperienceSections();
     final usedIds = <String>{};
     final result = <_HomeWorkcenterSection>[];
+    final centralApprovalWorkcenter =
+        _findCentralApprovalWorkcenter(roleWorkcenters);
+    var centralApprovalsConfigured = false;
 
     for (final section in sections) {
       final cards = <Workcenter>[];
@@ -426,11 +427,21 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         ..sort((left, right) => left.displayOrder.compareTo(right.displayOrder));
       for (final group in orderedGroups) {
         if (!group.active) continue;
+        final isCentralApprovalsGroup = FeatureGroupRegistry.normalize(group.code) ==
+            FeatureGroupRegistry.normalize('approvals');
+        if (isCentralApprovalsGroup) centralApprovalsConfigured = true;
         final configuredChildren = <Workcenter>[];
         for (final item in group.workcenters) {
           if (!item.active) continue;
           final matched = _findRoleWorkcenter(roleWorkcenters, item.id);
           if (matched == null) continue;
+          if (_isCentralApprovalWorkcenter(matched) &&
+              !isCentralApprovalsGroup) {
+            // Older industry profiles placed the approval inbox under Work
+            // Management. It is intentionally removed there and surfaced in
+            // the dedicated Approvals workspace below.
+            continue;
+          }
           final normalizedId = FeatureGroupRegistry.normalize(matched.id);
           if (usedIds.contains(normalizedId)) continue;
           configuredChildren.add(matched);
@@ -476,6 +487,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }
     }
 
+    if (centralApprovalWorkcenter != null && !centralApprovalsConfigured) {
+      usedIds.add(FeatureGroupRegistry.normalize(centralApprovalWorkcenter.id));
+      _addCentralApprovalsCard(
+        sections: result,
+        query: query,
+        approvalWorkcenter: centralApprovalWorkcenter,
+      );
+    }
+
     final allowUnassignedWorkcenters = experience == null ||
         experience.primaryIndustryCode.trim().toUpperCase() == 'GENERAL_CUSTOM';
     if (allowUnassignedWorkcenters) {
@@ -505,6 +525,83 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
     result.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     return result;
+  }
+
+  Workcenter? _findCentralApprovalWorkcenter(
+    List<Workcenter> roleWorkcenters,
+  ) {
+    for (final workcenter in roleWorkcenters) {
+      if (_isCentralApprovalWorkcenter(workcenter)) return workcenter;
+    }
+    return null;
+  }
+
+  bool _isCentralApprovalWorkcenter(Workcenter workcenter) {
+    const approvalKeys = <String>{
+      'APPROVAL',
+      'APPROVALS',
+      'APPROVAL_INBOX',
+    };
+    final candidates = <String>{
+      FeatureGroupRegistry.normalize(workcenter.id),
+      FeatureGroupRegistry.normalize(workcenter.routeKey),
+      FeatureGroupRegistry.normalize(workcenter.defaultFunction),
+    };
+    return candidates.any(approvalKeys.contains);
+  }
+
+  void _addCentralApprovalsCard({
+    required List<_HomeWorkcenterSection> sections,
+    required String query,
+    required Workcenter approvalWorkcenter,
+  }) {
+    final definition = FeatureGroupRegistry.groupById('approvals');
+    if (definition == null) return;
+
+    final searchable = <String>[
+      definition.title,
+      definition.description,
+      approvalWorkcenter.description,
+      approvalWorkcenter.id,
+    ].join(' ').toLowerCase();
+    if (query.isNotEmpty && !searchable.contains(query)) return;
+
+    final card = Workcenter(
+      id: definition.id,
+      description: definition.title,
+      displayLabel: definition.title,
+      cardDescription: definition.description,
+      defaultFunction: '',
+      path: definition.routePath,
+      position: definition.displayOrder,
+      routeKey: definition.id,
+      routePath: definition.routePath,
+      iconKey: definition.iconKey,
+    );
+
+    final businessServicesIndex = sections.indexWhere(
+      (section) => FeatureGroupRegistry.normalize(section.code) ==
+          'BUSINESS_SERVICES',
+    );
+    if (businessServicesIndex >= 0) {
+      final items = sections[businessServicesIndex].items;
+      if (!items.any((item) =>
+          FeatureGroupRegistry.normalize(item.id) == 'APPROVALS')) {
+        items.add(card);
+        items.sort((left, right) => left.position.compareTo(right.position));
+      }
+      return;
+    }
+
+    sections.add(
+      _HomeWorkcenterSection(
+        code: 'BUSINESS_SERVICES',
+        title: 'Business Services',
+        description: 'Shared services supporting daily operations.',
+        displayOrder: 20,
+        items: [card],
+      ),
+    );
   }
 
   Workcenter? _findRoleWorkcenter(
