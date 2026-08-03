@@ -25,6 +25,7 @@ import 'number_range_configuration_screen.dart';
 import 'payment_request_invoice_email_configuration_screen.dart';
 import 'pos_printing_settings_screen.dart';
 import 'premium_generation_settings_screen.dart';
+import 'purple_configuration_screen.dart';
 import 'role_list_screen.dart';
 import 'signiflow_configuration_screen.dart';
 import 'storage_configuration_screen.dart';
@@ -303,6 +304,14 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.monitor_heart_outlined,
           category: _ConfigurationCategory.operations,
           onTap: () => _open(context, const ApiLogListScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Purple Customer App',
+          description:
+              'Enrol this tenant, publish services and configure customer booking availability.',
+          icon: Icons.auto_awesome_outlined,
+          category: _ConfigurationCategory.integrations,
+          onTap: () => _open(context, const PurpleConfigurationScreen()),
         ),
         _ConfigurationItem(
           title: 'Trusted Tenants',
