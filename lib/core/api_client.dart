@@ -192,12 +192,16 @@ class ApiClient {
     String path, {
     dynamic body,
     Map<String, dynamic>? queryParameters,
+    String? tenantOverride,
   }) async {
     final host = await _getApiHost();
     if (host == null || host.isEmpty) {
       throw AppException('API Host not configured');
     }
-    final tenantId = (await _getTenantId() ?? '').trim();
+    final override = tenantOverride?.trim() ?? '';
+    final tenantId = override.isNotEmpty
+        ? override
+        : (await _getTenantId() ?? '').trim();
     return _execute(
       'POST',
       _buildUrl(host, path, queryParameters),
