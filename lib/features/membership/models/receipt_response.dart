@@ -3,6 +3,7 @@ import 'receipt_allocation_response.dart';
 class ReceiptResponse {
   final String id;
   final String receiptNo;
+  final String traceId;
   final String paymentBatchId;
   final String paymentBatchNo;
   final String sourceType;
@@ -19,6 +20,7 @@ class ReceiptResponse {
   ReceiptResponse({
     required this.id,
     required this.receiptNo,
+    required this.traceId,
     required this.paymentBatchId,
     required this.paymentBatchNo,
     required this.sourceType,
@@ -42,6 +44,7 @@ class ReceiptResponse {
     return ReceiptResponse(
       id: (json['id'] ?? '').toString(),
       receiptNo: (json['receiptNo'] ?? '').toString(),
+      traceId: (json['traceId'] ?? '').toString(),
       paymentBatchId: (json['paymentBatchId'] ?? '').toString(),
       paymentBatchNo: (json['paymentBatchNo'] ?? '').toString(),
       sourceType: (json['sourceType'] ?? '').toString(),

@@ -28,7 +28,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
-  
+
   String _paymentMethod = 'CASH';
   bool _isSubmitting = false;
   bool _isLoadingUnpaid = true;
@@ -179,9 +179,10 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
           if (device == null) return;
           setState(() => _selectedDevice = device);
         }
+        final printData =
+            await PosPrintingService().getReceiptPrintData(receipt.id);
         await _printService.printMembershipReceipt(
-          receipt,
-          widget.member.fullName,
+          printData,
           device: _selectedDevice,
         );
         try {
@@ -244,7 +245,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                         _buildUnpaidPremiumsSection(colorScheme),
                         const SizedBox(height: 24),
                       ],
-                      Text('PAYMENT DETAILS', 
+                      Text('PAYMENT DETAILS',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2)),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -426,7 +427,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('OUTSTANDING PERIODS', 
+        Text('OUTSTANDING PERIODS',
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2)),
         const SizedBox(height: 12),
         Container(
