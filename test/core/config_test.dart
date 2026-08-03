@@ -55,6 +55,15 @@ void main() {
       );
     });
 
+    test('uses a tenant host alias from an Admin handoff route', () {
+      expect(
+        Config.resolveWebTenantReference(
+          'https://dev.app.mawa.co.za/#/admin-handoff?tenantHost=dev1.app.mawa.co.za',
+        ),
+        'dev1.app.mawa.co.za',
+      );
+    });
+
     test('keeps a tenant-specific hostname', () {
       expect(
         Config.resolveWebTenantReference(

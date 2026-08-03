@@ -44,6 +44,10 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       final response = await ApiClient().postPublic(
         '/v2/admin-handoff/exchange',
         body: {'token': handoffToken},
+        // This value is used only to route the exchange request to the tenant
+        // schema. Authentication and all claims are still validated by the
+        // backend using the signed, short-lived handoff token.
+        tenantOverride: _tenantRoutingClaim(handoffToken),
       );
 
       if (response.statusCode != 200) {
@@ -119,6 +123,30 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       if (mounted) {
         setState(() => _error = friendlyErrorMessage('Admin handoff failed: $e'));
       }
+    }
+  }
+
+  String? _tenantRoutingClaim(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final decoded = jsonDecode(payload);
+      if (decoded is! Map) return null;
+      final claims = Map<String, dynamic>.from(decoded);
+      return _readString(claims, const [
+        'tenant-id',
+        'tenant',
+        'tenant_id',
+        'tenantId',
+        'tenant_host',
+        'tenantHost',
+        'aud',
+      ]);
+    } catch (_) {
+      return null;
     }
   }
 
