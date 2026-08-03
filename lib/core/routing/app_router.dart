@@ -96,6 +96,14 @@ class AppRouter {
                                  state.matchedLocation.endsWith('/preview') ||
                                  state.matchedLocation == AppRoutes.legacyInvoicePreview;
 
+      // A secure Admin handoff may intentionally open on a shared ERP host.
+      // Its signed token contains the tenant routing claim, so the handoff page
+      // must be allowed to exchange the token before normal configuration
+      // guards require a persisted tenant.
+      if (state.matchedLocation == AppRoutes.adminHandoff) {
+        return null;
+      }
+
       if (!isConfigured && state.matchedLocation != AppRoutes.setup && !state.matchedLocation.endsWith('/preview')) {
         return AppRoutes.setup;
       }
