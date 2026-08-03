@@ -69,6 +69,10 @@ class Config {
         uri.queryParameters['tenantId'],
         uri.queryParameters['tenant_id'],
         uri.queryParameters['tenant'],
+        uri.queryParameters['tenantHost'],
+        uri.queryParameters['tenant_host'],
+        uri.queryParameters['tenantUrl'],
+        uri.queryParameters['tenant_url'],
         ..._fragmentTenantValues(uri.fragment),
       ]);
       if (explicitTenant.isNotEmpty) return explicitTenant;
@@ -137,6 +141,10 @@ class Config {
         parameters['tenantId'],
         parameters['tenant_id'],
         parameters['tenant'],
+        parameters['tenantHost'],
+        parameters['tenant_host'],
+        parameters['tenantUrl'],
+        parameters['tenant_url'],
       ];
     } catch (_) {
       return const [];
