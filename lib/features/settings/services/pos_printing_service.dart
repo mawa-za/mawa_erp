@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../models/pos_printing_models.dart';
+import '../../membership/models/receipt_print_data.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PosPrintingService {
@@ -99,6 +100,16 @@ class PosPrintingService {
       throw AppException(_message(response.body, 'Unable to create enrollment code'));
     }
     return PosEnrollmentCode.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+  }
+
+  Future<ReceiptPrintData> getReceiptPrintData(String receiptId) async {
+    final response = await ApiClient().get('/v2/receipts/$receiptId/print');
+    if (response.statusCode != 200) {
+      throw AppException(_message(response.body, 'Unable to load receipt print data'));
+    }
+    return ReceiptPrintData.fromJson(
+      Map<String, dynamic>.from(jsonDecode(response.body)),
+    );
   }
 
   Future<String> queueReceipt(String receiptId, {bool reprint = false, String? printerId}) async {
