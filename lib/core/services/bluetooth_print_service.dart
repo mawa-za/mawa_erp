@@ -67,11 +67,11 @@ class BluetoothPrintService {
         width: PosTextSize.size2,
       ),
     ));
-    _centerDetail(bytes, generator, registration, prefix: 'Reg: ');
-    _centerDetail(bytes, generator, vat, prefix: 'VAT: ');
-    _centerDetail(bytes, generator, fsp, prefix: 'FSP: ');
-    _centerDetail(bytes, generator, address);
-    _centerDetail(bytes, generator, contact);
+    _centerDetail(bytes, generator, registration, prefix: 'Reg: ', bold: true);
+    _centerDetail(bytes, generator, vat, prefix: 'VAT: ', bold: true);
+    _centerDetail(bytes, generator, fsp, prefix: 'FSP: ', bold: true);
+    _centerDetail(bytes, generator, address, bold: true);
+    _centerDetail(bytes, generator, contact, bold: true);
     bytes.addAll(generator.feed(1));
     bytes.addAll(generator.text(
       'OFFICIAL RECEIPT',
@@ -79,21 +79,43 @@ class BluetoothPrintService {
     ));
     bytes.addAll(generator.hr());
 
-    bytes.addAll(generator.text('Receipt No: ${receipt.receiptNo}'));
-    bytes.addAll(generator.text('Trace ID: ${receipt.traceId}'));
-    bytes.addAll(generator.text('Date: ${receipt.formattedReceiptDate}'));
+    bytes.addAll(generator.text(
+      'Receipt No: ${receipt.receiptNo}',
+      styles: const PosStyles(bold: true),
+    ));
+    bytes.addAll(generator.text(
+      'Trace ID: ${receipt.traceId}',
+      styles: const PosStyles(bold: true),
+    ));
+    bytes.addAll(generator.text(
+      'Date: ${receipt.formattedReceiptDate}',
+      styles: const PosStyles(bold: true),
+    ));
     bytes.addAll(generator.feed(1));
     bytes.addAll(generator.text(
       'Member: ${receipt.memberName}',
       styles: const PosStyles(bold: true),
     ));
-    bytes.addAll(generator.text('Membership No: ${receipt.membershipNo}'));
+    bytes.addAll(generator.text(
+      'Membership No: ${receipt.membershipNo}',
+      styles: const PosStyles(bold: true),
+    ));
     bytes.addAll(generator.text(
       'ID Number: ${receipt.identityNumber.isEmpty ? '-' : receipt.identityNumber}',
+      styles: const PosStyles(bold: true),
     ));
-    bytes.addAll(generator.text('Plan: ${receipt.planName}'));
-    bytes.addAll(generator.text('Period: ${receipt.premiumPeriodYYYYMM}'));
-    bytes.addAll(generator.text('Payment: ${receipt.paymentMethod}'));
+    bytes.addAll(generator.text(
+      'Plan: ${receipt.planName}',
+      styles: const PosStyles(bold: true),
+    ));
+    bytes.addAll(generator.text(
+      'Period: ${receipt.periodDescription}',
+      styles: const PosStyles(bold: true),
+    ));
+    bytes.addAll(generator.text(
+      'Payment: ${receipt.paymentMethod}',
+      styles: const PosStyles(bold: true),
+    ));
     bytes.addAll(generator.feed(1));
     bytes.addAll(generator.text(
       'Amount: R ${(receipt.amountCents / 100).toStringAsFixed(2)}',
@@ -104,11 +126,14 @@ class BluetoothPrintService {
       ),
     ));
     bytes.addAll(generator.feed(1));
-    bytes.addAll(generator.text('Cashier: ${receipt.employeeResponsible}'));
+    bytes.addAll(generator.text(
+      'Cashier: ${receipt.employeeResponsible}',
+      styles: const PosStyles(bold: true),
+    ));
     bytes.addAll(generator.feed(1));
     bytes.addAll(generator.text(
       'Thank you',
-      styles: const PosStyles(align: PosAlign.center),
+      styles: const PosStyles(align: PosAlign.center, bold: true),
     ));
     bytes.addAll(generator.feed(1));
     bytes.addAll(generator.text(
@@ -131,11 +156,12 @@ class BluetoothPrintService {
     Generator generator,
     String value, {
     String prefix = '',
+    bool bold = false,
   }) {
     if (value.trim().isEmpty) return;
     bytes.addAll(generator.text(
       '$prefix${value.trim()}',
-      styles: const PosStyles(align: PosAlign.center),
+      styles: PosStyles(align: PosAlign.center, bold: bold),
     ));
   }
 
