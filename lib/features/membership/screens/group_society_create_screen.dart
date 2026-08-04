@@ -23,7 +23,6 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
   String? _productLoadError;
 
   final _groupNameController = TextEditingController();
-  final _groupNoController = TextEditingController();
   List<ProductLookup> _products = const [];
   String? _selectedProductId;
   String _selectedType = 'GROUP';
@@ -78,7 +77,6 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
       final payload = {
         'groupName': _groupNameController.text.trim(),
         'productId': _selectedProductId,
-        'groupNo': _groupNoController.text.trim(),
         'societyType': _selectedType,
         'status': 'ACTIVE',
         'openingBalanceCents': 0,
@@ -230,17 +228,13 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
     return _card(
       child: Column(
         children: [
-          TextFormField(
-            controller: _groupNoController,
-            textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(
-              labelText: 'Group Number',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.numbers),
-            ),
-            validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.numbers),
+            title: Text('Group Number'),
+            subtitle: Text('Allocated automatically when the group society is created.'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           _buildProductField(),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
@@ -325,7 +319,6 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
   @override
   void dispose() {
     _groupNameController.dispose();
-    _groupNoController.dispose();
     super.dispose();
   }
 }
