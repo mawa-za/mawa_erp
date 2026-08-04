@@ -70,28 +70,34 @@ class _LoginScreenState extends State<LoginScreen> {
         final storedTenant = (prefs.getString('tenant') ?? '').trim();
         tenantId = tenantFromAddress.isNotEmpty ? tenantFromAddress : storedTenant;
         if (Config.isSharedApplicationHost(tenantId)) tenantId = '';
+        if (tenantFromAddress.isNotEmpty) {
+          await prefs.setString('tenant', tenantFromAddress);
+        }
       } else {
         apiHost = prefs.getString('api_host') ?? '';
         tenantId = prefs.getString('tenant') ?? '';
       }
 
-      if (tenantId.trim().isEmpty) {
+      if (!kIsWeb && tenantId.trim().isEmpty) {
         throw AppException(
-          'This MAWA address does not identify a tenant. Open the tenant-specific link or launch MAWA from the Admin portal.',
+          'Tenant is not configured on this device.',
         );
       }
 
       final url = Uri.parse('https://$apiHost/v2/authenticate');
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      if (tenantId.trim().isNotEmpty) {
+        headers['X-TenantID'] = tenantId.trim();
+        headers['X-Tenant-Id'] = tenantId.trim();
+      }
 
       final response = await http
           .post(
             url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'X-TenantID': tenantId,
-              'X-Tenant-Id': tenantId,
-            },
+            headers: headers,
             body: jsonEncode({
               'username': _usernameController.text.trim(),
               'password': _passwordController.text,
@@ -101,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         final userId = data['userId']?.toString() ?? '';
         final accessToken = (data['accessToken'] ?? data['token'])?.toString() ?? '';
         final refreshToken = data['refreshToken']?.toString() ?? '';
