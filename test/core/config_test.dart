@@ -72,5 +72,14 @@ void main() {
         'phanka.dev.app.mawa.co.za',
       );
     });
+
+    test('keeps numbered tenant hostnames used by dev tenants', () {
+      expect(
+        Config.resolveWebTenantReference(
+          'https://dev1.app.mawa.co.za/#/login',
+        ),
+        'dev1.app.mawa.co.za',
+      );
+    });
   });
 }

@@ -126,7 +126,7 @@ class ProductMaintenanceService {
       'availableForSale': availableForSale,
       'baseUnitOfMeasure': uom.trim().toUpperCase(),
       'price': price,
-      'pricingType': pricingType.trim().isEmpty ? 'SELLING-PRICE' : pricingType.trim().toUpperCase(),
+      'pricingType': _normalisePricingType(pricingType),
     });
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw AppException(_errorMessage(response.body, 'Failed to create product'));
@@ -158,7 +158,7 @@ class ProductMaintenanceService {
       'availableForSale': availableForSale,
       'baseUnitOfMeasure': uom.trim().toUpperCase(),
       'price': price,
-      'pricingType': pricingType.trim().isEmpty ? 'SELLING-PRICE' : pricingType.trim().toUpperCase(),
+      'pricingType': _normalisePricingType(pricingType),
     });
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw AppException(_errorMessage(response.body, 'Failed to update product'));
@@ -210,6 +210,12 @@ class ProductMaintenanceService {
         .whereType<Map>()
         .map((item) => ProductAssetLink.fromJson(Map<String, dynamic>.from(item)))
         .toList();
+  }
+
+
+  String _normalisePricingType(String value) {
+    final normalised = value.trim().toUpperCase().replaceAll('_', '-');
+    return normalised.isEmpty ? 'SELLING-PRICE' : normalised;
   }
 
   String _errorMessage(String body, String fallback) {

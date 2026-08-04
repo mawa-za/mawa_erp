@@ -200,7 +200,7 @@ class ProductMaintenanceItem {
   static ProductPrice? _preferredPrice(List<ProductPrice> prices) {
     if (prices.isEmpty) return null;
     for (final price in prices) {
-      if (price.pricingCode.toUpperCase() == 'SELLING-PRICE') return price;
+      if (price.pricingCode.toUpperCase().replaceAll('_', '-') == 'SELLING-PRICE') return price;
     }
     return prices.first;
   }
@@ -238,10 +238,10 @@ class ProductPrice {
     String code = '';
     String description = '';
     if (pricing is Map) {
-      code = (pricing['code'] ?? '').toString();
+      code = (pricing['code'] ?? '').toString().trim().toUpperCase().replaceAll('_', '-');
       description = (pricing['description'] ?? code).toString();
     } else {
-      code = (pricing ?? json['pricingType'] ?? '').toString();
+      code = (pricing ?? json['pricingType'] ?? '').toString().trim().toUpperCase().replaceAll('_', '-');
       description = code;
     }
     return ProductPrice(

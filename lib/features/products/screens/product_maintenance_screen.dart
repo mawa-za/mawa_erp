@@ -60,7 +60,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
       _productTypes = results[0] as List<ProductTypeDefinition>;
       _categories = results[1] as List<ProductCategoryDefinition>;
       _uoms = results[2] as List<FieldOption>;
-      _pricingTypes = results[3] as List<FieldOption>;
+      _pricingTypes = _normalisePricingTypes(results[3] as List<FieldOption>);
       await _loadProducts();
     } catch (e) {
       if (mounted) {
@@ -371,6 +371,29 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
         FieldOption(field: 'UOM', code: 'KG', type: 'TENANT', description: 'Kilogram', validFrom: '', validTo: ''),
         FieldOption(field: 'UOM', code: 'HOUR', type: 'TENANT', description: 'Hour', validFrom: '', validTo: ''),
       ];
+
+
+  List<FieldOption> _normalisePricingTypes(List<FieldOption> options) {
+    final byCode = <String, FieldOption>{};
+    for (final option in options) {
+      final code = option.code.trim().toUpperCase().replaceAll('_', '-');
+      if (code.isEmpty) continue;
+      byCode[code] = FieldOption(
+        field: 'PRICING-TYPE',
+        code: code,
+        type: option.type,
+        description: option.description.isEmpty ? code : option.description,
+        validFrom: option.validFrom,
+        validTo: option.validTo,
+      );
+    }
+    if (byCode.isEmpty) {
+      for (final option in _defaultPricingTypes()) {
+        byCode[option.code] = option;
+      }
+    }
+    return byCode.values.toList();
+  }
 
   List<FieldOption> _defaultPricingTypes() => [
         FieldOption(field: 'PRICING-TYPE', code: 'SELLING-PRICE', type: 'TENANT', description: 'Selling Price', validFrom: '', validTo: ''),
