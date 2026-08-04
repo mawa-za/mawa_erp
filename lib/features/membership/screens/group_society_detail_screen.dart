@@ -579,7 +579,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             const SizedBox(height: 24),
             _buildQuickStats(s),
             const SizedBox(height: 32),
-            _buildSectionHeader(Icons.business_rounded, 'Linked Member Account'),
+            _buildSectionHeader(Icons.business_rounded, 'Group Partner'),
             const SizedBox(height: 12),
             if (_partner != null) _buildPartnerProfileCard(_partner!, colorScheme),
             const SizedBox(height: 32),
@@ -624,11 +624,27 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -0.5),
           ),
           const SizedBox(height: 24),
-          Row(
+          Wrap(
+            spacing: 32,
+            runSpacing: 12,
             children: [
               _buildHeaderInfoItem(Icons.group_outlined, 'Group No', s.groupNo),
-              const SizedBox(width: 32),
               _buildHeaderInfoItem(Icons.category_outlined, 'Type', s.societyType),
+              _buildHeaderInfoItem(
+                Icons.inventory_2_outlined,
+                'Product',
+                [s.productCode, s.productDescription]
+                        .whereType<String>()
+                        .where((value) => value.trim().isNotEmpty)
+                        .join(' - ')
+                        .trim()
+                        .isEmpty
+                    ? 'Not linked'
+                    : [s.productCode, s.productDescription]
+                        .whereType<String>()
+                        .where((value) => value.trim().isNotEmpty)
+                        .join(' - '),
+              ),
             ],
           ),
         ],
@@ -703,8 +719,8 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
           MaterialPageRoute(
             builder: (c) => PartnerDetailScreen(
               partnerId: p.id,
-              title: 'Member Details',
-              isMemberContext: true,
+              title: 'Group Partner Details',
+              isMemberContext: false,
             ),
           ),
         ),
