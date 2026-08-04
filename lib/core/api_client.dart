@@ -33,9 +33,13 @@ class ApiClient {
 
   Future<String?> _getTenantId() async {
     final prefs = await SharedPreferences.getInstance();
+    if (kIsWeb) {
+      final browserTenant = Config.webTenant.trim();
+      if (browserTenant.isNotEmpty) return browserTenant;
+    }
     final tenant = prefs.getString('tenant')?.trim();
     if (tenant != null && tenant.isNotEmpty) return tenant;
-    return Config.webTenant.isNotEmpty ? Config.webTenant : null;
+    return null;
   }
 
   Uri _buildUrl(

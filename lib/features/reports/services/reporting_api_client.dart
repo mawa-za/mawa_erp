@@ -48,7 +48,10 @@ class ReportingApiClient {
     final host = await _host(prefs);
     final token = (prefs.getString('accessToken') ?? '').trim();
     final role = (prefs.getString('selectedRole') ?? '').trim();
-    final tenant = kIsWeb ? Config.webTenant : (prefs.getString('tenant') ?? '').trim();
+    final browserTenant = kIsWeb ? Config.webTenant.trim() : '';
+    final tenant = browserTenant.isNotEmpty
+        ? browserTenant
+        : (prefs.getString('tenant') ?? '').trim();
     if (host.isEmpty) throw const ReportingApiException('Reporting API host is not configured');
     if (token.isEmpty || role.isEmpty) throw const ReportingApiException('Your reporting session is incomplete. Sign in again.');
 
