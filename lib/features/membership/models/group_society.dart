@@ -1,6 +1,10 @@
 class GroupSociety {
   final String id;
   final String partnerId;
+  final String productId;
+  final String? productCode;
+  final String? productDescription;
+  final bool productAvailable;
   final String displayName;
   final String? partnerNumber;
   final bool partnerAvailable;
@@ -26,6 +30,10 @@ class GroupSociety {
   GroupSociety({
     required this.id,
     required this.partnerId,
+    required this.productId,
+    this.productCode,
+    this.productDescription,
+    this.productAvailable = true,
     required this.displayName,
     this.partnerNumber,
     this.partnerAvailable = true,
@@ -86,6 +94,10 @@ class GroupSociety {
     return GroupSociety(
       id: (json['id'] ?? '').toString(),
       partnerId: (json['partnerId'] ?? '').toString(),
+      productId: (json['productId'] ?? '').toString(),
+      productCode: json['productCode']?.toString(),
+      productDescription: json['productDescription']?.toString(),
+      productAvailable: json['productAvailable'] == null ? true : json['productAvailable'] == true,
       displayName: (json['displayName'] ?? json['name'] ?? json['groupNo'] ?? 'Group Society').toString(),
       partnerNumber: json['partnerNumber']?.toString() ?? json['partnerNo']?.toString(),
       partnerAvailable: json['partnerAvailable'] == null ? true : json['partnerAvailable'] == true,
