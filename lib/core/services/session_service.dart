@@ -1,8 +1,10 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'setting_service.dart';
-import '../api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+
+import '../api_client.dart';
+import 'setting_service.dart';
 
 class SessionService {
   static final SessionService _instance = SessionService._internal();
@@ -10,7 +12,7 @@ class SessionService {
   SessionService._internal();
 
   Timer? _inactivityTimer;
-  int _timeoutMinutes = 30; // Default
+  int _timeoutSeconds = 600;
   bool _isMonitoring = false;
 
   void startMonitoring() async {
@@ -20,7 +22,9 @@ class SessionService {
 
     await _updateTimeoutFromSettings();
     _resetTimer();
-    debugPrint('SessionService: Started monitoring with $_timeoutMinutes min timeout');
+    debugPrint(
+      'SessionService: Started monitoring with $_timeoutSeconds second timeout',
+    );
   }
 
   void stopMonitoring() {
@@ -33,21 +37,23 @@ class SessionService {
   Future<void> _updateTimeoutFromSettings() async {
     try {
       final settings = await SettingService().getSettings();
-      // Try to find INACTIVE-TIMEOUT attribute
       final timeoutSetting = settings.firstWhere(
-        (s) => s.attribute == 'INACTIVE-TIMEOUT',
+        (setting) => setting.attribute == 'INACTIVE-TIMEOUT',
         orElse: () => settings.firstWhere(
-          (s) => s.attribute == 'TIMEOUT', 
-          orElse: () => throw AppException('No timeout setting found')
+          (setting) => setting.attribute == 'TIMEOUT',
+          orElse: () => throw AppException('No timeout setting found'),
         ),
       );
-      
-      final value = int.tryParse(timeoutSetting.value);
-      if (value != null && value > 0) {
-        _timeoutMinutes = value;
+
+      final value = int.tryParse(timeoutSetting.value.trim());
+      if (value != null) {
+        _timeoutSeconds = value.clamp(0, 86400).toInt();
       }
-    } catch (e) {
-      debugPrint('SessionService: Using default timeout of $_timeoutMinutes minutes ($e)');
+    } catch (error) {
+      debugPrint(
+        'SessionService: Using default timeout of $_timeoutSeconds seconds '
+        '($error)',
+      );
     }
   }
 
@@ -58,12 +64,19 @@ class SessionService {
 
   void _resetTimer() {
     _inactivityTimer?.cancel();
-    _inactivityTimer = Timer(Duration(minutes: _timeoutMinutes), _handleTimeout);
+    if (_timeoutSeconds <= 0) return;
+    _inactivityTimer = Timer(
+      Duration(seconds: _timeoutSeconds),
+      _handleTimeout,
+    );
   }
 
   void _handleTimeout() {
     if (!_isMonitoring) return;
-    debugPrint('SessionService: Inactivity timeout reached ($_timeoutMinutes minutes)');
+    debugPrint(
+      'SessionService: Inactivity timeout reached '
+      '($_timeoutSeconds seconds)',
+    );
     ApiClient().logout(sessionExpired: true);
   }
 }
