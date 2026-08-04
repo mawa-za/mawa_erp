@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../core/api_client.dart';
 
 import '../../../core/theme/mawa_design.dart';
 import '../../../core/widgets/mawa_ui.dart';
@@ -45,11 +50,13 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
 
   String _searchTerm = '';
   _ConfigurationCategory? _selectedCategory;
+  bool _canConfigureApprovalWorkflows = false;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    _loadApprovalWorkflowAccess();
   }
 
   @override
@@ -64,6 +71,33 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
     final value = _searchController.text.trim().toLowerCase();
     if (value == _searchTerm) return;
     setState(() => _searchTerm = value);
+  }
+
+  Future<void> _loadApprovalWorkflowAccess() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final roleId = (prefs.getString('selectedRole') ?? '').trim();
+      if (roleId.isEmpty) return;
+
+      final response = await ApiClient().get('/role/$roleId/workcenter');
+      if (response.statusCode != 200) return;
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return;
+
+      final hasAccess = decoded.whereType<Map>().any((entry) {
+        final workcenter = entry['workcenter'];
+        final rawId = workcenter is Map ? workcenter['id'] : entry['id'];
+        return rawId?.toString().trim().toLowerCase() ==
+            'approval-workflow';
+      });
+      if (mounted) {
+        setState(() => _canConfigureApprovalWorkflows = hasAccess);
+      }
+    } catch (_) {
+      // The backend remains the source of truth. Hide the configuration tile
+      // when role access cannot be confirmed.
+    }
   }
 
   List<_ConfigurationItem> _configurationItems(BuildContext context) => [
@@ -94,14 +128,15 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           category: _ConfigurationCategory.organisation,
           onTap: () => _open(context, const RoleListScreen()),
         ),
-        _ConfigurationItem(
-          title: 'Approval Workflows',
-          description:
-              'Configure approval levels, approvers and routing for controlled business processes.',
-          icon: Icons.account_tree_outlined,
-          category: _ConfigurationCategory.organisation,
-          onTap: () => _open(context, const ApprovalWorkflowListScreen()),
-        ),
+        if (_canConfigureApprovalWorkflows)
+          _ConfigurationItem(
+            title: 'Approval Workflows',
+            description:
+                'Configure approval levels, approvers and activate or deactivate controlled business processes.',
+            icon: Icons.account_tree_outlined,
+            category: _ConfigurationCategory.organisation,
+            onTap: () => _open(context, const ApprovalWorkflowListScreen()),
+          ),
         _ConfigurationItem(
           title: 'Field Options',
           description:

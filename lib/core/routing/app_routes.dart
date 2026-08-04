@@ -22,6 +22,7 @@ class AppRoutes {
   static const String inbox = '/inbox';
   static const String settings = '/settings';
   static const String systemConfiguration = '/system-configuration';
+  static const String approvalWorkflows = '/system-configuration/approval-workflows';
   static const String fnbIntegration = '/system-configuration/fnb-integration';
   static const String xeroIntegration = '/system-configuration/xero-integration';
   static const String paymentInvoiceEmailConfiguration = '/system-configuration/payment-invoice-email';

@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
+
 import '../models/approval_workflow.dart';
 import '../services/approval_workflow_service.dart';
 import 'approval_workflow_create_screen.dart';
-import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApprovalWorkflowListScreen extends StatefulWidget {
   const ApprovalWorkflowListScreen({super.key});
 
   @override
-  State<ApprovalWorkflowListScreen> createState() => _ApprovalWorkflowListScreenState();
+  State<ApprovalWorkflowListScreen> createState() =>
+      _ApprovalWorkflowListScreenState();
 }
 
-class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen> {
+class _ApprovalWorkflowListScreenState
+    extends State<ApprovalWorkflowListScreen> {
   final ApprovalWorkflowService _service = ApprovalWorkflowService();
+  final Set<String> _updatingWorkflowIds = <String>{};
+
   bool _isLoading = true;
   List<ApprovalWorkflow> _allWorkflows = [];
   List<ApprovalWorkflow> _workflows = [];
@@ -32,31 +37,99 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
     });
     try {
       final response = await _service.getWorkflows();
-      if (mounted) {
-        response.sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
-            .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
-        setState(() {
-          _allWorkflows = response;
-          _applyStatusFilter();
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+
+      response.sort(
+        (a, b) => a.approvalType.compareTo(b.approvalType),
+      );
+      setState(() {
+        _allWorkflows = response;
+        _applyStatusFilter();
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = friendlyErrorMessage(e);
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _error = friendlyErrorMessage(e);
+        _isLoading = false;
+      });
     }
   }
 
   void _applyStatusFilter() {
     _workflows = switch (_selectedStatus) {
-      'ACTIVE' => _allWorkflows.where((workflow) => workflow.active).toList(),
-      'INACTIVE' => _allWorkflows.where((workflow) => !workflow.active).toList(),
+      'ACTIVE' =>
+        _allWorkflows.where((workflow) => workflow.active).toList(),
+      'INACTIVE' =>
+        _allWorkflows.where((workflow) => !workflow.active).toList(),
       _ => List<ApprovalWorkflow>.from(_allWorkflows),
     };
+  }
+
+  Future<void> _setWorkflowActive(
+    ApprovalWorkflow workflow,
+    bool active,
+  ) async {
+    final id = workflow.id;
+    if (id == null || _updatingWorkflowIds.contains(id)) return;
+
+    if (!active) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Deactivate approval workflow?'),
+          content: Text(
+            'New ${workflow.name.toLowerCase()} requests will be '
+            'auto-approved while this workflow is inactive. Requests already '
+            'in progress will continue through their current approval steps.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('DEACTIVATE'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    setState(() => _updatingWorkflowIds.add(id));
+    try {
+      if (active) {
+        await _service.activateWorkflow(id);
+      } else {
+        await _service.deactivateWorkflow(id);
+      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            active
+                ? '${workflow.name} activated'
+                : '${workflow.name} deactivated',
+          ),
+        ),
+      );
+      await _fetchWorkflows();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage(e)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingWorkflowIds.remove(id));
+      }
+    }
   }
 
   Widget _buildStatusFilter() {
@@ -93,7 +166,10 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Approval Workflows', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Approval Workflows',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         actions: [
@@ -108,102 +184,181 @@ class _ApprovalWorkflowListScreenState extends State<ApprovalWorkflowListScreen>
           _buildStatusFilter(),
           Expanded(
             child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: $_error', style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(onPressed: _fetchWorkflows, child: const Text('Retry')),
-                    ],
-                  ),
-                )
-              : _workflows.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.assignment_turned_in_outlined, size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          Text('No workflows configured', style: TextStyle(color: Colors.grey[600])),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _workflows.length,
-                      itemBuilder: (context, index) {
-                        final workflow = _workflows[index];
-                        return Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.grey.shade200),
-                          ),
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            title: Text(workflow.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Error: $_error',
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _fetchWorkflows,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _workflows.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(workflow.description),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.primaryContainer,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        workflow.approvalType,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.onPrimaryContainer,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${workflow.steps.length} steps',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                    ),
-                                  ],
+                                Icon(
+                                  Icons.assignment_turned_in_outlined,
+                                  size: 64,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No workflows configured',
+                                  style: TextStyle(color: Colors.grey[600]),
                                 ),
                               ],
                             ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ApprovalWorkflowCreateScreen(workflow: workflow),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _workflows.length,
+                            itemBuilder: (context, index) {
+                              final workflow = _workflows[index];
+                              final id = workflow.id;
+                              final isUpdating = id != null &&
+                                  _updatingWorkflowIds.contains(id);
+
+                              return Card(
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color: Colors.grey.shade200,
+                                  ),
+                                ),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  title: Text(
+                                    workflow.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(workflow.description),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  colorScheme.primaryContainer,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              workflow.approvalType,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme
+                                                    .onPrimaryContainer,
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: workflow.active
+                                                  ? Colors.green.shade50
+                                                  : Colors.orange.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              workflow.active
+                                                  ? 'ACTIVE'
+                                                  : 'INACTIVE',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: workflow.active
+                                                    ? Colors.green.shade800
+                                                    : Colors.orange.shade900,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            '${workflow.steps.length} steps',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: isUpdating
+                                      ? const SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Tooltip(
+                                          message: workflow.active
+                                              ? 'Deactivate workflow'
+                                              : 'Activate workflow',
+                                          child: Switch.adaptive(
+                                            value: workflow.active,
+                                            onChanged: id == null
+                                                ? null
+                                                : (value) =>
+                                                    _setWorkflowActive(
+                                                      workflow,
+                                                      value,
+                                                    ),
+                                          ),
+                                        ),
+                                  onTap: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ApprovalWorkflowCreateScreen(
+                                          workflow: workflow,
+                                        ),
+                                      ),
+                                    );
+                                    if (result == true) _fetchWorkflows();
+                                  },
                                 ),
                               );
-                              if (result == true) _fetchWorkflows();
                             },
                           ),
-                        );
-                      },
-                    ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ApprovalWorkflowCreateScreen(),
-            ),
-          );
-          if (result == true) _fetchWorkflows();
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }
