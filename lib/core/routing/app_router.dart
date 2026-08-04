@@ -18,6 +18,7 @@ import '../../features/cases/screens/create_case_screen.dart';
 import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
+import '../../features/approvals/screens/approval_workflow_list_screen.dart';
 import '../../features/inbox/screens/inbox_screen.dart';
 import '../../features/settings/screens/system_configuration_screen.dart';
 import '../../features/integrations/fnb/fnb_integration_admin_screen.dart';
@@ -261,6 +262,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.systemConfiguration,
         builder: (context, state) => const SystemConfigurationScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.approvalWorkflows,
+        builder: (context, state) => const ApprovalWorkflowListScreen(),
       ),
       GoRoute(
         path: AppRoutes.fnbIntegration,

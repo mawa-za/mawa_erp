@@ -28,6 +28,8 @@ class WorkcenterRouteRegistry {
     'SYSTEM_SETTINGS': AppRoutes.settings,
     'SYSTEM_CONFIGURATION': AppRoutes.systemConfiguration,
     'SYSTEM_CONFIGURATIONS': AppRoutes.systemConfiguration,
+    'APPROVAL_WORKFLOW': AppRoutes.approvalWorkflows,
+    'APPROVAL_WORKFLOWS': AppRoutes.approvalWorkflows,
     'FNB_INTEGRATION': AppRoutes.fnbIntegration,
     'FNB_INTEGRATION_ADMIN': AppRoutes.fnbIntegration,
     'FNB_API': AppRoutes.fnbIntegration,
