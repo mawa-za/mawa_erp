@@ -19,23 +19,38 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   String _selectedApprovalType = 'CLAIM';
   List<ApprovalStep> _steps = [];
   bool _isSaving = false;
+  bool _active = true;
 
   final List<String> _approvalTypes = [
-    'CLAIM',
-    'PAYMENT',
-    'LEAVE',
+    'ADDITIONAL_MEMBERSHIP',
     'CASHUP',
-    'MEMBERSHIP_TRANSFER',
-    'MEMBERSHIP_PLAN_CHANGE',
-    'MEMBERSHIP_DEPENDENT_CHANGE',
+    'CLAIM',
+    'EMPLOYEE_BANKING_DETAILS',
+    'EMPLOYEE_HIRE',
+    'EMPLOYEE_REHIRE',
+    'EMPLOYEE_REINSTATEMENT',
+    'EMPLOYEE_SUSPENSION',
+    'EMPLOYEE_TERMINATION',
+    'FUNERAL_COVER_STATUS_CHANGE',
+    'FUNERAL_UNDERWRITING',
+    'GROUP_SOCIETY_BALANCE_ADJUSTMENT',
+    'GROUP_SOCIETY_FUNERAL_CLAIM',
+    'GROUP_SOCIETY_STATUS_CHANGE',
     'INVOICE',
-    'PURCHASE_ORDER',
     'JOURNAL',
+    'LEAVE',
+    'LEAVE_BALANCE_ADJUSTMENT',
+    'MEMBERSHIP_DEPENDENT_CHANGE',
+    'MEMBERSHIP_PLAN_CHANGE',
+    'MEMBERSHIP_TRANSFER',
+    'PAYMENT',
     'PAYMENT_REQUEST',
-    'SUPPLIER_INVOICE',
+    'PAYROLL_BATCH',
+    'PURCHASE_ORDER',
     'CUSTOMER_REFUND',
+    'SUPPLIER_BANKING_DETAILS',
+    'SUPPLIER_INVOICE',
     'SUPPLIER_ONBOARDING',
-    'SUPPLIER_BANKING_DETAILS'
   ];
   
   final List<String> _approverTypes = ['USER', 'ROLE', 'GROUP', 'MANAGER'];
@@ -48,6 +63,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
       _descriptionController.text = widget.workflow!.description;
       _selectedApprovalType = widget.workflow!.approvalType;
       _steps = List.from(widget.workflow!.steps);
+      _active = widget.workflow!.active;
     }
   }
 
@@ -109,6 +125,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
         approvalType: _selectedApprovalType,
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
+        active: _active,
         steps: _steps,
       );
 
@@ -203,7 +220,9 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
               value: _selectedApprovalType,
               decoration: const InputDecoration(labelText: 'Approval Type', border: OutlineInputBorder()),
               items: _approvalTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-              onChanged: (val) => setState(() => _selectedApprovalType = val!),
+              onChanged: widget.workflow != null
+                  ? null
+                  : (val) => setState(() => _selectedApprovalType = val!),
             ),
             const SizedBox(height: 16),
             TextFormField(
