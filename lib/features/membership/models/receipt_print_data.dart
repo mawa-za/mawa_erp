@@ -8,6 +8,7 @@ class ReceiptPrintData {
   final String identityNumber;
   final String planName;
   final String premiumPeriodYYYYMM;
+  final String? serverPeriodDescription;
   final int amountCents;
   final String paymentMethod;
   final String receiptDate;
@@ -20,6 +21,20 @@ class ReceiptPrintData {
         : DateFormat('yyyy-MM-dd HH:mm').format(parsed.toLocal());
   }
 
+  String get periodDescription {
+    final supplied = serverPeriodDescription?.trim() ?? '';
+    if (supplied.isNotEmpty) return supplied;
+
+    final codes = premiumPeriodYYYYMM
+        .split(RegExp(r'[,;|]'))
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    if (codes.isEmpty) return '-';
+
+    return codes.map(_formatPeriodCode).join(', ');
+  }
+
   const ReceiptPrintData({
     required this.receiptNo,
     required this.traceId,
@@ -28,6 +43,7 @@ class ReceiptPrintData {
     required this.identityNumber,
     required this.planName,
     required this.premiumPeriodYYYYMM,
+    this.serverPeriodDescription,
     required this.amountCents,
     required this.paymentMethod,
     required this.receiptDate,
@@ -44,10 +60,21 @@ class ReceiptPrintData {
         planName: (json['planName'] ?? '').toString(),
         premiumPeriodYYYYMM:
             (json['premiumPeriodYYYYMM'] ?? '').toString(),
+        serverPeriodDescription: json['periodDescription']?.toString(),
         amountCents: (json['amountCents'] as num?)?.toInt() ?? 0,
         paymentMethod: (json['paymentMethod'] ?? '').toString(),
         receiptDate: (json['receiptDate'] ?? '').toString(),
         employeeResponsible:
             (json['employeeResponsible'] ?? '').toString(),
       );
+
+  static String _formatPeriodCode(String code) {
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) return code;
+    final year = int.tryParse(code.substring(0, 4));
+    final month = int.tryParse(code.substring(4, 6));
+    if (year == null || month == null || month < 1 || month > 12) {
+      return code;
+    }
+    return '${DateFormat.MMMM('en').format(DateTime(year, month))} $year ($code)';
+  }
 }
