@@ -42,6 +42,9 @@ class WorkcenterRouteRegistry {
     'MESSAGE_QUEUE': AppRoutes.messageQueueAdmin,
     'MESSAGE_QUEUE_ADMIN': AppRoutes.messageQueueAdmin,
     'QUEUE_ADMIN': AppRoutes.messageQueueAdmin,
+    'DEVICE_SYNC': AppRoutes.deviceSyncWorkcenter,
+    'DEVICE_SYNC_CORRECTION': AppRoutes.deviceSyncWorkcenter,
+    'MAWAPAY_SYNC': AppRoutes.deviceSyncWorkcenter,
     'CALENDAR': AppRoutes.calendar,
     'APPOINTMENT': AppRoutes.appointments,
     'APPOINTMENTS': AppRoutes.appointments,
@@ -188,6 +191,12 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('XERO')) {
       return AppRoutes.xeroIntegration;
+    }
+    if (normalized.contains('DEVICE') && normalized.contains('SYNC')) {
+      return AppRoutes.deviceSyncWorkcenter;
+    }
+    if (normalized.contains('MAWAPAY') && normalized.contains('SYNC')) {
+      return AppRoutes.deviceSyncWorkcenter;
     }
     if (normalized.contains('MESSAGE') && normalized.contains('QUEUE')) {
       return AppRoutes.messageQueueAdmin;

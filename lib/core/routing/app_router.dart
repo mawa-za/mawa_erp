@@ -26,6 +26,7 @@ import '../../features/settings/screens/xero_integration_screen.dart';
 import '../../features/settings/screens/payment_request_invoice_email_configuration_screen.dart';
 import '../../features/settings/screens/signiflow_configuration_screen.dart';
 import '../../features/admin/message_queue/message_queue_admin_screen.dart';
+import '../../features/device_sync/screens/device_sync_workcenter_screen.dart';
 import '../../features/appointments/screens/appointment_calendar_screen.dart';
 import '../../features/cashup/screens/cashup_list_screen.dart';
 import '../../features/payments/screens/payment_request_list_screen.dart';
@@ -287,6 +288,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.messageQueueAdmin,
         builder: (context, state) => const MessageQueueAdminScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.deviceSyncWorkcenter,
+        builder: (context, state) => const DeviceSyncWorkcenterScreen(),
       ),
       GoRoute(
         path: AppRoutes.calendar,
