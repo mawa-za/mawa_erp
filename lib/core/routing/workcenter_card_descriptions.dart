@@ -148,6 +148,9 @@ class WorkcenterCardDescriptions {
     if (identity.contains('API') || identity.contains('INTEGRATION')) {
       return 'Configure integrations and review external service activity.';
     }
+    if (identity.contains('DEVICE') && identity.contains('SYNC')) {
+      return 'Review MawaPay submissions, correct validation errors and safely reprocess failed transactions.';
+    }
     if (identity.contains('QUEUE') || identity.contains('SCHEDUL')) {
       return 'Control scheduled processing and monitor queued work.';
     }
