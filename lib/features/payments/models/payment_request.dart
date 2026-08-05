@@ -25,6 +25,8 @@ class PaymentRequestResponse {
   final String? approvalReference;
   final bool approvalInherited;
   final String? paymentPurpose;
+  final String? debtorAccountId;
+  final String? bankIntegration;
   final String? fnbInstructionId;
   final String? paidDate;
   final String? paidReference;
@@ -61,6 +63,8 @@ class PaymentRequestResponse {
     this.approvalReference,
     this.approvalInherited = false,
     this.paymentPurpose,
+    this.debtorAccountId,
+    this.bankIntegration,
     this.fnbInstructionId,
     this.paidDate,
     this.paidReference,
@@ -107,6 +111,8 @@ class PaymentRequestResponse {
       approvalReference: json['approvalReference']?.toString(),
       approvalInherited: json['approvalInherited'] == true,
       paymentPurpose: json['paymentPurpose']?.toString(),
+      debtorAccountId: json['debtorAccountId']?.toString(),
+      bankIntegration: json['bankIntegration']?.toString(),
       fnbInstructionId: json['fnbInstructionId']?.toString(),
       paidDate: json['paidDate']?.toString(),
       paidReference: json['paidReference']?.toString(),
@@ -146,6 +152,8 @@ class PaymentRequestResponse {
       'approvalReference': approvalReference,
       'approvalInherited': approvalInherited,
       'paymentPurpose': paymentPurpose,
+      'debtorAccountId': debtorAccountId,
+      'bankIntegration': bankIntegration,
       'fnbInstructionId': fnbInstructionId,
       'paidDate': paidDate,
       'paidReference': paidReference,
