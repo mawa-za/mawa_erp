@@ -102,6 +102,18 @@ class PaymentRequestService {
     throw AppException('Failed to mark as paid');
   }
 
+  Future<PaymentRequestResponse> sendToBank(String id) async {
+    final response = await _apiClient.post('/v2/payment-request/$id/send-to-bank');
+    if (response.statusCode == 200) {
+      return PaymentRequestResponse.fromJson(jsonDecode(response.body));
+    }
+    throw AppException.fromHttp(
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      fallback: 'Failed to queue bank payment',
+    );
+  }
+
   Future<PaymentRequestResponse> cancelPaymentRequest(String id, {String? comment}) async {
     final response = await _apiClient.post('/v2/payment-request/$id/cancel', queryParameters: {
       if (comment != null) 'comment': comment,
