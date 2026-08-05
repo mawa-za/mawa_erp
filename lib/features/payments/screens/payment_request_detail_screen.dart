@@ -129,6 +129,39 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     }
   }
 
+  Future<void> _sendToBank() async {
+    if (_detail == null) return;
+    setState(() => _isActionLoading = true);
+    try {
+      await _service.sendToBank(_detail!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bank payment queued successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _fetchData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              friendlyErrorMessage(
+                e,
+                fallback: 'Unable to queue bank payment',
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
+    }
+  }
+
   Future<void> _markAsPaid() async {
     final refController = TextEditingController();
     DateTime selectedDate = DateTime.now();
@@ -205,6 +238,12 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           if (_detail != null) ...[
             if (_detail!.status == 'DRAFT')
               IconButton(onPressed: _isActionLoading ? null : _submitForApproval, icon: const Icon(Icons.send_rounded), tooltip: 'Submit'),
+            if (_detail!.status == 'APPROVED')
+              IconButton(
+                onPressed: _isActionLoading ? null : _sendToBank,
+                icon: const Icon(Icons.account_balance_outlined),
+                tooltip: 'Queue bank payment',
+              ),
             if (_detail!.status == 'APPROVED' && _detail!.paymentMethod == 'MANUAL')
               IconButton(onPressed: _isActionLoading ? null : _markAsPaid, icon: const Icon(Icons.paid_outlined), tooltip: 'Mark Paid'),
             if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL' || _detail!.status == 'PENDING')
@@ -246,6 +285,8 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Reference', _detail!.externalReference ?? 'N/A'),
             _buildInfoRow('Payment Reason', _detail!.paymentReason ?? 'N/A'),
             _buildInfoRow('Payment Method', _detail!.paymentMethod),
+            _buildInfoRow('Payment Request Type', _detail!.requestType),
+            _buildInfoRow('Bank Integration', _detail!.bankIntegration ?? 'Not routed'),
             _buildInfoRow('Created Date', _detail!.createdAt),
             _buildInfoRow('Due Date', _detail!.requestedPaymentDate ?? 'N/A'),
             _buildInfoRow('Status', _detail!.status, isStatus: true),
