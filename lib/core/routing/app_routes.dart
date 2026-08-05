@@ -28,6 +28,7 @@ class AppRoutes {
   static const String paymentInvoiceEmailConfiguration = '/system-configuration/payment-invoice-email';
   static const String signiFlowConfiguration = '/system-configuration/signiflow';
   static const String messageQueueAdmin = '/admin/message-queue';
+  static const String deviceSyncWorkcenter = '/device-sync';
   static const String calendar = '/calendar';
   static const String appointments = '/appointments';
   static const String cashups = '/cashups';
