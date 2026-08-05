@@ -8,6 +8,7 @@ import '../../../core/api_client.dart';
 import '../../../core/theme/mawa_design.dart';
 import '../../../core/widgets/mawa_ui.dart';
 import '../../admin/message_queue/message_queue_admin_screen.dart';
+import '../../device_sync/screens/device_sync_workcenter_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../forms/company_form_configuration_screen.dart';
 import '../../funeral/presentation/pages/funeral_package_setup_page.dart';
@@ -323,6 +324,14 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.point_of_sale_outlined,
           category: _ConfigurationCategory.operations,
           onTap: () => _open(context, const PosPrintingSettingsScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Device Sync Corrections',
+          description:
+              'Review failed MawaPay submissions, correct queued payloads and reprocess transactions.',
+          icon: Icons.sync_problem_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(context, const DeviceSyncWorkcenterScreen()),
         ),
         _ConfigurationItem(
           title: 'Message Queue Processing',
