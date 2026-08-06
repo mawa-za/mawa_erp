@@ -162,12 +162,26 @@ class PaymentRequestService {
     throw AppException('Failed to load payment requests for payee');
   }
 
-  Future<Map<String, dynamic>> getBankReport(String id) async {
+  Future<Map<String, dynamic>?> getBankReport(String id) async {
     final response = await _apiClient.get('/v2/payment-request/$id/bank-report');
+    if (response.statusCode == 204 || response.body.trim().isEmpty) {
+      return null;
+    }
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw AppException('Failed to load bank report');
+    throw AppException('Failed to load bank report: ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> refreshBankReport(String id) async {
+    final response = await _apiClient.post(
+      '/v2/payment-request/$id/bank-report/refresh',
+      body: const <String, dynamic>{},
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw AppException('Failed to refresh bank report: ${response.body}');
   }
 
   Future<PaymentRequestResponse> approvePaymentRequest(String id, {String? comment}) {
@@ -205,8 +219,13 @@ class PaymentRequestService {
     });
   }
 
-  Future<BankReport> getTypedBankReport(String id) async {
+  Future<BankReport?> getTypedBankReport(String id) async {
     final data = await getBankReport(id);
+    return data == null ? null : BankReport.fromJson(data);
+  }
+
+  Future<BankReport> refreshTypedBankReport(String id) async {
+    final data = await refreshBankReport(id);
     return BankReport.fromJson(data);
   }
 
