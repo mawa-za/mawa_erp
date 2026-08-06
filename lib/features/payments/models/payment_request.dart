@@ -176,6 +176,8 @@ class PaymentDisbursementAttempt {
   final String? providerStatus;
   final String? failureCode;
   final String? failureMessage;
+  final bool bankReportAvailable;
+  final String? bankReportRetrievedAt;
   final String? submittedAt;
   final String? lastCheckedAt;
   final String? completedAt;
@@ -190,6 +192,8 @@ class PaymentDisbursementAttempt {
     this.providerStatus,
     this.failureCode,
     this.failureMessage,
+    this.bankReportAvailable = false,
+    this.bankReportRetrievedAt,
     this.submittedAt,
     this.lastCheckedAt,
     this.completedAt,
@@ -206,6 +210,8 @@ class PaymentDisbursementAttempt {
       providerStatus: json['providerStatus']?.toString(),
       failureCode: json['failureCode']?.toString(),
       failureMessage: json['failureMessage']?.toString(),
+      bankReportAvailable: json['bankReportAvailable'] == true,
+      bankReportRetrievedAt: json['bankReportRetrievedAt']?.toString(),
       submittedAt: json['submittedAt']?.toString(),
       lastCheckedAt: json['lastCheckedAt']?.toString(),
       completedAt: json['completedAt']?.toString(),
