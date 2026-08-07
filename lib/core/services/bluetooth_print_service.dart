@@ -92,26 +92,49 @@ class BluetoothPrintService {
       styles: const PosStyles(bold: true),
     ));
     bytes.addAll(generator.feed(1));
-    bytes.addAll(generator.text(
-      'Member: ${receipt.memberName}',
-      styles: const PosStyles(bold: true),
-    ));
-    bytes.addAll(generator.text(
-      'Membership No: ${receipt.membershipNo}',
-      styles: const PosStyles(bold: true),
-    ));
-    bytes.addAll(generator.text(
-      'ID Number: ${receipt.identityNumber.isEmpty ? '-' : receipt.identityNumber}',
-      styles: const PosStyles(bold: true),
-    ));
-    bytes.addAll(generator.text(
-      'Plan: ${receipt.planName}',
-      styles: const PosStyles(bold: true),
-    ));
-    bytes.addAll(generator.text(
-      'Period: ${receipt.periodDescription}',
-      styles: const PosStyles(bold: true),
-    ));
+    if (receipt.isInvoice) {
+      bytes.addAll(generator.text(
+        'Customer: ${receipt.customerName}',
+        styles: const PosStyles(bold: true),
+      ));
+      if (receipt.customerNumber.isNotEmpty) {
+        bytes.addAll(generator.text(
+          'Customer No: ${receipt.customerNumber}',
+          styles: const PosStyles(bold: true),
+        ));
+      }
+      bytes.addAll(generator.text(
+        'Invoice No: ${receipt.invoiceNo}',
+        styles: const PosStyles(bold: true),
+      ));
+      if (receipt.invoiceReference.isNotEmpty) {
+        bytes.addAll(generator.text(
+          'Invoice Ref: ${receipt.invoiceReference}',
+          styles: const PosStyles(bold: true),
+        ));
+      }
+    } else {
+      bytes.addAll(generator.text(
+        'Member: ${receipt.memberName}',
+        styles: const PosStyles(bold: true),
+      ));
+      bytes.addAll(generator.text(
+        'Membership No: ${receipt.membershipNo}',
+        styles: const PosStyles(bold: true),
+      ));
+      bytes.addAll(generator.text(
+        'ID Number: ${receipt.identityNumber.isEmpty ? '-' : receipt.identityNumber}',
+        styles: const PosStyles(bold: true),
+      ));
+      bytes.addAll(generator.text(
+        'Plan: ${receipt.planName}',
+        styles: const PosStyles(bold: true),
+      ));
+      bytes.addAll(generator.text(
+        'Period: ${receipt.periodDescription}',
+        styles: const PosStyles(bold: true),
+      ));
+    }
     bytes.addAll(generator.text(
       'Payment: ${receipt.paymentMethod}',
       styles: const PosStyles(bold: true),

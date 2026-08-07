@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../data/funeral_api.dart';
-import '../../data/models/invoice_payment_request_dto.dart';
-import '../../data/models/funeral_enums.dart';
+
+import '../../../invoicing/models/invoice_detail.dart';
+import '../../../invoicing/screens/capture_invoice_payment_dialog.dart';
+import '../../../invoicing/services/invoice_service.dart';
+import '../../../../core/errors/app_error.dart';
 import '../../../../core/utils/formatters.dart';
-import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralInvoicePaymentPage extends StatefulWidget {
   final String invoiceId;
@@ -11,122 +12,223 @@ class FuneralInvoicePaymentPage extends StatefulWidget {
   const FuneralInvoicePaymentPage({super.key, required this.invoiceId});
 
   @override
-  State<FuneralInvoicePaymentPage> createState() => _FuneralInvoicePaymentPageState();
+  State<FuneralInvoicePaymentPage> createState() =>
+      _FuneralInvoicePaymentPageState();
 }
 
 class _FuneralInvoicePaymentPageState extends State<FuneralInvoicePaymentPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _api = FuneralApi();
-  bool _isLoading = false;
+  bool _loading = true;
+  String? _error;
+  InvoiceDetail? _invoice;
 
-  final _amountController = TextEditingController();
-  final _referenceController = TextEditingController();
-  PaymentMethod _selectedMethod = PaymentMethod.CASH;
+  @override
+  void initState() {
+    super.initState();
+    _loadInvoice();
+  }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
+  Future<void> _loadInvoice() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final amount = (double.parse(_amountController.text) * 100).toInt();
-      final request = InvoicePaymentRequestDto(
-        amountCents: amount,
-        paymentMethod: _selectedMethod,
-        reference: _referenceController.text,
-      );
-
-      await _api.capturePayment(widget.invoiceId, request);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment captured successfully')),
+      final data = await InvoiceService().getInvoice(widget.invoiceId);
+      if (!mounted) return;
+      setState(() {
+        _invoice = InvoiceDetail.fromJson(data);
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = friendlyErrorMessage(
+          error,
+          fallback: 'The funeral invoice could not be loaded.',
         );
-        Navigator.of(context).pop(true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+        _loading = false;
+      });
     }
+  }
+
+  Future<void> _capturePayment() async {
+    final invoice = _invoice;
+    if (invoice == null || invoice.balanceCents <= 0) return;
+
+    final result = await showDialog<dynamic>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CaptureInvoicePaymentDialog(invoice: invoice),
+    );
+    if (result == null || !mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Payment recorded against invoice ${invoice.number} and added to cashup.',
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+    Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Capture Payment')),
-      body: _isLoading
+      appBar: AppBar(title: const Text('Funeral Invoice Payment')),
+      body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text('Invoice ID: ${widget.invoiceId}', 
-                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _amountController,
-                      decoration: const InputDecoration(
-                        labelText: 'Amount (Rand)',
-                        border: OutlineInputBorder(),
-                        prefixText: 'R ',
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Required';
-                        if (double.tryParse(v) == null) return 'Invalid amount';
-                        return null;
-                      },
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 42, color: colorScheme.error),
+                        const SizedBox(height: 12),
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: _loadInvoice,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Try again'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<PaymentMethod>(
-                      value: _selectedMethod,
-                      decoration: const InputDecoration(
-                        labelText: 'Payment Method',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: PaymentMethod.values.map((m) => DropdownMenuItem(
-                        value: m,
-                        child: Text(m.name),
-                      )).toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => _selectedMethod = v);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _referenceController,
-                      decoration: const InputDecoration(
-                        labelText: 'Reference',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                    ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-                      child: const Text('Confirm Payment'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
+                )
+              : _buildInvoiceCard(colorScheme),
     );
   }
 
-  @override
-  void dispose() {
-    _amountController.dispose();
-    _referenceController.dispose();
-    super.dispose();
+  Widget _buildInvoiceCard(ColorScheme colorScheme) {
+    final invoice = _invoice!;
+    final canPay = invoice.balanceCents > 0 &&
+        ['ISSUED', 'PARTIALLY_PAID', 'OVERDUE'].contains(
+          invoice.status.toUpperCase().replaceAll('-', '_'),
+        );
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(Icons.receipt_long_outlined,
+                            color: colorScheme.primary),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Invoice ${invoice.number}',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              invoice.customerName,
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Chip(
+                        label: Text(
+                          invoice.status
+                              .replaceAll('_', ' ')
+                              .replaceAll('-', ' '),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      _metric('Invoice total',
+                          Formatters.formatCentsAsRand(invoice.totalCents)),
+                      _metric('Paid',
+                          Formatters.formatCentsAsRand(invoice.paidCents)),
+                      _metric('Outstanding',
+                          Formatters.formatCentsAsRand(invoice.balanceCents),
+                          emphasized: true),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  if (!canPay)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        invoice.balanceCents <= 0
+                            ? 'This invoice is fully paid.'
+                            : 'Payment can be captured once the invoice is issued/approved.',
+                      ),
+                    ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: canPay ? _capturePayment : null,
+                      icon: const Icon(Icons.payments_outlined),
+                      label: const Text('Capture Invoice Payment'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _metric(String label, String value, {bool emphasized = false}) {
+    return SizedBox(
+      width: 190,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: emphasized ? 20 : 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
