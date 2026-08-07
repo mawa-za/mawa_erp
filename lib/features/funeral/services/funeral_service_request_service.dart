@@ -1,5 +1,4 @@
 import '../data/funeral_api.dart';
-import '../data/models/approve_funeral_claim_request_dto.dart';
 import '../data/models/funeral_claim_dto.dart';
 import '../data/models/funeral_invoice_preview_line_dto.dart';
 import '../data/models/funeral_invoice_preview_request_dto.dart';
@@ -42,9 +41,6 @@ class FuneralServiceRequestService {
       _api.initiateClaimsAndReturn(serviceRequestId, request);
 
   Future<List<FuneralClaimDto>> getClaims(String serviceRequestId) => _api.getClaims(serviceRequestId);
-
-  Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) =>
-      _api.approveClaim(claimId, request);
 
   Future<List<FuneralInvoicePreviewLineDto>> getInvoicePreview(
     FuneralInvoicePreviewRequestDto request,

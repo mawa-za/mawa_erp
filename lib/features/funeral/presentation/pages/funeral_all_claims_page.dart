@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/utils/formatters.dart';
 import '../../data/funeral_api.dart';
-import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_claim_dto.dart';
-import '../../data/models/funeral_enums.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../widgets/funeral_claim_card.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -82,78 +79,6 @@ class _FuneralAllClaimsPageState extends State<FuneralAllClaimsPage> {
     }).toList();
   }
 
-  Future<void> _decide(FuneralClaimDto claim) async {
-    final amountController = TextEditingController(
-      text: (claim.claimedAmountCents / 100).toStringAsFixed(2),
-    );
-    final noteController = TextEditingController();
-    final result = await showDialog<ApproveFuneralClaimRequestDto>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Decide Funeral Claim'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Claimed: ${Formatters.formatCentsAsRand(claim.claimedAmountCents)}'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Approved amount (Rand)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(labelText: 'Decision note'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(
-              context,
-              ApproveFuneralClaimRequestDto(
-                approvedAmountCents: 0,
-                status: ClaimStatus.REJECTED,
-                note: noteController.text,
-              ),
-            ),
-            child: const Text('Reject'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final cents = ((double.tryParse(amountController.text) ?? 0) * 100).round();
-              Navigator.pop(
-                context,
-                ApproveFuneralClaimRequestDto(
-                  approvedAmountCents: cents,
-                  status: cents >= claim.claimedAmountCents
-                      ? ClaimStatus.APPROVED
-                      : ClaimStatus.PARTIALLY_APPROVED,
-                  note: noteController.text,
-                ),
-              );
-            },
-            child: const Text('Save decision'),
-          ),
-        ],
-      ),
-    );
-    amountController.dispose();
-    noteController.dispose();
-    if (result == null) return;
-
-    try {
-      await _api.approveClaim(claim.id, result);
-      await _load();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyErrorMessage('Unable to update claim: $error'))),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,11 +153,7 @@ class _FuneralAllClaimsPageState extends State<FuneralAllClaimsPage> {
                                       style: Theme.of(context).textTheme.bodySmall,
                                     ),
                                   ),
-                                  FuneralClaimCard(
-                                    claim: entry.claim,
-                                    onApprove: () => _decide(entry.claim),
-                                    onReject: () => _decide(entry.claim),
-                                  ),
+                                  FuneralClaimCard(claim: entry.claim),
                                 ],
                               );
                             },

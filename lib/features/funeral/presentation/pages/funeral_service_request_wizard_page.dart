@@ -2,23 +2,21 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../controllers/funeral_service_request_wizard_controller.dart';
 import '../widgets/funeral_wizard_stepper.dart';
 import '../widgets/funeral_package_card.dart';
 import '../widgets/membership_cover_selection_card.dart';
-import '../widgets/funeral_claim_approval_dialog.dart';
 import '../widgets/invoice_preview_summary_card.dart';
 import '../widgets/funeral_money_text.dart';
 import '../widgets/funeral_status_chip.dart';
+import '../../../../core/files/download_bytes.dart';
 import '../../../../core/widgets/partner_search_dropdown.dart';
 import '../../../../core/widgets/attachment_section.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/theme/mawa_design.dart';
 import '../../../../core/widgets/mawa_ui.dart';
 import '../../data/models/funeral_service_request_dto.dart';
-import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../../../core/models/product_lookup.dart';
 
@@ -461,10 +459,18 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
             bold: true,
           ),
           _moneySummaryRow(
-            'Membership cover selected',
+            'Funeral cover selected',
             _controller.selectedCoverTotalCents,
             bold: true,
           ),
+          if (_controller.selectedCovers.length > 1)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Each selected membership contributes its Funeral benefit. A Combination benefit is only used for an explicit Combination claim.',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ),
           if (_controller.requestedGroupSocietyCoverCents > 0)
             _moneySummaryRow(
               'Group society cover requested',
@@ -699,8 +705,25 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                     Row(children: [
                       TextButton.icon(
                         onPressed: () async {
-                          final bytes = await _controller.downloadClaimForm(claim.id);
-                          await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: 'claim-form-${claim.claimNumber ?? claim.id}.pdf');
+                          try {
+                            final bytes = await _controller.downloadClaimForm(claim.id);
+                            await downloadBytes(
+                              bytes: Uint8List.fromList(bytes),
+                              fileName: 'claim-form-${claim.claimNumber ?? claim.id}.pdf',
+                              mimeType: 'application/pdf',
+                            );
+                          } catch (error) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  friendlyErrorMessage(
+                                    'Unable to download claim form: $error',
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
                         },
                         icon: Icon(claim.claimFormPrinted ? Icons.check_circle_outline : Icons.download),
                         label: Text(claim.claimFormPrinted ? 'Claim Form Downloaded' : 'Download Claim Form'),
@@ -714,14 +737,21 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                     AttachmentSection(objectId: claim.id, documentTypeField: 'DOCUMENT-TYPE-CLAIM'),
                     if (claim.status == ClaimStatus.PENDING &&
                         !claim.managedExternally)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => _handleClaimApproval(claim),
-                            child: const Text('Review & Approve'),
-                          ),
-                        ],
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.approval_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                claim.rawStatus == 'DRAFT'
+                                    ? 'Complete the claim documentation and continue to submit this claim to Approval Requests.'
+                                    : 'This claim is awaiting a decision in the system-wide Approval Requests process.',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     if (claim.status == ClaimStatus.PENDING &&
                         claim.managedExternally)
@@ -1622,14 +1652,4 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     );
   }
 
-  Future<void> _handleClaimApproval(claim) async {
-    final result = await showDialog<ApproveFuneralClaimRequestDto>(
-      context: context,
-      builder: (context) => FuneralClaimApprovalDialog(claim: claim),
-    );
-
-    if (result != null) {
-      await _controller.approveClaim(claim.id, result);
-    }
-  }
 }

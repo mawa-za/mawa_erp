@@ -13,7 +13,6 @@ import '../../data/models/funeral_claim_dto.dart';
 import '../../data/models/funeral_invoice_preview_line_dto.dart';
 import '../../data/models/funeral_invoice_preview_request_dto.dart';
 import '../../data/models/generate_funeral_invoices_response_dto.dart';
-import '../../data/models/approve_funeral_claim_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../data/models/group_society_cover_option_dto.dart';
 import '../../data/models/group_society_funeral_claim_dto.dart';
@@ -285,7 +284,11 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           serviceRequestId!,
           InitiateFuneralClaimsRequestDto(
             membershipIds: selectionIds,
-            claimType: selectedCovers.length > 1 ? 'COMBINATION' : 'FUNERAL',
+            // Selecting more than one membership does not turn the claim into a
+            // COMBINATION claim. Each selected membership contributes its normal
+            // FUNERAL benefit unless a separate combination workflow explicitly
+            // requests COMBINATION.
+            claimType: 'FUNERAL',
             groceryCoverSelectionId: groceryCoverSelectionId,
           ),
         );
@@ -424,20 +427,6 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
-  Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {
-    isLoading = true;
-    notifyListeners();
-    try {
-      await _api.approveClaim(claimId, request);
-      await loadClaims();
-    } catch (e) {
-      errorMessage = friendlyErrorMessage('Failed to approve claim: $e');
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
-  }
-
   Future<void> loadInvoicePreview() async {
     isLoading = true;
     errorMessage = null;
@@ -497,11 +486,9 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   int get extrasTotalCents => extras.fold(0, (sum, e) => sum + e.amountCents);
   int get arrangementTotalCents => packageAmountCents + extrasTotalCents;
   int get selectedCoverTotalCents {
-    final useCombinationBenefit = selectedCovers.length > 1;
     return selectedCovers.fold(
       0,
-      (sum, cover) =>
-          sum + _coverAmountCents(cover, useCombinationBenefit: useCombinationBenefit),
+      (sum, cover) => sum + _coverAmountCents(cover),
     );
   }
   int get requestedGroupSocietyCoverCents {
@@ -547,21 +534,11 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  int _coverAmountCents(
-    FuneralMembershipCoverDto cover, {
-    required bool useCombinationBenefit,
-  }) {
+  int _coverAmountCents(FuneralMembershipCoverDto cover) {
     final funeralAmount = cover.funeralAmountCents > 0
         ? cover.funeralAmountCents
         : cover.coverAmountCents;
-
-    if (!useCombinationBenefit) {
-      return funeralAmount;
-    }
-
-    return cover.combinationAmountCents > 0
-        ? cover.combinationAmountCents
-        : funeralAmount;
+    return funeralAmount;
   }
 
   String? _coverSelectionId(FuneralMembershipCoverDto cover) =>

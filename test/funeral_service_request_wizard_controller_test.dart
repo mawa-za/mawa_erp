@@ -43,7 +43,7 @@ void main() {
       expect(controller.shortfallCents, 2500000);
     });
 
-    test('uses combination benefits only when multiple covers are selected', () {
+    test('uses each funeral benefit when multiple memberships are selected', () {
       controller.selectedCovers = [
         _cover(
           id: 'cover-1',
@@ -57,11 +57,11 @@ void main() {
         ),
       ];
 
-      expect(controller.selectedCoverTotalCents, 1500000);
-      expect(controller.shortfallCents, 3000000);
+      expect(controller.selectedCoverTotalCents, 3500000);
+      expect(controller.shortfallCents, 1000000);
     });
 
-    test('falls back to normal funeral amount when combination is not configured', () {
+    test('ignores combination benefit when calculating arrangement funding', () {
       controller.selectedCovers = [
         _cover(
           id: 'cover-1',
@@ -75,8 +75,8 @@ void main() {
         ),
       ];
 
-      expect(controller.selectedCoverTotalCents, 2500000);
-      expect(controller.shortfallCents, 2000000);
+      expect(controller.selectedCoverTotalCents, 3500000);
+      expect(controller.shortfallCents, 1000000);
     });
   });
 }
