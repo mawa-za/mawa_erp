@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_claim_dto.dart';
-import '../../data/models/approve_funeral_claim_request_dto.dart';
-import '../../data/models/funeral_enums.dart';
 import '../widgets/funeral_claim_card.dart';
-import '../../../../core/utils/formatters.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralClaimsPage extends StatefulWidget {
@@ -43,69 +40,6 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
     }
   }
 
-  Future<void> _handleApproval(FuneralClaimDto claim) async {
-    final amountController = TextEditingController(text: (claim.claimedAmountCents / 100).toString());
-    final noteController = TextEditingController();
-    
-    final result = await showDialog<ApproveFuneralClaimRequestDto>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Approve Claim'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Claimed: ${Formatters.formatCentsAsRand(claim.claimedAmountCents)}'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              decoration: const InputDecoration(labelText: 'Approved Amount (Rand)'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(labelText: 'Note (Optional)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, ApproveFuneralClaimRequestDto(
-              approvedAmountCents: 0,
-              status: ClaimStatus.REJECTED,
-              note: noteController.text,
-            )),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Reject'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final cents = ((double.tryParse(amountController.text) ?? 0) * 100).round();
-              Navigator.pop(context, ApproveFuneralClaimRequestDto(
-                approvedAmountCents: cents,
-                status: cents >= claim.claimedAmountCents ? ClaimStatus.APPROVED : ClaimStatus.PARTIALLY_APPROVED,
-                note: noteController.text,
-              ));
-            },
-            child: const Text('Approve'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      setState(() => _isLoading = true);
-      try {
-        await _api.approveClaim(claim.id, result);
-        _loadClaims();
-      } catch (e) {
-        setState(() => _isLoading = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
-        }
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,11 +58,7 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
                   padding: const EdgeInsets.all(16),
                   itemCount: _claims.length,
                   itemBuilder: (context, index) {
-                    return FuneralClaimCard(
-                      claim: _claims[index],
-                      onApprove: () => _handleApproval(_claims[index]),
-                      onReject: () => _handleApproval(_claims[index]),
-                    );
+                    return FuneralClaimCard(claim: _claims[index]);
                   },
                 ),
     );

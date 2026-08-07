@@ -13,7 +13,6 @@ import 'models/funeral_membership_cover_dto.dart';
 import 'models/funeral_service_request_dto.dart';
 import 'models/initiate_funeral_claims_request_dto.dart';
 import 'models/funeral_claim_dto.dart';
-import 'models/approve_funeral_claim_request_dto.dart';
 import 'models/funeral_invoice_preview_request_dto.dart';
 import 'models/funeral_invoice_preview_line_dto.dart';
 import 'models/generate_funeral_invoices_response_dto.dart';
@@ -275,7 +274,10 @@ class FuneralApi {
 
 
   Future<List<int>> downloadClaimForm(String claimId) async {
-    final response = await _apiClient.get('/v2/funeral/claims/$claimId/claim-form');
+    final response = await _apiClient.get(
+      '/v2/funeral/claims/$claimId/claim-form',
+      accept: 'application/pdf',
+    );
     if (response.statusCode == 200) return response.bodyBytes;
     throw AppException('Failed to download claim form: ${response.body}');
   }
@@ -332,16 +334,6 @@ class FuneralApi {
       return GroupSocietyFuneralClaimDto.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
     }
     throw AppException('Failed to submit group society cover: ${response.body}');
-  }
-
-  Future<void> approveClaim(String claimId, ApproveFuneralClaimRequestDto request) async {
-    final response = await _apiClient.put(
-      '/v2/funeral/claims/$claimId/approve',
-      body: request.toJson(),
-    );
-    if (response.statusCode != 200) {
-      throw AppException('Failed to approve claim: ${response.body}');
-    }
   }
 
   Future<List<FuneralPaymentSummaryDto>> getFuneralPayments() async {

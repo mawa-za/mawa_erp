@@ -6,14 +6,10 @@ import 'funeral_status_chip.dart';
 
 class FuneralClaimCard extends StatelessWidget {
   final FuneralClaimDto claim;
-  final VoidCallback? onApprove;
-  final VoidCallback? onReject;
 
   const FuneralClaimCard({
     super.key,
     required this.claim,
-    this.onApprove,
-    this.onReject,
   });
 
   @override
@@ -109,23 +105,17 @@ class FuneralClaimCard extends StatelessWidget {
                 ],
               ),
             ],
-            if (isPending && !managedExternally &&
-                (onApprove != null || onReject != null)) ...[
+            if (isPending && !managedExternally) ...[
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              const Row(
                 children: [
-                  if (onReject != null)
-                    TextButton(
-                      onPressed: onReject,
-                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Reject'),
+                  Icon(Icons.approval_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Approval decisions are completed from the system-wide Approval Requests workcenter.',
                     ),
-                  if (onApprove != null)
-                    ElevatedButton(
-                      onPressed: onApprove,
-                      child: const Text('Review & Approve'),
-                    ),
+                  ),
                 ],
               ),
             ],
