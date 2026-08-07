@@ -71,6 +71,7 @@ enum ClaimStatus {
 
 enum InvoiceEntityType {
   BURIAL_SOCIETY,
+  GROUP_SOCIETY,
   FAMILY_REP;
 
   static InvoiceEntityType parse(String? value) {

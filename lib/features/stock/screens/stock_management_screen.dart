@@ -247,11 +247,15 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selectedTitle = _cardForSection(_selectedSection)?.title ?? 'Inventory Operations';
+    final commercialDocument = _selectedSection != null &&
+        _isCommercialDocumentSection(_selectedSection!);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(selectedTitle),
-        leading: _selectedSection == null
+        // Quotations, sales orders and purchase orders are opened from their own
+        // Sales/Procurement workcentres. Do not send users back to Inventory cards.
+        leading: _selectedSection == null || commercialDocument
             ? null
             : IconButton(
                 tooltip: 'Back to Inventory cards',
@@ -269,7 +273,9 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
                   ? _noAccessView(theme)
                   : _selectedSection == null
                       ? _inventoryCardLanding(theme)
-                      : _sectionView(theme, _selectedSection!),
+                      : commercialDocument
+                          ? _sectionContent(_selectedSection!, theme)
+                          : _sectionView(theme, _selectedSection!),
     );
   }
 
@@ -673,7 +679,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
               ),
               const SizedBox(width: 100),
               const SizedBox(
-                width: 112,
+                width: 100,
                 child: Text(
                   'AMOUNT / STATUS',
                   textAlign: TextAlign.right,
@@ -783,7 +789,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
                 ),
                 const SizedBox(width: 12),
                 SizedBox(
-                  width: 112,
+                  width: 100,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [

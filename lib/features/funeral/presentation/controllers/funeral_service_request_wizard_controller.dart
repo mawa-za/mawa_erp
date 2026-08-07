@@ -156,7 +156,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       }).toList();
       if (currentStep < 4) currentStep = 4;
     }
-    if (currentStep >= 5 && request.status?.toUpperCase() != 'INVOICED') {
+    if (currentStep >= 5) {
       await loadInvoicePreview();
     }
   }
@@ -461,6 +461,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       generationResponse = await _api.generateInvoices({
         'funeralServiceId': serviceRequestId,
       });
+      await loadInvoicePreview();
       return true;
     } catch (e) {
       errorMessage = friendlyErrorMessage('Failed to generate invoices: $e');
