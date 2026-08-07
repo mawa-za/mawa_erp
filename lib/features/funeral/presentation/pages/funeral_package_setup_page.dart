@@ -198,6 +198,8 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
                     FuneralMoneyText(cents: package.basePriceCents),
                     const SizedBox(width: 10),
                     Chip(label: Text(package.pricingMode == 'FIXED_PRICE' ? 'Fixed package price' : 'Total of items')),
+                    const SizedBox(width: 8),
+                    Chip(label: Text('${package.products.length} item${package.products.length == 1 ? '' : 's'}')),
                   ],
                 ),
                 if (package.inclusions.isNotEmpty) ...[
@@ -234,6 +236,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
   late final TextEditingController _fixedPriceController;
   String _pricingMode = 'ITEM_TOTAL';
   List<ProductLookup> _catalog = [];
+  ProductLookup? _componentToAdd;
   late List<FuneralPackageProductDto> _products;
   bool _loadingProducts = true;
   bool _active = true;
@@ -290,6 +293,22 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
     _nameController.dispose();
     _fixedPriceController.dispose();
     super.dispose();
+  }
+
+  void _addSelectedComponent() {
+    final selected = _componentToAdd;
+    if (selected == null) return;
+    if (_products.any((item) => item.productId == selected.id)) return;
+    setState(() {
+      _products.add(FuneralPackageProductDto(
+        productId: selected.id,
+        productCode: selected.code,
+        productDescription: selected.description,
+        quantity: 1,
+        unitPriceCents: selected.priceCents,
+      ));
+      _componentToAdd = null;
+    });
   }
 
   Future<void> _save() async {
@@ -383,18 +402,165 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                     validator: (value) => (double.tryParse(value ?? '') ?? 0) <= 0 ? 'Enter a valid fixed price' : null,
                   ),
                 ],
-                const SizedBox(height: 12),
-                if (_loadingProducts) const LinearProgressIndicator() else DropdownButtonFormField<ProductLookup>(
-                  decoration: const InputDecoration(labelText: 'Add package component', helperText: 'Only Physical Products, Consumables, Services and Tombstones are allowed.'),
-                  items: _catalog.map((p)=>DropdownMenuItem(value:p,child:Text('${p.code} - ${p.description}'))).toList(),
-                  onChanged: (p) { if (p == null || _products.any((e)=>e.productId==p.id)) return; setState(()=>_products.add(FuneralPackageProductDto(productId:p.id,productCode:p.code,productDescription:p.description,quantity:1,unitPriceCents:p.priceCents))); },
+                const SizedBox(height: 18),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Package line items',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Add as many products or services as this package requires. Each component can have its own quantity and price.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
                 const SizedBox(height: 12),
-                ..._products.asMap().entries.map((entry) { final i=entry.key; final item=entry.value; return ListTile(
-                  contentPadding: EdgeInsets.zero, title: Text(item.productDescription), subtitle: Text('R ${(item.unitPriceCents/100).toStringAsFixed(2)} each'),
-                  leading: SizedBox(width:70,child:TextFormField(initialValue:item.quantity.toString(),keyboardType:TextInputType.number,onChanged:(v){final q=int.tryParse(v)??0;_products[i]=FuneralPackageProductDto(productId:item.productId,productCode:item.productCode,productDescription:item.productDescription,quantity:q,unitPriceCents:item.unitPriceCents);})),
-                  trailing: IconButton(icon:const Icon(Icons.delete_outline),onPressed:()=>setState(()=>_products.removeAt(i))),
-                );}),
+                if (_loadingProducts)
+                  const LinearProgressIndicator()
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<ProductLookup>(
+                          value: _componentToAdd,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Product / service',
+                            helperText: 'Physical products, consumables, services and tombstones are available.',
+                          ),
+                          items: _catalog
+                              .where((p) => !_products.any((item) => item.productId == p.id))
+                              .map((p) => DropdownMenuItem(
+                                    value: p,
+                                    child: Text('${p.code} - ${p.description}', overflow: TextOverflow.ellipsis),
+                                  ))
+                              .toList(),
+                          onChanged: (value) => setState(() => _componentToAdd = value),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: FilledButton.icon(
+                          onPressed: _componentToAdd == null ? null : _addSelectedComponent,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Item'),
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 14),
+                if (_products.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.45),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text('No package items added yet.'),
+                  )
+                else
+                  ..._products.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final item = entry.value;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Theme.of(context).dividerColor),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(item.productDescription, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                      if (item.productCode.isNotEmpty)
+                                        Text(item.productCode, style: Theme.of(context).textTheme.bodySmall),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Remove item',
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: () => setState(() => _products.removeAt(i)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 10,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 110,
+                                  child: TextFormField(
+                                    key: ValueKey('package-qty-${item.productId}-$i'),
+                                    initialValue: item.quantity.toString(),
+                                    decoration: const InputDecoration(labelText: 'Quantity'),
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                    validator: (value) => (int.tryParse(value ?? '') ?? 0) <= 0 ? 'Required' : null,
+                                    onChanged: (value) {
+                                      final quantity = int.tryParse(value) ?? 0;
+                                      setState(() => _products[i] = FuneralPackageProductDto(
+                                            productId: item.productId,
+                                            productCode: item.productCode,
+                                            productDescription: item.productDescription,
+                                            quantity: quantity,
+                                            unitPriceCents: item.unitPriceCents,
+                                          ));
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 150,
+                                  child: TextFormField(
+                                    key: ValueKey('package-price-${item.productId}-$i'),
+                                    initialValue: (item.unitPriceCents / 100).toStringAsFixed(2),
+                                    decoration: const InputDecoration(labelText: 'Unit price', prefixText: 'R '),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                                    onChanged: (value) {
+                                      final cents = ((double.tryParse(value) ?? 0) * 100).round();
+                                      setState(() => _products[i] = FuneralPackageProductDto(
+                                            productId: item.productId,
+                                            productCode: item.productCode,
+                                            productDescription: item.productDescription,
+                                            quantity: item.quantity,
+                                            unitPriceCents: cents,
+                                          ));
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 160,
+                                  child: Text(
+                                  'Line total: R ${(item.lineTotalCents / 100).toStringAsFixed(2)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                 Align(
                   alignment: Alignment.centerRight,
                   child: Text(
