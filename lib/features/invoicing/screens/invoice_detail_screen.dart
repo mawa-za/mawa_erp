@@ -11,6 +11,7 @@ import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import 'invoice_pdf_preview_screen.dart';
 import 'invoice_create_screen.dart' hide Partner;
+import 'capture_invoice_payment_dialog.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
@@ -453,6 +454,34 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
+  bool _canCapturePayment(InvoiceDetail detail) {
+    final status = detail.status.toUpperCase().replaceAll('-', '_');
+    return detail.balanceCents > 0 &&
+        (status == 'ISSUED' || status == 'PARTIALLY_PAID' || status == 'OVERDUE');
+  }
+
+  Future<void> _capturePayment() async {
+    final detail = _detail;
+    if (detail == null || !_canCapturePayment(detail)) return;
+
+    final result = await showDialog<dynamic>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CaptureInvoicePaymentDialog(invoice: detail),
+    );
+    if (result == null) return;
+
+    await _fetchInvoiceDetails();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment recorded against invoice ${detail.number} and added to cashup.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -501,6 +530,15 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   )
                 : const Icon(Icons.send_rounded, size: 18),
             label: const Text('Submit'),
+          ),
+        ),
+      if (_canCapturePayment(detail))
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: FilledButton.tonalIcon(
+            onPressed: _capturePayment,
+            icon: const Icon(Icons.payments_outlined, size: 18),
+            label: const Text('Capture payment'),
           ),
         ),
       const SizedBox(width: 4),
@@ -566,6 +604,16 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             title: Text('Submit for approval'),
           ),
         ),
+      if (_canCapturePayment(detail))
+        const PopupMenuItem(
+          value: 'payment',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.payments_outlined),
+            title: Text('Capture payment'),
+          ),
+        ),
       const PopupMenuItem(
         value: 'email',
         child: ListTile(
@@ -619,6 +667,9 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     switch (action) {
       case 'submit':
         _submitForApproval();
+        break;
+      case 'payment':
+        _capturePayment();
         break;
       case 'email':
         _handleEmail();
@@ -1704,6 +1755,13 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       case 'AWAITING-APPROVAL':
       case 'AWAITING_APPROVAL':
         return Colors.orange;
+      case 'ISSUED':
+        return Colors.indigo;
+      case 'PARTIALLY_PAID':
+      case 'PARTIALLY-PAID':
+        return Colors.teal;
+      case 'OVERDUE':
+        return Colors.red;
       case 'CREDITED':
         return Colors.deepOrange;
       case 'PARTIALLY_CREDITED':
