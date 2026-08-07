@@ -23,6 +23,7 @@ class StockService {
   Future<Map<String, dynamic>> createQuotation({
     String? customerPartnerId,
     String? customerReference,
+    String? quotationDate,
     String? validUntil,
     String? requestedDeliveryDate,
     String? notes,
@@ -31,6 +32,7 @@ class StockService {
     final response = await _apiClient.post('/v2/quotations', body: {
       if (customerPartnerId != null && customerPartnerId.isNotEmpty) 'customerPartnerId': customerPartnerId,
       if (customerReference != null && customerReference.isNotEmpty) 'customerReference': customerReference,
+      if (quotationDate != null && quotationDate.isNotEmpty) 'quotationDate': quotationDate,
       if (validUntil != null && validUntil.isNotEmpty) 'validUntil': validUntil,
       if (requestedDeliveryDate != null && requestedDeliveryDate.isNotEmpty) 'requestedDeliveryDate': requestedDeliveryDate,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
@@ -44,6 +46,34 @@ class StockService {
   Future<Map<String, dynamic>> quotation(String id) async {
     final response = await _apiClient.get('/v2/quotations/$id');
     return _decodeMapResponse(response.body, response.statusCode, 'quotation');
+  }
+
+  Future<Map<String, dynamic>> updateQuotation(
+    String id, {
+    String? customerPartnerId,
+    String? customerReference,
+    String? quotationDate,
+    String? validUntil,
+    String? requestedDeliveryDate,
+    String? notes,
+    required List<Map<String, dynamic>> lines,
+  }) async {
+    final response = await _apiClient.put('/v2/quotations/$id', body: {
+      if (customerPartnerId != null && customerPartnerId.isNotEmpty) 'customerPartnerId': customerPartnerId,
+      if (customerReference != null && customerReference.isNotEmpty) 'customerReference': customerReference,
+      if (quotationDate != null && quotationDate.isNotEmpty) 'quotationDate': quotationDate,
+      if (validUntil != null && validUntil.isNotEmpty) 'validUntil': validUntil,
+      if (requestedDeliveryDate != null && requestedDeliveryDate.isNotEmpty) 'requestedDeliveryDate': requestedDeliveryDate,
+      if (notes != null) 'notes': notes,
+      'currency': 'ZAR',
+      'lines': lines,
+    });
+    return _decodeMapResponse(response.body, response.statusCode, 'quotation update');
+  }
+
+  Future<Map<String, dynamic>> convertQuotationToInvoice(String id) async {
+    final response = await _apiClient.post('/v2/quotations/$id/convert-to-invoice');
+    return _decodeMapResponse(response.body, response.statusCode, 'quotation invoice');
   }
 
   Future<Map<String, dynamic>> purchaseOrder(String id) async {
