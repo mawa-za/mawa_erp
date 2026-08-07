@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import '../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+import '../../membership/models/payment_batch_response.dart';
 
 class InvoiceService {
   static final InvoiceService _instance = InvoiceService._internal();
@@ -147,10 +148,13 @@ class InvoiceService {
     throw AppException('Failed to download customer statement: ${response.body}');
   }
 
-  Future<void> capturePayment(String invoiceId, Map<String, dynamic> payment) async {
+  Future<PaymentBatchResponse> capturePayment(String invoiceId, Map<String, dynamic> payment) async {
     final response = await _apiClient.post('/v2/invoice/$invoiceId/payment', body: payment);
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw AppException('Failed to capture payment');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return PaymentBatchResponse.fromJson(
+        Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+      );
     }
+    throw AppException('Failed to capture payment: ${response.body}');
   }
 }

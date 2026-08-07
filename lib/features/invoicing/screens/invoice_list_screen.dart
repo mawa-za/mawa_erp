@@ -32,7 +32,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   String _selectedStatus = 'ALL';
   DateTime? _selectedDate;
 
-  final List<String> _statuses = ['ALL', 'DRAFT', 'PAID', 'NEW', 'OVERDUE'];
+  final List<String> _statuses = ['ALL', 'DRAFT', 'AWAITING_APPROVAL', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'REJECTED'];
 
   @override
   void initState() {
@@ -466,6 +466,20 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         break;
       case 'DRAFT':
         color = Colors.grey;
+        break;
+      case 'AWAITING_APPROVAL':
+      case 'AWAITING-APPROVAL':
+        color = Colors.orange;
+        break;
+      case 'ISSUED':
+        color = Colors.indigo;
+        break;
+      case 'PARTIALLY_PAID':
+      case 'PARTIALLY-PAID':
+        color = Colors.teal;
+        break;
+      case 'REJECTED':
+        color = Colors.red;
         break;
       default:
         color = Colors.orange;
