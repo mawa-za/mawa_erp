@@ -348,7 +348,9 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.reports,
-        builder: (context, state) => const ReportsDashboardScreen(),
+        builder: (context, state) => ReportsDashboardScreen(
+          reportKey: state.uri.queryParameters['report'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.inventory,

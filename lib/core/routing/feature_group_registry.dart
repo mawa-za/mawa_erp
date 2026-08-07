@@ -244,7 +244,13 @@ class FeatureGroupRegistry {
       sectionCode: 'BUSINESS_SERVICES',
       iconKey: 'reports',
       displayOrder: 60,
-      childWorkcenterIds: ['report', 'reports', 'reporting', 'analytics'],
+      childWorkcenterIds: [
+        'management-membership-overview-report',
+        'management-memberships-by-plan-report',
+        'operational-premium-performance-report',
+        'operational-claims-activity-report',
+        'tombstone-reports',
+      ],
       aliases: ['reports-and-analytics'],
     ),
     FeatureGroupDefinition(
