@@ -90,6 +90,12 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       if (experienceGroup != null) {
         for (final configured in experienceGroup.workcenters) {
           if (!configured.active) continue;
+          if (!FeatureGroupRegistry.belongsToCanonicalGroup(
+            configured.id,
+            experienceGroup.code,
+          )) {
+            continue;
+          }
           final matched = _findConfiguredWorkcenter(all, configured.id);
           if (matched == null) continue;
           allowed.add(
@@ -109,12 +115,44 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
           all.where(
             (wc) =>
                 fallbackGroup.matches(wc.id, wc.description) &&
-                !FeatureGroupRegistry.isGroupId(wc.id),
+                !FeatureGroupRegistry.isGroupId(wc.id) &&
+                FeatureGroupRegistry.belongsToCanonicalGroup(
+                  wc.id,
+                  fallbackGroup.id,
+                ),
           ),
         );
       }
+
       final activeGroupId =
           experienceGroup?.code ?? fallbackGroup?.id ?? canonicalGroupId;
+      final canonicalActiveGroup =
+          FeatureGroupRegistry.canonicalGroupId(activeGroupId);
+
+      // Older tenant-experience JSON can omit a card from its correct group or
+      // place it in more than one group. Role access remains authoritative, so
+      // add canonically-owned workcenters to their single correct workspace.
+      for (final workcenter in all) {
+        final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id);
+        if (owner == null ||
+            FeatureGroupRegistry.normalize(owner) !=
+                FeatureGroupRegistry.normalize(canonicalActiveGroup)) {
+          continue;
+        }
+        if (allowed.any((item) =>
+            FeatureGroupRegistry.normalize(item.id) ==
+            FeatureGroupRegistry.normalize(workcenter.id))) {
+          continue;
+        }
+        allowed.add(workcenter);
+      }
+
+      if (FeatureGroupRegistry.normalize(canonicalActiveGroup) ==
+          FeatureGroupRegistry.normalize('products-inventory')) {
+        allowed.removeWhere(
+          (item) => FeatureGroupRegistry.isLegacyInventoryUmbrella(item.id),
+        );
+      }
       final isReportsAnalyticsGroup = FeatureGroupRegistry.normalize(activeGroupId) ==
           FeatureGroupRegistry.normalize('reports-analytics');
       final isCentralApprovalsGroup =

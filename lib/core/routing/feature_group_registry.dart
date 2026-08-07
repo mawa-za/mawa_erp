@@ -320,5 +320,59 @@ class FeatureGroupRegistry {
 
   static bool isGroupId(String id) => groupById(id) != null;
 
+  /// Returns the single business workspace that owns a cross-module workcenter.
+  /// This prevents sales/procurement documents from being repeated under the
+  /// inventory workspace when older tenant-experience profiles contain the
+  /// same workcenter in more than one group.
+  static String? canonicalOwnerForWorkcenter(String workcenterId) {
+    final id = normalize(workcenterId);
+    if ({'QUOTATION', 'QUOTATIONS', 'QUOTE', 'QUOTES', 'SALES_ORDER', 'SALES_ORDERS'}
+        .contains(id)) {
+      return 'sales-customers';
+    }
+    if ({'PURCHASE_ORDER', 'PURCHASE_ORDERS'}.contains(id)) {
+      return 'procurement-suppliers';
+    }
+    if ({
+      'PRODUCT',
+      'PRODUCTS',
+      'GOODS_RECEIPT',
+      'GOODS_RECEIPTS',
+      'PUTAWAY',
+      'PUTAWAYS',
+      'STOCK_ON_HAND',
+      'STOCK',
+      'STOCK_MOVEMENT',
+      'STOCK_MOVEMENTS',
+      'INVENTORY_MOVEMENT',
+      'INVENTORY_MOVEMENTS',
+      'INVENTORY_AUDIT',
+      'STOCK_AUDIT',
+      'INVENTORY_SETUP',
+      'WAREHOUSE',
+      'STORAGE_LOCATION',
+    }.contains(id)) {
+      return 'products-inventory';
+    }
+    return null;
+  }
+
+  static bool belongsToCanonicalGroup(String workcenterId, String groupId) {
+    final owner = canonicalOwnerForWorkcenter(workcenterId);
+    return owner == null || normalize(owner) == normalize(canonicalGroupId(groupId));
+  }
+
+  /// Legacy umbrella workcenters created a second nested Inventory Management
+  /// landing page alongside the granular Products & Inventory cards. Keep the
+  /// routes for backwards-compatible deep links, but do not surface them as
+  /// navigation cards.
+  static bool isLegacyInventoryUmbrella(String workcenterId) {
+    return {
+      'INVENTORY',
+      'INVENTORY_MANAGEMENT',
+      'STOCK_MANAGEMENT',
+    }.contains(normalize(workcenterId));
+  }
+
   static bool isStandaloneCard(String workcenterId, [String? description]) => false;
 }
