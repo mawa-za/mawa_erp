@@ -154,6 +154,18 @@ class WorkcenterCardDescriptions {
     if (identity.contains('QUEUE') || identity.contains('SCHEDUL')) {
       return 'Control scheduled processing and monitor queued work.';
     }
+    if (identity.contains('MANAGEMENT_MEMBERSHIP_OVERVIEW_REPORT')) {
+      return 'Review current membership population and status across the organisation.';
+    }
+    if (identity.contains('MANAGEMENT_MEMBERSHIPS_BY_PLAN_REPORT')) {
+      return 'Compare membership volumes and active memberships across configured plans.';
+    }
+    if (identity.contains('OPERATIONAL_PREMIUM_PERFORMANCE_REPORT')) {
+      return 'Monitor paid, unpaid and partially paid premiums by reporting period.';
+    }
+    if (identity.contains('OPERATIONAL_CLAIMS_ACTIVITY_REPORT')) {
+      return 'Track monthly claim volumes and the mix of claim types being processed.';
+    }
     if (identity.contains('REPORT')) {
       return 'View operational and management information for this business area.';
     }

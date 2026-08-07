@@ -115,8 +115,28 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       }
       final activeGroupId =
           experienceGroup?.code ?? fallbackGroup?.id ?? canonicalGroupId;
+      final isReportsAnalyticsGroup = FeatureGroupRegistry.normalize(activeGroupId) ==
+          FeatureGroupRegistry.normalize('reports-analytics');
       final isCentralApprovalsGroup =
           FeatureGroupRegistry.normalize(activeGroupId) == 'APPROVALS';
+
+      if (isReportsAnalyticsGroup) {
+        // Older compiled tenant-experience documents contain one generic
+        // `reports` child. Reporting access is now granular, so populate the
+        // workspace from the role's individual report workcentres even before
+        // the tenant experience document is regenerated.
+        allowed.removeWhere((item) {
+          final id = FeatureGroupRegistry.normalize(item.id);
+          return id == 'REPORT' || id == 'REPORTS' || id == 'REPORTING';
+        });
+        for (final workcenter in all.where(_isReportingWorkcenter)) {
+          final alreadyAdded = allowed.any(
+            (item) => FeatureGroupRegistry.normalize(item.id) ==
+                FeatureGroupRegistry.normalize(workcenter.id),
+          );
+          if (!alreadyAdded) allowed.add(workcenter);
+        }
+      }
 
       if (!isCentralApprovalsGroup) {
         // Existing tenant experience documents may still place the generic
@@ -197,6 +217,23 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     };
     return candidates.any(approvalKeys.contains);
   }
+
+  bool _isReportingWorkcenter(Workcenter workcenter) {
+    final id = FeatureGroupRegistry.normalize(workcenter.id);
+    if (id == 'REPORT' ||
+        id == 'REPORTS' ||
+        id == 'REPORTING' ||
+        id == 'REPORTS_ANALYTICS') {
+      return false;
+    }
+    return id.contains('REPORT');
+  }
+
+  bool get _isReportsAnalyticsGroup => FeatureGroupRegistry.normalize(
+        _experienceGroup?.code ??
+            FeatureGroupRegistry.canonicalGroupId(widget.groupId),
+      ) ==
+      FeatureGroupRegistry.normalize('reports-analytics');
 
   Workcenter? _findConfiguredWorkcenter(
     List<Workcenter> workcenters,
@@ -488,6 +525,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
                                 description:
                                     'Try a different feature name or process description.',
                               )
+                            else if (_isReportsAnalyticsGroup)
+                              _buildReportSections(filtered)
                             else if (_gridView)
                               _buildGrid(filtered)
                             else
@@ -577,6 +616,64 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildReportSections(List<Workcenter> items) {
+    final management = items.where((item) {
+      final id = FeatureGroupRegistry.normalize(item.id);
+      return id.startsWith('MANAGEMENT_');
+    }).toList();
+    final operational = items.where((item) {
+      final id = FeatureGroupRegistry.normalize(item.id);
+      return !id.startsWith('MANAGEMENT_');
+    }).toList();
+
+    Widget section(
+      String title,
+      String description,
+      List<Workcenter> reportItems,
+    ) {
+      if (reportItems.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: MawaDesign.textMuted,
+                ),
+          ),
+          const SizedBox(height: 14),
+          if (_gridView) _buildGrid(reportItems) else _buildList(reportItems),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        section(
+          'Management Reports',
+          'Portfolio and performance information for management oversight and decision-making.',
+          management,
+        ),
+        if (management.isNotEmpty && operational.isNotEmpty)
+          const SizedBox(height: 32),
+        section(
+          'Operational Reports',
+          'Day-to-day activity and processing information for operational teams.',
+          operational,
+        ),
+      ],
     );
   }
 

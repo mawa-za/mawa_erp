@@ -22,6 +22,14 @@ class WorkcenterRouteRegistry {
     'APPROVAL-INBOX': AppRoutes.inbox,
     'REPORT': AppRoutes.reports,
     'REPORTS': AppRoutes.reports,
+    'MANAGEMENT_MEMBERSHIP_OVERVIEW_REPORT':
+        '/reports?report=membership-overview',
+    'MANAGEMENT_MEMBERSHIPS_BY_PLAN_REPORT':
+        '/reports?report=memberships-by-plan',
+    'OPERATIONAL_PREMIUM_PERFORMANCE_REPORT':
+        '/reports?report=premium-performance',
+    'OPERATIONAL_CLAIMS_ACTIVITY_REPORT':
+        '/reports?report=claims-activity',
     'COMPANY_FORMS': AppRoutes.companyForms,
     'COMPANY_FORM': AppRoutes.companyForms,
     'SETTINGS': AppRoutes.settings,
