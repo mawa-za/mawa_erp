@@ -2,6 +2,8 @@ class DeviceSyncSubmission {
   final String submissionId;
   final String idempotencyKey;
   final String? deviceId;
+  final String? deviceSerialNumber;
+  final DateTime? syncTime;
   final String? submittedBy;
   final String method;
   final String path;
@@ -19,6 +21,8 @@ class DeviceSyncSubmission {
     required this.submissionId,
     required this.idempotencyKey,
     this.deviceId,
+    this.deviceSerialNumber,
+    this.syncTime,
     this.submittedBy,
     required this.method,
     required this.path,
@@ -37,6 +41,8 @@ class DeviceSyncSubmission {
         submissionId: json['submissionId']?.toString() ?? '',
         idempotencyKey: json['idempotencyKey']?.toString() ?? '',
         deviceId: json['deviceId']?.toString(),
+        deviceSerialNumber: json['deviceSerialNumber']?.toString(),
+        syncTime: DateTime.tryParse(json['syncTime']?.toString() ?? ''),
         submittedBy: json['submittedBy']?.toString(),
         method: json['method']?.toString() ?? '',
         path: json['path']?.toString() ?? '',

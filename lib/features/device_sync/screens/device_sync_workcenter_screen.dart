@@ -76,7 +76,7 @@ class _DeviceSyncWorkcenterScreenState extends State<DeviceSyncWorkcenterScreen>
           title: Row(children: [Expanded(child: Text('Device Sync ${current.submissionId}')), IconButton(onPressed: refresh, icon: const Icon(Icons.refresh))]),
           content: SizedBox(width: 900, height: 620, child: ListView(children: [
             Wrap(spacing: 16, runSpacing: 10, children: [
-              _fact('Status', current.status), _fact('Device', current.deviceId ?? '—'), _fact('Submitted by', current.submittedBy ?? '—'), _fact('Attempts', '${current.attemptCount}'), _fact('Created', _date(current.createdAt)), _fact('HTTP', '${current.method} ${current.path}'),
+              _fact('Status', current.status), _fact('Device serial', current.deviceSerialNumber ?? '—'), _fact('Device ID', current.deviceId ?? '—'), _fact('Sync time', _date(current.syncTime)), _fact('Submitted by', current.submittedBy ?? '—'), _fact('Attempts', '${current.attemptCount}'), _fact('Received', _date(current.createdAt)), _fact('HTTP', '${current.method} ${current.path}'),
             ]),
             if ((current.errorMessage ?? '').isNotEmpty) ...[const SizedBox(height: 16), Text('Processing error', style: Theme.of(context).textTheme.titleMedium), SelectableText(current.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
             const SizedBox(height: 16), Text('Submitted payload', style: Theme.of(context).textTheme.titleMedium), const SizedBox(height: 6), _jsonPanel(_pretty(current.requestPayload)),
@@ -97,7 +97,7 @@ class _DeviceSyncWorkcenterScreenState extends State<DeviceSyncWorkcenterScreen>
     appBar: AppBar(title: const Text('MawaPay Device Sync'), actions: [IconButton(onPressed: _load, tooltip: 'Refresh', icon: const Icon(Icons.refresh))]),
     body: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
       Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-        Expanded(child: TextField(controller: _search, onSubmitted: (_) => _load(), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search submission, device, user, endpoint or error', border: OutlineInputBorder()))),
+        Expanded(child: TextField(controller: _search, onSubmitted: (_) => _load(), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search submission, serial, device, user, endpoint or error', border: OutlineInputBorder()))),
         const SizedBox(width: 12), SizedBox(width: 230, child: DropdownButtonFormField<String>(initialValue: _status, decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()), items: _statuses.map((s) => DropdownMenuItem(value: s, child: Text(s.replaceAll('_', ' ')))).toList(), onChanged: (v) { if (v != null) { setState(() => _status = v); _load(); } })),
         const SizedBox(width: 12), FilledButton.icon(onPressed: _load, icon: const Icon(Icons.filter_alt), label: const Text('Apply')),
       ]))),
@@ -106,7 +106,7 @@ class _DeviceSyncWorkcenterScreenState extends State<DeviceSyncWorkcenterScreen>
         itemCount: _items.length, separatorBuilder: (_, __) => const SizedBox(height: 8), itemBuilder: (context, index) { final item = _items[index]; final color = _statusColor(context, item.status); return Card(child: ListTile(
           leading: CircleAvatar(backgroundColor: color.withValues(alpha: .15), child: Icon(Icons.sync_problem, color: color)),
           title: Text('${item.method} ${item.path}', maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text('${item.submissionId} • ${item.deviceId ?? 'Unknown device'} • ${_date(item.createdAt)}\n${item.errorMessage ?? 'No processing error'}', maxLines: 3, overflow: TextOverflow.ellipsis),
+          subtitle: Text('${item.submissionId} • ${item.deviceSerialNumber ?? item.deviceId ?? 'Unknown device'} • Sync ${_date(item.syncTime)}\n${item.errorMessage ?? 'No processing error'}', maxLines: 3, overflow: TextOverflow.ellipsis),
           trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [Text(item.status.replaceAll('_', ' '), style: TextStyle(fontWeight: FontWeight.bold, color: color)), Text('${item.attemptCount} attempt${item.attemptCount == 1 ? '' : 's'}')]),
           isThreeLine: true, onTap: () => _open(item),
         )); },
