@@ -629,89 +629,109 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
 
     final config = _CommercialDocumentListConfig.forSection(section);
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              Icon(config.icon, size: 18, color: colorScheme.primary),
-              const SizedBox(width: 6),
-              Text(
-                config.overviewTitle.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                  color: Colors.grey[700],
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 720;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                compact ? 12 : 16,
+                compact ? 12 : 16,
+                compact ? 12 : 16,
+                8,
               ),
-            ],
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.blueGrey[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 44),
-              Expanded(
-                child: Text(
-                  '${config.partnerLabel.toUpperCase()} / REFERENCE',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey,
+              child: Row(
+                children: [
+                  Icon(config.icon, size: 18, color: colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    config.overviewTitle.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                      color: Colors.grey[700],
+                    ),
                   ),
+                ],
+              ),
+            ),
+            if (!compact)
+              Container(
+                margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 44),
+                    Expanded(
+                      child: Text(
+                        '${config.partnerLabel.toUpperCase()} / REFERENCE',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const SizedBox(
+                      width: 142,
+                      child: Text(
+                        'DATE / DELIVERY',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const SizedBox(
+                      width: 100,
+                      child: Text(
+                        'AMOUNT / STATUS',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Text(
-                'DATE / DELIVERY',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blueGrey,
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 8 : 12,
+                  0,
+                  compact ? 8 : 12,
+                  16,
                 ),
+                itemCount: rows.length,
+                itemBuilder: (context, index) {
+                  final row = rows[index];
+                  return _commercialDocumentCard(
+                    row: row,
+                    config: config,
+                    actions: actions,
+                    colorScheme: colorScheme,
+                  );
+                },
               ),
-              const SizedBox(width: 100),
-              const SizedBox(
-                width: 100,
-                child: Text(
-                  'AMOUNT / STATUS',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-            itemCount: rows.length,
-            itemBuilder: (context, index) {
-              final row = rows[index];
-              return _commercialDocumentCard(
-                row: row,
-                config: config,
-                actions: actions,
-                colorScheme: colorScheme,
-              );
-            },
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -728,9 +748,14 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     final documentDate = _formatDocumentDate(row[config.dateKey]);
     final secondaryDate = _formatDocumentDate(row[config.secondaryDateKey]);
     final isConvertedQuotation = _text(row['quotation_no']).isNotEmpty &&
-        (status.toUpperCase() == 'INVOICED' || status.toUpperCase() == 'CONVERTED');
+        (status.toUpperCase() == 'INVOICED' ||
+            status.toUpperCase() == 'CONVERTED');
     final visibleActions = isConvertedQuotation
-        ? actions.where((action) => action.label == 'View / Edit' || action.label.contains('Invoice')).toList()
+        ? actions
+            .where((action) =>
+                action.label == 'View / Edit' ||
+                action.label.contains('Invoice'))
+            .toList()
         : actions;
 
     return Card(
@@ -740,110 +765,253 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 650;
+          return Padding(
+            padding: EdgeInsets.all(compact ? 10 : 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+                if (compact)
+                  _compactCommercialDocumentHeader(
+                    row: row,
+                    config: config,
+                    colorScheme: colorScheme,
+                    partnerName: partnerName,
+                    reference: reference,
+                    amount: amount,
+                    status: status,
+                    documentDate: documentDate,
+                    secondaryDate: secondaryDate,
+                  )
+                else
+                  _desktopCommercialDocumentHeader(
+                    row: row,
+                    config: config,
+                    colorScheme: colorScheme,
+                    partnerName: partnerName,
+                    reference: reference,
+                    amount: amount,
+                    status: status,
+                    documentDate: documentDate,
+                    secondaryDate: secondaryDate,
                   ),
-                  child: Icon(config.icon, color: colorScheme.primary, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        partnerName.isEmpty ? config.partnerLabel : partnerName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Ref: ${reference.isEmpty ? '-' : reference}',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                      ),
-                      if (_text(row['invoice_no']).trim().isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'Invoice: ${_text(row['invoice_no']).trim()}',
-                          style: TextStyle(fontSize: 11, color: colorScheme.primary, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ],
+                if (visibleActions.isNotEmpty) ...[
+                  const Divider(height: 22),
+                  Align(
+                    alignment: compact
+                        ? Alignment.centerLeft
+                        : Alignment.centerRight,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: visibleActions
+                          .map(
+                            (action) => OutlinedButton(
+                              onPressed: () => _runRowAction(action, row),
+                              child: Text(action.label),
+                            ),
+                          )
+                          .toList(),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 142,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _documentDateLine(
-                        Icons.calendar_today_outlined,
-                        documentDate,
-                      ),
-                      if (secondaryDate.isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        _documentDateLine(
-                          Icons.event_available_outlined,
-                          secondaryDate,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 100,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        amount,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      _documentStatusChip(status),
-                    ],
-                  ),
-                ),
+                ],
               ],
             ),
-            if (visibleActions.isNotEmpty) ...[
-              const Divider(height: 22),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: visibleActions
-                      .map(
-                        (action) => OutlinedButton(
-                          onPressed: () => _runRowAction(action, row),
-                          child: Text(action.label),
-                        ),
-                      )
-                      .toList(),
-                ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _compactCommercialDocumentHeader({
+    required Map<String, dynamic> row,
+    required _CommercialDocumentListConfig config,
+    required ColorScheme colorScheme,
+    required String partnerName,
+    required String reference,
+    required String amount,
+    required String status,
+    required String documentDate,
+    required String secondaryDate,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _commercialDocumentIcon(config, colorScheme, compact: true),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _commercialDocumentIdentity(
+                row: row,
+                config: config,
+                partnerName: partnerName,
+                reference: reference,
+                colorScheme: colorScheme,
               ),
-            ],
+            ),
+            const SizedBox(width: 8),
+            Text(
+              amount,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                color: colorScheme.primary,
+              ),
+            ),
           ],
         ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 12,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _documentDateLine(
+              Icons.calendar_today_outlined,
+              documentDate,
+            ),
+            if (secondaryDate.isNotEmpty)
+              _documentDateLine(
+                Icons.event_available_outlined,
+                secondaryDate,
+              ),
+            _documentStatusChip(status),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _desktopCommercialDocumentHeader({
+    required Map<String, dynamic> row,
+    required _CommercialDocumentListConfig config,
+    required ColorScheme colorScheme,
+    required String partnerName,
+    required String reference,
+    required String amount,
+    required String status,
+    required String documentDate,
+    required String secondaryDate,
+  }) {
+    return Row(
+      children: [
+        _commercialDocumentIcon(config, colorScheme),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _commercialDocumentIdentity(
+            row: row,
+            config: config,
+            partnerName: partnerName,
+            reference: reference,
+            colorScheme: colorScheme,
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 142,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _documentDateLine(
+                Icons.calendar_today_outlined,
+                documentDate,
+              ),
+              if (secondaryDate.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                _documentDateLine(
+                  Icons.event_available_outlined,
+                  secondaryDate,
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 100,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                amount,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              _documentStatusChip(status),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _commercialDocumentIcon(
+    _CommercialDocumentListConfig config,
+    ColorScheme colorScheme, {
+    bool compact = false,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 8 : 10),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
       ),
+      child: Icon(
+        config.icon,
+        color: colorScheme.primary,
+        size: compact ? 20 : 24,
+      ),
+    );
+  }
+
+  Widget _commercialDocumentIdentity({
+    required Map<String, dynamic> row,
+    required _CommercialDocumentListConfig config,
+    required String partnerName,
+    required String reference,
+    required ColorScheme colorScheme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          partnerName.isEmpty ? config.partnerLabel : partnerName,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Ref: ${reference.isEmpty ? '-' : reference}',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (_text(row['invoice_no']).trim().isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Invoice: ${_text(row['invoice_no']).trim()}',
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
     );
   }
 
@@ -983,34 +1151,240 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     )).toList());
   }
 
-  Widget _tableView(List<Map<String, dynamic>> rows, List<String> columns) {
+  Widget _tableView(
+    List<Map<String, dynamic>> rows,
+    List<String> columns,
+  ) {
     if (rows.isEmpty) return const Center(child: Text('No records found'));
-    return Scrollbar(child: SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(child: DataTable(
-        columns: columns.map((c) => DataColumn(label: Text(_label(c)))).toList(),
-        rows: rows.map((row) => DataRow(cells: columns.map((c) => DataCell(Text(_text(row[c])))).toList())).toList(),
-      )),
-    ));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 720) {
+          return ListView.separated(
+            padding: const EdgeInsets.all(8),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 2),
+            itemBuilder: (context, index) => _genericRecordCard(
+              row: rows[index],
+              columns: columns,
+            ),
+          );
+        }
+        return Scrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            scrollDirection: Axis.horizontal,
+            child: SingleChildScrollView(
+              child: DataTable(
+                columns: columns
+                    .map((c) => DataColumn(label: Text(_label(c))))
+                    .toList(),
+                rows: rows
+                    .map(
+                      (row) => DataRow(
+                        cells: columns
+                            .map((c) => DataCell(Text(_text(row[c]))))
+                            .toList(),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
-  Widget _actionTableView({required List<Map<String, dynamic>> rows, required List<String> columns, required List<_RowAction> actions}) {
+  Widget _actionTableView({
+    required List<Map<String, dynamic>> rows,
+    required List<String> columns,
+    required List<_RowAction> actions,
+  }) {
     if (rows.isEmpty) return const Center(child: Text('No records found'));
-    return Scrollbar(child: SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(child: DataTable(
-        columns: [
-          ...columns.map((c) => DataColumn(label: Text(_label(c)))),
-          const DataColumn(label: Text('Actions')),
-        ],
-        rows: rows.map((row) => DataRow(cells: [
-          ...columns.map((c) => DataCell(Text(_text(row[c])))),
-          DataCell(Wrap(spacing: 6, children: actions.map((a) => OutlinedButton(onPressed: () => _runRowAction(a, row), child: Text(a.label))).toList())),
-        ])).toList(),
-      )),
-    ));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 720) {
+          return ListView.separated(
+            padding: const EdgeInsets.all(8),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 2),
+            itemBuilder: (context, index) => _genericRecordCard(
+              row: rows[index],
+              columns: columns,
+              actions: actions,
+            ),
+          );
+        }
+        return Scrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            scrollDirection: Axis.horizontal,
+            child: SingleChildScrollView(
+              child: DataTable(
+                columns: [
+                  ...columns.map(
+                    (c) => DataColumn(label: Text(_label(c))),
+                  ),
+                  const DataColumn(label: Text('Actions')),
+                ],
+                rows: rows
+                    .map(
+                      (row) => DataRow(
+                        cells: [
+                          ...columns.map(
+                            (c) => DataCell(Text(_text(row[c]))),
+                          ),
+                          DataCell(
+                            Wrap(
+                              spacing: 6,
+                              children: actions
+                                  .map(
+                                    (action) => OutlinedButton(
+                                      onPressed: () =>
+                                          _runRowAction(action, row),
+                                      child: Text(action.label),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _genericRecordCard({
+    required Map<String, dynamic> row,
+    required List<String> columns,
+    List<_RowAction> actions = const <_RowAction>[],
+  }) {
+    final populated = columns
+        .where((column) => _text(row[column]).trim().isNotEmpty)
+        .toList();
+    final titleColumn = populated.isNotEmpty ? populated.first : columns.first;
+    final subtitleColumn =
+        populated.length > 1 ? populated[1] : (columns.length > 1 ? columns[1] : null);
+    final detailColumns = populated
+        .where(
+          (column) => column != titleColumn && column != subtitleColumn,
+        )
+        .toList();
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final gap = 12.0;
+            final factWidth = ((constraints.maxWidth - gap) / 2)
+                .clamp(120.0, 260.0)
+                .toDouble();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  _text(row[titleColumn]).trim().isEmpty
+                      ? _label(titleColumn)
+                      : _text(row[titleColumn]),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitleColumn != null &&
+                    _text(row[subtitleColumn]).trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    '${_label(subtitleColumn)}: ${_text(row[subtitleColumn])}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (detailColumns.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: gap,
+                    runSpacing: 8,
+                    children: detailColumns
+                        .map(
+                          (column) => SizedBox(
+                            width: factWidth,
+                            child: _genericRecordFact(
+                              _label(column),
+                              _text(row[column]),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+                if (actions.isNotEmpty) ...[
+                  const Divider(height: 22),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: actions
+                        .map(
+                          (action) => OutlinedButton(
+                            onPressed: () => _runRowAction(action, row),
+                            child: Text(action.label),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _genericRecordFact(String label, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _runRowAction(_RowAction action, Map<String, dynamic> row) async {

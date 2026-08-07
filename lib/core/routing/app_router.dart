@@ -13,6 +13,7 @@ import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
+import '../../features/service_orders/screens/service_order_list_screen.dart';
 import '../../features/cases/screens/case_list_screen.dart';
 import '../../features/cases/screens/create_case_screen.dart';
 import '../../features/cases/screens/case_detail_screen.dart';
@@ -203,6 +204,10 @@ class AppRouter {
             },
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.serviceOrders,
+        builder: (context, state) => const ServiceOrderListScreen(),
       ),
       GoRoute(
         path: AppRoutes.cases,

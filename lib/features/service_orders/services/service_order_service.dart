@@ -55,6 +55,43 @@ class ServiceOrderService {
     return _decodeOrder(response.statusCode, response.body, 'create');
   }
 
+  Future<List<ServiceOrder>> search({
+    String? status,
+    String? customerId,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    final queryParameters = <String, String>{
+      if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+      if (customerId != null && customerId.trim().isNotEmpty)
+        'customerId': customerId.trim(),
+      if (fromDate != null)
+        'fromDate': fromDate.toIso8601String().split('T').first,
+      if (toDate != null) 'toDate': toDate.toIso8601String().split('T').first,
+    };
+    final response = await _apiClient.get(
+      '/v2/service-orders',
+      queryParameters: queryParameters,
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map(
+              (order) => ServiceOrder.fromJson(
+                Map<String, dynamic>.from(order),
+              ),
+            )
+            .toList();
+      }
+      return <ServiceOrder>[];
+    }
+    throw AppException(
+      'Failed to load service orders: ${response.statusCode} ${response.body}',
+    );
+  }
+
   Future<ServiceOrder> get(String id) async {
     final response = await _apiClient.get('/v2/service-orders/$id');
     return _decodeOrder(response.statusCode, response.body, 'load');
