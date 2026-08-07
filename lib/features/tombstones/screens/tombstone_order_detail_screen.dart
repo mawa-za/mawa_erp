@@ -51,19 +51,42 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        title: Text(_order?.orderNo ?? 'Tombstone Order'),
-        actions: [IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh))],
+        title: Text(_order?.orderNo ?? 'Tombstone Order Details'),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        actions: [
+          IconButton(
+            tooltip: 'Refresh order',
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _order == null
               ? _failure()
-              : Stack(children: [
-                  RefreshIndicator(onRefresh: _load, child: _body(_order!)),
-                  if (_working) const Positioned.fill(child: ColoredBox(color: Color(0x33000000), child: Center(child: CircularProgressIndicator()))),
-                ]),
+              : Stack(
+                  children: [
+                    RefreshIndicator(
+                      onRefresh: _load,
+                      child: _body(_order!, colorScheme),
+                    ),
+                    if (_working)
+                      const Positioned.fill(
+                        child: ColoredBox(
+                          color: Color(0x33000000),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                  ],
+                ),
     );
   }
 
@@ -72,62 +95,164 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
     const SizedBox(height: 12), FilledButton(onPressed: _load, child: const Text('Retry')),
   ]));
 
-  Widget _body(TombstoneOrder order) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      if (_error != null) _errorBanner(_error!),
-      _summary(order),
-      const SizedBox(height: 14),
-      _actions(order),
-      const SizedBox(height: 14),
-      _items(order),
-      _funding(order),
-      _layby(order),
-      _assessments(order),
-      _amendments(order),
-      _designs(order),
-      _production(order),
-      _installations(order),
-      _history(order),
-      const SizedBox(height: 80),
-    ],
+  Widget _body(TombstoneOrder order, ColorScheme colorScheme) => LayoutBuilder(
+    builder: (context, constraints) {
+      final horizontalPadding = constraints.maxWidth >= 1200
+          ? 32.0
+          : constraints.maxWidth >= 700
+              ? 24.0
+              : 16.0;
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(horizontalPadding, 24, horizontalPadding, 40),
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1440),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_error != null) ...[
+                    _errorBanner(_error!),
+                    const SizedBox(height: 16),
+                  ],
+                  _summary(order, colorScheme),
+                  const SizedBox(height: 20),
+                  _actions(order),
+                  _items(order),
+                  _funding(order),
+                  _layby(order),
+                  _assessments(order),
+                  _amendments(order),
+                  _designs(order),
+                  _production(order),
+                  _installations(order),
+                  _history(order),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    },
   );
 
-  Widget _summary(TombstoneOrder order) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(18),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const CircleAvatar(radius: 28, child: Icon(Icons.account_balance_outlined, size: 30)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(order.deceasedName, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            Text('${order.orderNo} • ${_label(order.status)}'),
-            if (order.cemeteryName != null) Text('${order.cemeteryName}${order.graveNumber == null ? '' : ' • Grave ${order.graveNumber}'}'),
-          ])),
-          _chip(order.fundingStatus),
-        ]),
-        const Divider(height: 28),
-        Wrap(spacing: 28, runSpacing: 14, children: [
-          _metric('Order Total', 'R ${order.total.toStringAsFixed(2)}'),
-          _metric('Confirmed Funding', 'R ${order.confirmedFunding.toStringAsFixed(2)}'),
-          _metric('Outstanding', 'R ${order.balance.toStringAsFixed(2)}'),
-          _metric('Funding Method', _label(order.fundingMethod)),
-          _metric('Production', _label(order.productionStatus)),
-          _metric('Installation', _label(order.installationStatus)),
-        ]),
-        if (order.invoiceId != null) Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Text('Invoice: ${order.invoiceId}', style: Theme.of(context).textTheme.bodySmall),
+  Widget _summary(TombstoneOrder order, ColorScheme colorScheme) => Container(
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          colorScheme.primaryContainer.withOpacity(0.78),
+          colorScheme.primaryContainer.withOpacity(0.25),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(
+                Icons.account_balance_outlined,
+                color: colorScheme.onPrimary,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    order.deceasedName,
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    order.orderNo,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (order.cemeteryName != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '${order.cemeteryName}${order.graveNumber == null ? '' : ' • Grave ${order.graveNumber}'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            _statusPill(order.status, colorScheme),
+          ],
         ),
-      ]),
+        const SizedBox(height: 20),
+        Divider(color: colorScheme.outlineVariant.withOpacity(0.7)),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 28,
+          runSpacing: 14,
+          children: [
+            _metric('Order Total', 'R ${order.total.toStringAsFixed(2)}'),
+            _metric('Confirmed Funding', 'R ${order.confirmedFunding.toStringAsFixed(2)}'),
+            _metric('Outstanding', 'R ${order.balance.toStringAsFixed(2)}'),
+            _metric('Funding Method', _label(order.fundingMethod)),
+            _metric('Production', _label(order.productionStatus)),
+            _metric('Installation', _label(order.installationStatus)),
+          ],
+        ),
+        if (order.invoiceId != null) ...[
+          const SizedBox(height: 14),
+          Text(
+            'Invoice ${order.invoiceId}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.primary,
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  Widget _statusPill(String status, ColorScheme colorScheme) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+    decoration: BoxDecoration(
+      color: colorScheme.surface.withOpacity(0.85),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: colorScheme.outlineVariant),
+    ),
+    child: Text(
+      _label(status),
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
     ),
   );
 
   Widget _actions(TombstoneOrder order) {
     final closed = const {'COMPLETED', 'CANCELLED'}.contains(order.status);
-    return Card(child: Padding(
-      padding: const EdgeInsets.all(14),
+    return _documentSectionCard(
+      icon: Icons.bolt_outlined,
+      title: 'Order Actions',
+      subtitle: 'Manage funding, design, production and installation for this order.',
       child: Wrap(spacing: 8, runSpacing: 8, children: [
         FilledButton.tonalIcon(onPressed: closed ? null : _addFunding, icon: const Icon(Icons.add_card), label: const Text('Add Funding')),
         FilledButton.tonalIcon(onPressed: closed || order.laybyAgreement != null || order.balanceCents <= 0 ? null : _createLayby, icon: const Icon(Icons.savings_outlined), label: const Text('Create Lay-by')),
@@ -138,7 +263,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
         OutlinedButton.icon(onPressed: closed ? null : _createAmendment, icon: const Icon(Icons.edit_note), label: const Text('Order Amendment')),
         OutlinedButton.icon(onPressed: closed ? null : _cancelOrder, icon: const Icon(Icons.cancel_outlined), label: const Text('Cancel Order')),
       ]),
-    ));
+    );
   }
 
   Widget _items(TombstoneOrder order) => _section(
@@ -326,14 +451,117 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
     )).toList(),
   );
 
-  Widget _section({required String title, required IconData icon, required List<Widget> children, Widget? action, bool initiallyExpanded = true}) => Card(
-    margin: const EdgeInsets.only(top: 14),
-    child: ExpansionTile(
-      initiallyExpanded: initiallyExpanded,
-      leading: Icon(icon), title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), trailing: action,
-      children: children,
-    ),
-  );
+  Widget _section({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+    Widget? action,
+    bool initiallyExpanded = true,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 18),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, color: colorScheme.primary, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+        trailing: action,
+        children: children,
+      ),
+    );
+  }
+
+  Widget _documentSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: colorScheme.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
+      ),
+    );
+  }
 
   Future<void> _addFunding() async {
     final source = TextEditingController();

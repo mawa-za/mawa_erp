@@ -105,10 +105,25 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Tombstone Management'),
-        actions: [IconButton(onPressed: _load, tooltip: 'Refresh', icon: const Icon(Icons.refresh))],
+        titleTextStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        actions: [
+          IconButton(onPressed: _load, tooltip: 'Refresh', icon: const Icon(Icons.refresh)),
+          const SizedBox(width: 8),
+        ],
       ),
       floatingActionButton: _section == 'orders'
           ? FloatingActionButton.extended(onPressed: _newOrder, icon: const Icon(Icons.add), label: const Text('New Order'))
@@ -163,6 +178,7 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
           const SizedBox(height: 16),
           if (_section == 'orders') _orderSearch(),
           if (_section == 'reports') _reports(),
+          if (_section == 'orders' && _orders.isNotEmpty) _orderListHeader(),
           if (_section == 'orders') ..._orders.map(_orderCard),
           if (_section != 'orders' && _section != 'reports') ..._records.map(_recordCard),
           if (_section == 'orders' && _orders.isEmpty) _empty('No tombstone orders found'),
@@ -210,20 +226,172 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
     ),
   );
 
-  Widget _orderCard(TombstoneOrder order) => Card(
-    child: ListTile(
-      contentPadding: const EdgeInsets.all(14),
-      leading: const CircleAvatar(child: Icon(Icons.account_balance_outlined)),
-      title: Text('${order.orderNo} • ${order.deceasedName}', style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text([
-        if (order.cemeteryName != null) '${order.cemeteryName}${order.graveNumber == null ? '' : ' • Grave ${order.graveNumber}'}',
-        '${_label(order.status)} • ${_label(order.fundingStatus)}',
-        'R ${order.confirmedFunding.toStringAsFixed(2)} funded of R ${order.total.toStringAsFixed(2)}',
-      ].join('\n')),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => _openOrder(order.id),
+  Widget _orderListHeader() => Container(
+    margin: const EdgeInsets.fromLTRB(0, 4, 0, 4),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.blueGrey[50],
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.grey.shade300),
+    ),
+    child: const Row(
+      children: [
+        SizedBox(width: 44),
+        Expanded(
+          child: Text(
+            'DECEASED / REFERENCE',
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+          ),
+        ),
+        SizedBox(width: 8),
+        Text(
+          'INSTALLATION / FUNDING',
+          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+        ),
+        SizedBox(
+          width: 100,
+          child: Text(
+            'AMOUNT / STATUS',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+          ),
+        ),
+      ],
     ),
   );
+
+  Widget _orderCard(TombstoneOrder order) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openOrder(order.id),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.account_balance_outlined, color: colorScheme.primary, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.deceasedName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Ref: ${order.orderNo}',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                    if (order.cemeteryName != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '${order.cemeteryName}${order.graveNumber == null ? '' : ' • Grave ${order.graveNumber}'}',
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 150,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 10, color: Colors.grey[400]),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            order.expectedInstallationDate ?? 'Not scheduled',
+                            style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _label(order.fundingStatus),
+                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 100,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'R ${order.total.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _orderStatusChip(order.status),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _orderStatusChip(String status) {
+    final normalized = status.toUpperCase();
+    final color = switch (normalized) {
+      'COMPLETED' => Colors.green,
+      'CANCELLED' => Colors.red,
+      'DRAFT' => Colors.grey,
+      'IN_PRODUCTION' => Colors.blue,
+      _ => Colors.orange,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Text(
+        normalized.replaceAll('_', ' '),
+        textAlign: TextAlign.right,
+        style: TextStyle(
+          color: color,
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
 
   Widget _recordCard(Map<String, dynamic> record) {
     final orderId = record['tombstoneOrderId']?.toString();

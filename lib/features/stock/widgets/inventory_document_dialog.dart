@@ -13,15 +13,15 @@ Future<bool?> showInventoryDocumentDialog({
   required List<Map<String, dynamic>> storageLocations,
   Map<String, dynamic>? sourceDocument,
 }) {
-  return showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => InventoryDocumentDialog(
-      service: service,
-      type: type,
-      warehouses: warehouses,
-      storageLocations: storageLocations,
-      sourceDocument: sourceDocument,
+  return Navigator.of(context).push<bool>(
+    MaterialPageRoute(
+      builder: (_) => InventoryDocumentDialog(
+        service: service,
+        type: type,
+        warehouses: warehouses,
+        storageLocations: storageLocations,
+        sourceDocument: sourceDocument,
+      ),
     ),
   );
 }
@@ -152,88 +152,134 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   Widget build(BuildContext context) {
     final totals = _calculateTotals();
     final colorScheme = Theme.of(context).colorScheme;
-    return Dialog(
-      insetPadding: const EdgeInsets.all(12),
+    final compact = MediaQuery.sizeOf(context).width < 640;
+
+    return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1440, maxHeight: 920),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _buildHeader(colorScheme),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildDocumentOverviewCard(colorScheme),
-                      const SizedBox(height: 24),
-                      _buildSectionCard(
-                        icon: _isCustomerDocument
-                            ? Icons.person_outline_rounded
-                            : Icons.local_shipping_outlined,
-                        title: _partnerLabel,
-                        subtitle: _isCustomerDocument
-                            ? 'Select the customer for this document.'
-                            : 'Select the supplier for this document.',
-                        child: _buildPartnerSearch(),
+      appBar: AppBar(
+        title: Text(_title),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        actions: [
+          if (compact)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton.filled(
+                tooltip: _saveActionLabel,
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined, size: 19),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined, size: 18),
+                label: Text(_saveActionLabel),
+              ),
+            ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = constraints.maxWidth >= 1200
+                ? 32.0
+                : constraints.maxWidth >= 700
+                    ? 24.0
+                    : 16.0;
+
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      24,
+                      horizontalPadding,
+                      36,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1440),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildDocumentOverviewCard(colorScheme),
+                            const SizedBox(height: 24),
+                            _buildSectionCard(
+                              icon: _isCustomerDocument
+                                  ? Icons.person_outline_rounded
+                                  : Icons.local_shipping_outlined,
+                              title: _partnerLabel,
+                              subtitle: _isCustomerDocument
+                                  ? 'Select the customer for this document.'
+                                  : 'Select the supplier for this document.',
+                              child: _buildPartnerSearch(),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildSectionCard(
+                              icon: Icons.description_outlined,
+                              title: _documentDetailsTitle,
+                              subtitle: _documentDetailsSubtitle,
+                              child: _buildGeneralDetails(),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildLineSection(),
+                            const SizedBox(height: 20),
+                            _buildNotesSection(),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 20),
-                      _buildSectionCard(
-                        icon: Icons.description_outlined,
-                        title: 'Document details',
-                        subtitle: 'Capture references, dates and fulfilment details.',
-                        child: _buildGeneralDetails(),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildLineSection(),
-                      const SizedBox(height: 20),
-                      _buildNotesSection(),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              _buildTotalsBar(totals, colorScheme),
-            ],
-          ),
+                _buildBottomSummary(totals, colorScheme),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildHeader(ColorScheme colorScheme) => Container(
-        height: 68,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          border: Border(
-            bottom: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.7)),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(_iconForType(), color: colorScheme.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                _title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Close',
-              onPressed: _saving ? null : () => Navigator.pop(context, false),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
-      );
+  String get _saveActionLabel {
+    if (_isGoodsReceipt) return 'Receive Items';
+    if (_isQuotation) return 'Create Quotation';
+    if (_isPurchaseOrder) return 'Create Purchase Order';
+    return 'Create Sales Order';
+  }
+
+  String get _documentDetailsTitle {
+    if (_isQuotation) return 'Quotation details';
+    if (_isPurchaseOrder) return 'Purchase order details';
+    if (_isGoodsReceipt) return 'Goods receipt details';
+    return 'Sales order details';
+  }
+
+  String get _documentDetailsSubtitle =>
+      'Capture the document reference, dates and fulfilment details.';
 
   Widget _buildDocumentOverviewCard(ColorScheme colorScheme) => Container(
         padding: const EdgeInsets.all(24),
@@ -625,38 +671,123 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         ),
       );
 
-  Widget _buildTotalsBar(Map<String, double> totals, ColorScheme colorScheme) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        decoration: BoxDecoration(color: colorScheme.surface, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))]),
-        child: SafeArea(
-          top: false,
-          child: Row(
-            children: [
-              Expanded(child: Wrap(spacing: 18, runSpacing: 8, children: [
-                _summaryPill('Subtotal', totals['subtotal'] ?? 0),
-                _summaryPill('VAT', totals['tax'] ?? 0),
-                _summaryPill('Grand Total', totals['total'] ?? 0, isTotal: true),
-              ])),
-              TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _saving ? null : _save,
-                icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-                label: Text(_isGoodsReceipt ? 'Receive Items' : 'Save Document'),
-              ),
-            ],
+  Widget _buildBottomSummary(
+    Map<String, double> totals,
+    ColorScheme colorScheme,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.045),
+            blurRadius: 16,
+            offset: const Offset(0, -5),
           ),
-        ),
-      );
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 720;
+            final summary = Wrap(
+              spacing: 24,
+              runSpacing: 10,
+              children: [
+                _buildSummaryMetric('Subtotal', totals['subtotal'] ?? 0),
+                _buildSummaryMetric('VAT', totals['tax'] ?? 0),
+                _buildSummaryMetric(
+                  'Total',
+                  totals['total'] ?? 0,
+                  emphasised: true,
+                ),
+              ],
+            );
+            final saveButton = SizedBox(
+              height: 46,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 17,
+                        height: 17,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined, size: 19),
+                label: Text(_saveActionLabel),
+              ),
+            );
 
-  Widget _summaryPill(String label, double amount, {bool isTotal = false}) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(color: isTotal ? Theme.of(context).colorScheme.primaryContainer : Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-          Text(_money(amount), style: TextStyle(fontSize: isTotal ? 18 : 14, fontWeight: FontWeight.bold)),
-        ]),
-      );
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1440),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  child: compact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            summary,
+                            const SizedBox(height: 12),
+                            saveButton,
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: summary),
+                            const SizedBox(width: 24),
+                            saveButton,
+                          ],
+                        ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryMetric(
+    String label,
+    double value, {
+    bool emphasised = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: emphasised ? 150 : 120,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'R ${value.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: emphasised ? 19 : 14,
+              fontWeight: emphasised ? FontWeight.w900 : FontWeight.w700,
+              color: emphasised ? colorScheme.primary : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
