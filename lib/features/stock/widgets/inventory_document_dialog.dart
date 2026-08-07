@@ -153,9 +153,12 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
     final totals = _calculateTotals();
     final colorScheme = Theme.of(context).colorScheme;
     return Dialog(
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: const EdgeInsets.all(12),
+      backgroundColor: const Color(0xFFF7F8FA),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1180, maxHeight: 820),
+        constraints: const BoxConstraints(maxWidth: 1440, maxHeight: 920),
         child: Form(
           key: _formKey,
           child: Column(
@@ -163,14 +166,32 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
               _buildHeader(colorScheme),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildPartnerAndGeneralSection(),
-                      const SizedBox(height: 16),
+                      _buildDocumentOverviewCard(colorScheme),
+                      const SizedBox(height: 24),
+                      _buildSectionCard(
+                        icon: _isCustomerDocument
+                            ? Icons.person_outline_rounded
+                            : Icons.local_shipping_outlined,
+                        title: _partnerLabel,
+                        subtitle: _isCustomerDocument
+                            ? 'Select the customer for this document.'
+                            : 'Select the supplier for this document.',
+                        child: _buildPartnerSearch(),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildSectionCard(
+                        icon: Icons.description_outlined,
+                        title: 'Document details',
+                        subtitle: 'Capture references, dates and fulfilment details.',
+                        child: _buildGeneralDetails(),
+                      ),
+                      const SizedBox(height: 20),
                       _buildLineSection(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildNotesSection(),
                     ],
                   ),
@@ -185,51 +206,223 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   }
 
   Widget _buildHeader(ColorScheme colorScheme) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        height: 68,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
         decoration: BoxDecoration(
-          color: colorScheme.primaryContainer.withOpacity(0.35),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          color: colorScheme.surface,
+          border: Border(
+            bottom: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.7)),
+          ),
         ),
         child: Row(
           children: [
             Icon(_iconForType(), color: colorScheme.primary),
-            const SizedBox(width: 10),
-            Expanded(child: Text(_title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold))),
-            IconButton(onPressed: _saving ? null : () => Navigator.pop(context, false), icon: const Icon(Icons.close)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Close',
+              onPressed: _saving ? null : () => Navigator.pop(context, false),
+              icon: const Icon(Icons.close_rounded),
+            ),
           ],
         ),
       );
 
-  Widget _buildPartnerAndGeneralSection() => Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey.shade300)),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Document Header', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(width: 360, child: _buildPartnerSearch()),
-                  SizedBox(width: 240, child: TextFormField(
-                    controller: _referenceController,
-                    decoration: InputDecoration(labelText: _referenceLabel, border: const OutlineInputBorder()),
-                  )),
-                  SizedBox(width: 200, child: _buildDateField(_isGoodsReceipt ? 'Receipt Date' : 'Document Date', _documentDate, (date) => setState(() => _documentDate = date))),
-                  SizedBox(width: 220, child: _buildDateField(_secondaryDateLabel, _secondaryDate, (date) => setState(() => _secondaryDate = date), nullable: true)),
-                  if (_isPurchaseOrder || _isGoodsReceipt || _isSalesOrder)
-                    SizedBox(width: 260, child: _warehouseDropdown()),
-                  if (_isPurchaseOrder || _isGoodsReceipt)
-                    SizedBox(width: 260, child: _locationDropdown(label: _isPurchaseOrder ? 'Receiving Location' : 'Storage Location')),
-                ],
-              ),
+  Widget _buildDocumentOverviewCard(ColorScheme colorScheme) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.primaryContainer.withOpacity(0.75),
+              colorScheme.primaryContainer.withOpacity(0.28),
             ],
           ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
         ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(_iconForType(), color: colorScheme.onPrimary, size: 26),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _documentHeroTitle,
+                    style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _documentHeroSubtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  String get _documentHeroTitle {
+    switch (widget.type) {
+      case InventoryDocumentType.quotation:
+        return 'New customer quotation';
+      case InventoryDocumentType.purchaseOrder:
+        return 'New supplier purchase order';
+      case InventoryDocumentType.goodsReceipt:
+        return widget.sourceDocument == null
+            ? 'New goods receipt'
+            : 'Receive purchase order';
+      case InventoryDocumentType.salesOrder:
+        return 'New customer sales order';
+    }
+  }
+
+  String get _documentHeroSubtitle {
+    switch (widget.type) {
+      case InventoryDocumentType.quotation:
+        return 'Prepare a professional quotation with customer, validity, product lines, VAT and totals.';
+      case InventoryDocumentType.purchaseOrder:
+        return 'Capture the supplier, receiving destination, ordered items, tax and total commitment.';
+      case InventoryDocumentType.goodsReceipt:
+        return 'Record the stock received and the warehouse location where it must be handled.';
+      case InventoryDocumentType.salesOrder:
+        return 'Capture the customer order, delivery details, products, pricing, VAT and totals.';
+    }
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: colorScheme.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 12),
+                trailing,
+              ],
+            ],
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeneralDetails() => Wrap(
+        spacing: 14,
+        runSpacing: 14,
+        children: [
+          SizedBox(
+            width: 280,
+            child: TextFormField(
+              controller: _referenceController,
+              decoration: InputDecoration(
+                labelText: _referenceLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 220,
+            child: _buildDateField(
+              _isGoodsReceipt ? 'Receipt Date' : 'Document Date',
+              _documentDate,
+              (date) => setState(() => _documentDate = date),
+            ),
+          ),
+          SizedBox(
+            width: 240,
+            child: _buildDateField(
+              _secondaryDateLabel,
+              _secondaryDate,
+              (date) => setState(() => _secondaryDate = date),
+              nullable: true,
+            ),
+          ),
+          if (_isPurchaseOrder || _isGoodsReceipt || _isSalesOrder)
+            SizedBox(width: 290, child: _warehouseDropdown()),
+          if (_isPurchaseOrder || _isGoodsReceipt)
+            SizedBox(
+              width: 290,
+              child: _locationDropdown(
+                label: _isPurchaseOrder ? 'Receiving Location' : 'Storage Location',
+              ),
+            ),
+        ],
       );
 
   Widget _buildPartnerSearch() {
@@ -316,25 +509,20 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
     );
   }
 
-  Widget _buildLineSection() => Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey.shade300)),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(child: Text('Line Items', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
-                  OutlinedButton.icon(onPressed: _addLine, icon: const Icon(Icons.add), label: const Text('Add Item')),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildLineHeader(),
-              ...List.generate(_lines.length, _buildLineRow),
-            ],
-          ),
+  Widget _buildLineSection() => _buildSectionCard(
+        icon: Icons.format_list_numbered_rounded,
+        title: 'Line items',
+        subtitle: 'Add the products or services included in this document.',
+        trailing: OutlinedButton.icon(
+          onPressed: _addLine,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Item'),
+        ),
+        child: Column(
+          children: [
+            _buildLineHeader(),
+            ...List.generate(_lines.length, _buildLineRow),
+          ],
         ),
       );
 
@@ -422,16 +610,24 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
     );
   }
 
-  Widget _buildNotesSection() => TextFormField(
-        controller: _notesController,
-        minLines: 2,
-        maxLines: 4,
-        decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+  Widget _buildNotesSection() => _buildSectionCard(
+        icon: Icons.notes_rounded,
+        title: 'Notes',
+        subtitle: 'Add any commercial, delivery or internal notes for this document.',
+        child: TextFormField(
+          controller: _notesController,
+          minLines: 2,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Optional notes',
+            border: OutlineInputBorder(),
+          ),
+        ),
       );
 
   Widget _buildTotalsBar(Map<String, double> totals, ColorScheme colorScheme) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))]),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(color: colorScheme.surface, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))]),
         child: SafeArea(
           top: false,
           child: Row(

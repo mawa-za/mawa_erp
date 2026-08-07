@@ -116,7 +116,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final prefs = await SharedPreferences.getInstance();
     final roleId = prefs.getString('selectedRole');
     final roleDesc = prefs.getString('selectedRoleDescription');
-    
+
     setState(() {
       _displayName = prefs.getString('displayName');
       _selectedRoleDisplay = roleDesc ?? roleId;
@@ -199,7 +199,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (userId == null) return;
 
     final response = await ApiClient().get('/v2/user/$userId/role');
-    
+
     if (response.statusCode == 200) {
       final List<dynamic> rolesData = jsonDecode(response.body);
       final List<Role> roleList = rolesData.map((e) {
@@ -216,7 +216,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               builder: (context) => RoleSelectionScreen(
                 roles: roleList,
                 onRoleSelected: () {
-                  Navigator.of(context).pop(); 
+                  Navigator.of(context).pop();
                   _loadUserInfo();
                 },
               ),
@@ -435,8 +435,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         final configuredChildren = <Workcenter>[];
         for (final item in group.workcenters) {
           if (!item.active) continue;
+          if (!FeatureGroupRegistry.belongsToCanonicalGroup(item.id, group.code)) {
+            continue;
+          }
           final matched = _findRoleWorkcenter(roleWorkcenters, item.id);
           if (matched == null) continue;
+          if (FeatureGroupRegistry.isLegacyInventoryUmbrella(matched.id)) {
+            continue;
+          }
           if (_isCentralApprovalWorkcenter(matched) &&
               !isCentralApprovalsGroup) {
             // Older industry profiles placed the approval inbox under Work
@@ -447,6 +453,29 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           final normalizedId = FeatureGroupRegistry.normalize(matched.id);
           if (usedIds.contains(normalizedId)) continue;
           configuredChildren.add(matched);
+          usedIds.add(normalizedId);
+        }
+
+        // Normalise older tenant-experience profiles at runtime. Sales and
+        // procurement documents have one clear owner and inventory operations
+        // belong under Products & Inventory, regardless of stale duplicated
+        // group entries in the compiled tenant profile.
+        for (final candidate in roleWorkcenters) {
+          if (FeatureGroupRegistry.isLegacyInventoryUmbrella(candidate.id)) {
+            continue;
+          }
+          final owner =
+              FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id);
+          if (owner == null ||
+              FeatureGroupRegistry.normalize(owner) !=
+                  FeatureGroupRegistry.normalize(
+                    FeatureGroupRegistry.canonicalGroupId(group.code),
+                  )) {
+            continue;
+          }
+          final normalizedId = FeatureGroupRegistry.normalize(candidate.id);
+          if (usedIds.contains(normalizedId)) continue;
+          configuredChildren.add(candidate);
           usedIds.add(normalizedId);
         }
 
@@ -516,6 +545,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (allowUnassignedWorkcenters) {
       final unmatched = roleWorkcenters.where((workcenter) {
         if (FeatureGroupRegistry.isGroupId(workcenter.id)) return false;
+        if (FeatureGroupRegistry.isLegacyInventoryUmbrella(workcenter.id)) {
+          return false;
+        }
         if (usedIds.contains(FeatureGroupRegistry.normalize(workcenter.id))) {
           return false;
         }
