@@ -18,6 +18,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
   bool _isSaving = false;
   List<Workcenter> _allWorkcenters = [];
   Set<String> _assignedWorkcenterIds = {};
+  Set<String> _originalAssignedWorkcenterIds = {};
   Map<String, int> _positions = {};
   String? _error;
 
@@ -40,6 +41,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
         setState(() {
           _allWorkcenters = all;
           _assignedWorkcenterIds = assigned.map((w) => w.id).toSet();
+          _originalAssignedWorkcenterIds = Set<String>.from(_assignedWorkcenterIds);
           _positions = {for (var w in assigned) w.id: w.position};
           // Initialize positions for unassigned ones to their current index or something
           for (var i = 0; i < _allWorkcenters.length; i++) {
@@ -72,7 +74,15 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
               })
           .toList();
 
+      final removed = _originalAssignedWorkcenterIds
+          .difference(_assignedWorkcenterIds)
+          .toList();
+      for (final workcenterId in removed) {
+        await _roleService.removeWorkcenterFromRole(widget.role.id, workcenterId);
+      }
+
       await _roleService.assignWorkcentersToRole(widget.role.id, assignments);
+      _originalAssignedWorkcenterIds = Set<String>.from(_assignedWorkcenterIds);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
