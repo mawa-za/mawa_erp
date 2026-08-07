@@ -20,6 +20,7 @@ import '../../../../core/widgets/mawa_ui.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../../../core/models/product_lookup.dart';
+import '../../../invoicing/screens/invoice_detail_screen.dart';
 
 class FuneralServiceRequestWizardPage extends StatefulWidget {
   const FuneralServiceRequestWizardPage({super.key, this.serviceRequestId});
@@ -1314,7 +1315,17 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        InvoicePreviewSummaryCard(lines: _controller.previewLines),
+        InvoicePreviewSummaryCard(
+          lines: _controller.previewLines,
+          onInvoiceTap: (invoiceId) async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => InvoiceDetailScreen(invoiceId: invoiceId),
+              ),
+            );
+            if (mounted) await _controller.loadInvoicePreview();
+          },
+        ),
         const SizedBox(height: 16),
         if (_controller.hasPendingClaims)
           const Card(
@@ -1339,14 +1350,21 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           children: [
             const Icon(Icons.assignment_turned_in_outlined, size: 80, color: Colors.blue),
             const SizedBox(height: 24),
-            const Text('Finalize and Generate Invoices', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(
+              _controller.previewLines.any((line) => line.invoiceId == null || line.invoiceId!.isEmpty)
+                  ? 'Finalize and Generate Invoices'
+                  : 'Review and Update Final Invoices',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'This will create final invoices for the burial societies and the family representative based on the approved claims.',
+                _controller.previewLines.any((line) => line.invoiceId == null || line.invoiceId!.isEmpty)
+                    ? 'This will create any missing final invoices from the approved claim split. Existing invoices will be reused.'
+                    : 'The final invoices already exist. This will refresh those same invoices from the latest approved split without creating duplicates.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
             const SizedBox(height: 32),
@@ -1356,7 +1374,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                 padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
-              child: const Text('Generate Invoices Now', style: TextStyle(fontSize: 16)),
+              child: Text(
+                _controller.previewLines.any((line) => line.invoiceId == null || line.invoiceId!.isEmpty)
+                    ? 'Generate Invoices Now'
+                    : 'Update Existing Invoices',
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
           ],
         ),
@@ -1380,7 +1403,24 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                   children: [
                     Text('Service ID: ${_controller.generationResponse!.funeralServiceId}', style: const TextStyle(fontWeight: FontWeight.bold)),
                     const Divider(),
-                    Text('Invoices Generated: ${_controller.generationResponse!.invoiceIds.length}'),
+                    Text('Invoices Ready: ${_controller.generationResponse!.invoiceIds.length}'),
+                    if (_controller.previewLines.any((line) => line.invoiceId != null && line.invoiceId!.isNotEmpty)) ...[
+                      const SizedBox(height: 10),
+                      ..._controller.previewLines
+                          .where((line) => line.invoiceId != null && line.invoiceId!.isNotEmpty)
+                          .map((line) => ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.receipt_long_outlined),
+                                title: Text(line.invoiceNo ?? 'Invoice'),
+                                subtitle: Text('${line.entityName}${line.invoiceStatus == null ? '' : ' • ${line.invoiceStatus!.replaceAll('_', ' ')}'}'),
+                                trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => InvoiceDetailScreen(invoiceId: line.invoiceId!),
+                                  ),
+                                ),
+                              )),
+                    ],
                   ],
                 ),
               ),

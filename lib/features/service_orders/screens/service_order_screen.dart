@@ -596,77 +596,96 @@ class _ServiceOrderScreenState
     }
 
     final order = _order!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final compact = MediaQuery.sizeOf(context).width < 640;
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
         title: Text('Service Order ${order.serviceOrderNo}'),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 1,
         actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _saving ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-          const SizedBox(width: 8),
+          if (!_readOnly)
+            if (compact)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: IconButton.filled(
+                  tooltip: 'Save Service Order',
+                  onPressed: _saving ? null : () => _save(),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save_outlined, size: 19),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : () => _save(),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save_outlined, size: 18),
+                  label: const Text('Save Service Order'),
+                ),
+              ),
         ],
       ),
       body: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
-          child: Center(
-            child: SizedBox(
-              width: constraints.maxWidth > 1400 ? 1400 : constraints.maxWidth,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(order),
-                  const SizedBox(height: 18),
-                  _buildOrderDetails(),
-                  const SizedBox(height: 18),
-                  _buildLines(),
-                  const SizedBox(height: 18),
-                  _buildTotals(),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            border: Border(
-              top: BorderSide(color: Theme.of(context).dividerColor),
-            ),
-          ),
-          child: Row(
+        builder: (context, constraints) {
+          final horizontalPadding = constraints.maxWidth >= 1200
+              ? 32.0
+              : constraints.maxWidth >= 700
+                  ? 24.0
+                  : 16.0;
+
+          return Column(
             children: [
-              OutlinedButton.icon(
-                onPressed: _saving || _readOnly ? null : () => _save(),
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('Save Service Order'),
-              ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: _saving ||
-                        (order.invoiceId == null && _status == 'CANCELLED')
-                    ? null
-                    : _createOrOpenInvoice,
-                icon: Icon(
-                  order.invoiceId == null
-                      ? Icons.receipt_long_outlined
-                      : Icons.open_in_new,
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    24,
+                    horizontalPadding,
+                    36,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1440),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildHeader(order),
+                          const SizedBox(height: 24),
+                          _buildCustomerSection(order, colorScheme),
+                          const SizedBox(height: 20),
+                          _buildOrderDetails(),
+                          const SizedBox(height: 20),
+                          _buildLines(),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                label: Text(
-                  order.invoiceId == null ? 'Create Invoice' : 'Open Invoice',
-                ),
               ),
+              _buildBottomSummary(order, colorScheme),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -685,107 +704,118 @@ class _ServiceOrderScreenState
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Icon(
-                  Icons.build_circle_outlined,
-                  color: colorScheme.onPrimary,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Service Order ${order.serviceOrderNo}',
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Manage the customer, service execution, delivered items and invoice handoff from one document.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface.withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
-                child: Text(
-                  _enumLabel(_status),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(
+              Icons.build_circle_outlined,
+              color: colorScheme.onPrimary,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Service Order ${order.serviceOrderNo}',
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  'Complete the customer and service details, then add the products or services delivered.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 22),
-          Wrap(
-            spacing: 24,
-            runSpacing: 14,
-            children: [
-              _info('Customer', order.customerName, Icons.person_outline),
-              _info('Source', order.primarySourceLabel, Icons.event_outlined),
-              _info(
-                'Responsible Employee',
-                order.assignedEmployeeName,
-                Icons.badge_outlined,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: colorScheme.surface.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Text(
+              _enumLabel(_status),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
-              _info(
-                'Order Total',
-                _money.format(_totalCents / 100),
-                Icons.payments_outlined,
-              ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _info(String label, String value, IconData icon) {
-    return SizedBox(
-      width: 250,
-      child: Row(
-        children: [
-          CircleAvatar(child: Icon(icon, size: 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 3),
-                Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
-              ],
+  Widget _buildCustomerSection(
+    ServiceOrder order,
+    ColorScheme colorScheme,
+  ) {
+    return _buildSectionCard(
+      icon: Icons.person_outline_rounded,
+      title: 'Customer',
+      subtitle: 'Customer linked to this service order.',
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withOpacity(0.22),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 21,
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+              child: const Icon(Icons.person_outline_rounded, size: 22),
             ),
-          ),
-        ],
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    order.customerName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    [
+                      if (order.primarySourceLabel.isNotEmpty)
+                        'Source ${order.primarySourceLabel}',
+                      if (order.assignedEmployeeName.isNotEmpty)
+                        'Responsible ${order.assignedEmployeeName}',
+                    ].join('  •  '),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -936,25 +966,156 @@ class _ServiceOrderScreenState
     );
   }
 
-  Widget _buildTotals() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: SizedBox(
-        width: 460,
-        child: _buildSectionCard(
-          icon: Icons.calculate_outlined,
-          title: 'Order totals',
-          subtitle: 'Calculated from the service order line items.',
-          child: Column(
-            children: [
-              _totalRow('Subtotal', _subtotalCents),
-              _totalRow('Discount', _discountCents),
-              _totalRow('Tax', _taxCents),
-              const Divider(height: 24),
-              _totalRow('Service Order Total', _totalCents, bold: true),
-            ],
+  Widget _buildBottomSummary(
+    ServiceOrder order,
+    ColorScheme colorScheme,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.045),
+            blurRadius: 16,
+            offset: const Offset(0, -5),
           ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 760;
+            final summary = Wrap(
+              spacing: 24,
+              runSpacing: 10,
+              children: [
+                _buildSummaryMetric('Subtotal', _subtotalCents),
+                if (_discountCents > 0)
+                  _buildSummaryMetric(
+                    'Discount',
+                    _discountCents,
+                    negative: true,
+                  ),
+                _buildSummaryMetric('VAT', _taxCents),
+                _buildSummaryMetric(
+                  'Total',
+                  _totalCents,
+                  emphasised: true,
+                ),
+              ],
+            );
+            final actions = Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.end,
+              children: [
+                if (!_readOnly)
+                  SizedBox(
+                    height: 46,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : () => _save(),
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 17,
+                              height: 17,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_outlined, size: 19),
+                      label: const Text('Save Service Order'),
+                    ),
+                  ),
+                SizedBox(
+                  height: 46,
+                  child: FilledButton.tonalIcon(
+                    onPressed: _saving ||
+                            (order.invoiceId == null && _status == 'CANCELLED')
+                        ? null
+                        : _createOrOpenInvoice,
+                    icon: Icon(
+                      order.invoiceId == null
+                          ? Icons.receipt_long_outlined
+                          : Icons.open_in_new,
+                    ),
+                    label: Text(
+                      order.invoiceId == null ? 'Create Invoice' : 'Open Invoice',
+                    ),
+                  ),
+                ),
+              ],
+            );
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1440),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  child: compact
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            summary,
+                            const SizedBox(height: 12),
+                            actions,
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: summary),
+                            const SizedBox(width: 24),
+                            actions,
+                          ],
+                        ),
+                ),
+              ),
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryMetric(
+    String label,
+    int cents, {
+    bool emphasised = false,
+    bool negative = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: emphasised ? 150 : 120,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${negative ? '- ' : ''}${_money.format(cents / 100)}',
+            style: TextStyle(
+              fontSize: emphasised ? 19 : 14,
+              fontWeight: emphasised ? FontWeight.w900 : FontWeight.w700,
+              color: emphasised
+                  ? colorScheme.primary
+                  : negative
+                      ? colorScheme.error
+                      : null,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1033,19 +1194,4 @@ class _ServiceOrderScreenState
     );
   }
 
-  Widget _totalRow(String label, int cents, {bool bold = false}) {
-    final style = TextStyle(
-      fontSize: bold ? 17 : 14,
-      fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: style)),
-          Text(_money.format(cents / 100), style: style),
-        ],
-      ),
-    );
-  }
 }

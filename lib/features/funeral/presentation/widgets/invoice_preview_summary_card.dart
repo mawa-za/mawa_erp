@@ -5,15 +5,22 @@ import 'funeral_money_text.dart';
 
 class InvoicePreviewSummaryCard extends StatelessWidget {
   final List<FuneralInvoicePreviewLineDto> lines;
+  final ValueChanged<String>? onInvoiceTap;
 
-  const InvoicePreviewSummaryCard({super.key, required this.lines});
+  const InvoicePreviewSummaryCard({
+    super.key,
+    required this.lines,
+    this.onInvoiceTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final total = lines.fold<int>(0, (sum, item) => sum + item.amountCents);
     final societyPortion = lines
-        .where((l) => l.entityType == InvoiceEntityType.BURIAL_SOCIETY)
+        .where((l) =>
+            l.entityType == InvoiceEntityType.BURIAL_SOCIETY ||
+            l.entityType == InvoiceEntityType.GROUP_SOCIETY)
         .fold<int>(0, (sum, item) => sum + item.amountCents);
     final familyPortion = lines
         .where((l) => l.entityType == InvoiceEntityType.FAMILY_REP)
@@ -49,6 +56,55 @@ class InvoicePreviewSummaryCard extends StatelessWidget {
                               line.description,
                               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                             ),
+                            if (line.invoiceId != null && line.invoiceId!.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: onInvoiceTap == null
+                                    ? null
+                                    : () => onInvoiceTap!(line.invoiceId!),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 3),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.receipt_long_outlined,
+                                        size: 15,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        line.invoiceNo?.isNotEmpty == true
+                                            ? line.invoiceNo!
+                                            : 'Open invoice',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                      if (line.invoiceStatus?.isNotEmpty == true) ...[
+                                        const SizedBox(width: 7),
+                                        Text(
+                                          line.invoiceStatus!.replaceAll('_', ' '),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: theme.colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(width: 3),
+                                      Icon(
+                                        Icons.open_in_new_rounded,
+                                        size: 13,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
