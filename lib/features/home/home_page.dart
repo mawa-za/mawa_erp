@@ -429,6 +429,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         if (!group.active) continue;
         final isCentralApprovalsGroup = FeatureGroupRegistry.normalize(group.code) ==
             FeatureGroupRegistry.normalize('approvals');
+        final isReportsAnalyticsGroup = FeatureGroupRegistry.normalize(group.code) ==
+            FeatureGroupRegistry.normalize('reports-analytics');
         if (isCentralApprovalsGroup) centralApprovalsConfigured = true;
         final configuredChildren = <Workcenter>[];
         for (final item in group.workcenters) {
@@ -446,6 +448,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           if (usedIds.contains(normalizedId)) continue;
           configuredChildren.add(matched);
           usedIds.add(normalizedId);
+        }
+
+        if (isReportsAnalyticsGroup) {
+          // Existing tenant-experience JSON may still reference the old
+          // generic `reports` workcentre. The role now receives individual
+          // report permissions, so surface those cards without waiting for a
+          // tenant-experience regeneration.
+          for (final report in roleWorkcenters.where(_isReportingWorkcenter)) {
+            final normalizedId = FeatureGroupRegistry.normalize(report.id);
+            if (usedIds.contains(normalizedId)) continue;
+            configuredChildren.add(report);
+            usedIds.add(normalizedId);
+          }
         }
         if (configuredChildren.isEmpty) continue;
 
@@ -548,6 +563,17 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       FeatureGroupRegistry.normalize(workcenter.defaultFunction),
     };
     return candidates.any(approvalKeys.contains);
+  }
+
+  bool _isReportingWorkcenter(Workcenter workcenter) {
+    final id = FeatureGroupRegistry.normalize(workcenter.id);
+    if (id == 'REPORT' ||
+        id == 'REPORTS' ||
+        id == 'REPORTING' ||
+        id == 'REPORTS_ANALYTICS') {
+      return false;
+    }
+    return id.contains('REPORT');
   }
 
   void _addCentralApprovalsCard({
