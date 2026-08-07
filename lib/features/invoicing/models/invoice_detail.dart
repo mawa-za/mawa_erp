@@ -92,7 +92,7 @@ class InvoiceDetail {
       number: json['invoiceNo'] ?? json['number'] ?? '',
       reference: json['externalRef'] ?? json['reference'] ?? '',
       customerName: resolvedName.isEmpty ? 'Unknown' : resolvedName,
-      customerNumber: customer['number'] ?? partner['partnerNo'] ?? '',
+      customerNumber: customer['number'] ?? partner['partnerNo'] ?? json['partnerNumber'] ?? '',
       customerId: json['partnerId'] ?? customer['id'],
       invoiceDate: parsedDate,
       dueDate: parsedDueDate,
