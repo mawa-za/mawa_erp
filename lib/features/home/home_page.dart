@@ -984,7 +984,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                   _buildAccessSessionBanner(_accessProfile!),
                 ],
                 const SizedBox(height: 22),
-                _buildMetricGrid(modules: modules, reports: reports),
+                _buildActionGrid(modules: modules, reports: reports),
                 const SizedBox(height: 24),
                 _buildActivityRow(modules),
                 const SizedBox(height: 30),
@@ -1055,58 +1055,237 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     return 'evening';
   }
 
-  Widget _buildMetricGrid({
+  Widget _buildActionGrid({
     required List<Workcenter> modules,
     required List<Workcenter> reports,
   }) {
-    final metrics = <Widget>[
-      MawaMetricCard(
-        label: 'Available workcenters',
-        value: '${modules.length}',
-        supportingText: 'For your selected role',
-        icon: Icons.grid_view_rounded,
-        color: MawaDesign.red,
+    Workcenter? findWorkcenter(bool Function(Workcenter) matches) {
+      for (final item in modules) {
+        if (matches(item)) return item;
+      }
+      return null;
+    }
+
+    bool containsAny(Workcenter item, List<String> terms) {
+      final haystack = '${item.id} ${item.routeKey} ${item.description} ${item.presentationTitle}'.toLowerCase();
+      return terms.any(haystack.contains);
+    }
+
+    final paymentRequests = findWorkcenter(
+      (item) => containsAny(item, const ['payment_request', 'payment request']),
+    );
+    final invoices = findWorkcenter(
+      (item) => containsAny(item, const ['invoice', 'invoicing']),
+    );
+    final reportsWorkcenter = reports.isEmpty ? null : reports.first;
+
+    Workcenter? recent;
+    for (final usage in _recentModules) {
+      final match = _workcenterForUsage(usage);
+      if (match != null) {
+        recent = match;
+        break;
+      }
+    }
+
+    Workcenter? frequent;
+    for (final usage in _frequentModules) {
+      final match = _workcenterForUsage(usage);
+      if (match != null && match.id != recent?.id) {
+        frequent = match;
+        break;
+      }
+    }
+
+    final actions = <Widget>[
+      _buildHomeActionCard(
+        icon: Icons.fact_check_outlined,
+        title: _inboxCounts.pendingApprovalCount > 0
+            ? 'Approvals need attention'
+            : 'Approval inbox',
+        description: _inboxCounts.pendingApprovalCount > 0
+            ? '${_inboxCounts.pendingApprovalCount} request${_inboxCounts.pendingApprovalCount == 1 ? '' : 's'} waiting for your decision. Review and action them from one place.'
+            : 'Review approval requests, workflow decisions and items waiting for your action.',
+        actionLabel: 'Open approvals',
+        onTap: () async {
+          await context.push(AppRoutes.inbox);
+          _loadInboxCounts();
+        },
       ),
-      MawaMetricCard(
-        label: 'Recently used',
-        value: '${_recentModules.length}',
-        supportingText: 'Quickly resume your work',
-        icon: Icons.history_rounded,
-        color: MawaDesign.info,
-      ),
-      MawaMetricCard(
-        label: 'Frequently used',
-        value: '${_frequentModules.length}',
-        supportingText: 'Your regular work areas',
-        icon: Icons.auto_graph_rounded,
-        color: MawaDesign.success,
-      ),
-      MawaMetricCard(
-        label: 'Reports',
-        value: '${reports.length}',
-        supportingText: 'Operational insights',
-        icon: Icons.bar_chart_rounded,
-        color: MawaDesign.warning,
-      ),
+      if (paymentRequests != null)
+        _buildHomeActionCard(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Payment requests',
+          description:
+              'Review supplier, claim, funeral and other payment requests and follow their approval or payment status.',
+          actionLabel: 'Open payment requests',
+          onTap: () => _navigateToWorkcenter(paymentRequests!),
+        )
+      else
+        _buildHomeActionCard(
+          icon: Icons.notifications_active_outlined,
+          title: 'Inbox & notifications',
+          description: _inboxCounts.unreadCount > 0
+              ? '${_inboxCounts.unreadCount} unread notification${_inboxCounts.unreadCount == 1 ? '' : 's'} need your attention.'
+              : 'Review workflow outcomes, system notifications and items sent to you.',
+          actionLabel: 'Open inbox',
+          onTap: () async {
+            await context.push(AppRoutes.inbox);
+            _loadInboxCounts();
+          },
+        ),
+      if (invoices != null)
+        _buildHomeActionCard(
+          icon: Icons.receipt_long_outlined,
+          title: 'Invoices & billing',
+          description:
+              'Create, review and follow customer invoices without navigating through unrelated workcentres.',
+          actionLabel: 'Open invoices',
+          onTap: () => _navigateToWorkcenter(invoices!),
+        )
+      else if (recent != null)
+        _buildHomeActionCard(
+          icon: Icons.history_rounded,
+          title: 'Continue working',
+          description:
+              'Return to ${recent.presentationTitle}, the work area you used most recently.',
+          actionLabel: 'Resume ${recent.presentationTitle}',
+          onTap: () => _navigateToWorkcenter(recent!),
+        )
+      else
+        _buildHomeActionCard(
+          icon: Icons.search_rounded,
+          title: 'Find a work area',
+          description:
+              'Search the workcentres available to your role and go directly to the task you need.',
+          actionLabel: 'Search workcentres',
+          onTap: () => _searchFocusNode.requestFocus(),
+        ),
+      if (reportsWorkcenter != null)
+        _buildHomeActionCard(
+          icon: Icons.insights_outlined,
+          title: 'Reports & analytics',
+          description:
+              'Open operational and management reports to investigate performance and exceptions.',
+          actionLabel: 'Open reports',
+          onTap: () => _navigateToWorkcenter(reportsWorkcenter),
+        )
+      else if (frequent != null)
+        _buildHomeActionCard(
+          icon: Icons.bolt_outlined,
+          title: 'Frequently used',
+          description:
+              'Open ${frequent.presentationTitle}, one of your regular work areas.',
+          actionLabel: 'Open ${frequent.presentationTitle}',
+          onTap: () => _navigateToWorkcenter(frequent!),
+        )
+      else
+        _buildHomeActionCard(
+          icon: Icons.search_rounded,
+          title: 'Find another work area',
+          description:
+              'Search all workcentres available to your role instead of browsing passive dashboard totals.',
+          actionLabel: 'Search workcentres',
+          onTap: () => _searchFocusNode.requestFocus(),
+        ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = MawaDesign.responsiveGridCount(
           constraints.maxWidth,
-          minimumCardWidth: 230,
+          minimumCardWidth: 270,
           maxColumns: 4,
         );
         return GridView.count(
           crossAxisCount: columns,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 14,
           mainAxisSpacing: 14,
-          childAspectRatio: columns == 1 ? 3.0 : 1.75,
-          children: metrics,
+          crossAxisSpacing: 14,
+          childAspectRatio: columns >= 4 ? 1.75 : 1.9,
+          children: actions,
         );
       },
+    );
+  }
+
+  Widget _buildHomeActionCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required String actionLabel,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Material(
+      color: colorScheme.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withOpacity(0.75),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  MawaIconBadge(
+                    icon: icon,
+                    color: MawaDesign.red,
+                    size: 40,
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.arrow_outward_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Text(
+                  description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: MawaDesign.textMuted,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                actionLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

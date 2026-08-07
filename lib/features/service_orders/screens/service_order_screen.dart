@@ -895,14 +895,16 @@ class _ServiceOrderScreenState
   }
 
   Widget _buildLines() {
+    final colorScheme = Theme.of(context).colorScheme;
     return _buildSectionCard(
-      icon: Icons.format_list_numbered_rounded,
-      title: 'Services and products delivered',
-      subtitle: 'Add the actual services, retail products and extras supplied to the customer.',
+      icon: Icons.list_alt_rounded,
+      title: 'Line items',
+      subtitle:
+          'Review the services, products and extras included in this service order.',
       trailing: FilledButton.tonalIcon(
         onPressed: _readOnly ? null : _addOrEditLine,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Line'),
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: const Text('Add item'),
       ),
       child: _lines.isEmpty
           ? const Padding(
@@ -910,59 +912,223 @@ class _ServiceOrderScreenState
               child: Center(child: Text('No service order lines added.')),
             )
           : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: List.generate(_lines.length, (index) {
                 final line = _lines[index];
-                final total = (line.quantity * line.unitPriceCents).round() -
-                    line.discountCents +
-                    line.taxCents;
-                return Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
+                final subtotal = (line.quantity * line.unitPriceCents).round();
+                final total = subtotal - line.discountCents + line.taxCents;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == _lines.length - 1 ? 0 : 14,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFBFCFD),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withOpacity(0.85),
                       ),
                     ),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                    leading: CircleAvatar(child: Text('${index + 1}')),
-                    title: Text(
-                      line.description,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(
-                      '${_enumLabel(line.itemType)} • ${_enumLabel(line.completionStatus)}\n'
-                      '${line.quantity} × ${_money.format(line.unitPriceCents / 100)}'
-                      '${line.discountCents > 0 ? ' • Discount ${_money.format(line.discountCents / 100)}' : ''}'
-                      '${line.taxCents > 0 ? ' • Tax ${_money.format(line.taxCents / 100)}' : ''}'
-                      '${line.scheduledStartAt != null ? '\nScheduled ${DateFormat('dd MMM yyyy HH:mm').format(line.scheduledStartAt!)}${line.scheduledEndAt != null ? ' – ${DateFormat('dd MMM yyyy HH:mm').format(line.scheduledEndAt!)}' : ''}' : ''}',
-                    ),
-                    trailing: Wrap(
-                      spacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          _money.format(total / 100),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        Row(
+                          children: [
+                            Container(
+                              width: 30,
+                              height: 30,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer
+                                    .withOpacity(0.65),
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Line item',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    line.description,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!_readOnly)
+                              IconButton(
+                                tooltip: 'Edit item',
+                                onPressed: () => _addOrEditLine(index: index),
+                                icon: const Icon(Icons.edit_outlined),
+                              ),
+                            if (!_readOnly)
+                              IconButton(
+                                tooltip: _lines.length == 1
+                                    ? 'At least one item is required'
+                                    : 'Remove item',
+                                onPressed: _lines.length == 1
+                                    ? null
+                                    : () => setState(
+                                          () => _lines.removeAt(index),
+                                        ),
+                                icon: const Icon(Icons.delete_outline_rounded),
+                              ),
+                          ],
                         ),
-                        if (!_readOnly)
-                          IconButton(
-                            tooltip: 'Edit line',
-                            onPressed: () => _addOrEditLine(index: index),
-                            icon: const Icon(Icons.edit_outlined),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 10,
+                          children: [
+                            _serviceLineFact(
+                              'Type',
+                              _enumLabel(line.itemType),
+                              colorScheme,
+                            ),
+                            _serviceLineFact(
+                              'Status',
+                              _enumLabel(line.completionStatus),
+                              colorScheme,
+                            ),
+                            _serviceLineFact(
+                              'Quantity',
+                              '${line.quantity}',
+                              colorScheme,
+                            ),
+                            _serviceLineFact(
+                              'Unit price',
+                              _money.format(line.unitPriceCents / 100),
+                              colorScheme,
+                            ),
+                            if (line.scheduledStartAt != null)
+                              _serviceLineFact(
+                                'Scheduled',
+                                DateFormat('dd MMM yyyy HH:mm')
+                                    .format(line.scheduledStartAt!),
+                                colorScheme,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 11,
                           ),
-                        if (!_readOnly)
-                          IconButton(
-                            tooltip: 'Remove line',
-                            onPressed: () => setState(() => _lines.removeAt(index)),
-                            icon: const Icon(Icons.delete_outline),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant.withOpacity(0.7),
+                            ),
                           ),
+                          child: Wrap(
+                            spacing: 20,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.end,
+                            children: [
+                              _serviceLineMetric('Subtotal', subtotal),
+                              if (line.discountCents > 0)
+                                _serviceLineMetric(
+                                  'Discount',
+                                  line.discountCents,
+                                  negative: true,
+                                ),
+                              _serviceLineMetric('VAT', line.taxCents),
+                              _serviceLineMetric(
+                                'Line total',
+                                total,
+                                emphasised: true,
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 );
               }),
             ),
+    );
+  }
+
+  Widget _serviceLineFact(
+    String label,
+    String value,
+    ColorScheme colorScheme,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serviceLineMetric(
+    String label,
+    int valueCents, {
+    bool emphasised = false,
+    bool negative = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${negative ? '- ' : ''}${_money.format(valueCents / 100)}',
+          style: TextStyle(
+            fontSize: emphasised ? 14 : 12,
+            fontWeight: emphasised ? FontWeight.w900 : FontWeight.w700,
+            color: emphasised ? colorScheme.primary : null,
+          ),
+        ),
+      ],
     );
   }
 
