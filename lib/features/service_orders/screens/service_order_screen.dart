@@ -692,73 +692,124 @@ class _ServiceOrderScreenState
 
   Widget _buildHeader(ServiceOrder order) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primaryContainer.withOpacity(0.75),
-            colorScheme.primaryContainer.withOpacity(0.28),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: colorScheme.primary,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Icon(
-              Icons.build_circle_outlined,
-              color: colorScheme.onPrimary,
-              size: 26,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 640;
+        final statusChip = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withOpacity(0.85),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Text(
+            _enumLabel(_status),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Service Order ${order.serviceOrderNo}',
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Complete the customer and service details, then add the products or services delivered.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
+        );
+
+        return Container(
+          padding: EdgeInsets.all(compact ? 16 : 24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                colorScheme.primaryContainer.withOpacity(0.75),
+                colorScheme.primaryContainer.withOpacity(0.28),
               ],
             ),
+            borderRadius: BorderRadius.circular(compact ? 16 : 20),
+            border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: colorScheme.surface.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: Text(
-              _enumLabel(_status),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _serviceOrderHeaderIcon(
+                          colorScheme,
+                          compact: true,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Service Order ${order.serviceOrderNo}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    statusChip,
+                    const SizedBox(height: 10),
+                    Text(
+                      'Complete the customer and service details, then add the products or services delivered.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    _serviceOrderHeaderIcon(colorScheme),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Service Order ${order.serviceOrderNo}',
+                            style: const TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Complete the customer and service details, then add the products or services delivered.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    statusChip,
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _serviceOrderHeaderIcon(
+    ColorScheme colorScheme, {
+    bool compact = false,
+  }) {
+    return Container(
+      width: compact ? 42 : 52,
+      height: compact ? 42 : 52,
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: BorderRadius.circular(compact ? 12 : 15),
+      ),
+      child: Icon(
+        Icons.build_circle_outlined,
+        color: colorScheme.onPrimary,
+        size: compact ? 22 : 26,
       ),
     );
   }
@@ -1294,69 +1345,84 @@ class _ServiceOrderScreenState
     Widget? trailing,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.025),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(icon, color: colorScheme.primary, size: 20),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 640;
+        final heading = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(11),
               ),
+              child: Icon(icon, color: colorScheme.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!compact && trailing != null) ...[
               const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.35,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+              trailing,
+            ],
+          ],
+        );
+
+        return Container(
+          padding: EdgeInsets.all(compact ? 16 : 22),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(18),
+            border:
+                Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.025),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 12),
-                trailing,
-              ],
             ],
           ),
-          const SizedBox(height: 20),
-          child,
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              heading,
+              if (compact && trailing != null) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: trailing,
+                ),
+              ],
+              SizedBox(height: compact ? 16 : 20),
+              child,
+            ],
+          ),
+        );
+      },
     );
   }
 

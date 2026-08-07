@@ -130,6 +130,8 @@ class WorkcenterRouteRegistry {
     'INVENTORY_MOVEMENTS': AppRoutes.inventoryMovements,
     'SALES_ORDER': AppRoutes.inventorySalesOrders,
     'SALES_ORDERS': AppRoutes.inventorySalesOrders,
+    'SERVICE_ORDER': AppRoutes.serviceOrders,
+    'SERVICE_ORDERS': AppRoutes.serviceOrders,
     'INVENTORY_AUDIT': AppRoutes.inventoryAudit,
     'STOCK_AUDIT': AppRoutes.inventoryAudit,
     'INVENTORY_SETUP': AppRoutes.systemConfiguration,
@@ -254,6 +256,9 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('QUOT')) {
       return AppRoutes.inventoryQuotations;
+    }
+    if (normalized.contains('SERVICE') && normalized.contains('ORDER')) {
+      return AppRoutes.serviceOrders;
     }
     if (normalized.contains('PURCHASE') && normalized.contains('ORDER')) {
       return AppRoutes.inventoryPurchaseOrders;

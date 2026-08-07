@@ -98,7 +98,15 @@ class _CaseListScreenState extends State<CaseListScreen> {
                 : _filteredCases.isEmpty
                     ? _buildEmptyState()
                     : isTablet 
-                        ? SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(16), child: _buildDataTable()))
+                        ? SingleChildScrollView(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: _buildDataTable(),
+                              ),
+                            ),
+                          )
                         : ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: _filteredCases.length,
