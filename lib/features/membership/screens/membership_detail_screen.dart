@@ -532,57 +532,227 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
   Widget _buildPremiumSection(ColorScheme colorScheme) {
     if (_premiums.isEmpty) {
-      return _buildEmptyStateCard(Icons.payments_outlined, 'No paid premiums found');
+      return _buildEmptyStateCard(
+        Icons.payments_outlined,
+        'No membership premiums found',
+      );
     }
 
     final Map<String, List<Premium>> groupedPremiums = {};
-    for (var premium in _premiums) {
-      final year = premium.periodYYYYMM.length >= 4 ? premium.periodYYYYMM.substring(0, 4) : 'Other';
+    for (final premium in _premiums) {
+      final year = premium.periodYYYYMM.length >= 4
+          ? premium.periodYYYYMM.substring(0, 4)
+          : 'Other';
       groupedPremiums.putIfAbsent(year, () => []).add(premium);
     }
 
-    final sortedYears = groupedPremiums.keys.toList()..sort((a, b) => b.compareTo(a));
+    final sortedYears = groupedPremiums.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
 
     return Column(
       children: sortedYears.map((year) {
-        final yearPremiums = groupedPremiums[year]!;
+        final yearPremiums = List<Premium>.from(groupedPremiums[year]!)
+          ..sort((a, b) => b.periodYYYYMM.compareTo(a.periodYYYYMM));
+        final paidPeriods = yearPremiums
+            .where((premium) => premium.status.toUpperCase() == 'PAID')
+            .length;
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
           child: Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               initiallyExpanded: year == sortedYears.first,
               leading: CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.green.withOpacity(0.1),
-                child: Text(year.length >= 4 ? year.substring(2) : '?', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                radius: 17,
+                backgroundColor: colorScheme.primaryContainer.withOpacity(0.6),
+                child: Text(
+                  year.length >= 4 ? year.substring(2) : '?',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.primary,
+                  ),
+                ),
               ),
-              title: Text('$year Premiums', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Text('${yearPremiums.length} periods recorded', style: const TextStyle(fontSize: 12)),
+              title: Text(
+                '$year Premiums',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: Text(
+                '$paidPeriods paid • ${yearPremiums.length} periods',
+                style: const TextStyle(fontSize: 12),
+              ),
               children: [
                 const Divider(height: 1),
-                ...yearPremiums.map((premium) {
-                  final statusColor = _getPremiumStatusColor(premium.status);
-                  return ListTile(
-                    dense: true,
-                    title: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(_formatPeriod(premium.periodYYYYMM), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        Text('R ${premium.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 14)),
-                      ],
-                    ),
-                    subtitle: Text('Status: ${premium.status} • Paid: R ${premium.paidAmount.toStringAsFixed(2)}\nDue Date: ${premium.dueDate ?? 'N/A'}', style: const TextStyle(fontSize: 11)),
-                    trailing: Icon(premium.status == 'PAID' ? Icons.check_circle : Icons.info_outline, size: 14, color: statusColor),
-                  );
-                }),
+                ...yearPremiums.map(
+                  (premium) => _buildPremiumHistoryRow(
+                    premium,
+                    colorScheme,
+                  ),
+                ),
               ],
             ),
           ),
         );
       }).toList(),
     );
+  }
+
+  Widget _buildPremiumHistoryRow(
+    Premium premium,
+    ColorScheme colorScheme,
+  ) {
+    final statusColor = _getPremiumStatusColor(premium.status);
+    final paymentDate = _formatPremiumPaymentDate(premium.paymentDate);
+    final cashier = _displayPremiumValue(premium.cashier);
+    final receiptNo = _displayPremiumValue(premium.receiptNo);
+    final method = _displayPremiumValue(premium.paymentMethod);
+    final location = _displayPremiumValue(premium.paymentLocation);
+    final device = _displayPremiumValue(premium.deviceId);
+    final hasPaymentContext = premium.paymentDate?.trim().isNotEmpty == true ||
+        premium.receiptNo?.trim().isNotEmpty == true ||
+        premium.cashier?.trim().isNotEmpty == true;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBFCFD),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _formatPeriod(premium.periodYYYYMM),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Due ${premium.dueDate ?? 'N/A'}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  premium.status.replaceAll('_', ' '),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'R ${premium.amount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: colorScheme.primary,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 18,
+            runSpacing: 10,
+            children: [
+              _premiumFact(
+                'Paid',
+                'R ${premium.paidAmount.toStringAsFixed(2)}',
+              ),
+              _premiumFact(
+                'Balance',
+                'R ${premium.balance.toStringAsFixed(2)}',
+              ),
+              if (hasPaymentContext) _premiumFact('Payment date', paymentDate),
+              if (hasPaymentContext) _premiumFact('Cashier / collector', cashier),
+              if (hasPaymentContext) _premiumFact('Receipt', receiptNo),
+              if (hasPaymentContext) _premiumFact('Method', method),
+              if (premium.paymentLocation?.trim().isNotEmpty == true)
+                _premiumFact('Location', location),
+              if (premium.deviceId?.trim().isNotEmpty == true)
+                _premiumFact('Terminal / device', device),
+              if (premium.paymentCount > 1)
+                _premiumFact('Payments', '${premium.paymentCount} receipts'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _premiumFact(String label, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 170,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _displayPremiumValue(String? value) {
+    final display = value?.trim() ?? '';
+    return display.isEmpty ? 'N/A' : display;
+  }
+
+  String _formatPremiumPaymentDate(String? value) {
+    if (value == null || value.trim().isEmpty) return 'N/A';
+    final parsed = DateTime.tryParse(value.replaceFirst(' ', 'T'));
+    if (parsed == null) return value;
+    return DateFormat('dd MMM yyyy • HH:mm').format(parsed.toLocal());
   }
 
   Color _getPremiumStatusColor(String status) {
