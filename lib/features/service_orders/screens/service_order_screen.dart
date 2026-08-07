@@ -597,6 +597,7 @@ class _ServiceOrderScreenState
 
     final order = _order!;
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
         title: Text('Service Order ${order.serviceOrderNo}'),
         actions: [
@@ -610,7 +611,7 @@ class _ServiceOrderScreenState
       ),
       body: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
           child: Center(
             child: SizedBox(
               width: constraints.maxWidth > 1400 ? 1400 : constraints.maxWidth,
@@ -619,7 +620,7 @@ class _ServiceOrderScreenState
                 children: [
                   _buildHeader(order),
                   const SizedBox(height: 18),
-                  _buildOrderDetails(order),
+                  _buildOrderDetails(),
                   const SizedBox(height: 18),
                   _buildLines(),
                   const SizedBox(height: 18),
@@ -671,32 +672,98 @@ class _ServiceOrderScreenState
   }
 
   Widget _buildHeader(ServiceOrder order) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Wrap(
-          spacing: 32,
-          runSpacing: 16,
-          children: [
-            _info('Customer', order.customerName, Icons.person_outline),
-            _info(
-              'Source',
-              order.primarySourceLabel,
-              Icons.event_outlined,
-            ),
-            _info(
-              'Responsible Employee',
-              order.assignedEmployeeName,
-              Icons.badge_outlined,
-            ),
-            _info(
-              'Order Total',
-              _money.format(_totalCents / 100),
-              Icons.payments_outlined,
-            ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primaryContainer.withOpacity(0.75),
+            colorScheme.primaryContainer.withOpacity(0.28),
           ],
         ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(
+                  Icons.build_circle_outlined,
+                  color: colorScheme.onPrimary,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Service Order ${order.serviceOrderNo}',
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Manage the customer, service execution, delivered items and invoice handoff from one document.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: Text(
+                  _enumLabel(_status),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Wrap(
+            spacing: 24,
+            runSpacing: 14,
+            children: [
+              _info('Customer', order.customerName, Icons.person_outline),
+              _info('Source', order.primarySourceLabel, Icons.event_outlined),
+              _info(
+                'Responsible Employee',
+                order.assignedEmployeeName,
+                Icons.badge_outlined,
+              ),
+              _info(
+                'Order Total',
+                _money.format(_totalCents / 100),
+                Icons.payments_outlined,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -723,183 +790,149 @@ class _ServiceOrderScreenState
     );
   }
 
-  Widget _buildOrderDetails(ServiceOrder order) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Service Execution Details',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: [
-                SizedBox(
-                  width: 260,
-                  child: DropdownButtonFormField<String>(
-                    value: _status,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'DRAFT', child: Text('Draft')),
-                      DropdownMenuItem(
-                        value: 'CONFIRMED',
-                        child: Text('Confirmed'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'IN_PROGRESS',
-                        child: Text('In Progress'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'COMPLETED',
-                        child: Text('Completed'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'CANCELLED',
-                        child: Text('Cancelled'),
-                      ),
-                    ],
-                    onChanged: _readOnly
-                        ? null
-                        : (value) => setState(() => _status = value!),
+  Widget _buildOrderDetails() {
+    return _buildSectionCard(
+      icon: Icons.description_outlined,
+      title: 'Service execution details',
+      subtitle: 'Capture status, service date, location and operational notes.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: [
+              SizedBox(
+                width: 260,
+                child: DropdownButtonFormField<String>(
+                  value: _status,
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(),
                   ),
+                  items: const [
+                    DropdownMenuItem(value: 'DRAFT', child: Text('Draft')),
+                    DropdownMenuItem(value: 'CONFIRMED', child: Text('Confirmed')),
+                    DropdownMenuItem(value: 'IN_PROGRESS', child: Text('In Progress')),
+                    DropdownMenuItem(value: 'COMPLETED', child: Text('Completed')),
+                    DropdownMenuItem(value: 'CANCELLED', child: Text('Cancelled')),
+                  ],
+                  onChanged: _readOnly
+                      ? null
+                      : (value) => setState(() => _status = value!),
                 ),
-                SizedBox(
-                  width: 260,
-                  child: InkWell(
-                    onTap: _readOnly ? null : _pickServiceDate,
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Service Date',
-                        border: OutlineInputBorder(),
-                        suffixIcon: Icon(Icons.calendar_today_outlined),
-                      ),
-                      child: Text(DateFormat('dd MMM yyyy').format(_serviceDate)),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 420,
-                  child: TextFormField(
-                    controller: _locationController,
-                    readOnly: _readOnly,
-                    decoration: const InputDecoration(
-                      labelText: 'Location',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _notesController,
-              readOnly: _readOnly,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Operational Notes',
-                border: OutlineInputBorder(),
               ),
+              SizedBox(
+                width: 260,
+                child: InkWell(
+                  onTap: _readOnly ? null : _pickServiceDate,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Service Date',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    child: Text(DateFormat('dd MMM yyyy').format(_serviceDate)),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 420,
+                child: TextFormField(
+                  controller: _locationController,
+                  readOnly: _readOnly,
+                  decoration: const InputDecoration(
+                    labelText: 'Location',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _notesController,
+            readOnly: _readOnly,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Operational Notes',
+              border: OutlineInputBorder(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildLines() {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Services and Products Delivered',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Add the actual services, retail products and extras supplied to the customer.',
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: _readOnly ? null : _addOrEditLine,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Line'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_lines.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: Text('No service order lines added.')),
-              )
-            else
-              ...List.generate(_lines.length, (index) {
+    return _buildSectionCard(
+      icon: Icons.format_list_numbered_rounded,
+      title: 'Services and products delivered',
+      subtitle: 'Add the actual services, retail products and extras supplied to the customer.',
+      trailing: FilledButton.tonalIcon(
+        onPressed: _readOnly ? null : _addOrEditLine,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Line'),
+      ),
+      child: _lines.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text('No service order lines added.')),
+            )
+          : Column(
+              children: List.generate(_lines.length, (index) {
                 final line = _lines[index];
                 final total = (line.quantity * line.unitPriceCents).round() -
                     line.discountCents +
                     line.taxCents;
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                  leading: CircleAvatar(child: Text('${index + 1}')),
-                  title: Text(
-                    line.description,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    '${_enumLabel(line.itemType)} • ${_enumLabel(line.completionStatus)}\n'
-                    '${line.quantity} × ${_money.format(line.unitPriceCents / 100)}'
-                    '${line.discountCents > 0 ? ' • Discount ${_money.format(line.discountCents / 100)}' : ''}'
-                    '${line.taxCents > 0 ? ' • Tax ${_money.format(line.taxCents / 100)}' : ''}'
-                    '${line.scheduledStartAt != null ? '\nScheduled ${DateFormat('dd MMM yyyy HH:mm').format(line.scheduledStartAt!)}${line.scheduledEndAt != null ? ' – ${DateFormat('dd MMM yyyy HH:mm').format(line.scheduledEndAt!)}' : ''}' : ''}',
-                  ),
-                  trailing: Wrap(
-                    spacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        _money.format(total / 100),
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
                       ),
-                      if (!_readOnly)
-                        IconButton(
-                          tooltip: 'Edit line',
-                          onPressed: () => _addOrEditLine(index: index),
-                          icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                    leading: CircleAvatar(child: Text('${index + 1}')),
+                    title: Text(
+                      line.description,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      '${_enumLabel(line.itemType)} • ${_enumLabel(line.completionStatus)}\n'
+                      '${line.quantity} × ${_money.format(line.unitPriceCents / 100)}'
+                      '${line.discountCents > 0 ? ' • Discount ${_money.format(line.discountCents / 100)}' : ''}'
+                      '${line.taxCents > 0 ? ' • Tax ${_money.format(line.taxCents / 100)}' : ''}'
+                      '${line.scheduledStartAt != null ? '\nScheduled ${DateFormat('dd MMM yyyy HH:mm').format(line.scheduledStartAt!)}${line.scheduledEndAt != null ? ' – ${DateFormat('dd MMM yyyy HH:mm').format(line.scheduledEndAt!)}' : ''}' : ''}',
+                    ),
+                    trailing: Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          _money.format(total / 100),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
-                      if (!_readOnly)
-                        IconButton(
-                          tooltip: 'Remove line',
-                          onPressed: () => setState(() => _lines.removeAt(index)),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                    ],
+                        if (!_readOnly)
+                          IconButton(
+                            tooltip: 'Edit line',
+                            onPressed: () => _addOrEditLine(index: index),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                        if (!_readOnly)
+                          IconButton(
+                            tooltip: 'Remove line',
+                            onPressed: () => setState(() => _lines.removeAt(index)),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                      ],
+                    ),
                   ),
                 );
               }),
-          ],
-        ),
-      ),
+            ),
     );
   }
 
@@ -907,22 +940,95 @@ class _ServiceOrderScreenState
     return Align(
       alignment: Alignment.centerRight,
       child: SizedBox(
-        width: 420,
-        child: Card(
-          elevation: 0,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _totalRow('Subtotal', _subtotalCents),
-                _totalRow('Discount', _discountCents),
-                _totalRow('Tax', _taxCents),
-                const Divider(height: 24),
-                _totalRow('Service Order Total', _totalCents, bold: true),
-              ],
-            ),
+        width: 460,
+        child: _buildSectionCard(
+          icon: Icons.calculate_outlined,
+          title: 'Order totals',
+          subtitle: 'Calculated from the service order line items.',
+          child: Column(
+            children: [
+              _totalRow('Subtotal', _subtotalCents),
+              _totalRow('Discount', _discountCents),
+              _totalRow('Tax', _taxCents),
+              const Divider(height: 24),
+              _totalRow('Service Order Total', _totalCents, bold: true),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: colorScheme.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 12),
+                trailing,
+              ],
+            ],
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
       ),
     );
   }
