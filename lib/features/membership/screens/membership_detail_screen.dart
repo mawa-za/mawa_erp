@@ -611,112 +611,213 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     ColorScheme colorScheme,
   ) {
     final statusColor = _getPremiumStatusColor(premium.status);
-    final paymentDate = _formatPremiumPaymentDate(premium.paymentDate);
-    final cashier = _displayPremiumValue(premium.cashier);
-    final receiptNo = _displayPremiumValue(premium.receiptNo);
-    final method = _displayPremiumValue(premium.paymentMethod);
-    final location = _displayPremiumValue(premium.paymentLocation);
-    final device = _displayPremiumValue(premium.deviceId);
-    final hasPaymentContext = premium.paymentDate?.trim().isNotEmpty == true ||
-        premium.receiptNo?.trim().isNotEmpty == true ||
-        premium.cashier?.trim().isNotEmpty == true;
+    final hasPaymentDate = premium.paymentDate?.trim().isNotEmpty == true;
+    final hasCashier = premium.cashier?.trim().isNotEmpty == true;
+    final hasReceipt = premium.receiptNo?.trim().isNotEmpty == true;
+    final hasMethod = premium.paymentMethod?.trim().isNotEmpty == true;
+    final hasLocation = premium.paymentLocation?.trim().isNotEmpty == true;
+    final hasDevice = premium.deviceId?.trim().isNotEmpty == true;
+
+    final facts = <MapEntry<String, String>>[
+      MapEntry(
+        'Paid',
+        'R ${premium.paidAmount.toStringAsFixed(2)}',
+      ),
+      MapEntry(
+        'Balance',
+        'R ${premium.balance.toStringAsFixed(2)}',
+      ),
+      if (hasPaymentDate)
+        MapEntry(
+          'Payment date',
+          _formatPremiumPaymentDate(premium.paymentDate),
+        ),
+      if (hasCashier)
+        MapEntry(
+          'Cashier / collector',
+          _displayPremiumValue(premium.cashier),
+        ),
+      if (hasReceipt)
+        MapEntry(
+          'Receipt',
+          _displayPremiumValue(premium.receiptNo),
+        ),
+      if (hasMethod)
+        MapEntry(
+          'Method',
+          _displayPremiumValue(premium.paymentMethod),
+        ),
+      if (hasLocation)
+        MapEntry(
+          'Location',
+          _displayPremiumValue(premium.paymentLocation),
+        ),
+      if (hasDevice)
+        MapEntry(
+          'Terminal / device',
+          _displayPremiumValue(premium.deviceId),
+        ),
+      if (premium.paymentCount > 1)
+        MapEntry(
+          'Payments',
+          '${premium.paymentCount} receipts',
+        ),
+    ];
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-      padding: const EdgeInsets.all(15),
+      margin: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      padding: EdgeInsets.all(
+        MediaQuery.sizeOf(context).width < 640 ? 12 : 15,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFFFBFCFD),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withOpacity(0.7),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 520;
+          final gap = compact ? 10.0 : 18.0;
+          final factWidth = compact
+              ? ((constraints.maxWidth - gap) / 2)
+                  .clamp(105.0, 220.0)
+                  .toDouble()
+              : 170.0;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
+              if (compact) ...[
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _formatPeriod(premium.periodYYYYMM),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
+                    Expanded(
+                      child: _premiumPeriodSummary(
+                        premium,
+                        colorScheme,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(width: 10),
                     Text(
-                      'Due ${premium.dueDate ?? 'N/A'}',
+                      'R ${premium.amount.toStringAsFixed(2)}',
                       style: TextStyle(
-                        fontSize: 11,
-                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w900,
+                        color: colorScheme.primary,
+                        fontSize: 14,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  premium.status.replaceAll('_', ' '),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
+                const SizedBox(height: 7),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _premiumStatusChip(
+                    premium.status,
+                    statusColor,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'R ${premium.amount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: colorScheme.primary,
-                  fontSize: 15,
+              ] else
+                Row(
+                  children: [
+                    Expanded(
+                      child: _premiumPeriodSummary(
+                        premium,
+                        colorScheme,
+                      ),
+                    ),
+                    _premiumStatusChip(
+                      premium.status,
+                      statusColor,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'R ${premium.amount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: colorScheme.primary,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
                 ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: gap,
+                runSpacing: compact ? 7 : 10,
+                children: facts
+                    .map(
+                      (fact) => _premiumFact(
+                        fact.key,
+                        fact.value,
+                        width: factWidth,
+                      ),
+                    )
+                    .toList(),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 18,
-            runSpacing: 10,
-            children: [
-              _premiumFact(
-                'Paid',
-                'R ${premium.paidAmount.toStringAsFixed(2)}',
-              ),
-              _premiumFact(
-                'Balance',
-                'R ${premium.balance.toStringAsFixed(2)}',
-              ),
-              if (hasPaymentContext) _premiumFact('Payment date', paymentDate),
-              if (hasPaymentContext) _premiumFact('Cashier / collector', cashier),
-              if (hasPaymentContext) _premiumFact('Receipt', receiptNo),
-              if (hasPaymentContext) _premiumFact('Method', method),
-              if (premium.paymentLocation?.trim().isNotEmpty == true)
-                _premiumFact('Location', location),
-              if (premium.deviceId?.trim().isNotEmpty == true)
-                _premiumFact('Terminal / device', device),
-              if (premium.paymentCount > 1)
-                _premiumFact('Payments', '${premium.paymentCount} receipts'),
-            ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _premiumFact(String label, String value) {
+  Widget _premiumPeriodSummary(
+    Premium premium,
+    ColorScheme colorScheme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _formatPeriod(premium.periodYYYYMM),
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Due ${premium.dueDate ?? 'N/A'}',
+          style: TextStyle(
+            fontSize: 11,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _premiumStatusChip(
+    String status,
+    Color statusColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.replaceAll('_', ' '),
+        style: TextStyle(
+          color: statusColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _premiumFact(
+    String label,
+    String value, {
+    double width = 170,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 170,
+      width: width,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -728,7 +829,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
           Text(
             value,
             maxLines: 2,
