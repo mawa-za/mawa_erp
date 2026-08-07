@@ -556,88 +556,256 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   }
 
   Widget _buildLineSection() => _buildSectionCard(
-        icon: Icons.format_list_numbered_rounded,
+        icon: Icons.list_alt_rounded,
         title: 'Line items',
-        subtitle: 'Add the products or services included in this document.',
-        trailing: OutlinedButton.icon(
+        subtitle:
+            'Select a product or service, then confirm the description, quantity and pricing.',
+        trailing: FilledButton.tonalIcon(
           onPressed: _addLine,
-          icon: const Icon(Icons.add),
-          label: const Text('Add Item'),
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('Add item'),
         ),
         child: Column(
-          children: [
-            _buildLineHeader(),
-            ...List.generate(_lines.length, _buildLineRow),
-          ],
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: List.generate(
+            _lines.length,
+            (index) => Padding(
+              padding: EdgeInsets.only(
+                bottom: index == _lines.length - 1 ? 0 : 14,
+              ),
+              child: _buildLineRow(index),
+            ),
+          ),
         ),
-      );
-
-  Widget _buildLineHeader() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        color: Colors.grey.shade100,
-        child: const Row(children: [
-          SizedBox(width: 32, child: Text('#')),
-          Expanded(flex: 3, child: Text('Product')),
-          SizedBox(width: 8),
-          Expanded(flex: 3, child: Text('Description')),
-          SizedBox(width: 8),
-          SizedBox(width: 90, child: Text('Qty')),
-          SizedBox(width: 8),
-          SizedBox(width: 80, child: Text('UOM')),
-          SizedBox(width: 8),
-          SizedBox(width: 120, child: Text('Unit Price/Cost')),
-          SizedBox(width: 8),
-          SizedBox(width: 90, child: Text('VAT %')),
-          SizedBox(width: 8),
-          SizedBox(width: 130, child: Text('Line Total')),
-          SizedBox(width: 40),
-        ]),
       );
 
   Widget _buildLineRow(int index) {
     final line = _lines[index];
+    final colorScheme = Theme.of(context).colorScheme;
+    final subtotal = _lineSubtotal(line);
+    final vat = subtotal * (_toDouble(line.taxRateController.text) / 100);
+    final total = subtotal + vat;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 32, child: Padding(padding: const EdgeInsets.only(top: 14), child: Text('${index + 1}'))),
-        Expanded(flex: 3, child: _productSearch(line)),
-        const SizedBox(width: 8),
-        Expanded(flex: 3, child: TextFormField(controller: line.descriptionController, decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true), maxLines: 2)),
-        const SizedBox(width: 8),
-        SizedBox(width: 90, child: TextFormField(controller: line.quantityController, decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true), keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => setState(() {}), validator: (v) => _toDouble(v) <= 0 ? 'Qty' : null)),
-        const SizedBox(width: 8),
-        SizedBox(width: 80, child: TextFormField(controller: line.uomController, decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true))),
-        const SizedBox(width: 8),
-        SizedBox(width: 120, child: TextFormField(controller: line.unitPriceController, decoration: const InputDecoration(prefixText: 'R ', border: OutlineInputBorder(), isDense: true), keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => setState(() {}))),
-        const SizedBox(width: 8),
-        SizedBox(width: 90, child: TextFormField(controller: line.taxRateController, decoration: const InputDecoration(suffixText: '%', border: OutlineInputBorder(), isDense: true), keyboardType: const TextInputType.numberWithOptions(decimal: true), onChanged: (_) => setState(() {}))),
-        const SizedBox(width: 8),
-        SizedBox(width: 130, child: Padding(padding: const EdgeInsets.only(top: 12), child: Text(_money(_lineTotal(line)), style: const TextStyle(fontWeight: FontWeight.bold)))),
-        SizedBox(width: 40, child: IconButton(icon: const Icon(Icons.delete_outline), onPressed: _lines.length == 1 ? null : () => _removeLine(index))),
-      ]),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBFCFD),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withOpacity(0.85),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 980;
+          final product = _productSearch(line);
+          final description = TextFormField(
+            controller: line.descriptionController,
+            decoration: _inputDecoration(
+              label: 'Description',
+              hint: _isGoodsReceipt ? 'Item received' : 'Line description',
+              icon: Icons.notes_rounded,
+            ),
+            maxLines: 2,
+          );
+          final quantity = TextFormField(
+            controller: line.quantityController,
+            decoration: _inputDecoration(label: 'Quantity'),
+            textAlign: TextAlign.right,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            validator: (value) => _toDouble(value) <= 0 ? 'Invalid quantity' : null,
+          );
+          final uom = TextFormField(
+            controller: line.uomController,
+            decoration: _inputDecoration(label: 'UOM'),
+          );
+          final unitPrice = TextFormField(
+            controller: line.unitPriceController,
+            decoration: _inputDecoration(
+              label: _isGoodsReceipt ? 'Unit cost' : 'Unit price',
+              prefix: 'R ',
+            ),
+            textAlign: TextAlign.right,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+          );
+          final taxRate = TextFormField(
+            controller: line.taxRateController,
+            decoration: _inputDecoration(label: 'VAT', suffix: '%'),
+            textAlign: TextAlign.right,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+          );
+          final batch = TextFormField(
+            controller: line.batchController,
+            decoration: _inputDecoration(
+              label: 'Batch number',
+              icon: Icons.qr_code_2_rounded,
+            ),
+          );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer.withOpacity(0.65),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Line item',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: _lines.length == 1
+                        ? 'At least one item is required'
+                        : 'Remove item',
+                    onPressed:
+                        _lines.length == 1 ? null : () => _removeLine(index),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (wide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 4, child: product),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 5, child: description),
+                    const SizedBox(width: 12),
+                    SizedBox(width: 100, child: quantity),
+                    const SizedBox(width: 12),
+                    SizedBox(width: 90, child: uom),
+                    const SizedBox(width: 12),
+                    SizedBox(width: 145, child: unitPrice),
+                    const SizedBox(width: 12),
+                    SizedBox(width: 105, child: taxRate),
+                  ],
+                )
+              else ...[
+                product,
+                const SizedBox(height: 12),
+                description,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: quantity),
+                    const SizedBox(width: 12),
+                    Expanded(child: uom),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: unitPrice),
+                    const SizedBox(width: 12),
+                    Expanded(child: taxRate),
+                  ],
+                ),
+              ],
+              if (_isGoodsReceipt) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: wide ? 300 : null,
+                  child: batch,
+                ),
+              ],
+              const SizedBox(height: 14),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withOpacity(0.7),
+                  ),
+                ),
+                child: Wrap(
+                  spacing: 20,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    _buildLineMetric('Subtotal', subtotal),
+                    _buildLineMetric('VAT', vat),
+                    _buildLineMetric('Line total', total, emphasised: true),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
   Widget _productSearch(_InventoryLineDraft line) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SearchAnchor(
       searchController: line.productSearchController,
       builder: (context, controller) => SearchBar(
         controller: controller,
-        hintText: line.productCode.isEmpty ? 'Search product' : line.productCode,
+        hintText: line.productCode.isEmpty
+            ? 'Product or service'
+            : line.productCode,
+        leading: Icon(Icons.inventory_2_outlined, color: colorScheme.primary),
         elevation: const WidgetStatePropertyAll(0),
-        side: WidgetStatePropertyAll(BorderSide(color: Colors.grey.shade400)),
+        side: WidgetStatePropertyAll(
+          BorderSide(color: colorScheme.outlineVariant),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        backgroundColor: WidgetStatePropertyAll(colorScheme.surface),
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 12),
+        ),
         onTap: () => controller.openView(),
         onChanged: (_) => controller.openView(),
       ),
       suggestionsBuilder: (context, controller) async {
-        final products = await widget.service.searchProducts(controller.text.trim());
-        if (products.isEmpty) return [const ListTile(title: Text('No products found'))];
+        final products =
+            await widget.service.searchProducts(controller.text.trim());
+        if (products.isEmpty) {
+          return const [
+            ListTile(
+              leading: Icon(Icons.search_off_rounded),
+              title: Text('No products found'),
+            ),
+          ];
+        }
         return products.take(25).map((product) {
           final price = _productPrice(product);
           return ListTile(
-            dense: true,
-            title: Text('${_text(product['code'])} - ${_text(product['description'])}', maxLines: 1, overflow: TextOverflow.ellipsis),
+            leading: const CircleAvatar(
+              child: Icon(Icons.inventory_2_outlined, size: 19),
+            ),
+            title: Text(
+              '${_text(product['code'])} - ${_text(product['description'])}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             subtitle: Text('Price: ${_money(price)}'),
             onTap: () {
               setState(() {
@@ -653,6 +821,68 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
           );
         });
       },
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    String? hint,
+    IconData? icon,
+    String? prefix,
+    String? suffix,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: icon == null ? null : Icon(icon, size: 20),
+      prefixText: prefix,
+      suffixText: suffix,
+      filled: true,
+      fillColor: colorScheme.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildLineMetric(
+    String label,
+    double value, {
+    bool emphasised = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'R ${value.toStringAsFixed(2)}',
+          style: TextStyle(
+            fontSize: emphasised ? 14 : 12,
+            fontWeight: emphasised ? FontWeight.w900 : FontWeight.w700,
+            color: emphasised ? colorScheme.primary : null,
+          ),
+        ),
+      ],
     );
   }
 
