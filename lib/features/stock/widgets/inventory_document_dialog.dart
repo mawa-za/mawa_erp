@@ -12,6 +12,8 @@ Future<bool?> showInventoryDocumentDialog({
   required List<Map<String, dynamic>> warehouses,
   required List<Map<String, dynamic>> storageLocations,
   Map<String, dynamic>? sourceDocument,
+  bool editExisting = false,
+  bool readOnly = false,
 }) {
   return Navigator.of(context).push<bool>(
     MaterialPageRoute(
@@ -21,6 +23,8 @@ Future<bool?> showInventoryDocumentDialog({
         warehouses: warehouses,
         storageLocations: storageLocations,
         sourceDocument: sourceDocument,
+        editExisting: editExisting,
+        readOnly: readOnly,
       ),
     ),
   );
@@ -32,6 +36,8 @@ class InventoryDocumentDialog extends StatefulWidget {
   final List<Map<String, dynamic>> warehouses;
   final List<Map<String, dynamic>> storageLocations;
   final Map<String, dynamic>? sourceDocument;
+  final bool editExisting;
+  final bool readOnly;
 
   const InventoryDocumentDialog({
     super.key,
@@ -40,6 +46,8 @@ class InventoryDocumentDialog extends StatefulWidget {
     required this.warehouses,
     required this.storageLocations,
     this.sourceDocument,
+    this.editExisting = false,
+    this.readOnly = false,
   });
 
   @override
@@ -71,7 +79,8 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   String get _title {
     switch (widget.type) {
       case InventoryDocumentType.quotation:
-        return 'Create Quotation';
+        if (widget.readOnly) return 'View Quotation';
+        return widget.editExisting ? 'Edit Quotation' : 'Create Quotation';
       case InventoryDocumentType.purchaseOrder:
         return 'Create Purchase Order';
       case InventoryDocumentType.goodsReceipt:
@@ -83,6 +92,17 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
 
   String get _partnerLabel => _isCustomerDocument ? 'Customer' : 'Supplier';
   String get _referenceLabel => _isCustomerDocument ? 'Customer Reference' : 'Supplier Reference';
+  String get _documentDateKey {
+    if (_isQuotation) return 'quotation_date';
+    if (_isPurchaseOrder || _isSalesOrder) return 'order_date';
+    return 'receipt_date';
+  }
+  String get _secondaryDateKey {
+    if (_isQuotation) return 'valid_until';
+    if (_isPurchaseOrder) return 'expected_delivery_date';
+    if (_isSalesOrder) return 'requested_delivery_date';
+    return 'receipt_date';
+  }
   String get _secondaryDateLabel {
     if (_isQuotation) return 'Valid Until';
     if (_isPurchaseOrder || _isGoodsReceipt) return 'Expected / Receipt Date';
@@ -97,7 +117,15 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         _firstNonEmpty(widget.sourceDocument?['storage_location_id']) ??
         _firstLocationForWarehouse(_selectedWarehouseId);
     _referenceController.text = _text(widget.sourceDocument?['supplier_reference'] ?? widget.sourceDocument?['customer_reference']);
-    _notesController.text = widget.sourceDocument == null ? '' : 'Created from ${_sourceNumber(widget.sourceDocument!)}';
+    _notesController.text = widget.editExisting
+        ? _text(widget.sourceDocument?['notes'])
+        : widget.sourceDocument == null
+            ? ''
+            : 'Created from ${_sourceNumber(widget.sourceDocument!)}';
+    if (widget.editExisting && widget.sourceDocument != null) {
+      _documentDate = _parseDate(widget.sourceDocument![_documentDateKey]) ?? DateTime.now();
+      _secondaryDate = _parseDate(widget.sourceDocument![_secondaryDateKey]);
+    }
     _initPartnerFromSource();
     _initLines();
   }
@@ -161,7 +189,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 1,
-        actions: [
+        actions: widget.readOnly ? null : [
           if (compact)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -223,7 +251,9 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1440),
-                        child: Column(
+                        child: IgnorePointer(
+                          ignoring: widget.readOnly,
+                          child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _buildDocumentOverviewCard(colorScheme),
@@ -250,6 +280,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
                             const SizedBox(height: 20),
                             _buildNotesSection(),
                           ],
+                          ),
                         ),
                       ),
                     ),
@@ -266,7 +297,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
 
   String get _saveActionLabel {
     if (_isGoodsReceipt) return 'Receive Items';
-    if (_isQuotation) return 'Create Quotation';
+    if (_isQuotation) return widget.editExisting ? 'Update Quotation' : 'Create Quotation';
     if (_isPurchaseOrder) return 'Create Purchase Order';
     return 'Create Sales Order';
   }
@@ -332,7 +363,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   String get _documentHeroTitle {
     switch (widget.type) {
       case InventoryDocumentType.quotation:
-        return 'New customer quotation';
+        return widget.editExisting ? 'Quotation ${_sourceNumber(widget.sourceDocument ?? const {})}' : 'New customer quotation';
       case InventoryDocumentType.purchaseOrder:
         return 'New supplier purchase order';
       case InventoryDocumentType.goodsReceipt:
@@ -347,7 +378,12 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   String get _documentHeroSubtitle {
     switch (widget.type) {
       case InventoryDocumentType.quotation:
-        return 'Prepare a professional quotation with customer, validity, product lines, VAT and totals.';
+        if (widget.readOnly) {
+          return 'Review the customer, validity, quotation lines, VAT and totals. This quotation has already been converted and is read-only.';
+        }
+        return widget.editExisting
+            ? 'Review or update the customer, validity, quotation lines, VAT and totals.'
+            : 'Prepare a professional quotation with customer, validity, product lines, VAT and totals.';
       case InventoryDocumentType.purchaseOrder:
         return 'Capture the supplier, receiving destination, ordered items, tax and total commitment.';
       case InventoryDocumentType.goodsReceipt:
@@ -935,23 +971,28 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
                 ),
               ],
             );
-            final saveButton = SizedBox(
-              height: 46,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _save,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 17,
-                        height: 17,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.save_outlined, size: 19),
-                label: Text(_saveActionLabel),
-              ),
-            );
+            final Widget saveButton = widget.readOnly
+                ? const Chip(
+                    avatar: Icon(Icons.lock_outline, size: 18),
+                    label: Text('Read only'),
+                  )
+                : SizedBox(
+                    height: 46,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 17,
+                              height: 17,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_outlined, size: 19),
+                      label: Text(_saveActionLabel),
+                    ),
+                  );
 
             return Center(
               child: ConstrainedBox(
@@ -1034,14 +1075,28 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
     try {
       switch (widget.type) {
         case InventoryDocumentType.quotation:
-          await widget.service.createQuotation(
-            customerPartnerId: _partnerId,
-            customerReference: _referenceController.text.trim(),
-            validUntil: _secondaryDate == null ? null : _dateFormat.format(_secondaryDate!),
-            requestedDeliveryDate: null,
-            notes: _notesController.text.trim(),
-            lines: validLines.map(_commercialLinePayload).toList(),
-          );
+          if (widget.editExisting && widget.sourceDocument != null) {
+            await widget.service.updateQuotation(
+              _text(widget.sourceDocument!['id']),
+              customerPartnerId: _partnerId,
+              customerReference: _referenceController.text.trim(),
+              quotationDate: _dateFormat.format(_documentDate),
+              validUntil: _secondaryDate == null ? null : _dateFormat.format(_secondaryDate!),
+              requestedDeliveryDate: null,
+              notes: _notesController.text.trim(),
+              lines: validLines.map(_commercialLinePayload).toList(),
+            );
+          } else {
+            await widget.service.createQuotation(
+              customerPartnerId: _partnerId,
+              customerReference: _referenceController.text.trim(),
+              quotationDate: _dateFormat.format(_documentDate),
+              validUntil: _secondaryDate == null ? null : _dateFormat.format(_secondaryDate!),
+              requestedDeliveryDate: null,
+              notes: _notesController.text.trim(),
+              lines: validLines.map(_commercialLinePayload).toList(),
+            );
+          }
           break;
         case InventoryDocumentType.purchaseOrder:
           await widget.service.createPurchaseOrder(
@@ -1149,6 +1204,12 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
       if (warehouseId == null || _text(loc['warehouse_id']) == warehouseId) return _text(loc['id']);
     }
     return '';
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    final text = _text(value).trim();
+    if (text.isEmpty) return null;
+    return DateTime.tryParse(text);
   }
 
   String? _firstId(List<Map<String, dynamic>> rows) => rows.isEmpty ? null : _text(rows.first['id']);

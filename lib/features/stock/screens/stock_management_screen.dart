@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api_client.dart';
 import '../../home/models/workcenter.dart';
+import '../../invoicing/screens/invoice_detail_screen.dart';
 import '../services/stock_service.dart';
 import '../widgets/inventory_document_dialog.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -499,9 +500,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         columns: const ['quotation_no', 'quotation_date', 'valid_until', 'status', 'customer_name', 'line_count', 'subtotal_amount', 'tax_amount', 'total_amount'],
         dateKeys: const ['quotation_date', 'created_at', 'createdAt'],
         actions: [
+          _rowAction('View / Edit', _openQuotationForEdit),
           _rowAction('Send', (row) => _service.updateQuotationStatus(_id(row), 'SENT')),
           _rowAction('Accept', (row) => _service.updateQuotationStatus(_id(row), 'ACCEPTED')),
-          _rowAction('Convert', (row) => _service.convertQuotationToSalesOrder(_id(row))),
+          _rowAction('Create / View Invoice', _createInvoiceFromQuotation),
+          _rowAction('Create Sales Order', (row) => _service.convertQuotationToSalesOrder(_id(row))),
         ],
       );
 
@@ -724,6 +727,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     final amount = _formatDocumentAmount(row['total_amount']);
     final documentDate = _formatDocumentDate(row[config.dateKey]);
     final secondaryDate = _formatDocumentDate(row[config.secondaryDateKey]);
+    final isConvertedQuotation = _text(row['quotation_no']).isNotEmpty &&
+        (status.toUpperCase() == 'INVOICED' || status.toUpperCase() == 'CONVERTED');
+    final visibleActions = isConvertedQuotation
+        ? actions.where((action) => action.label == 'View / Edit' || action.label.contains('Invoice')).toList()
+        : actions;
 
     return Card(
       elevation: 0,
@@ -764,6 +772,13 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
                         'Ref: ${reference.isEmpty ? '-' : reference}',
                         style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                       ),
+                      if (_text(row['invoice_no']).trim().isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Invoice: ${_text(row['invoice_no']).trim()}',
+                          style: TextStyle(fontSize: 11, color: colorScheme.primary, fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -808,14 +823,14 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
                 ),
               ],
             ),
-            if (actions.isNotEmpty) ...[
+            if (visibleActions.isNotEmpty) ...[
               const Divider(height: 22),
               Align(
                 alignment: Alignment.centerRight,
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: actions
+                  children: visibleActions
                       .map(
                         (action) => OutlinedButton(
                           onPressed: () => _runRowAction(action, row),
@@ -1030,6 +1045,36 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         }, child: const Text('Save')),
       ],
     ));
+  }
+
+  Future<void> _openQuotationForEdit(Map<String, dynamic> row) async {
+    final quotation = await _service.quotation(_id(row));
+    final status = _text(quotation['status']).trim().toUpperCase();
+    final readOnly = status == 'INVOICED' || status == 'CONVERTED';
+    if (!mounted) return;
+    final saved = await showInventoryDocumentDialog(
+      context: context,
+      service: _service,
+      type: InventoryDocumentType.quotation,
+      warehouses: _warehouses,
+      storageLocations: _locations,
+      sourceDocument: quotation,
+      editExisting: true,
+      readOnly: readOnly,
+    );
+    if (saved == true) await _load();
+  }
+
+  Future<void> _createInvoiceFromQuotation(Map<String, dynamic> row) async {
+    final result = await _service.convertQuotationToInvoice(_id(row));
+    final invoiceId = _text(result['id']);
+    if (invoiceId.isEmpty) {
+      throw AppException('The invoice was created but no invoice ID was returned');
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => InvoiceDetailScreen(invoiceId: invoiceId)),
+    );
   }
 
   Future<void> _openQuotationDialog() async {
