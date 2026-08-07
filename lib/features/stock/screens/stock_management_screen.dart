@@ -57,7 +57,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       } catch (_) {
         // The backend still protects every operation. A stale role-workcenter
         // response must not make a valid deep-linked inventory tile unusable.
-        cards = List<_InventoryCardDefinition>.from(_inventoryCardCatalog);
+        cards = List<_InventoryCardDefinition>.from(
+          _inventoryCardCatalog.where(
+            (card) => !_isCommercialDocumentSection(card.section),
+          ),
+        );
       }
 
       final requested = _requestedSection();
@@ -65,7 +69,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         cards.add(_inventoryCardCatalog.firstWhere((card) => card.section == requested));
       }
       if (cards.isEmpty && widget.initialSection == null) {
-        cards = List<_InventoryCardDefinition>.from(_inventoryCardCatalog);
+        cards = List<_InventoryCardDefinition>.from(
+          _inventoryCardCatalog.where(
+            (card) => !_isCommercialDocumentSection(card.section),
+          ),
+        );
       }
 
       if (!mounted) return;
@@ -204,7 +212,10 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     }
     final Set<String> allowed = positionsById.keys.toSet();
 
-    final cards = _inventoryCardCatalog.where((card) => card.isAllowedBy(allowed)).toList();
+    final cards = _inventoryCardCatalog
+        .where((card) => card.isAllowedBy(allowed))
+        .where((card) => !_isCommercialDocumentSection(card.section))
+        .toList();
     cards.sort((a, b) {
       final ap = a.positionFrom(positionsById);
       final bp = b.positionFrom(positionsById);
@@ -235,7 +246,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final selectedTitle = _cardForSection(_selectedSection)?.title ?? 'Inventory Management';
+    final selectedTitle = _cardForSection(_selectedSection)?.title ?? 'Inventory Operations';
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -300,9 +311,9 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.lock_outline, size: 48, color: theme.colorScheme.primary),
             const SizedBox(height: 12),
-            Text('No Inventory Management cards are enabled for your current role.', style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
+            Text('No inventory operation cards are enabled for your current role.', style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            const Text('Ask an administrator to add Inventory workcenters to your role configuration.', textAlign: TextAlign.center),
+            const Text('Ask an administrator to add the required Products & Inventory workcenters to your role configuration.', textAlign: TextAlign.center),
           ]),
         ),
       );
@@ -316,16 +327,13 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Inventory Management', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+            Text('Inventory Operations', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            Text('Choose a process card. Available cards are controlled by the selected role workcenter configuration.', style: theme.textTheme.bodyMedium),
+            Text('Warehouse and stock processes live here. Sales documents remain under Sales & Customers and purchase orders remain under Procurement & Suppliers.', style: theme.textTheme.bodyMedium),
             const SizedBox(height: 18),
             Wrap(spacing: 12, runSpacing: 12, children: [
               _metric('Stock Qty', _dashboard['totalStockQuantity'], Icons.inventory_2_outlined),
-              _metric('Open Quotes', _dashboard['openQuotations'], Icons.request_quote_outlined),
-              _metric('Open POs', _dashboard['openPurchaseOrders'], Icons.assignment_outlined),
               _metric('Pending Putaway', _dashboard['pendingPutaways'], Icons.compare_arrows_outlined),
-              _metric('Open Orders', _dashboard['openSalesOrders'], Icons.shopping_cart_outlined),
             ]),
             const SizedBox(height: 22),
             GridView.builder(
@@ -456,11 +464,8 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
           _metric('Stock Qty', _dashboard['totalStockQuantity'], Icons.inventory_2_outlined),
           _metric('Products', _dashboard['productCount'], Icons.category_outlined),
           _metric('Low Stock', _dashboard['lowStockCount'], Icons.warning_amber_outlined),
-          _metric('Open Quotes', _dashboard['openQuotations'], Icons.request_quote_outlined),
-          _metric('Open POs', _dashboard['openPurchaseOrders'], Icons.assignment_outlined),
           _metric('Pending Putaway', _dashboard['pendingPutaways'], Icons.compare_arrows_outlined),
           _metric('Receipts Today', _dashboard['goodsReceiptsToday'], Icons.call_received_outlined),
-          _metric('Open Orders', _dashboard['openSalesOrders'], Icons.shopping_cart_outlined),
           _metric('Warehouses', _dashboard['activeWarehouses'], Icons.store_mall_directory_outlined),
         ]),
         const SizedBox(height: 20),
@@ -543,33 +548,353 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       dateKeys,
     );
 
+    final invoiceStyled = _isCommercialDocumentSection(section);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (statuses.isNotEmpty)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Row(
+          Container(
+            height: 50,
+            color: Colors.white,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: ['ALL', ...statuses].map((status) {
+                final isSelected = selected == status;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
-                    label: Text(status == 'ALL' ? 'All statuses' : status),
-                    selected: selected == status,
-                    onSelected: (_) => setState(() => _statusFilters[section] = status),
+                    label: Text(
+                      status == 'ALL' ? 'ALL' : status,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? Colors.white : Colors.grey[700],
+                      ),
+                    ),
+                    selected: isSelected,
+                    onSelected: (_) =>
+                        setState(() => _statusFilters[section] = status),
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    backgroundColor: Colors.grey[200],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    side: BorderSide.none,
+                    showCheckmark: false,
+                    visualDensity: VisualDensity.compact,
                   ),
                 );
               }).toList(),
             ),
           ),
         Expanded(
-          child: actions == null
-              ? _tableView(filtered, columns)
-              : _actionTableView(rows: filtered, columns: columns, actions: actions),
+          child: invoiceStyled
+              ? _commercialDocumentListView(
+                  section: section,
+                  rows: filtered,
+                  actions: actions ?? const <_RowAction>[],
+                )
+              : actions == null
+                  ? _tableView(filtered, columns)
+                  : _actionTableView(
+                      rows: filtered,
+                      columns: columns,
+                      actions: actions,
+                    ),
         ),
       ],
     );
+  }
+
+  Widget _commercialDocumentListView({
+    required _InventorySection section,
+    required List<Map<String, dynamic>> rows,
+    required List<_RowAction> actions,
+  }) {
+    if (rows.isEmpty) {
+      return const Center(child: Text('No records found'));
+    }
+
+    final config = _CommercialDocumentListConfig.forSection(section);
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              Icon(config.icon, size: 18, color: colorScheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                config.overviewTitle.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.blueGrey[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 44),
+              Expanded(
+                child: Text(
+                  '${config.partnerLabel.toUpperCase()} / REFERENCE',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'DATE / DELIVERY',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey,
+                ),
+              ),
+              const SizedBox(width: 100),
+              const SizedBox(
+                width: 112,
+                child: Text(
+                  'AMOUNT / STATUS',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueGrey,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+            itemCount: rows.length,
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              return _commercialDocumentCard(
+                row: row,
+                config: config,
+                actions: actions,
+                colorScheme: colorScheme,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _commercialDocumentCard({
+    required Map<String, dynamic> row,
+    required _CommercialDocumentListConfig config,
+    required List<_RowAction> actions,
+    required ColorScheme colorScheme,
+  }) {
+    final partnerName = _text(row[config.partnerKey]).trim();
+    final reference = _text(row[config.referenceKey]).trim();
+    final status = _text(row['status']).trim();
+    final amount = _formatDocumentAmount(row['total_amount']);
+    final documentDate = _formatDocumentDate(row[config.dateKey]);
+    final secondaryDate = _formatDocumentDate(row[config.secondaryDateKey]);
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(config.icon, color: colorScheme.primary, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        partnerName.isEmpty ? config.partnerLabel : partnerName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Ref: ${reference.isEmpty ? '-' : reference}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 142,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _documentDateLine(
+                        Icons.calendar_today_outlined,
+                        documentDate,
+                      ),
+                      if (secondaryDate.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        _documentDateLine(
+                          Icons.event_available_outlined,
+                          secondaryDate,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 112,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        amount,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _documentStatusChip(status),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (actions.isNotEmpty) ...[
+              const Divider(height: 22),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: actions
+                      .map(
+                        (action) => OutlinedButton(
+                          onPressed: () => _runRowAction(action, row),
+                          child: Text(action.label),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _documentDateLine(IconData icon, String value) => Row(
+        children: [
+          Icon(icon, size: 11, color: Colors.grey[400]),
+          const SizedBox(width: 4),
+          Text(
+            value.isEmpty ? '-' : value,
+            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          ),
+        ],
+      );
+
+  Widget _documentStatusChip(String status) {
+    final normalized = status.toUpperCase();
+    final Color color;
+    switch (normalized) {
+      case 'ACCEPTED':
+      case 'COMPLETED':
+      case 'RECEIVED':
+      case 'ISSUED':
+        color = Colors.green;
+        break;
+      case 'CANCELLED':
+      case 'REJECTED':
+        color = Colors.red;
+        break;
+      case 'SENT':
+      case 'OPEN':
+      case 'CONFIRMED':
+        color = Colors.blue;
+        break;
+      case 'DRAFT':
+        color = Colors.grey;
+        break;
+      default:
+        color = Colors.orange;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Text(
+        normalized.isEmpty ? '-' : normalized,
+        style: TextStyle(
+          color: color,
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  String _formatDocumentAmount(dynamic value) {
+    final parsed = value is num
+        ? value.toDouble()
+        : double.tryParse(value?.toString().replaceAll(',', '') ?? '');
+    return parsed == null ? 'R 0.00' : 'R ${parsed.toStringAsFixed(2)}';
+  }
+
+  String _formatDocumentDate(dynamic value) {
+    if (value == null) return '';
+    final parsed = DateTime.tryParse(value.toString());
+    if (parsed == null) return _text(value);
+    final month = parsed.month.toString().padLeft(2, '0');
+    final day = parsed.day.toString().padLeft(2, '0');
+    return '${parsed.year}-$month-$day';
   }
 
   List<Map<String, dynamic>> _sortLatest(
@@ -892,6 +1217,68 @@ enum _InventorySection {
   setup,
 }
 
+bool _isCommercialDocumentSection(_InventorySection section) =>
+    section == _InventorySection.quotations ||
+    section == _InventorySection.purchaseOrders ||
+    section == _InventorySection.salesOrders;
+
+class _CommercialDocumentListConfig {
+  final String overviewTitle;
+  final String partnerLabel;
+  final String partnerKey;
+  final String referenceKey;
+  final String dateKey;
+  final String secondaryDateKey;
+  final IconData icon;
+
+  const _CommercialDocumentListConfig({
+    required this.overviewTitle,
+    required this.partnerLabel,
+    required this.partnerKey,
+    required this.referenceKey,
+    required this.dateKey,
+    required this.secondaryDateKey,
+    required this.icon,
+  });
+
+  factory _CommercialDocumentListConfig.forSection(_InventorySection section) {
+    switch (section) {
+      case _InventorySection.quotations:
+        return const _CommercialDocumentListConfig(
+          overviewTitle: 'Quotation Overview',
+          partnerLabel: 'Customer',
+          partnerKey: 'customer_name',
+          referenceKey: 'quotation_no',
+          dateKey: 'quotation_date',
+          secondaryDateKey: 'valid_until',
+          icon: Icons.request_quote_outlined,
+        );
+      case _InventorySection.purchaseOrders:
+        return const _CommercialDocumentListConfig(
+          overviewTitle: 'Purchase Order Overview',
+          partnerLabel: 'Supplier',
+          partnerKey: 'supplier_name',
+          referenceKey: 'purchase_order_no',
+          dateKey: 'order_date',
+          secondaryDateKey: 'expected_delivery_date',
+          icon: Icons.assignment_outlined,
+        );
+      case _InventorySection.salesOrders:
+        return const _CommercialDocumentListConfig(
+          overviewTitle: 'Sales Order Overview',
+          partnerLabel: 'Customer',
+          partnerKey: 'customer_name',
+          referenceKey: 'sales_order_no',
+          dateKey: 'order_date',
+          secondaryDateKey: 'requested_delivery_date',
+          icon: Icons.shopping_cart_outlined,
+        );
+      default:
+        throw ArgumentError('Section is not a commercial document list: $section');
+    }
+  }
+}
+
 class _InventoryCardDefinition {
   final _InventorySection section;
   final String title;
@@ -938,7 +1325,7 @@ const List<_InventoryCardDefinition> _inventoryCardCatalog = [
   _InventoryCardDefinition(
     section: _InventorySection.dashboard,
     title: 'Inventory Dashboard',
-    subtitle: 'Stock visibility, low stock, open documents and recent movement summary.',
+    subtitle: 'Stock visibility, receiving, putaway and recent movement summary.',
     icon: Icons.dashboard_outlined,
     defaultOrder: 10,
     workcenterAliases: ['inventory', 'inventory-management', 'stock-management'],
