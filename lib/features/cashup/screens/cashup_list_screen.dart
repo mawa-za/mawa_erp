@@ -5,8 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 import 'cashup_detail_screen.dart';
-import '../../partners/models/partner.dart';
-import '../../../core/widgets/partner_search_dropdown.dart';
+import '../../employment/services/employment_service.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../settings/models/manual_receipt_book.dart';
 import '../../settings/services/manual_receipt_book_service.dart';
@@ -120,8 +119,14 @@ class _CashupListScreenState extends State<CashupListScreen> {
 
   Future<void> _showManualCashupDialog() async {
     List<ManualReceiptBook> receiptBooks;
+    List<Map<String, dynamic>> activeEmployees;
     try {
-      receiptBooks = await _manualReceiptBookService.list(activeOnly: true);
+      final results = await Future.wait([
+        _manualReceiptBookService.list(activeOnly: true),
+        EmploymentService().list(status: 'ACTIVE'),
+      ]);
+      receiptBooks = results[0] as List<ManualReceiptBook>;
+      activeEmployees = results[1] as List<Map<String, dynamic>>;
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +150,8 @@ class _CashupListScreenState extends State<CashupListScreen> {
     final toController = TextEditingController();
     final notesController = TextEditingController();
     final amountController = TextEditingController();
-    Partner? employeeResponsible;
+    String? employeeResponsibleId;
+    String? employeeResponsibleName;
     String? areaCode;
     ManualReceiptBook? selectedBook;
     DateTime cashupDate = DateTime.now();
@@ -164,7 +170,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Select the captured receipts by receipt book and inclusive receipt number range.',
+                    'Enter the physical receipt-book range. Any captured manual receipts in the range will be linked automatically.',
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -177,10 +183,34 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  PartnerSearchDropdown(
-                    role: 'EMPLOYEE',
-                    label: 'Employee Responsible *',
-                    onPartnerSelected: (partner) => setDialogState(() => employeeResponsible = partner),
+                  DropdownButtonFormField<String>(
+                    value: employeeResponsibleId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Employee Responsible *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: activeEmployees
+                        .map((record) {
+                          final id = _employeePartnerId(record);
+                          if (id.isEmpty) return null;
+                          return DropdownMenuItem<String>(
+                            value: id,
+                            child: Text(
+                              _employeeName(record),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        })
+                        .whereType<DropdownMenuItem<String>>()
+                        .toList(),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        employeeResponsibleId = value;
+                        employeeResponsibleName = _employeeNameByPartnerId(activeEmployees, value);
+                        validationError = null;
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
                   AppDropdownField(
@@ -208,6 +238,18 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     onChanged: (book) {
                       setDialogState(() {
                         selectedBook = book;
+                        final assignedEmployeeId = book?.assignedEmployeeId?.trim();
+                        if (assignedEmployeeId != null && assignedEmployeeId.isNotEmpty) {
+                          final isActive = activeEmployees
+                              .any((record) => _employeePartnerId(record) == assignedEmployeeId);
+                          if (isActive) {
+                            employeeResponsibleId = assignedEmployeeId;
+                            employeeResponsibleName = _employeeNameByPartnerId(
+                              activeEmployees,
+                              assignedEmployeeId,
+                            );
+                          }
+                        }
                         if (book?.assignedAreaCode != null && book!.assignedAreaCode!.isNotEmpty) {
                           areaCode = book.assignedAreaCode;
                         }
@@ -301,12 +343,22 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 String? error;
                 if (amount == null || amount <= 0) {
                   error = 'A valid manual cashup amount is required.';
-                } else if (employeeResponsible == null) {
-                  error = 'Employee responsible is required.';
+                } else if (employeeResponsibleId == null || employeeResponsibleId!.isEmpty) {
+                  error = activeEmployees.isEmpty
+                      ? 'No active employees are available for manual cashup.'
+                      : 'Employee responsible is required.';
                 } else if (areaCode == null || areaCode!.isEmpty) {
                   error = 'Area is required.';
                 } else if (book == null) {
                   error = 'Receipt book number is required.';
+                } else if (book.assignedEmployeeId != null &&
+                    book.assignedEmployeeId!.isNotEmpty &&
+                    book.assignedEmployeeId != employeeResponsibleId) {
+                  error = 'Receipt book ${book.receiptBookNo} is assigned to ${book.assignedEmployeeName ?? 'another employee'}.';
+                } else if (book.assignedAreaCode != null &&
+                    book.assignedAreaCode!.isNotEmpty &&
+                    book.assignedAreaCode != areaCode) {
+                  error = 'Receipt book ${book.receiptBookNo} is assigned to ${book.assignedAreaName ?? book.assignedAreaCode}.';
                 } else if (fromNumber == null || toNumber == null) {
                   error = 'Receipt from and receipt to must be numeric.';
                 } else if (fromNumber > toNumber) {
@@ -328,8 +380,8 @@ class _CashupListScreenState extends State<CashupListScreen> {
 
                 Navigator.pop(context, {
                   'amountCents': (amount! * 100).round(),
-                  'employeeResponsibleId': employeeResponsible!.id,
-                  'employeeResponsibleName': employeeResponsible!.fullName,
+                  'employeeResponsibleId': employeeResponsibleId,
+                  'employeeResponsibleName': employeeResponsibleName ?? employeeResponsibleId,
                   'areaCode': areaCode,
                   'areaName': areaCode,
                   'receiptBookNo': book!.receiptBookNo,
@@ -383,6 +435,36 @@ class _CashupListScreenState extends State<CashupListScreen> {
         ),
       );
     }
+  }
+
+  String _employeePartnerId(Map<String, dynamic> record) {
+    final employee = record['employee'];
+    return employee is Map ? (employee['id'] ?? '').toString().trim() : '';
+  }
+
+  String _employeeName(Map<String, dynamic> record) {
+    final employee = record['employee'];
+    if (employee is! Map) {
+      return (record['employeeNumber'] ?? '').toString().trim();
+    }
+    final names = [employee['name2'], employee['name3'], employee['name1']]
+        .map((value) => (value ?? '').toString().trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    return names.isEmpty
+        ? (record['employeeNumber'] ?? _employeePartnerId(record)).toString()
+        : names.join(' ');
+  }
+
+  String? _employeeNameByPartnerId(
+    List<Map<String, dynamic>> employees,
+    String? partnerId,
+  ) {
+    if (partnerId == null || partnerId.isEmpty) return null;
+    for (final record in employees) {
+      if (_employeePartnerId(record) == partnerId) return _employeeName(record);
+    }
+    return null;
   }
 
   @override
