@@ -139,6 +139,25 @@ class PosPrintingService {
     return (decoded['id'] ?? '').toString();
   }
 
+  Future<String> queueCashup(String cashupId, {bool reprint = false, String? printerId}) async {
+    final terminal = await ensureTerminal();
+    if (!terminal.configured && (printerId == null || printerId.isEmpty)) {
+      throw AppException('This terminal is not linked to a Windows print agent and receipt printer. Configure POS Printing under System Configuration.');
+    }
+    final requestId = _requestId(prefix: 'cashup');
+    final response = await ApiClient().post('/v2/cashup/$cashupId/print-jobs', body: {
+      'terminalId': terminal.id,
+      'printerId': printerId,
+      'requestId': requestId,
+      'reprint': reprint,
+    });
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AppException(_message(response.body, 'Unable to queue cashup slip for printing'));
+    }
+    final decoded = Map<String, dynamic>.from(jsonDecode(response.body));
+    return (decoded['id'] ?? '').toString();
+  }
+
   Future<String> queueTestPrint({required String terminalId, String? printerId}) async {
     final requestId = _requestId(prefix: 'test');
     final response = await ApiClient().post('/v2/pos-printing/terminals/$terminalId/test-print', body: {

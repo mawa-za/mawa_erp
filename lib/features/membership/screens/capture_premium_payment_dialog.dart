@@ -35,6 +35,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   List<Map<String, dynamic>> _unpaidPremiums = [];
   PaymentBatchResponse? _successResponse;
   String? _error;
+  String? _printWarning;
 
   BluetoothDevice? _selectedDevice;
   final BluetoothPrintService _printService = BluetoothPrintService();
@@ -100,7 +101,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId') ?? 'unknown';
-      final deviceId = prefs.getString('deviceId') ?? 'F100-01';
+      final deviceId = prefs.getString('deviceId') ?? 'ERP-ONLINE';
 
       final double amount = double.parse(_amountController.text);
       final int amountCents = (amount * 100).round();
@@ -111,11 +112,27 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
         amountCents: amountCents,
         createdBy: userId,
         deviceId: deviceId,
+        terminalId: prefs.getString('terminalId'),
+        location: prefs.getString('location'),
+        employeeResponsible: userId,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
+      final printFailures = <String>[];
+      for (final receipt in response.receipts) {
+        try {
+          await PosPrintingService().queueReceipt(receipt.id);
+        } catch (error) {
+          printFailures.add(receipt.receiptNo);
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
         _successResponse = response;
+        _printWarning = printFailures.isEmpty
+            ? null
+            : '${printFailures.length} receipt(s) could not be queued automatically. Use the print button next to the receipt to retry.';
         _isSubmitting = false;
       });
     } catch (e) {
@@ -384,7 +401,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Capture Premium', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                Text('Process Premium Payment', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
                 Text('Membership Payment', style: TextStyle(color: Colors.grey, fontSize: 13)),
               ],
             ),
@@ -498,7 +515,26 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                 decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: colorScheme.primary.withOpacity(0.1))),
                 child: Text('NEW PAID UP TO: ${response.paidUpToPeriod}', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5)),
               ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            if (_printWarning != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withOpacity(0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.print_disabled_outlined, color: Colors.orange),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(_printWarning!, style: const TextStyle(fontSize: 12))),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Align(alignment: Alignment.centerLeft, child: Text('RECEIPTS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2))),
             const SizedBox(height: 12),
             ...response.receipts.map((r) => _buildReceiptItem(r, colorScheme)),
@@ -550,7 +586,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
           IconButton.filledTonal(
             icon: const Icon(Icons.print_outlined, size: 20),
             onPressed: () => _printReceipt(receipt),
-            tooltip: 'Print Receipt',
+            tooltip: 'Reprint Receipt',
             style: IconButton.styleFrom(
               backgroundColor: colorScheme.secondaryContainer.withOpacity(0.5),
               foregroundColor: colorScheme.onSecondaryContainer,
