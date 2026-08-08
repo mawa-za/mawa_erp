@@ -8,6 +8,7 @@ import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
+import '../../settings/services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CashupDetailScreen extends StatefulWidget {
@@ -82,9 +83,23 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         'comments': 'Submitted from mawa cashup detail screen',
       });
 
+      String? printWarning;
+      try {
+        await PosPrintingService().queueCashup(_cashup!.id);
+      } catch (printError) {
+        printWarning = friendlyErrorMessage(printError);
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cashup submitted for approval successfully'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(
+              printWarning == null
+                  ? 'Cashup submitted and cashup slip queued for printing.'
+                  : 'Cashup submitted, but the cashup slip could not be queued: $printWarning',
+            ),
+            backgroundColor: printWarning == null ? Colors.green : Colors.orange,
+          ),
         );
         _fetchDetails();
       }
