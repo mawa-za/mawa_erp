@@ -7,6 +7,14 @@ import '../../membership/models/receipt_print_data.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PosPrintingService {
+  static String _requestId({String? prefix}) {
+    final random = Random.secure();
+    final randomBytes = List<int>.generate(12, (_) => random.nextInt(256));
+    final suffix = base64UrlEncode(randomBytes).replaceAll('=', '');
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    return '${prefix == null || prefix.isEmpty ? '' : '$prefix-'}$timestamp-$suffix';
+  }
+
   static const _terminalKeyPreference = 'mawa_pos_terminal_key';
   static const _terminalNamePreference = 'mawa_pos_terminal_name';
   static const _terminalLocationPreference = 'mawa_pos_terminal_location';
@@ -117,7 +125,7 @@ class PosPrintingService {
     if (!terminal.configured && (printerId == null || printerId.isEmpty)) {
       throw AppException('This terminal is not linked to a Windows print agent and receipt printer. Configure POS Printing under System Configuration.');
     }
-    final requestId = '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    final requestId = _requestId();
     final response = await ApiClient().post('/v2/receipts/$receiptId/print-jobs', body: {
       'terminalId': terminal.id,
       'printerId': printerId,
@@ -132,7 +140,7 @@ class PosPrintingService {
   }
 
   Future<String> queueTestPrint({required String terminalId, String? printerId}) async {
-    final requestId = 'test-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    final requestId = _requestId(prefix: 'test');
     final response = await ApiClient().post('/v2/pos-printing/terminals/$terminalId/test-print', body: {
       'printerId': printerId,
       'requestId': requestId,
