@@ -67,8 +67,16 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
   List<PosPrinter> get _printers => _agents
       .where((a) => a.id == _agentId)
       .expand((a) => a.printers)
-      .where((p) => p.online)
       .toList();
+
+  PosPrinter? get _selectedPrinter {
+    for (final printer in _printers) {
+      if (printer.id == _printerId) return printer;
+    }
+    return null;
+  }
+
+  bool get _selectedPrinterOnline => _selectedPrinter?.online == true;
 
   void _selectPrinter(String? value) {
     setState(() {
@@ -88,7 +96,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       var terminal = await _service.ensureTerminal(displayName: _terminalName.text, location: _location.text);
-      if (_agentId == null || _printerId == null) throw AppException('Select an active print agent and an online receipt printer.');
+      if (_agentId == null || _printerId == null) throw AppException('Select a print agent and receipt printer.');
       await _service.configurePrinter(
         printerId: _printerId!,
         supportsCut: _supportsCut,
@@ -107,7 +115,11 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
 
   Future<void> _testPrint() async {
     if (_agentId == null || _printerId == null) {
-      setState(() => _error = 'Select an active print agent and an online receipt printer.');
+      setState(() => _error = 'Select a print agent and receipt printer.');
+      return;
+    }
+    if (!_selectedPrinterOnline) {
+      setState(() => _error = 'The selected receipt printer is offline. Power it on and wait for the Windows print agent to rediscover it.');
       return;
     }
     setState(() {
@@ -243,9 +255,25 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
                         DropdownButtonFormField<String>(
                           value: _printers.any((p) => p.id == _printerId) ? _printerId : null,
                           decoration: const InputDecoration(labelText: 'Default receipt printer'),
-                          items: _printers.map((p) => DropdownMenuItem(value: p.id, child: Text(p.displayName))).toList(),
+                          items: _printers.map((p) => DropdownMenuItem(value: p.id, child: Text('${p.displayName}${p.online ? '' : ' • Offline'}'))).toList(),
                           onChanged: _selectPrinter,
                         ),
+                        if (_selectedPrinter != null && !_selectedPrinterOnline) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline, size: 18, color: Colors.orange.shade800),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'This printer is still assigned to the terminal but is currently offline. It will remain visible and can be used again when the agent rediscovers it.',
+                                  style: TextStyle(color: Colors.orange.shade900),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         DropdownButtonFormField<int>(
                           value: const [32, 42, 48].contains(_paperWidthChars) ? _paperWidthChars : 42,
@@ -269,7 +297,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton.icon(
-                              onPressed: _agentId != null && _printerId != null ? _testPrint : null,
+                              onPressed: _agentId != null && _printerId != null && _selectedPrinterOnline ? _testPrint : null,
                               icon: const Icon(Icons.print_outlined),
                               label: const Text('Test print'),
                             ),

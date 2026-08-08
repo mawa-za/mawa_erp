@@ -5,12 +5,14 @@ import 'package:intl/intl.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
+import '../models/receipt_response.dart';
 import '../models/membership_plan.dart' hide DependentType;
 import '../models/membership_claim.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
+import '../../settings/services/pos_printing_service.dart';
 import '../../../core/widgets/attachment_section.dart';
 import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
@@ -391,7 +393,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           }
         },
         icon: const Icon(Icons.add_card_outlined),
-        label: const Text('CAPTURE PREMIUM PAYMENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        label: const Text('PROCESS PREMIUM PAYMENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -528,6 +530,75 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _reprintPremiumReceipt(Premium premium) async {
+    try {
+      final receipts = await MembershipService().getPremiumReceipts(
+        widget.membershipId,
+        premium.id,
+      );
+      if (!mounted) return;
+      if (receipts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No receipt is available for this premium.')),
+        );
+        return;
+      }
+
+      ReceiptResponse? selectedReceipt;
+      if (receipts.length == 1) {
+        selectedReceipt = receipts.first;
+      } else {
+        selectedReceipt = await showDialog<ReceiptResponse>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Reprint ${_formatPeriod(premium.periodYYYYMM)} receipt'),
+            content: SizedBox(
+              width: 480,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: receipts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final receipt = receipts[index];
+                  return ListTile(
+                    leading: const Icon(Icons.receipt_long_outlined),
+                    title: Text(receipt.receiptNo),
+                    subtitle: Text(
+                      '${receipt.paymentMethod} • R ${receipt.totalAmount.toStringAsFixed(2)}',
+                    ),
+                    trailing: const Icon(Icons.print_outlined),
+                    onTap: () => Navigator.pop(context, receipt),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CANCEL'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (selectedReceipt == null) return;
+      await PosPrintingService().queueReceipt(selectedReceipt.id, reprint: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Receipt ${selectedReceipt.receiptNo} queued for reprint.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to reprint receipt: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildPremiumSection(ColorScheme colorScheme) {
@@ -756,6 +827,18 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                     )
                     .toList(),
               ),
+              if (premium.paymentCount > 0 ||
+                  premium.receiptId?.trim().isNotEmpty == true) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _reprintPremiumReceipt(premium),
+                    icon: const Icon(Icons.print_outlined, size: 18),
+                    label: const Text('REPRINT RECEIPT'),
+                  ),
+                ),
+              ],
             ],
           );
         },
