@@ -101,19 +101,22 @@ class _CaptureInvoicePaymentDialogState
 
   Future<void> _queueReceipt(PaymentBatchResponse response) async {
     if (response.receipts.isEmpty) return;
-    try {
-      await PosPrintingService().queueReceipt(response.receipts.first.id);
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Payment recorded, but the receipt could not be queued: '
-              '${friendlyErrorMessage(error)}',
-            ),
-          ),
-        );
+    final failures = <String>[];
+    for (final receipt in response.receipts) {
+      try {
+        await PosPrintingService().queueReceipt(receipt.id);
+      } catch (_) {
+        failures.add(receipt.receiptNo);
       }
+    }
+    if (failures.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Payment recorded, but ${failures.length} receipt(s) could not be queued for printing.',
+          ),
+        ),
+      );
     }
   }
 

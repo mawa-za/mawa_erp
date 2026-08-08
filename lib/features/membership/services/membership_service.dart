@@ -13,6 +13,7 @@ import '../models/group_society.dart';
 import '../models/group_society_contact.dart';
 import '../models/group_society_payment.dart';
 import '../models/payment_batch_response.dart';
+import '../models/receipt_response.dart';
 import '../models/membership_change.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -259,6 +260,28 @@ class MembershipService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<List<ReceiptResponse>> getPremiumReceipts(
+    String membershipId,
+    String premiumId,
+  ) async {
+    final response = await ApiClient().get(
+      '/v2/memberships/$membershipId/premiums/$premiumId/receipts',
+    );
+    if (response.statusCode != 200) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'Unable to load premium receipts.',
+      );
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const <ReceiptResponse>[];
+    return decoded
+        .whereType<Map>()
+        .map((item) => ReceiptResponse.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> getUnpaidPremiums(String membershipId) async {
@@ -951,6 +974,9 @@ class MembershipService {
     required int amountCents,
     required String createdBy,
     String? deviceId,
+    String? terminalId,
+    String? location,
+    String? employeeResponsible,
     String? notes,
   }) async {
     try {
@@ -960,6 +986,9 @@ class MembershipService {
         'amountCents': amountCents,
         'createdBy': createdBy,
         'deviceId': deviceId,
+        'terminalId': terminalId,
+        'location': location,
+        'employeeResponsible': employeeResponsible,
         'notes': notes,
       };
 

@@ -267,14 +267,20 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     'location': prefs.getString('location'),
                   });
                   if (response.receipts.isNotEmpty) {
-                    try {
-                      await PosPrintingService().queueReceipt(response.receipts.first.id);
-                    } catch (printError) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Payment recorded. Receipt could not be queued: ${friendlyErrorMessage(printError)}'),
-                        ));
+                    final printFailures = <String>[];
+                    for (final receipt in response.receipts) {
+                      try {
+                        await PosPrintingService().queueReceipt(receipt.id);
+                      } catch (_) {
+                        printFailures.add(receipt.receiptNo);
                       }
+                    }
+                    if (printFailures.isNotEmpty && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(
+                          'Payment recorded. ${printFailures.length} receipt(s) could not be queued for printing.',
+                        ),
+                      ));
                     }
                   }
                   if (context.mounted) Navigator.pop(context, true);
