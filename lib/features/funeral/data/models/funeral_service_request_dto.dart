@@ -11,6 +11,7 @@ class FuneralServiceRequestDto {
   final String causeOfDeath;
   final DateTime funeralDate;
   final String funeralLocation;
+  final String deceasedDeliveryDirections;
   final String familyRepPartnerId;
   final String packageId;
   final List<FuneralExtraDto> extras;
@@ -28,6 +29,7 @@ class FuneralServiceRequestDto {
     required this.causeOfDeath,
     required this.funeralDate,
     required this.funeralLocation,
+    this.deceasedDeliveryDirections = '',
     required this.familyRepPartnerId,
     required this.packageId,
     required this.extras,
@@ -50,6 +52,8 @@ class FuneralServiceRequestDto {
       // for backwards compatibility with older builds/endpoints.
       'funeralArea': funeralLocation,
       'funeralLocation': funeralLocation,
+      'deceasedDeliveryDirections': deceasedDeliveryDirections,
+      'deliveryDirections': deceasedDeliveryDirections,
       'familyRepId': familyRepPartnerId,
       'familyRepPartnerId': familyRepPartnerId,
       'packageId': packageId,
@@ -71,6 +75,7 @@ class FuneralServiceRequestDto {
       causeOfDeath: json['causeOfDeath']?.toString() ?? '',
       funeralDate: _parseDateTime(json['funeralDate']),
       funeralLocation: (json['funeralLocation'] ?? json['funeralArea'] ?? '').toString(),
+      deceasedDeliveryDirections: (json['deceasedDeliveryDirections'] ?? json['deliveryDirections'] ?? '').toString(),
       familyRepPartnerId: (json['familyRepPartnerId'] ?? json['familyRepId'] ?? '').toString(),
       packageId: json['packageId']?.toString() ?? '',
       extras: (json['extras'] as List? ?? [])
