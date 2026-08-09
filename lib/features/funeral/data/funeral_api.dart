@@ -282,6 +282,24 @@ class FuneralApi {
     throw AppException('Failed to download claim form: ${response.body}');
   }
 
+  Future<List<int>> downloadConfirmationLetter(String serviceRequestId) async {
+    final response = await _apiClient.get(
+      '/v2/funeral/service-request/$serviceRequestId/confirmation-letter',
+      accept: 'application/pdf',
+    );
+    if (response.statusCode == 200) return response.bodyBytes;
+    throw AppException('Failed to generate confirmation letter: ${response.body}');
+  }
+
+  Future<List<int>> downloadServiceRequestForm(String serviceRequestId) async {
+    final response = await _apiClient.get(
+      '/v2/funeral/service-request/$serviceRequestId/service-request-form',
+      accept: 'application/pdf',
+    );
+    if (response.statusCode == 200) return response.bodyBytes;
+    throw AppException('Failed to generate funeral service request form: ${response.body}');
+  }
+
   Future<void> submitClaimForApproval(String claimId) async {
     final response = await _apiClient.post('/v2/funeral/claims/$claimId/submit-for-approval');
     if (response.statusCode != 200) {
