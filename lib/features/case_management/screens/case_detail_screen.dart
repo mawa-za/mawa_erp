@@ -11,6 +11,7 @@ import '../services/case_management_service.dart';
 import '../widgets/case_status_chip.dart';
 import '../widgets/case_priority_chip.dart';
 import '../widgets/case_trust_account_tab.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CaseDetailScreen extends StatefulWidget {
   final String caseId;
@@ -61,7 +62,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     }
   }
@@ -76,7 +77,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
     if (_case == null) return const Scaffold(body: Center(child: Text('Case not found')));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_case!.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddAddressDialog extends StatefulWidget {
   final String partnerId;
@@ -20,7 +22,7 @@ class _AddAddressDialogState extends State<AddAddressDialog> {
   final _suburbController = TextEditingController();
   final _townController = TextEditingController();
   final _cityController = TextEditingController();
-  final _provinceController = TextEditingController();
+  String? _selectedProvince;
   final _postalCodeController = TextEditingController();
   
   String _selectedType = 'RESIDENTIAL';
@@ -43,7 +45,7 @@ class _AddAddressDialogState extends State<AddAddressDialog> {
       'suburb': _suburbController.text,
       'town': _townController.text,
       'city': _cityController.text,
-      'province': _provinceController.text,
+      'province': _selectedProvince,
       'postalCode': _postalCodeController.text,
     };
 
@@ -58,12 +60,12 @@ class _AddAddressDialogState extends State<AddAddressDialog> {
           Navigator.of(context).pop(true);
         }
       } else {
-        throw Exception('Failed to add address: ${response.statusCode}');
+        throw AppException('Failed to add address: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -95,7 +97,16 @@ class _AddAddressDialogState extends State<AddAddressDialog> {
               _buildTextField(_suburbController, 'Suburb', false),
               _buildTextField(_townController, 'Town', false),
               _buildTextField(_cityController, 'City', true),
-              _buildTextField(_provinceController, 'Province', true),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: AppDropdownField(
+                  field: 'PROVINCE',
+                  label: 'Province',
+                  value: _selectedProvince,
+                  onChanged: (value) => setState(() => _selectedProvince = value),
+                  validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                ),
+              ),
               _buildTextField(_postalCodeController, 'Postal Code', true),
             ],
           ),
@@ -139,7 +150,6 @@ class _AddAddressDialogState extends State<AddAddressDialog> {
     _suburbController.dispose();
     _townController.dispose();
     _cityController.dispose();
-    _provinceController.dispose();
     _postalCodeController.dispose();
     super.dispose();
   }

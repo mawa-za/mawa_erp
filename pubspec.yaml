@@ -1,8 +1,8 @@
 name: mawa_erp
-description: "Mawa ERP"
+description: "mawa"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.32+33
 
 environment:
   sdk: ^3.9.2
@@ -15,6 +15,7 @@ dependencies:
   http: ^1.3.0
   intl: ^0.20.2
   file_picker: ^8.1.7
+  image_picker: ^1.1.2
   url_launcher: ^6.3.1
   path_provider: ^2.1.5
   open_filex: ^4.5.0
@@ -32,3 +33,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/mawa_logo.png
+    - assets/branding/mawa_logo_white.png
+    - assets/branding/mawa_logo_red.png
+    - assets/branding/mawa_app_icon.png

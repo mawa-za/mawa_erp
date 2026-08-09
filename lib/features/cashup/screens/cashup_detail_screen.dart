@@ -1,14 +1,15 @@
 import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/api_client.dart';
-import '../../../core/services/user_service.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
-import '../../approvals/models/approval.dart';
-import '../../approvals/services/approval_service.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
+import '../../settings/services/pos_printing_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CashupDetailScreen extends StatefulWidget {
   final String cashupId;
@@ -20,11 +21,7 @@ class CashupDetailScreen extends StatefulWidget {
 
 class _CashupDetailScreenState extends State<CashupDetailScreen> {
   final CashupService _cashupService = CashupService();
-  final UserService _userService = UserService();
-  final ApprovalService _approvalService = ApprovalService();
-  
   Cashup? _cashup;
-  String? _userName;
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _error;
@@ -36,6 +33,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
   }
 
   Future<void> _fetchDetails() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -43,24 +41,16 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
     try {
       final cashup = await _cashupService.getCashupById(widget.cashupId);
-      
-      // Fetch user name
-      String? userName;
-      try {
-        final user = await _userService.getUser(cashup.userId);
-        userName = user.displayName ?? user.username;
-      } catch (e) {
-        debugPrint('Error fetching user ${cashup.userId}: $e');
-      }
 
+      if (!mounted) return;
       setState(() {
         _cashup = cashup;
-        _userName = userName;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isLoading = false;
       });
     }
@@ -88,32 +78,282 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId') ?? '';
 
-      final submission = ApprovalSubmission(
-        approvalType: 'CASHUP',
-        referenceId: _cashup!.id,
-        referenceNo: _cashup!.cashupNo.toString(),
-        title: 'Cashup Verification: #${_cashup!.cashupNo}',
-        description: 'Verification requested for R ${_cashup!.totalAmount.toStringAsFixed(2)} collected on ${_cashup!.cashupDate} by ${_userName ?? _cashup!.userId}',
-        requesterId: userId,
-        payloadJson: jsonEncode(_cashup!.toJson()),
-      );
+      await _cashupService.submitForApproval(_cashup!.id, {
+        'requesterId': userId,
+        'comments': 'Submitted from mawa cashup detail screen',
+      });
 
-      await _approvalService.submitApproval(submission);
+      String? printWarning;
+      try {
+        await PosPrintingService().queueCashup(_cashup!.id);
+      } catch (printError) {
+        printWarning = friendlyErrorMessage(printError);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cashup submitted for approval successfully'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(
+              printWarning == null
+                  ? 'Cashup submitted and cashup slip queued for printing.'
+                  : 'Cashup submitted, but the cashup slip could not be queued: $printWarning',
+            ),
+            backgroundColor: printWarning == null ? Colors.green : Colors.orange,
+          ),
         );
         _fetchDetails();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Failed to submit: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  bool _canEditCashup(Cashup cashup) {
+    final status = cashup.status.toUpperCase();
+    return status == 'OPEN' ||
+        status == 'NEW' ||
+        status == 'DRAFT' ||
+        status == 'AWAITING_DEPOSITS' ||
+        status == 'COMPLETED';
+  }
+
+  Future<void> _showDepositDialog() async {
+    if (_cashup == null) return;
+
+    final amountController = TextEditingController();
+    final referenceController = TextEditingController();
+    String? selectedBankName;
+    final notesController = TextEditingController();
+    String paymentMethod = 'CASH';
+    DateTime depositDate = DateTime.now();
+    String? attachmentFile;
+    String? attachmentExtension;
+    String? attachmentName;
+    String? validationError;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create Deposit'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Amount *',
+                      prefixText: 'R ',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: paymentMethod,
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Method',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+                      DropdownMenuItem(value: 'CARD', child: Text('Card')),
+                      DropdownMenuItem(value: 'EFT', child: Text('EFT')),
+                      DropdownMenuItem(value: 'BANK_DEPOSIT', child: Text('Bank Deposit')),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => paymentMethod = value ?? 'CASH'),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_outlined),
+                    title: const Text('Deposit Date'),
+                    subtitle: Text(DateFormat('yyyy-MM-dd').format(depositDate)),
+                    trailing: TextButton(
+                      child: const Text('CHANGE'),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: depositDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                          lastDate: DateTime.now().add(const Duration(days: 30)),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => depositDate = picked);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: referenceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Reference Number',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppDropdownField(
+                    field: 'BANK-NAME',
+                    label: 'Bank Name',
+                    icon: Icons.account_balance_outlined,
+                    value: selectedBankName,
+                    onChanged: (value) =>
+                        setDialogState(() => selectedBankName = value),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'PROOF OF DEPOSIT *',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                      letterSpacing: .5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: const [
+                          'pdf',
+                          'jpg',
+                          'jpeg',
+                          'png',
+                          'doc',
+                          'docx',
+                        ],
+                        withData: true,
+                      );
+                      if (picked == null || picked.files.isEmpty) return;
+                      final file = picked.files.single;
+                      if (file.bytes == null || file.bytes!.isEmpty) {
+                        setDialogState(() {
+                          validationError = 'The selected attachment could not be read.';
+                        });
+                        return;
+                      }
+                      setDialogState(() {
+                        attachmentName = file.name;
+                        attachmentExtension = file.extension ??
+                            (file.name.contains('.')
+                                ? file.name.split('.').last
+                                : 'bin');
+                        attachmentFile = base64Encode(file.bytes!);
+                        validationError = null;
+                      });
+                    },
+                    icon: const Icon(Icons.attach_file_rounded),
+                    label: Text(
+                      attachmentName == null
+                          ? 'SELECT ATTACHMENT'
+                          : 'CHANGE: $attachmentName',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (attachmentName != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      attachmentName!,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                  if (validationError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      validationError!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final amount = double.tryParse(
+                  amountController.text.trim().replaceAll(',', '.'),
+                );
+                if (amount == null || amount <= 0) {
+                  setDialogState(() => validationError = 'A valid amount is required.');
+                  return;
+                }
+                if (attachmentFile == null || attachmentExtension == null) {
+                  setDialogState(() =>
+                      validationError = 'A proof-of-deposit attachment is required.');
+                  return;
+                }
+                Navigator.pop(context, {
+                  'amountCents': (amount * 100).round(),
+                  'paymentMethod': paymentMethod,
+                  'depositDate': DateFormat('yyyy-MM-dd').format(depositDate),
+                  'referenceNo': referenceController.text.trim(),
+                  'bankName': selectedBankName,
+                  'notes': notesController.text.trim(),
+                  'attachmentFile': attachmentFile,
+                  'attachmentExtension': attachmentExtension,
+                  'attachmentDocumentType': 'DEPOSIT-PROOF',
+                });
+              },
+              child: const Text('SAVE'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    amountController.dispose();
+    referenceController.dispose();
+    notesController.dispose();
+
+    if (result == null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      result['createdBy'] = prefs.getString('userId') ?? '';
+      await _cashupService.createDeposit(_cashup!.id, result);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Deposit created successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _fetchDetails();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Failed to create deposit: $e')),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -126,7 +366,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       appBar: AppBar(
         title: Text(_cashup != null ? 'Cashup #${_cashup!.cashupNo}' : 'Cashup Details'),
         actions: [
-          if (_cashup != null && (_cashup!.status == 'NEW' || _cashup!.status == 'DRAFT'))
+          if (_cashup != null && _canEditCashup(_cashup!))
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: TextButton.icon(
@@ -186,6 +426,8 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
           _buildInfoSection(cashup),
           const SizedBox(height: 16),
           _buildPaymentsSection(cashup, colorScheme),
+          const SizedBox(height: 16),
+          _buildDepositsSection(cashup, colorScheme),
           const SizedBox(height: 16),
           AttachmentSection(
             objectId: widget.cashupId,
@@ -252,15 +494,31 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
             const SizedBox(height: 8),
             _buildInfoRow(Icons.event_available, 'Date', cashup.cashupDate),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.devices_outlined, 'Device ID', cashup.deviceId),
+            _buildInfoRow(Icons.devices_outlined, 'Device', cashup.deviceId),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.person_outline, 'User', _userName ?? cashup.userId),
-            if (_userName != null) ...[
-              const SizedBox(height: 8),
-              _buildInfoRow(Icons.badge_outlined, 'User ID', cashup.userId),
-            ],
+            _buildInfoRow(Icons.person_outline, 'Cashier', cashup.cashierDisplayName),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.receipt_long_outlined, 'Receipt Count', cashup.receiptCount.toString()),
+            if (cashup.isManualReceiptBook) ...[
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.menu_book_outlined, 'Receipt Book', cashup.receiptBookNo),
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                Icons.format_list_numbered_outlined,
+                'Receipt Range',
+                '${cashup.receiptFromNo} - ${cashup.receiptToNo}',
+              ),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.payments_outlined, 'Manual Amount', 'R ${(cashup.manualAmountCents / 100).toStringAsFixed(2)}'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.receipt_outlined, 'Receipt Total', 'R ${(cashup.receiptTotalCents / 100).toStringAsFixed(2)}'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.balance_outlined, 'Variance', 'R ${(cashup.varianceCents / 100).toStringAsFixed(2)}'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.badge_outlined, 'Employee Responsible', cashup.employeeResponsibleName.isEmpty ? cashup.employeeResponsibleId : cashup.employeeResponsibleName),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.place_outlined, 'Area', cashup.areaName.isEmpty ? cashup.areaCode : cashup.areaName),
+            ],
           ],
         ),
       ),
@@ -276,6 +534,157 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
       ],
     );
+  }
+
+  Widget _buildDepositsSection(Cashup cashup, ColorScheme colorScheme) {
+    final canEdit = _canEditCashup(cashup);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('DEPOSITS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+                ),
+                if (canEdit)
+                  TextButton.icon(
+                    onPressed: _showDepositDialog,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('ADD DEPOSIT'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _depositMetric('Collected', cashup.totalAmount)),
+                Expanded(child: _depositMetric('Deposited', cashup.depositTotalAmount)),
+                Expanded(child: _depositMetric('Balance', cashup.depositBalanceAmount)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (cashup.deposits.isEmpty)
+              Text('No deposits captured yet.', style: TextStyle(color: Colors.grey[600]))
+            else
+              ...cashup.deposits.map((deposit) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: colorScheme.primary.withOpacity(0.1),
+                      child: Icon(Icons.account_balance_outlined, color: colorScheme.primary, size: 20),
+                    ),
+                    title: Text('R ${deposit.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text([
+                      deposit.depositDate,
+                      deposit.paymentMethod,
+                      if (deposit.referenceNo.isNotEmpty) deposit.referenceNo,
+                    ].where((value) => value.isNotEmpty).join(' • ')),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'View proof of deposit',
+                          icon: const Icon(Icons.attachment_outlined),
+                          onPressed: () => _showDepositProof(deposit),
+                        ),
+                        if (canEdit)
+                          IconButton(
+                            tooltip: 'Delete deposit',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _deleteDeposit(deposit),
+                          ),
+                      ],
+                    ),
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _depositMetric(String label, double amount) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+        const SizedBox(height: 4),
+        Text('R ${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Future<void> _showDepositProof(CashupDeposit deposit) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 700),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Proof of Deposit',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: AttachmentSection(
+                      objectId: deposit.id,
+                      readOnly: true,
+                      documentTypeField: 'DOCUMENT-TYPE-DEPOSIT',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteDeposit(CashupDeposit deposit) async {
+    if (_cashup == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Deposit'),
+        content: Text('Delete deposit of R ${deposit.amount.toStringAsFixed(2)}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('DELETE')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _cashupService.deleteDeposit(_cashup!.id, deposit.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deposit deleted')));
+      _fetchDetails();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to delete deposit: $e')), backgroundColor: Colors.red));
+    }
   }
 
   Widget _buildPaymentsSection(Cashup cashup, ColorScheme colorScheme) {

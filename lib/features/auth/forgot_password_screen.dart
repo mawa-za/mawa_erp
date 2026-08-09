@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -20,28 +21,35 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final email = _emailController.text.trim();
-      // The requirement says pass email query parameter.
-      // So the path would be /v2/forgot-password?email=...
-      final response = await ApiClient().post('/v2/forgot-password?email=$email');
+      final response = await ApiClient().postPublic(
+        '/v2/forgot-password',
+        body: {'email': email},
+      );
 
       if (response.statusCode == 200) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Password reset instructions sent to your email.')),
+            const SnackBar(
+              content: Text(
+                'If the email address is registered, password reset instructions will be sent.',
+              ),
+            ),
           );
           Navigator.of(context).pop();
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to request reset: ${response.statusCode}')),
+            const SnackBar(
+              content: Text('Unable to request a password reset. Please try again.'),
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e'))),
         );
       }
     } finally {
@@ -69,14 +77,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const Icon(
                 Icons.lock_reset,
                 size: 100,
-                color: Colors.deepPurple,
+                color: const Color(0xFFF20D1A),
               ),
               const SizedBox(height: 16),
               Text(
                 'Reset Password',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
+                      color: const Color(0xFFF20D1A),
                     ),
               ),
               const SizedBox(height: 8),
@@ -110,7 +118,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       onPressed: _resetPassword,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(56),
-                        backgroundColor: Colors.deepPurple,
+                        backgroundColor: const Color(0xFFF20D1A),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

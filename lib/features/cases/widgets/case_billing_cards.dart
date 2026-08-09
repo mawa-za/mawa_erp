@@ -22,7 +22,7 @@ class CaseBillingCards extends StatelessWidget {
             _buildSummaryCard('Total Time', '${summary.totalTimeMinutes}m', Colors.blueGrey, Icons.timer_outlined),
             _buildSummaryCard('Total Fees', summary.formattedTotalFees, Colors.blue, Icons.payments_outlined),
             _buildSummaryCard('Disbursements', summary.formattedTotalDisbursements, Colors.orange, Icons.receipt_long_outlined),
-            _buildSummaryCard('Total Billable', summary.formattedTotalBillable, Colors.deepPurple, Icons.summarize_outlined),
+            _buildSummaryCard('Total Billable', summary.formattedTotalBillable, const Color(0xFFF20D1A), Icons.summarize_outlined),
             _buildSummaryCard('Total Billed', summary.formattedTotalBilled, Colors.green, Icons.check_circle_outline_rounded),
             _buildSummaryCard('Outstanding', summary.formattedBalance, Colors.red, Icons.account_balance_wallet_outlined),
           ],

@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String token;
@@ -20,13 +20,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (widget.token.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This password reset link is invalid or expired.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // Calling /v2/change-password (assuming v2 based on previous patterns)
-      // Passing token and new password in the body
-      final response = await ApiClient().post(
-        '/v2/change-password',
+      final response = await ApiClient().postPublic(
+        '/v2/reset-password',
         body: {
           'token': widget.token,
           'password': _passwordController.text,
@@ -39,20 +44,24 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             const SnackBar(content: Text('Password reset successfully. Please login with your new password.')),
           );
           // Navigate to login (or let the Initializer handle it by clearing URL/state)
-          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
         }
       } else {
-        final error = jsonDecode(response.body);
+        final message = friendlyErrorMessage(
+          response.body,
+          statusCode: response.statusCode,
+          fallback: 'This password reset link is invalid or expired.',
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${error['message'] ?? response.statusCode}')),
+            SnackBar(content: Text(message)),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e'))),
         );
       }
     } finally {
@@ -82,14 +91,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 const Icon(
                   Icons.vpn_key,
                   size: 100,
-                  color: Colors.deepPurple,
+                  color: const Color(0xFFF20D1A),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Set New Password',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
+                        color: const Color(0xFFF20D1A),
                       ),
                 ),
                 const SizedBox(height: 32),
@@ -109,7 +118,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   obscureText: _obscurePassword,
                   validator: (value) {
                     if (value == null || value.isEmpty) return 'Required';
-                    if (value.length < 6) return 'Password must be at least 6 characters';
+                    if (value.length < 8) return 'Password must be at least 8 characters';
                     return null;
                   },
                 ),
@@ -137,7 +146,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         onPressed: _resetPassword,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
-                          backgroundColor: Colors.deepPurple,
+                          backgroundColor: const Color(0xFFF20D1A),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

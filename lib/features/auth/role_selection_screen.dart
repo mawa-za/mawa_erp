@@ -32,14 +32,14 @@ class RoleSelectionScreen extends StatelessWidget {
                 const Icon(
                   Icons.supervised_user_circle,
                   size: 100,
-                  color: Colors.deepPurple,
+                  color: const Color(0xFFF20D1A),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Select Your Role',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
+                        color: const Color(0xFFF20D1A),
                       ),
                 ),
                 const SizedBox(height: 8),

@@ -1,6 +1,13 @@
 class GroupSociety {
   final String id;
   final String partnerId;
+  final String productId;
+  final String? productCode;
+  final String? productDescription;
+  final bool productAvailable;
+  final String displayName;
+  final String? partnerNumber;
+  final bool partnerAvailable;
   final String groupNo;
   final String societyType;
   final String status;
@@ -13,10 +20,23 @@ class GroupSociety {
   final String createdBy;
   final String updatedAt;
   final String? updatedBy;
+  final String? approvalRequestId;
+  final String? pendingAction;
+  final String? requestedStatus;
+  final String? previousStatus;
+  final int agreementPrintCount;
+  final String? agreementLastPrintedAt;
 
   GroupSociety({
     required this.id,
     required this.partnerId,
+    required this.productId,
+    this.productCode,
+    this.productDescription,
+    this.productAvailable = true,
+    required this.displayName,
+    this.partnerNumber,
+    this.partnerAvailable = true,
     required this.groupNo,
     required this.societyType,
     required this.status,
@@ -29,6 +49,12 @@ class GroupSociety {
     required this.createdBy,
     required this.updatedAt,
     this.updatedBy,
+    this.approvalRequestId,
+    this.pendingAction,
+    this.requestedStatus,
+    this.previousStatus,
+    this.agreementPrintCount = 0,
+    this.agreementLastPrintedAt,
   });
 
   double get availableBalance => availableBalanceCents / 100.0;
@@ -68,6 +94,13 @@ class GroupSociety {
     return GroupSociety(
       id: (json['id'] ?? '').toString(),
       partnerId: (json['partnerId'] ?? '').toString(),
+      productId: (json['productId'] ?? '').toString(),
+      productCode: json['productCode']?.toString(),
+      productDescription: json['productDescription']?.toString(),
+      productAvailable: json['productAvailable'] == null ? true : json['productAvailable'] == true,
+      displayName: (json['displayName'] ?? json['name'] ?? json['groupNo'] ?? 'Group Society').toString(),
+      partnerNumber: json['partnerNumber']?.toString() ?? json['partnerNo']?.toString(),
+      partnerAvailable: json['partnerAvailable'] == null ? true : json['partnerAvailable'] == true,
       groupNo: (json['groupNo'] ?? '').toString(),
       societyType: (json['societyType'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
@@ -80,6 +113,12 @@ class GroupSociety {
       createdBy: (json['createdBy'] ?? '').toString(),
       updatedAt: parseDate(json['updatedAt']) ?? '',
       updatedBy: json['updatedBy']?.toString(),
+      approvalRequestId: json['approvalRequestId']?.toString(),
+      pendingAction: json['pendingAction']?.toString(),
+      requestedStatus: json['requestedStatus']?.toString(),
+      previousStatus: json['previousStatus']?.toString(),
+      agreementPrintCount: toInt(json['agreementPrintCount']),
+      agreementLastPrintedAt: parseDate(json['agreementLastPrintedAt']),
     );
   }
 }

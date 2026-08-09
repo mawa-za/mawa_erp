@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/legal_case.dart';
 import '../services/case_management_service.dart';
 import 'case_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class UnbilledCasesScreen extends StatefulWidget {
   const UnbilledCasesScreen({super.key});
@@ -34,7 +35,7 @@ class _UnbilledCasesScreenState extends State<UnbilledCasesScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     }
@@ -47,7 +48,7 @@ class _UnbilledCasesScreenState extends State<UnbilledCasesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Unbilled Matters', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
@@ -194,7 +195,7 @@ class _UnbilledCasesScreenState extends State<UnbilledCasesScreen> {
         ),
       );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
     }
   }
 

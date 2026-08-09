@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipPlanCreateScreen extends StatefulWidget {
   final MembershipPlan? plan;
@@ -79,7 +80,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyErrorMessage('Error: $e')),
             backgroundColor: Colors.red[700],
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -96,7 +97,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit Membership Plan' : 'New Membership Plan'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),

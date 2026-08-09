@@ -5,6 +5,7 @@ import '../services/case_management_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/models/user.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CreateCaseScreen extends StatefulWidget {
   const CreateCaseScreen({super.key});
@@ -103,7 +104,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
         context.push('/cases/${newCase.id}');
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -112,7 +113,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('New Case', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,

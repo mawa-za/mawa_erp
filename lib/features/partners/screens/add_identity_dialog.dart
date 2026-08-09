@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner_identity.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddIdentityDialog extends StatefulWidget {
   final String partnerId;
@@ -63,12 +64,12 @@ class _AddIdentityDialogState extends State<AddIdentityDialog> {
           Navigator.of(context).pop(true);
         }
       } else {
-        throw Exception('Failed to add identity: ${response.statusCode}');
+        throw AppException('Failed to add identity: ${response.body.isNotEmpty ? response.body : response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {

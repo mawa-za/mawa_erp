@@ -1,0 +1,110 @@
+timeout: 1800s
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
+  substitutionOption: ALLOW_LOOSE
+substitutions:
+  _ACTION: 'build-and-deploy'
+  _REGION: 'us-central1'
+  _ARTIFACT_REPOSITORY: 'mawa-repo'
+  _IMAGE_NAME: 'mawa_erp'
+  _SERVICE_NAME: 'mawa-erp-v2-prod'
+  _RUNTIME_SERVICE_ACCOUNT: 'mawa-erp-v2-prod-sa'
+  _GITHUB_REPOSITORY: 'mawa-za/mawa_erp'
+  _CLOUD_SQL_INSTANCE: ''
+  _VPC_CONNECTOR: ''
+  _VPC_EGRESS: 'private-ranges-only'
+  _MIN_INSTANCES: '0'
+  _MAX_INSTANCES: '10'
+  _CONCURRENCY: '80'
+  _CPU: '1'
+  _MEMORY: '512Mi'
+  _REQUEST_TIMEOUT: '300s'
+  _ALLOW_UNAUTHENTICATED: 'true'
+  _HEALTH_PATH: '/healthz'
+  _STORAGE_BUCKET: ''
+  _STORAGE_ROLE: 'roles/storage.objectAdmin'
+  _BILLING_BASE_URL: ''
+steps:
+  - id: validate-release-tag
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    secretEnv: [GITHUB_TOKEN]
+    args:
+      - -c
+      - |
+        chmod +x scripts/prod-v2/*.sh
+        TAG_NAME="$TAG_NAME" COMMIT_SHA="$COMMIT_SHA" \
+        GITHUB_REPOSITORY="${_GITHUB_REPOSITORY}" GITHUB_TOKEN="$$GITHUB_TOKEN" \
+          ./scripts/prod-v2/validate-release-tag.sh
+
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        [[ "${_ACTION}" == "deploy" ]] && { echo "Deployment-only run: using the existing release image."; exit 0; }
+        docker build --file=Dockerfile-prod \
+          --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPOSITORY}/${_IMAGE_NAME}:$TAG_NAME \
+          --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPOSITORY}/${_IMAGE_NAME}:sha-$SHORT_SHA .
+
+  - id: push-release-image
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args: [-c, '[[ "${_ACTION}" == "deploy" ]] || docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPOSITORY}/${_IMAGE_NAME}:$TAG_NAME']
+
+  - id: push-commit-image
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args: [-c, '[[ "${_ACTION}" == "deploy" ]] || docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPOSITORY}/${_IMAGE_NAME}:sha-$SHORT_SHA']
+
+  - id: resolve-image-digest
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        image="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_ARTIFACT_REPOSITORY}/${_IMAGE_NAME}"
+        digest="$(gcloud artifacts docker images describe "$${image}:$TAG_NAME" --format='value(image_summary.digest)')"
+        test -n "$${digest}"
+        echo "$${image}@$${digest}" > /workspace/image-ref.txt
+
+  - id: deploy-prod-v2
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    env:
+      - PROJECT_ID=$PROJECT_ID
+      - ACTION=${_ACTION}
+      - REGION=${_REGION}
+      - SERVICE_NAME=${_SERVICE_NAME}
+      - RUNTIME_SERVICE_ACCOUNT=${_RUNTIME_SERVICE_ACCOUNT}
+      - IMAGE_REF_FILE=/workspace/image-ref.txt
+      - TAG_NAME=$TAG_NAME
+      - COMMIT_SHA=$COMMIT_SHA
+      - SHORT_SHA=$SHORT_SHA
+      - BUILD_SERVICE_ACCOUNT_EMAIL=$SERVICE_ACCOUNT_EMAIL
+      - CLOUD_BUILD_ID=$BUILD_ID
+      - CLOUD_SQL_INSTANCE=${_CLOUD_SQL_INSTANCE}
+      - VPC_CONNECTOR=${_VPC_CONNECTOR}
+      - VPC_EGRESS=${_VPC_EGRESS}
+      - MIN_INSTANCES=${_MIN_INSTANCES}
+      - MAX_INSTANCES=${_MAX_INSTANCES}
+      - CONCURRENCY=${_CONCURRENCY}
+      - CPU=${_CPU}
+      - MEMORY=${_MEMORY}
+      - REQUEST_TIMEOUT=${_REQUEST_TIMEOUT}
+      - ALLOW_UNAUTHENTICATED=${_ALLOW_UNAUTHENTICATED}
+      - HEALTH_PATH=${_HEALTH_PATH}
+      - STORAGE_BUCKET=${_STORAGE_BUCKET}
+      - STORAGE_ROLE=${_STORAGE_ROLE}
+      - BILLING_BASE_URL=${_BILLING_BASE_URL}
+      - COMPONENT_LABEL=mawa-erp
+    args: [-c, '[[ "${_ACTION}" == "build" ]] && { echo "Build phase complete; deployment deferred."; exit 0; }; chmod +x scripts/prod-v2/*.sh && ./scripts/prod-v2/deploy-service.sh']
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/github-token/versions/latest
+      env: GITHUB_TOKEN

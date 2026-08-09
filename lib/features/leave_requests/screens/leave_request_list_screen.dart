@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../models/leave_request.dart';
 import '../services/leave_service.dart';
 import 'leave_request_create_screen.dart';
 import 'leave_request_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class LeaveRequestListScreen extends StatefulWidget {
   const LeaveRequestListScreen({super.key});
@@ -12,167 +14,113 @@ class LeaveRequestListScreen extends StatefulWidget {
 }
 
 class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
-  final LeaveService _service = LeaveService();
-  bool _isLoading = true;
-  List<LeaveRequest> _requests = [];
+  final _service = LeaveService();
+  final _search = TextEditingController();
+  List<LeaveRequest> _requests = const [];
+  bool _loading = true;
   String? _error;
-  String _selectedStatus = 'ALL';
-
-  final List<String> _statuses = ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+  String _status = 'ALL';
 
   @override
   void initState() {
     super.initState();
-    _fetchRequests();
+    _load();
   }
 
-  Future<void> _fetchRequests() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
     try {
-      final results = await _service.getLeaveRequests(
-        status: _selectedStatus == 'ALL' ? null : _selectedStatus,
-      );
-      if (mounted) {
-        setState(() {
-          _requests = results;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
+      final requests = await _service.getLeaveRequests(status: _status);
+      if (mounted) setState(() => _requests = requests);
+    } catch (error) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  List<LeaveRequest> get _filtered {
+    final term = _search.text.trim().toLowerCase();
+    if (term.isEmpty) return _requests;
+    return _requests.where((request) => [request.requestNumber, request.employeeName, request.employeeNumber, request.leaveTypeName, request.status]
+        .join(' ').toLowerCase().contains(term)).toList();
+  }
+
+  Future<void> _create() async {
+    final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const LeaveRequestCreateScreen()));
+    if (changed == true) await _load();
+  }
+
+  Future<void> _open(LeaveRequest request) async {
+    final changed = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => LeaveRequestDetailScreen(requestId: request.id)));
+    if (changed == true) await _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Leave Requests', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchRequests,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildStatusFilter(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? _buildErrorWidget()
-                    : _requests.isEmpty
-                        ? _buildEmptyWidget()
-                        : _buildList(colorScheme),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const LeaveRequestCreateScreen()),
-          );
-          if (result == true) _fetchRequests();
-        },
-        label: const Text('Request Leave'),
-        icon: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Widget _buildStatusFilter() {
-    return Container(
-      height: 50,
-      color: Colors.white,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: _statuses.length,
-        itemBuilder: (context, index) {
-          final status = _statuses[index];
-          final isSelected = _selectedStatus == status;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(status, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedStatus = status);
-                  _fetchRequests();
-                }
-              },
-              selectedColor: Theme.of(context).colorScheme.primary,
-              showCheckmark: false,
+      appBar: AppBar(title: const Text('Leave Requests'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))]),
+      floatingActionButton: FloatingActionButton.extended(onPressed: _create, icon: const Icon(Icons.add_rounded), label: const Text('New Request')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(children: [
+                    TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(labelText: 'Search requests', prefixIcon: Icon(Icons.search_rounded)),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(height: 42, child: ListView(scrollDirection: Axis.horizontal, children: ['ALL', 'PENDING', 'SUBMITTED', 'APPROVED', 'REJECTED', 'CANCELLED']
+                        .map((status) => Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(status), selected: _status == status, onSelected: (_) { setState(() => _status = status); _load(); }))).toList())),
+                  ]),
+                ),
+              ),
             ),
-          );
-        },
+            Expanded(child: _body()),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _buildList(ColorScheme colorScheme) {
+  Widget _body() {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(_error!), const SizedBox(height: 12), FilledButton(onPressed: _load, child: const Text('Retry'))]));
+    final requests = _filtered;
+    if (requests.isEmpty) return const Center(child: Text('No leave requests found.'));
     return RefreshIndicator(
-      onRefresh: _fetchRequests,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _requests.length,
-        itemBuilder: (context, index) {
-          final request = _requests[index];
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+        itemCount: requests.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (_, index) {
+          final request = requests[index];
           return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200),
-            ),
             child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              title: Row(
-                children: [
-                  Text(request.type, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const Spacer(),
-                  _buildStatusBadge(request.status),
-                ],
+              contentPadding: const EdgeInsets.all(18),
+              leading: const CircleAvatar(child: Icon(Icons.beach_access_outlined)),
+              title: Text('${request.requestNumber} • ${request.leaveTypeName}', style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('${request.employeeName} (${request.employeeNumber})\n${request.startDate} to ${request.endDate} • ${request.amount.toStringAsFixed(2)} ${request.unit.toLowerCase()}'),
               ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text('${request.startDate} to ${request.endDate}', style: const TextStyle(fontSize: 13)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text('${request.days} day(s)', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13)),
-                ],
-              ),
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => LeaveRequestDetailScreen(requestId: request.id)),
-                );
-                if (result == true) _fetchRequests();
-              },
+              isThreeLine: true,
+              trailing: Chip(label: Text(_label(request.status))),
+              onTap: () => _open(request),
             ),
           );
         },
@@ -180,43 +128,5 @@ class _LeaveRequestListScreenState extends State<LeaveRequestListScreen> {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    switch (status.toUpperCase()) {
-      case 'APPROVED': color = Colors.green; break;
-      case 'REJECTED': color = Colors.red; break;
-      case 'PENDING': color = Colors.orange; break;
-      case 'CANCELLED': color = Colors.grey; break;
-      default: color = Colors.blue;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(_error!),
-          ElevatedButton(onPressed: _fetchRequests, child: const Text('Retry')),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyWidget() {
-    return const Center(
-      child: Text('No leave requests found'),
-    );
-  }
+  String _label(String value) => value.replaceAll(RegExp(r'[-_]+'), ' ').split(' ').map((part) => part.isEmpty ? part : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}').join(' ');
 }

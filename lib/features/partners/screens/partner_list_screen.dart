@@ -4,6 +4,7 @@ import '../../../core/api_client.dart';
 import '../models/partner.dart';
 import 'partner_create_screen.dart';
 import 'partner_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PartnerListScreen extends StatefulWidget {
   final String? role;
@@ -26,10 +27,12 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
   List<Partner> _partners = [];
   String? _error;
   String _selectedType = 'ALL';
+  String _selectedStatus = 'ALL';
   final TextEditingController _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
   final List<String> _types = ['ALL', 'INDIVIDUAL', 'ORGANISATION', 'GROUP'];
+  final List<String> _statuses = ['ALL', 'ACTIVE', 'PENDING', 'INACTIVE', 'ARCHIVED', 'DECEASED'];
 
   @override
   void initState() {
@@ -58,23 +61,28 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         final List<dynamic> data = jsonDecode(response.body);
         final allPartners = data.map((json) => Partner.fromJson(json)).toList();
         
+        allPartners.sort((a, b) => b.number.compareTo(a.number));
         setState(() {
-          if (_selectedType == 'ALL') {
-            _partners = allPartners;
-          } else {
-            _partners = allPartners.where((p) => p.type == _selectedType).toList();
-          }
+          _partners = allPartners.where((partner) {
+            final typeMatches = _selectedType == 'ALL' || partner.type.toUpperCase() == _selectedType;
+            final statusMatches = _selectedStatus == 'ALL' || partner.status.toUpperCase() == _selectedStatus;
+            return typeMatches && statusMatches;
+          }).toList();
           _isLoading = false;
         });
       } else {
         setState(() {
-          _error = 'Failed to load partners: ${response.statusCode}';
+          _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'Partners could not be loaded. Please try again.',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }
@@ -83,12 +91,17 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final entityName = widget.role == 'MEMBER' ? 'Member' : 'Partner';
+    final normalizedRole = widget.role?.toUpperCase();
+    final entityName = normalizedRole == 'MEMBER'
+        ? 'Member'
+        : normalizedRole == 'SUPPLIER'
+            ? 'Supplier'
+            : 'Partner';
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.title ?? 'Business Partners'),
+        title: Text(widget.title ?? (normalizedRole == null ? 'Business Partners' : '${entityName}s')),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
@@ -111,21 +124,25 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
         children: [
           _buildSearchBar(entityName),
           _buildTypeFilter(),
+          _buildStatusFilter(),
           Expanded(child: _buildBody(colorScheme, entityName)),
         ],
       ),
-      floatingActionButton: widget.allowCreate ? FloatingActionButton(
+      floatingActionButton: widget.allowCreate ? FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => PartnerCreateScreen(
-                isMemberContext: widget.role == 'MEMBER',
+                isMemberContext: normalizedRole == 'MEMBER',
+                initialRole: normalizedRole == 'SUPPLIER' ? 'SUPPLIER' : null,
+                lockInitialRole: normalizedRole == 'SUPPLIER',
               ),
             ),
           );
           _fetchPartners();
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: Text(normalizedRole == 'SUPPLIER' ? 'ONBOARD SUPPLIER' : 'ADD ${entityName.toUpperCase()}'),
       ) : null,
     );
   }
@@ -203,6 +220,35 @@ class _PartnerListScreenState extends State<PartnerListScreen> {
               showCheckmark: false,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
+          );
+        },
+      ),
+    );
+  }
+
+
+  Widget _buildStatusFilter() {
+    return Container(
+      height: 50,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = _statuses[index];
+          final selected = status == _selectedStatus;
+          return ChoiceChip(
+            label: Text(status, style: const TextStyle(fontSize: 11)),
+            selected: selected,
+            onSelected: (_) {
+              setState(() => _selectedStatus = status);
+              _fetchPartners();
+            },
+            showCheckmark: false,
+            selectedColor: Theme.of(context).colorScheme.primaryContainer,
           );
         },
       ),

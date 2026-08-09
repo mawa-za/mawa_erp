@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -5,11 +6,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_client.dart';
 import '../../core/models/module_usage.dart';
 import '../../core/services/module_usage_service.dart';
+import '../../core/services/tenant_experience_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../core/routing/workcenter_route_registry.dart';
+import '../../core/routing/feature_group_registry.dart';
+import '../../core/routing/workcenter_card_descriptions.dart';
 import '../../core/routing/app_routes.dart';
+import '../../core/theme/mawa_design.dart';
+import '../../core/widgets/mawa_ui.dart';
+import '../../core/models/access_profile.dart';
+import '../../core/services/access_profile_service.dart';
 import '../settings/models/role.dart';
 import 'models/workcenter.dart';
+import 'models/tenant_experience.dart';
+
+// Import missing screens for legacy navigation fallback
+import '../auth/role_selection_screen.dart';
+import '../auth/change_password_screen.dart';
+import '../settings/screens/api_log_list_screen.dart';
+import '../invoicing/screens/invoice_create_screen.dart';
+import '../membership/screens/membership_claim_list_screen.dart';
+import '../membership/screens/membership_plan_list_screen.dart';
+import '../payroll/screens/payroll_batch_list_screen.dart';
+import '../membership/screens/group_society_list_screen.dart';
+import '../payments/screens/payment_request_list_screen.dart';
+import '../partners/screens/partner_list_screen.dart';
+import '../cashup/screens/cashup_list_screen.dart';
+import '../inbox/models/inbox.dart';
+import '../inbox/services/inbox_service.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -23,6 +48,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   String? _displayName;
   String? _selectedRoleDisplay;
   String _appVersion = '';
+  AccessProfile? _accessProfile;
   List<Workcenter> _workcenters = [];
   List<Workcenter> _filteredWorkcenters = [];
   List<ModuleUsage> _recentModules = [];
@@ -34,6 +60,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   final FocusNode _searchFocusNode = FocusNode();
   late AnimationController _animationController;
   final ModuleUsageService _moduleUsageService = ModuleUsageService();
+  final TenantExperienceService _tenantExperienceService = TenantExperienceService();
+  TenantExperience? _tenantExperience;
+  final InboxService _inboxService = InboxService();
+  InboxCounts _inboxCounts = const InboxCounts.empty();
+  Timer? _inboxTimer;
 
   @override
   void initState() {
@@ -43,9 +74,25 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 800),
     );
     _loadUserInfo();
+    _loadTenantExperience();
     _loadAppVersion();
     _fetchRecentModules();
     _fetchFrequentModules();
+    _loadInboxCounts();
+    _inboxTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadInboxCounts(silent: true),
+    );
+  }
+
+  Future<void> _loadInboxCounts({bool silent = false}) async {
+    try {
+      final counts = await _inboxService.getCounts();
+      if (!mounted) return;
+      setState(() => _inboxCounts = counts);
+    } catch (error) {
+      if (!silent) debugPrint('Unable to load inbox counts: $error');
+    }
   }
 
   Future<void> _loadAppVersion() async {
@@ -55,15 +102,32 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     });
   }
 
+  Future<void> _loadTenantExperience() async {
+    try {
+      final experience = await _tenantExperienceService.getExperience();
+      if (mounted) setState(() => _tenantExperience = experience);
+    } catch (error) {
+      debugPrint('Unable to load tenant industry experience: $error');
+      if (mounted) setState(() => _tenantExperience = null);
+    }
+  }
+
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
     final roleId = prefs.getString('selectedRole');
     final roleDesc = prefs.getString('selectedRoleDescription');
-    
+
     setState(() {
       _displayName = prefs.getString('displayName');
       _selectedRoleDisplay = roleDesc ?? roleId;
     });
+
+    try {
+      final profile = await AccessProfileService().getProfile();
+      if (mounted) setState(() => _accessProfile = profile);
+    } catch (e) {
+      debugPrint('Unable to load access profile: $e');
+    }
 
     if (roleId != null) {
       _fetchWorkcenters(roleId);
@@ -124,17 +188,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   }
 
   void _applySearch(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredWorkcenters = _workcenters;
-      } else {
-        final lowercaseQuery = query.toLowerCase();
-        _filteredWorkcenters = _workcenters.where((wc) {
-          return wc.description.toLowerCase().contains(lowercaseQuery) ||
-                 wc.id.toLowerCase().contains(lowercaseQuery);
-        }).toList();
-      }
-    });
+    setState(() => _filteredWorkcenters = _workcenters);
     _animationController.forward(from: 0.0);
   }
 
@@ -145,7 +199,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (userId == null) return;
 
     final response = await ApiClient().get('/v2/user/$userId/role');
-    
+
     if (response.statusCode == 200) {
       final List<dynamic> rolesData = jsonDecode(response.body);
       final List<Role> roleList = rolesData.map((e) {
@@ -162,7 +216,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
               builder: (context) => RoleSelectionScreen(
                 roles: roleList,
                 onRoleSelected: () {
-                  Navigator.of(context).pop(); 
+                  Navigator.of(context).pop();
                   _loadUserInfo();
                 },
               ),
@@ -179,9 +233,9 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Text('Sign Out'),
-          content: const Text('Are you sure you want to sign out?'),
+          icon: const Icon(Icons.logout_rounded, color: MawaDesign.red),
+          title: const Text('Sign out of MAWA?'),
+          content: const Text('You will need to sign in again to continue working.'),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -192,7 +246,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Theme.of(context).colorScheme.onError,
               ),
-              child: const Text('Sign Out'),
+              child: const Text('Sign out'),
               onPressed: () {
                 Navigator.of(context).pop();
                 _logout();
@@ -211,8 +265,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
   }
 
-  IconData _getIconData(String id) {
-    final lowerId = id.toLowerCase();
+  IconData _getIconData(String id, [String? iconKey]) {
+    final lowerId = '${iconKey ?? ''} $id'.toLowerCase();
+    if (lowerId.contains('employment')) return Icons.work_history_rounded;
+    if (lowerId.contains('leave')) return Icons.event_available_rounded;
+    if (lowerId.contains('asset')) return Icons.precision_manufacturing_rounded;
     if (lowerId == 'employee') return Icons.badge_rounded;
     if (lowerId == 'supplier') return Icons.local_shipping_rounded;
     if (lowerId == 'customer') return Icons.person_pin_rounded;
@@ -237,6 +294,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     if (lowerId.contains('approval')) return Icons.fact_check_rounded;
     if (lowerId.contains('config') || lowerId.contains('role')) return Icons.settings_applications_rounded;
     if (lowerId.contains('case')) return Icons.gavel_rounded;
+    if (lowerId.contains('engagement') || lowerId.contains('communication')) return Icons.campaign_rounded;
     return Icons.apps_rounded;
   }
 
@@ -244,38 +302,62 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     // Track module usage
     _moduleUsageService.trackUsage(
       moduleCode: wc.id,
-      moduleName: wc.description,
+      moduleName: wc.presentationTitle,
       modulePath: wc.routePath,
       workcenterId: wc.id,
     );
     _fetchRecentModules();
     _fetchFrequentModules();
 
-    // 1. If wc.routePath is not null and starts with /, use context.go(wc.routePath!)
-    if (wc.routePath != null && wc.routePath!.startsWith('/')) {
-      context.go(wc.routePath!);
-      return;
+    // Synthetic group cards must always open their feature-group screen.
+    // Do this before route normalization because a group such as `inventory`
+    // also has a valid operational route in the workcenter registry.
+    if (FeatureGroupRegistry.isGroupId(wc.id)) {
+      final groupRoute = FeatureGroupRegistry.routeForGroup(wc.id);
+      if (groupRoute != null) {
+        context.push(groupRoute);
+        return;
+      }
     }
 
-    // 2. Lookup by routeKey
-    final routeByRegistry = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
-    if (routeByRegistry != null) {
-      context.push(routeByRegistry);
-      return;
-    }
-
-    // 3. Lookup by id
+    // Prefer the workcenter identity over a configured path. Some tenants still
+    // carry stale paths (for example Products pointing to Membership Plans),
+    // while the id/route key remains authoritative.
     final routeById = WorkcenterRouteRegistry.getRoutePath(wc.id);
     if (routeById != null) {
       context.push(routeById);
       return;
     }
 
+    final routeByRegistry = WorkcenterRouteRegistry.getRoutePath(wc.routeKey);
+    if (routeByRegistry != null) {
+      context.push(routeByRegistry);
+      return;
+    }
+
+    final configuredPath = wc.routePath?.trim();
+    if (configuredPath != null && configuredPath.isNotEmpty) {
+      final mappedPath = WorkcenterRouteRegistry.getRoutePath(configuredPath);
+      if (mappedPath != null) {
+        context.push(mappedPath);
+        return;
+      }
+      if (configuredPath.startsWith('/')) {
+        context.push(configuredPath);
+        return;
+      }
+    }
+
     // Fallback logic
     final id = wc.id.toUpperCase();
     final description = wc.description.toLowerCase();
 
-    if (['EMPLOYEE', 'SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
+    if (id == 'EMPLOYEE') {
+      context.push(AppRoutes.employment);
+      return;
+    }
+
+    if (['SUPPLIER', 'CUSTOMER', 'CLIENT', 'MEMBER'].contains(id)) {
       context.push('/partners/$id'); // Assuming we'll have this route, or use fallback navigation
       return;
     }
@@ -292,8 +374,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipClaimListScreen()));
     } else if (id.contains('INVOIC') || description.contains('invoic')) {
       context.push(AppRoutes.invoices);
-    } else if (id.contains('PLAN') || description.contains('plan') || id.contains('PRODUCT')) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MembershipPlanListScreen()));
+    } else if (id.contains('PRODUCT')) {
+      context.push(AppRoutes.products);
+    } else if (id.contains('PLAN') || description.contains('plan')) {
+      context.push(AppRoutes.membershipPlans);
     } else if (id.contains('MEMBERSHIP') || description.contains('membership')) {
       context.push(AppRoutes.memberships);
     } else if (id.contains('PAYROLL') || description.contains('payroll')) {
@@ -314,73 +398,369 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       context.push(AppRoutes.approvals);
     } else if (id.contains('CASE')) {
       context.push(AppRoutes.cases);
+    } else if (id.contains('ENGAGEMENT') || id.contains('COMMUNICATION') || description.contains('engagement') || description.contains('communication')) {
+      context.push(AppRoutes.internalCommunications);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${wc.description} feature coming soon'), behavior: SnackBarBehavior.floating),
+        SnackBar(content: Text('${wc.presentationTitle} feature coming soon'), behavior: SnackBarBehavior.floating),
       );
     }
   }
 
+  List<_HomeWorkcenterSection> _buildHomeSections(
+    List<Workcenter> roleWorkcenters,
+  ) {
+    final query = _searchController.text.trim().toLowerCase();
+    final experience = _tenantExperience;
+    final sections = experience?.sections.isNotEmpty == true
+        ? experience!.sections
+        : _fallbackExperienceSections();
+    final usedIds = <String>{};
+    final result = <_HomeWorkcenterSection>[];
+    final centralApprovalWorkcenter =
+        _findCentralApprovalWorkcenter(roleWorkcenters);
+    var centralApprovalsConfigured = false;
+
+    for (final section in sections) {
+      final cards = <Workcenter>[];
+      final orderedGroups = [...section.groups]
+        ..sort((left, right) => left.displayOrder.compareTo(right.displayOrder));
+      for (final group in orderedGroups) {
+        if (!group.active) continue;
+        final isCentralApprovalsGroup = FeatureGroupRegistry.normalize(group.code) ==
+            FeatureGroupRegistry.normalize('approvals');
+        final isReportsAnalyticsGroup = FeatureGroupRegistry.normalize(group.code) ==
+            FeatureGroupRegistry.normalize('reports-analytics');
+        if (isCentralApprovalsGroup) centralApprovalsConfigured = true;
+        final configuredChildren = <Workcenter>[];
+        for (final item in group.workcenters) {
+          if (!item.active) continue;
+          if (!FeatureGroupRegistry.belongsToCanonicalGroup(item.id, group.code)) {
+            continue;
+          }
+          final matched = _findRoleWorkcenter(roleWorkcenters, item.id);
+          if (matched == null) continue;
+          if (FeatureGroupRegistry.isLegacyInventoryUmbrella(matched.id)) {
+            continue;
+          }
+          if (_isCentralApprovalWorkcenter(matched) &&
+              !isCentralApprovalsGroup) {
+            // Older industry profiles placed the approval inbox under Work
+            // Management. It is intentionally removed there and surfaced in
+            // the dedicated Approvals workspace below.
+            continue;
+          }
+          final normalizedId = FeatureGroupRegistry.normalize(matched.id);
+          if (usedIds.contains(normalizedId)) continue;
+          configuredChildren.add(matched);
+          usedIds.add(normalizedId);
+        }
+
+        // Normalise older tenant-experience profiles at runtime. Sales and
+        // procurement documents have one clear owner and inventory operations
+        // belong under Products & Inventory, regardless of stale duplicated
+        // group entries in the compiled tenant profile.
+        for (final candidate in roleWorkcenters) {
+          if (FeatureGroupRegistry.isLegacyInventoryUmbrella(candidate.id)) {
+            continue;
+          }
+          final owner =
+              FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id);
+          if (owner == null ||
+              FeatureGroupRegistry.normalize(owner) !=
+                  FeatureGroupRegistry.normalize(
+                    FeatureGroupRegistry.canonicalGroupId(group.code),
+                  )) {
+            continue;
+          }
+          final normalizedId = FeatureGroupRegistry.normalize(candidate.id);
+          if (usedIds.contains(normalizedId)) continue;
+          configuredChildren.add(candidate);
+          usedIds.add(normalizedId);
+        }
+
+        if (isReportsAnalyticsGroup) {
+          // Existing tenant-experience JSON may still reference the old
+          // generic `reports` workcentre. The role now receives individual
+          // report permissions, so surface those cards without waiting for a
+          // tenant-experience regeneration.
+          for (final report in roleWorkcenters.where(_isReportingWorkcenter)) {
+            final normalizedId = FeatureGroupRegistry.normalize(report.id);
+            if (usedIds.contains(normalizedId)) continue;
+            configuredChildren.add(report);
+            usedIds.add(normalizedId);
+          }
+        }
+        if (configuredChildren.isEmpty) continue;
+
+        final groupMatches = query.isEmpty ||
+            group.title.toLowerCase().contains(query) ||
+            group.description.toLowerCase().contains(query);
+        final childMatches = query.isEmpty ||
+            configuredChildren.any((child) =>
+                child.description.toLowerCase().contains(query) ||
+                child.id.toLowerCase().contains(query));
+        if (!groupMatches && !childMatches) continue;
+
+        cards.add(
+          Workcenter(
+            id: group.code,
+            description: group.title,
+            displayLabel: group.title,
+            cardDescription: group.description,
+            defaultFunction: '',
+            path: '/feature-groups/${group.code}',
+            position: group.displayOrder,
+            routeKey: group.code,
+            routePath: '/feature-groups/${group.code}',
+            iconKey: group.iconKey,
+          ),
+        );
+      }
+      if (cards.isNotEmpty) {
+        cards.sort((a, b) => a.position.compareTo(b.position));
+        result.add(
+          _HomeWorkcenterSection(
+            code: section.code,
+            title: section.title,
+            description: section.description,
+            displayOrder: section.displayOrder,
+            items: cards,
+          ),
+        );
+      }
+    }
+
+    if (centralApprovalWorkcenter != null && !centralApprovalsConfigured) {
+      usedIds.add(FeatureGroupRegistry.normalize(centralApprovalWorkcenter.id));
+      _addCentralApprovalsCard(
+        sections: result,
+        query: query,
+        approvalWorkcenter: centralApprovalWorkcenter,
+      );
+    }
+
+    final allowUnassignedWorkcenters = experience == null ||
+        experience.primaryIndustryCode.trim().toUpperCase() == 'GENERAL_CUSTOM';
+    if (allowUnassignedWorkcenters) {
+      final unmatched = roleWorkcenters.where((workcenter) {
+        if (FeatureGroupRegistry.isGroupId(workcenter.id)) return false;
+        if (FeatureGroupRegistry.isLegacyInventoryUmbrella(workcenter.id)) {
+          return false;
+        }
+        if (usedIds.contains(FeatureGroupRegistry.normalize(workcenter.id))) {
+          return false;
+        }
+        if (query.isEmpty) return true;
+        return workcenter.description.toLowerCase().contains(query) ||
+            workcenter.id.toLowerCase().contains(query);
+      }).toList()
+        ..sort((a, b) => a.position.compareTo(b.position));
+
+      if (unmatched.isNotEmpty) {
+        result.add(
+          _HomeWorkcenterSection(
+            code: 'ADDITIONAL_WORKCENTERS',
+            title: 'Additional Workcenters',
+            description:
+                'Role-specific capabilities that have not yet been assigned to a custom industry group.',
+            displayOrder: 90,
+            items: unmatched,
+          ),
+        );
+      }
+    }
+    result.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    return result;
+  }
+
+  Workcenter? _findCentralApprovalWorkcenter(
+    List<Workcenter> roleWorkcenters,
+  ) {
+    for (final workcenter in roleWorkcenters) {
+      if (_isCentralApprovalWorkcenter(workcenter)) return workcenter;
+    }
+    return null;
+  }
+
+  bool _isCentralApprovalWorkcenter(Workcenter workcenter) {
+    const approvalKeys = <String>{
+      'APPROVAL',
+      'APPROVALS',
+      'APPROVAL_INBOX',
+    };
+    final candidates = <String>{
+      FeatureGroupRegistry.normalize(workcenter.id),
+      FeatureGroupRegistry.normalize(workcenter.routeKey),
+      FeatureGroupRegistry.normalize(workcenter.defaultFunction),
+    };
+    return candidates.any(approvalKeys.contains);
+  }
+
+  bool _isReportingWorkcenter(Workcenter workcenter) {
+    final id = FeatureGroupRegistry.normalize(workcenter.id);
+    if (id == 'REPORT' ||
+        id == 'REPORTS' ||
+        id == 'REPORTING' ||
+        id == 'REPORTS_ANALYTICS') {
+      return false;
+    }
+    return id.contains('REPORT');
+  }
+
+  void _addCentralApprovalsCard({
+    required List<_HomeWorkcenterSection> sections,
+    required String query,
+    required Workcenter approvalWorkcenter,
+  }) {
+    final definition = FeatureGroupRegistry.groupById('approvals');
+    if (definition == null) return;
+
+    final searchable = <String>[
+      definition.title,
+      definition.description,
+      approvalWorkcenter.description,
+      approvalWorkcenter.id,
+    ].join(' ').toLowerCase();
+    if (query.isNotEmpty && !searchable.contains(query)) return;
+
+    final card = Workcenter(
+      id: definition.id,
+      description: definition.title,
+      displayLabel: definition.title,
+      cardDescription: definition.description,
+      defaultFunction: '',
+      path: definition.routePath,
+      position: definition.displayOrder,
+      routeKey: definition.id,
+      routePath: definition.routePath,
+      iconKey: definition.iconKey,
+    );
+
+    final businessServicesIndex = sections.indexWhere(
+      (section) => FeatureGroupRegistry.normalize(section.code) ==
+          'BUSINESS_SERVICES',
+    );
+    if (businessServicesIndex >= 0) {
+      final items = sections[businessServicesIndex].items;
+      if (!items.any((item) =>
+          FeatureGroupRegistry.normalize(item.id) == 'APPROVALS')) {
+        items.add(card);
+        items.sort((left, right) => left.position.compareTo(right.position));
+      }
+      return;
+    }
+
+    sections.add(
+      _HomeWorkcenterSection(
+        code: 'BUSINESS_SERVICES',
+        title: 'Business Services',
+        description: 'Shared services supporting daily operations.',
+        displayOrder: 20,
+        items: [card],
+      ),
+    );
+  }
+
+  Workcenter? _findRoleWorkcenter(
+    List<Workcenter> roleWorkcenters,
+    String configuredId,
+  ) {
+    final target = FeatureGroupRegistry.normalize(configuredId);
+    for (final workcenter in roleWorkcenters) {
+      final candidates = <String>{
+        FeatureGroupRegistry.normalize(workcenter.id),
+        FeatureGroupRegistry.normalize(workcenter.routeKey),
+        FeatureGroupRegistry.normalize(workcenter.defaultFunction),
+      };
+      if (candidates.contains(target)) return workcenter;
+    }
+    return null;
+  }
+
+  List<TenantExperienceSection> _fallbackExperienceSections() {
+    final sectionMetadata = <String, ({String title, String description, int order})>{
+      'YOUR_BUSINESS': (
+        title: 'Your Business',
+        description: 'Core solutions configured for this organisation.',
+        order: 10,
+      ),
+      'BUSINESS_SERVICES': (
+        title: 'Business Services',
+        description: 'Shared services supporting daily operations.',
+        order: 20,
+      ),
+      'SYSTEM_ADMINISTRATION': (
+        title: 'System Administration',
+        description: 'Configuration, integrations and platform administration.',
+        order: 30,
+      ),
+    };
+    return sectionMetadata.entries.map((entry) {
+      final groups = FeatureGroupRegistry.groups
+          .where((group) => group.sectionCode == entry.key)
+          .map((group) => TenantExperienceGroup(
+                code: group.id,
+                title: group.title,
+                description: group.description,
+                sectionCode: group.sectionCode,
+                iconKey: group.iconKey,
+                displayOrder: group.displayOrder,
+                active: true,
+                workcenters: group.childWorkcenterIds
+                    .asMap()
+                    .entries
+                    .map((item) => TenantExperienceWorkcenter(
+                          id: item.value,
+                          displayLabel: '',
+                          description: '',
+                          displayOrder: item.key * 10,
+                          active: true,
+                        ))
+                    .toList(),
+              ))
+          .toList();
+      return TenantExperienceSection(
+        code: entry.key,
+        title: entry.value.title,
+        description: entry.value.description,
+        displayOrder: entry.value.order,
+        groups: groups,
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final int crossAxisCount = (screenWidth / 180).floor().clamp(2, 8);
-
-    final modules = _filteredWorkcenters.where((wc) => !wc.id.toLowerCase().contains('report') && !wc.description.toLowerCase().contains('report')).toList();
-    final reports = _filteredWorkcenters.where((wc) => wc.id.toLowerCase().contains('report') || wc.description.toLowerCase().contains('report')).toList();
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final sections = _buildHomeSections(_filteredWorkcenters);
+    final modules = sections.expand((section) => section.items).toList();
+    final reports = modules
+        .where((item) =>
+            item.id.toLowerCase().contains('report') ||
+            item.presentationTitle.toLowerCase().contains('report'))
+        .toList();
+    final showSidebar = screenWidth >= 1120;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: MawaDesign.page,
       body: _isLoadingWorkcenters
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: [
-                _buildAppBar(colorScheme),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (!_isLoadingRecent && _recentModules.isNotEmpty) ...[
-                          _buildRecentModulesSection(colorScheme),
-                          const SizedBox(height: 32),
-                        ],
-                        if (!_isLoadingFrequent && _frequentModules.isNotEmpty) ...[
-                          _buildFrequentModulesSection(colorScheme),
-                          const SizedBox(height: 32),
-                        ],
-                        _buildSearchBar(colorScheme),
-                        const SizedBox(height: 32),
-                        if (modules.isNotEmpty) ...[
-                          _buildSectionHeader('Operational Modules', Icons.rocket_launch_rounded),
-                          const SizedBox(height: 16),
-                          _buildAnimatedGrid(modules, crossAxisCount, colorScheme),
-                          const SizedBox(height: 32),
-                        ],
-                        if (reports.isNotEmpty) ...[
-                          _buildSectionHeader('Reports & Analytics', Icons.analytics_rounded),
-                          const SizedBox(height: 16),
-                          _buildAnimatedGrid(reports, crossAxisCount, colorScheme, isReport: true),
-                          const SizedBox(height: 32),
-                        ],
-                        if (_filteredWorkcenters.isEmpty && _searchController.text.isNotEmpty)
-                          Center(
-                            child: Column(
-                              children: [
-                                const SizedBox(height: 48),
-                                Icon(Icons.search_off_rounded, size: 64, color: Colors.grey[300]),
-                                const SizedBox(height: 16),
-                                Text('No matching modules found', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
-                              ],
-                            ),
-                          ),
-                        const SizedBox(height: 40),
-                        _buildFooter(),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
+          : Row(
+              children: [
+                if (showSidebar) _buildDesktopSidebar(modules),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildTopBar(showSidebar: showSidebar),
+                      Expanded(
+                        child: _buildDashboardContent(
+                          modules: modules,
+                          reports: reports,
+                          sections: sections,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -388,441 +768,951 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildAppBar(ColorScheme colorScheme) {
-    return SliverAppBar(
-      expandedHeight: 180,
-      floating: false,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: colorScheme.primary,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [colorScheme.primary, colorScheme.primary.withBlue(200)],
+  Widget _buildTopBar({required bool showSidebar}) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 72,
+      padding: EdgeInsets.symmetric(horizontal: showSidebar ? 28 : 18),
+      decoration: const BoxDecoration(
+        color: MawaDesign.surface,
+        border: Border(bottom: BorderSide(color: MawaDesign.border)),
+      ),
+      child: Row(
+        children: [
+          if (!showSidebar) ...[
+            Image.asset(
+              'assets/branding/mawa_logo.png',
+              height: 34,
+              width: 116,
+              fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
+            ),
+            const SizedBox(width: 18),
+          ],
+          Expanded(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 540),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: _applySearch,
+                decoration: InputDecoration(
+                  hintText: 'Search MAWA workcenters and reports',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            _searchController.clear();
+                            _applySearch('');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: MawaDesign.surfaceMuted,
+                ),
+              ),
             ),
           ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -20,
-                right: -20,
-                child: Icon(Icons.blur_on, size: 200, color: Colors.white.withOpacity(0.1)),
+          const Spacer(),
+          if (_selectedRoleDisplay != null && MediaQuery.sizeOf(context).width >= 760)
+            Container(
+              margin: const EdgeInsets.only(right: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              decoration: BoxDecoration(
+                color: MawaDesign.surfaceMuted,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: MawaDesign.border),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 80, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              child: Text(
+                _selectedRoleDisplay!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: MawaDesign.textMuted,
+                ),
+              ),
+            ),
+          _buildInboxButton(),
+          const SizedBox(width: 8),
+          _buildUserMenu(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopSidebar(List<Workcenter> modules) {
+    final theme = Theme.of(context);
+    final navigationModules = modules.take(7).toList();
+    return Container(
+      width: MawaDesign.desktopSidebarWidth,
+      decoration: const BoxDecoration(
+        color: MawaDesign.surface,
+        border: Border(right: BorderSide(color: MawaDesign.border)),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Image.asset(
+                      'assets/branding/mawa_logo.png',
+                      height: 36,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerLeft,
+                    ),
+                  ),
+                  if (_appVersion.isNotEmpty)
                     Text(
-                      'Hello, ${_displayName?.split(' ').first ?? 'User'}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
+                      _appVersion,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: MawaDesign.textSubtle,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Let\'s manage your business today',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 16,
-                      ),
+                ],
+              ),
+            ),
+            const Divider(),
+            const SizedBox(height: 12),
+            _sidebarItem(
+              icon: Icons.home_rounded,
+              label: 'Home',
+              selected: true,
+              onTap: () {},
+            ),
+            _sidebarItem(
+              icon: Icons.inbox_rounded,
+              label: _inboxCounts.pendingApprovalCount > 0
+                  ? 'Inbox (${_inboxCounts.pendingApprovalCount})'
+                  : 'Inbox',
+              onTap: () => context.push(AppRoutes.inbox),
+            ),
+            ...navigationModules.map(
+              (workcenter) => _sidebarItem(
+                icon: _getIconData(workcenter.id, workcenter.iconKey),
+                label: workcenter.description,
+                onTap: () => _navigateToWorkcenter(workcenter),
+              ),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
+              child: OutlinedButton.icon(
+                onPressed: _showLogoutConfirmation,
+                icon: const Icon(Icons.logout_rounded, size: 18),
+                label: const Text('Sign out'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                  foregroundColor: MawaDesign.textMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sidebarItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool selected = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Material(
+        color: selected ? MawaDesign.redSoft : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: selected ? MawaDesign.red : MawaDesign.textMuted,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? MawaDesign.navy : MawaDesign.textMuted,
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                     ),
-                  ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardContent({
+    required List<Workcenter> modules,
+    required List<Workcenter> reports,
+    required List<_HomeWorkcenterSection> sections,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final padding = MawaDesign.responsivePagePadding(constraints.maxWidth);
+        return SingleChildScrollView(
+          padding: padding,
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildWelcomeHeader(),
+                if (_accessProfile != null &&
+                    (_accessProfile!.platformSession ||
+                        _accessProfile!.testUser)) ...[
+                  const SizedBox(height: 18),
+                  _buildAccessSessionBanner(_accessProfile!),
+                ],
+                const SizedBox(height: 22),
+                _buildActionGrid(modules: modules, reports: reports),
+                const SizedBox(height: 24),
+                _buildActivityRow(modules),
+                const SizedBox(height: 30),
+                for (var index = 0; index < sections.length; index++) ...[
+                  if (index > 0) const SizedBox(height: 30),
+                  _buildWorkcenterSection(
+                    title: sections[index].title,
+                    description: sections[index].description,
+                    items: sections[index].items,
+                    isReport: sections[index].code == 'REPORTS_ANALYTICS',
+                  ),
+                ],
+                if (sections.isEmpty &&
+                    _searchController.text.isNotEmpty) ...[
+                  const SizedBox(height: 28),
+                  const MawaEmptyState(
+                    icon: Icons.search_off_rounded,
+                    title: 'No matching workcenters',
+                    description:
+                        'Try a different name, process or report in the search field.',
+                  ),
+                ],
+                const SizedBox(height: 34),
+                _buildFooter(),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final theme = Theme.of(context);
+    final firstName = _displayName?.trim().split(RegExp(r'\s+')).first ?? 'User';
+    final date = DateFormat('EEEE, d MMMM yyyy').format(DateTime.now());
+    return MawaPageHeader(
+      title: 'Good ${_greetingForNow()}, $firstName',
+      description: _tenantExperience == null
+          ? 'Here is a clear view of the MAWA areas available for your role.'
+          : 'Your ${_tenantExperience!.primaryIndustryName} workspace, shaped around the industries configured for this organisation.',
+      eyebrow: Row(
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: const BoxDecoration(
+              color: MawaDesign.success,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            date,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: MawaDesign.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _greetingForNow() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
+  }
+
+  Widget _buildActionGrid({
+    required List<Workcenter> modules,
+    required List<Workcenter> reports,
+  }) {
+    Workcenter? findWorkcenter(bool Function(Workcenter) matches) {
+      for (final item in modules) {
+        if (matches(item)) return item;
+      }
+      return null;
+    }
+
+    bool containsAny(Workcenter item, List<String> terms) {
+      final haystack = '${item.id} ${item.routeKey} ${item.description} ${item.presentationTitle}'.toLowerCase();
+      return terms.any(haystack.contains);
+    }
+
+    final paymentRequests = findWorkcenter(
+      (item) => containsAny(item, const ['payment_request', 'payment request']),
+    );
+    final invoices = findWorkcenter(
+      (item) => containsAny(item, const ['invoice', 'invoicing']),
+    );
+    final reportsWorkcenter = reports.isEmpty ? null : reports.first;
+
+    Workcenter? recent;
+    for (final usage in _recentModules) {
+      final match = _workcenterForUsage(usage);
+      if (match != null) {
+        recent = match;
+        break;
+      }
+    }
+
+    Workcenter? frequent;
+    for (final usage in _frequentModules) {
+      final match = _workcenterForUsage(usage);
+      if (match != null && match.id != recent?.id) {
+        frequent = match;
+        break;
+      }
+    }
+
+    final actions = <Widget>[
+      _buildHomeActionCard(
+        icon: Icons.fact_check_outlined,
+        title: _inboxCounts.pendingApprovalCount > 0
+            ? 'Approvals need attention'
+            : 'Approval inbox',
+        description: _inboxCounts.pendingApprovalCount > 0
+            ? '${_inboxCounts.pendingApprovalCount} request${_inboxCounts.pendingApprovalCount == 1 ? '' : 's'} waiting for your decision. Review and action them from one place.'
+            : 'Review approval requests, workflow decisions and items waiting for your action.',
+        actionLabel: 'Open approvals',
+        onTap: () async {
+          await context.push(AppRoutes.inbox);
+          _loadInboxCounts();
+        },
+      ),
+      if (paymentRequests != null)
+        _buildHomeActionCard(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Payment requests',
+          description:
+              'Review supplier, claim, funeral and other payment requests and follow their approval or payment status.',
+          actionLabel: 'Open payment requests',
+          onTap: () => _navigateToWorkcenter(paymentRequests!),
+        )
+      else
+        _buildHomeActionCard(
+          icon: Icons.notifications_active_outlined,
+          title: 'Inbox & notifications',
+          description: _inboxCounts.unreadCount > 0
+              ? '${_inboxCounts.unreadCount} unread notification${_inboxCounts.unreadCount == 1 ? '' : 's'} need your attention.'
+              : 'Review workflow outcomes, system notifications and items sent to you.',
+          actionLabel: 'Open inbox',
+          onTap: () async {
+            await context.push(AppRoutes.inbox);
+            _loadInboxCounts();
+          },
+        ),
+      if (invoices != null)
+        _buildHomeActionCard(
+          icon: Icons.receipt_long_outlined,
+          title: 'Invoices & billing',
+          description:
+              'Create, review and follow customer invoices without navigating through unrelated workcentres.',
+          actionLabel: 'Open invoices',
+          onTap: () => _navigateToWorkcenter(invoices!),
+        )
+      else if (recent != null)
+        _buildHomeActionCard(
+          icon: Icons.history_rounded,
+          title: 'Continue working',
+          description:
+              'Return to ${recent.presentationTitle}, the work area you used most recently.',
+          actionLabel: 'Resume ${recent.presentationTitle}',
+          onTap: () => _navigateToWorkcenter(recent!),
+        )
+      else
+        _buildHomeActionCard(
+          icon: Icons.search_rounded,
+          title: 'Find a work area',
+          description:
+              'Search the workcentres available to your role and go directly to the task you need.',
+          actionLabel: 'Search workcentres',
+          onTap: () => _searchFocusNode.requestFocus(),
+        ),
+      if (reportsWorkcenter != null)
+        _buildHomeActionCard(
+          icon: Icons.insights_outlined,
+          title: 'Reports & analytics',
+          description:
+              'Open operational and management reports to investigate performance and exceptions.',
+          actionLabel: 'Open reports',
+          onTap: () => _navigateToWorkcenter(reportsWorkcenter),
+        )
+      else if (frequent != null)
+        _buildHomeActionCard(
+          icon: Icons.bolt_outlined,
+          title: 'Frequently used',
+          description:
+              'Open ${frequent.presentationTitle}, one of your regular work areas.',
+          actionLabel: 'Open ${frequent.presentationTitle}',
+          onTap: () => _navigateToWorkcenter(frequent!),
+        )
+      else
+        _buildHomeActionCard(
+          icon: Icons.search_rounded,
+          title: 'Find another work area',
+          description:
+              'Search all workcentres available to your role instead of browsing passive dashboard totals.',
+          actionLabel: 'Search workcentres',
+          onTap: () => _searchFocusNode.requestFocus(),
+        ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = MawaDesign.responsiveGridCount(
+          constraints.maxWidth,
+          minimumCardWidth: 270,
+          maxColumns: 4,
+        );
+        return GridView.count(
+          crossAxisCount: columns,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: columns >= 4 ? 1.75 : 1.9,
+          children: actions,
+        );
+      },
+    );
+  }
+
+  Widget _buildHomeActionCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required String actionLabel,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Material(
+      color: colorScheme.surface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withOpacity(0.75),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  MawaIconBadge(
+                    icon: icon,
+                    color: MawaDesign.red,
+                    size: 40,
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.arrow_outward_rounded,
+                    size: 18,
+                    color: colorScheme.primary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Text(
+                  description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: MawaDesign.textMuted,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                actionLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
         ),
       ),
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Mawa ERP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-          if (_appVersion.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                _appVersion,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined), 
-          onPressed: () {},
-        ),
-        const SizedBox(width: 8),
-        _buildUserMenu(colorScheme),
-        const SizedBox(width: 16),
-      ],
     );
   }
 
-  Widget _buildUserMenu(ColorScheme colorScheme) {
-    return Center(
-      child: PopupMenuButton<String>(
-        offset: const Offset(0, 48),
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
-          ),
-          child: CircleAvatar(
-            radius: 16,
-            backgroundColor: colorScheme.primaryContainer,
-            child: Text(
-              _displayName?[0] ?? 'U',
-              style: TextStyle(color: colorScheme.onPrimaryContainer, fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-        onSelected: (value) {
-          if (value == 'change_role') _changeRole();
-          if (value == 'change_password') {
-            Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ChangePasswordScreen()));
-          }
-          if (value == 'logout') _showLogoutConfirmation();
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            enabled: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_displayName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-                Text(_selectedRoleDisplay ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                const Divider(),
-              ],
-            ),
-          ),
-          const PopupMenuItem(value: 'change_role', child: ListTile(leading: Icon(Icons.switch_account_outlined), title: Text('Switch Role'), contentPadding: EdgeInsets.zero)),
-          const PopupMenuItem(value: 'change_password', child: ListTile(leading: Icon(Icons.lock_outline), title: Text('Security'), contentPadding: EdgeInsets.zero)),
-          const PopupMenuItem(value: 'logout', child: ListTile(leading: Icon(Icons.logout, color: Colors.red), title: Text('Sign Out', style: TextStyle(color: Colors.red)), contentPadding: EdgeInsets.zero)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentModulesSection(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader(
-          'Recently Used', 
-          Icons.history_rounded,
-          onAction: () async {
-            await _moduleUsageService.resetUsage();
-            _fetchRecentModules();
-            _fetchFrequentModules();
-          },
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 100,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _recentModules.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              final usage = _recentModules[index];
-              return InkWell(
-                onTap: () {
-                  final wc = _workcenters.firstWhere(
-                    (w) => w.id == usage.moduleCode,
-                    orElse: () => Workcenter(
-                      id: usage.moduleCode,
-                      description: usage.moduleName ?? 'Unknown',
-                      defaultFunction: '',
-                      path: '',
-                      position: 0,
-                    ),
-                  );
-                  _navigateToWorkcenter(wc);
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 100,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _getIconData(usage.moduleCode),
-                        color: colorScheme.primary,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        usage.moduleName ?? 'Module',
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFrequentModulesSection(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('Frequently Used', Icons.auto_graph_rounded),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 100,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _frequentModules.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              final usage = _frequentModules[index];
-              return InkWell(
-                onTap: () {
-                  final wc = _workcenters.firstWhere(
-                    (w) => w.id == usage.moduleCode,
-                    orElse: () => Workcenter(
-                      id: usage.moduleCode,
-                      description: usage.moduleName ?? 'Unknown',
-                      defaultFunction: '',
-                      path: '',
-                      position: 0,
-                    ),
-                  );
-                  _navigateToWorkcenter(wc);
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 100,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.secondaryContainer.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colorScheme.secondaryContainer.withOpacity(0.5)),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _getIconData(usage.moduleCode),
-                        color: colorScheme.secondary,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        usage.moduleName ?? 'Module',
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchBar(ColorScheme colorScheme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        onChanged: _applySearch,
-        decoration: InputDecoration(
-          hintText: 'Search modules and reports...',
-          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
-          prefixIcon: Icon(Icons.search_rounded, color: colorScheme.primary.withOpacity(0.5)),
-          suffixIcon: _searchController.text.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.clear_rounded),
-                onPressed: () {
-                  _searchController.clear();
-                  _applySearch('');
-                },
-              )
-            : null,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-          contentPadding: const EdgeInsets.symmetric(vertical: 20),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, IconData icon, {VoidCallback? onAction}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
+  Widget _buildActivityRow(List<Workcenter> modules) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked = constraints.maxWidth < 900;
+        final quickActions = _buildQuickActions(modules);
+        final recent = _buildRecentActivity();
+        if (stacked) {
+          return Column(
+            children: [
+              quickActions,
+              const SizedBox(height: 16),
+              recent,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              title, 
-              style: const TextStyle(
-                fontSize: 18, 
-                fontWeight: FontWeight.bold, 
-                letterSpacing: -0.5,
-                color: Color(0xFF1A1C1E),
-              )
-            ),
+            Expanded(child: quickActions),
+            const SizedBox(width: 16),
+            Expanded(child: recent),
           ],
-        ),
-        if (onAction != null)
-          TextButton(
-            onPressed: onAction,
-            child: const Text('Clear', style: TextStyle(fontSize: 12)),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildAnimatedGrid(List<Workcenter> items, int crossAxisCount, ColorScheme colorScheme, {bool isReport = false}) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 20,
-        mainAxisSpacing: 20,
-        childAspectRatio: 1.1,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        return AnimatedBuilder(
-          animation: _animationController,
-          builder: (context, child) {
-            final double slide = 50 * (1.0 - _animationController.value);
-            final double opacity = _animationController.value;
-            return Opacity(
-              opacity: opacity,
-              child: Transform.translate(
-                offset: Offset(0, slide),
-                child: child,
-              ),
-            );
-          },
-          child: _buildWorkcenterTile(items[index], colorScheme, isReport: isReport),
         );
       },
     );
   }
 
-  Widget _buildWorkcenterTile(Workcenter wc, ColorScheme colorScheme, {bool isReport = false}) {
-    final tileColor = isReport ? Colors.orange : colorScheme.primary;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: tileColor.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+  Widget _buildQuickActions(List<Workcenter> modules) {
+    final theme = Theme.of(context);
+    final source = <Workcenter>[];
+    for (final usage in _frequentModules) {
+      final match = _workcenterForUsage(usage);
+      if (match != null && !source.any((item) => item.id == match.id)) source.add(match);
+    }
+    for (final item in modules) {
+      if (source.length >= 4) break;
+      if (!source.any((existing) => existing.id == item.id)) source.add(item);
+    }
+
+    return MawaSurface(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MawaSectionHeader(
+            title: 'Quick actions',
+            description: 'Open your most useful work areas.',
           ),
+          const SizedBox(height: 14),
+          if (source.isEmpty)
+            const MawaEmptyState(
+              icon: Icons.bolt_outlined,
+              title: 'No quick actions yet',
+              description: 'Your most frequently used workcenters will appear here.',
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            )
+          else
+            ...source.take(4).map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: MawaDesign.surfaceMuted,
+                  borderRadius: BorderRadius.circular(11),
+                  child: InkWell(
+                    onTap: () => _navigateToWorkcenter(item),
+                    borderRadius: BorderRadius.circular(11),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      child: Row(
+                        children: [
+                          MawaIconBadge(
+                            icon: _getIconData(item.id),
+                            color: MawaDesign.red,
+                            size: 36,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.description,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  FeatureGroupRegistry.isGroupId(item.id)
+                                      ? WorkcenterCardDescriptions.forGroup(
+                                          item.id,
+                                          item.description,
+                                        )
+                                      : WorkcenterCardDescriptions.forWorkcenter(
+                                          item.id,
+                                          item.description,
+                                        ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: MawaDesign.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 18,
+                            color: MawaDesign.textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _navigateToWorkcenter(wc),
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
+    );
+  }
+
+  Widget _buildRecentActivity() {
+    final theme = Theme.of(context);
+    return MawaSurface(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MawaSectionHeader(
+            title: 'Recently used',
+            description: 'Continue where you last worked.',
+            trailing: _recentModules.isEmpty
+                ? null
+                : TextButton(
+                    onPressed: () async {
+                      await _moduleUsageService.resetUsage();
+                      _fetchRecentModules();
+                      _fetchFrequentModules();
+                    },
+                    child: const Text('Clear'),
+                  ),
+          ),
+          const SizedBox(height: 14),
+          if (_isLoadingRecent)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 38),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_recentModules.isEmpty)
+            const MawaEmptyState(
+              icon: Icons.history_toggle_off_rounded,
+              title: 'No recent work yet',
+              description: 'Workcenters you open will be listed here for quick access.',
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            )
+          else
+            ..._recentModules.take(5).map((usage) {
+              final workcenter = _workcenterForUsage(usage);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: workcenter == null ? null : () => _navigateToWorkcenter(workcenter),
+                  borderRadius: BorderRadius.circular(11),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    child: Row(
+                      children: [
+                        MawaIconBadge(
+                          icon: _getIconData(usage.moduleCode),
+                          color: MawaDesign.info,
+                          size: 36,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            usage.moduleName ?? usage.moduleCode,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: MawaDesign.textSubtle,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Workcenter? _workcenterForUsage(ModuleUsage usage) {
+    for (final item in _workcenters) {
+      if (item.id == usage.moduleCode) return item;
+    }
+    if (usage.moduleCode.isEmpty) return null;
+    return Workcenter(
+      id: usage.moduleCode,
+      description: usage.moduleName ?? usage.moduleCode,
+      defaultFunction: '',
+      path: usage.modulePath ?? '',
+      position: 0,
+      routeKey: usage.moduleCode,
+      routePath: usage.modulePath,
+    );
+  }
+
+  Widget _buildWorkcenterSection({
+    required String title,
+    required String description,
+    required List<Workcenter> items,
+    bool isReport = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MawaSectionHeader(title: title, description: description),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 320,
+                mainAxisExtent: 224,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) => _buildWorkcenterCard(
+                items[index],
+                index: index,
+                isReport: isReport,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWorkcenterCard(
+    Workcenter workcenter, {
+    required int index,
+    required bool isReport,
+  }) {
+    final theme = Theme.of(context);
+    final tint = isReport ? MawaDesign.warning : MawaDesign.iconTint(index);
+    final description = workcenter.cardDescription ??
+        (FeatureGroupRegistry.isGroupId(workcenter.id)
+            ? WorkcenterCardDescriptions.forGroup(
+                workcenter.id,
+                workcenter.description,
+              )
+            : WorkcenterCardDescriptions.forWorkcenter(
+                workcenter.id,
+                workcenter.description,
+              ));
+
+    return Card(
+      child: InkWell(
+        onTap: () => _navigateToWorkcenter(workcenter),
+        child: Padding(
+          padding: const EdgeInsets.all(19),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  MawaIconBadge(
+                    icon: _getIconData(workcenter.id, workcenter.iconKey),
+                    color: tint,
+                    size: 48,
+                  ),
+                  const Spacer(),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: MawaDesign.surfaceMuted,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 16,
+                      color: MawaDesign.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                workcenter.presentationTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 7),
+              Text(
+                description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: MawaDesign.textMuted,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Open  →',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: MawaDesign.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccessSessionBanner(AccessProfile profile) {
+    final isPlatform = profile.platformSession;
+    final colour = isPlatform ? MawaDesign.red : MawaDesign.warning;
+    final background = isPlatform ? MawaDesign.redSoft : MawaDesign.warningSoft;
+    final title = isPlatform
+        ? 'Platform administration session'
+        : 'Test session — ${profile.accountType.replaceAll('_', ' ')}';
+    final detail = isPlatform
+        ? 'Tenant: ${profile.tenantId} • ${profile.displayName} • ${profile.accessReason.isEmpty ? 'No reason supplied' : profile.accessReason}'
+        : profile.externalTransactionsBlocked
+            ? 'External financial and integration transactions are disabled.'
+            : 'Testing account restrictions are active for this environment.';
+
+    return MawaSurface(
+      color: background,
+      border: Border.all(color: colour.withValues(alpha: 0.24)),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MawaIconBadge(
+            icon: isPlatform ? Icons.shield_rounded : Icons.science_rounded,
+            color: colour,
+            size: 42,
+          ),
+          const SizedBox(width: 13),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: tileColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    _getIconData(wc.id), 
-                    size: 26, 
-                    color: tileColor,
-                  ),
-                ),
-                const Spacer(),
                 Text(
-                  wc.description,
-                  style: const TextStyle(
-                    fontSize: 14, 
-                    fontWeight: FontWeight.w700, 
-                    color: Color(0xFF1A1C1E),
-                    height: 1.2,
+                  title,
+                  style: TextStyle(
+                    color: colour,
+                    fontWeight: FontWeight.w800,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 3),
+                Text(detail),
+                if (profile.expiresAt != null)
+                  Text('Access expires: ${profile.expiresAt!.toLocal()}'),
+                if (profile.ticketReference.isNotEmpty)
+                  Text('Reference: ${profile.ticketReference}'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInboxButton() {
+    final badgeCount = _inboxCounts.unreadCount;
+    return Tooltip(
+      message: _inboxCounts.pendingApprovalCount > 0
+          ? '${_inboxCounts.pendingApprovalCount} approval item(s) waiting'
+          : 'Inbox',
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () async {
+            await context.push(AppRoutes.inbox);
+            _loadInboxCounts();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_none_rounded, color: MawaDesign.textMuted),
+                if (badgeCount > 0)
+                  Positioned(
+                    right: -7,
+                    top: -7,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: MawaDesign.red,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: MawaDesign.surface, width: 2),
+                      ),
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -831,14 +1721,131 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildUserMenu() {
+    final theme = Theme.of(context);
+    final displayName = _displayName?.trim().isNotEmpty == true ? _displayName! : 'User';
+    final initial = displayName.substring(0, 1).toUpperCase();
+    return PopupMenuButton<String>(
+      offset: const Offset(0, 48),
+      tooltip: 'Account menu',
+      onSelected: (value) {
+        if (value == 'change_role') _changeRole();
+        if (value == 'change_password') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+          );
+        }
+        if (value == 'logout') _showLogoutConfirmation();
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: SizedBox(
+            width: 230,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(displayName, style: theme.textTheme.titleSmall),
+                const SizedBox(height: 3),
+                Text(
+                  _selectedRoleDisplay ?? '',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: MawaDesign.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'change_role',
+          child: ListTile(
+            leading: Icon(Icons.switch_account_outlined),
+            title: Text('Switch role'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'change_password',
+          child: ListTile(
+            leading: Icon(Icons.lock_outline_rounded),
+            title: Text('Security'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'logout',
+          child: ListTile(
+            leading: Icon(Icons.logout_rounded, color: MawaDesign.red),
+            title: Text('Sign out', style: TextStyle(color: MawaDesign.red)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: MawaDesign.redSoft,
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: MawaDesign.redDark,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (MediaQuery.sizeOf(context).width >= 860) ...[
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium,
+                ),
+                Text(
+                  'MAWA',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: MawaDesign.textSubtle,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildFooter() {
-    return Center(
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            '© 2025 Mawa ERP',
-            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            '© 2026 MAWA',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: MawaDesign.textSubtle,
+                ),
           ),
+          if (_appVersion.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(
+              '• $_appVersion',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MawaDesign.textSubtle,
+                  ),
+            ),
+          ],
         ],
       ),
     );
@@ -848,7 +1855,25 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _inboxTimer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
+}
+
+
+class _HomeWorkcenterSection {
+  final String code;
+  final String title;
+  final String description;
+  final int displayOrder;
+  final List<Workcenter> items;
+
+  const _HomeWorkcenterSection({
+    required this.code,
+    required this.title,
+    required this.description,
+    required this.displayOrder,
+    required this.items,
+  });
 }

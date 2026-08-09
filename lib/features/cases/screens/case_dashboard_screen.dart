@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../models/case_dashboard_summary.dart';
 import '../services/case_management_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CaseDashboardScreen extends StatefulWidget {
   const CaseDashboardScreen({super.key});
@@ -34,7 +35,7 @@ class _CaseDashboardScreenState extends State<CaseDashboardScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading dashboard: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error loading dashboard: $e')), backgroundColor: Colors.red),
         );
       }
     }
@@ -50,7 +51,7 @@ class _CaseDashboardScreenState extends State<CaseDashboardScreen> {
     final isDesktop = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Case Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
@@ -179,7 +180,7 @@ class _CaseDashboardScreenState extends State<CaseDashboardScreen> {
         _buildSummaryCard('Closed Cases', _summary!.totalClosedCases.toString(), Icons.folder_special_rounded, Colors.green),
         _buildSummaryCard('Overdue Tasks', _summary!.overdueTasks.toString(), Icons.assignment_late_rounded, Colors.red),
         _buildSummaryCard('Upcoming Events', _summary!.upcomingEvents.toString(), Icons.event_available_rounded, Colors.indigo),
-        _buildSummaryCard('Unbilled Amount', _formatCents(_summary!.unbilledAmountCents), Icons.money_off_rounded, Colors.deepPurple),
+        _buildSummaryCard('Unbilled Amount', _formatCents(_summary!.unbilledAmountCents), Icons.money_off_rounded, const Color(0xFFF20D1A)),
         _buildSummaryCard('Outstanding Balance', _formatCents(_summary!.totalBalanceCents), Icons.account_balance_wallet_rounded, Colors.teal),
       ],
     );

@@ -2,24 +2,25 @@ import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../../home/models/workcenter.dart';
 import '../models/role.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class RoleService {
   final ApiClient _apiClient = ApiClient();
 
   Future<List<Role>> getRoles() async {
-    final response = await _apiClient.get('/role');
+    final response = await _apiClient.get('/v2/role');
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Role.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load roles: ${response.statusCode}');
+      throw AppException('Failed to load roles: ${response.statusCode}');
     }
   }
 
   Future<Role> createRole(Role role) async {
     final response = await _apiClient.post(
-      '/role',
+      '/v2/role',
       body: role.toJson(),
     );
 
@@ -27,15 +28,24 @@ class RoleService {
       final data = jsonDecode(response.body);
       return Role.fromJson(data);
     } else {
-      throw Exception('Failed to create role: ${response.statusCode}');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to create role: ${response.statusCode}');
     }
   }
 
+  Future<Role> updateRole(Role role) async {
+    final response = await _apiClient.put('/v2/role/${role.id}', body: role.toJson());
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Role.fromJson(Map<String, dynamic>.from(data as Map));
+    }
+    throw AppException(response.body.isNotEmpty ? response.body : 'Failed to update role');
+  }
+
   Future<void> deleteRole(String roleId) async {
-    final response = await _apiClient.delete('/role/$roleId');
+    final response = await _apiClient.delete('/v2/role/$roleId');
 
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception('Failed to delete role: ${response.statusCode}');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to delete role: ${response.statusCode}');
     }
   }
 
@@ -46,29 +56,40 @@ class RoleService {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Workcenter.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load all workcenters: ${response.statusCode}');
+      throw AppException('Failed to load all workcenters: ${response.statusCode}');
     }
   }
 
   Future<List<Workcenter>> getRoleWorkcenters(String roleId) async {
-    final response = await _apiClient.get('/role/$roleId/workcenter');
+    final response = await _apiClient.get('/v2/role/$roleId/workcenter');
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Workcenter.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load workcenters for role $roleId: ${response.statusCode}');
+      throw AppException('Failed to load workcenters for role $roleId: ${response.statusCode}');
     }
   }
 
   Future<void> assignWorkcentersToRole(String roleId, List<Map<String, dynamic>> assignments) async {
     final response = await _apiClient.post(
-      '/role/$roleId/workcenter',
+      '/v2/role/$roleId/workcenter',
       body: assignments,
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to assign workcenters to role: ${response.statusCode}');
+      throw AppException(response.body.isNotEmpty ? response.body : 'Failed to assign workcenters to role: ${response.statusCode}');
+    }
+  }
+
+  Future<void> removeWorkcenterFromRole(String roleId, String workcenterCode) async {
+    final response = await _apiClient.delete(
+      '/v2/role/$roleId/workcenter',
+      queryParameters: {'workcenter': workcenterCode},
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw AppException('Failed to remove workcenter from role');
     }
   }
 }

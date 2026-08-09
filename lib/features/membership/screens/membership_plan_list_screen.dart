@@ -3,6 +3,8 @@ import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import 'membership_plan_create_screen.dart';
 import 'membership_plan_detail_screen.dart';
+import '../widgets/membership_change_settings_dialog.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipPlanListScreen extends StatefulWidget {
   const MembershipPlanListScreen({super.key});
@@ -13,7 +15,9 @@ class MembershipPlanListScreen extends StatefulWidget {
 
 class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
   bool _isLoading = true;
+  List<MembershipPlan> _allPlans = [];
   List<MembershipPlan> _plans = [];
+  String _selectedStatus = 'ALL';
   String? _error;
 
   @override
@@ -31,19 +35,30 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
     try {
       final response = await MembershipService().getMembershipPlans(size: 100);
       if (mounted) {
+        final plans = response.content
+          ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
         setState(() {
-          _plans = response.content;
+          _allPlans = plans;
+          _applyStatusFilter();
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
     }
+  }
+
+  void _applyStatusFilter() {
+    _plans = switch (_selectedStatus) {
+      'ACTIVE' => _allPlans.where((plan) => plan.active).toList(),
+      'INACTIVE' => _allPlans.where((plan) => !plan.active).toList(),
+      _ => List<MembershipPlan>.from(_allPlans),
+    };
   }
 
   @override
@@ -51,7 +66,7 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Membership Plans'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
@@ -61,6 +76,11 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
         centerTitle: false,
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => showMembershipChangeSettingsDialog(context),
+            tooltip: 'Membership change settings',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: _fetchPlans,
             tooltip: 'Refresh',
@@ -68,7 +88,12 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _buildBody(colorScheme),
+      body: Column(
+        children: [
+          _buildStatusFilter(),
+          Expanded(child: _buildBody(colorScheme)),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.of(context).push(
@@ -81,6 +106,33 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
         label: const Text('NEW PLAN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         icon: const Icon(Icons.add_rounded),
         elevation: 2,
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    const statuses = ['ALL', 'ACTIVE', 'INACTIVE'];
+    return Container(
+      height: 52,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = statuses[index];
+          return ChoiceChip(
+            label: Text(status),
+            selected: _selectedStatus == status,
+            showCheckmark: false,
+            onSelected: (_) => setState(() {
+              _selectedStatus = status;
+              _applyStatusFilter();
+            }),
+          );
+        },
       ),
     );
   }

@@ -3,6 +3,7 @@ import '../models/legal_case.dart';
 import '../services/case_management_service.dart';
 import 'case_detail_screen.dart';
 import 'create_case_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CaseListScreen extends StatefulWidget {
   const CaseListScreen({super.key});
@@ -39,6 +40,8 @@ class _CaseListScreenState extends State<CaseListScreen> {
     setState(() => _isLoading = true);
     try {
       final cases = await _caseService.getCases();
+      cases.sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
       if (!mounted) return;
       setState(() {
         _cases = cases;
@@ -50,7 +53,7 @@ class _CaseListScreenState extends State<CaseListScreen> {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error loading cases: $e'),
+          content: Text(friendlyErrorMessage('Error loading cases: $e')),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -74,7 +77,7 @@ class _CaseListScreenState extends State<CaseListScreen> {
     final isTablet = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Case Management', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
@@ -96,7 +99,15 @@ class _CaseListScreenState extends State<CaseListScreen> {
                 : _filteredCases.isEmpty
                     ? _buildEmptyState()
                     : isTablet 
-                        ? SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(16), child: _buildDataTable()))
+                        ? SingleChildScrollView(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: _buildDataTable(),
+                              ),
+                            ),
+                          )
                         : ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: _filteredCases.length,

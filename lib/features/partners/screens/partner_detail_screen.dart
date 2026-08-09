@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
+import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
 import '../models/partner_identity.dart';
 import '../partner_service.dart';
@@ -9,6 +11,7 @@ import 'partner_create_screen.dart';
 import 'add_identity_dialog.dart';
 import 'add_address_dialog.dart';
 import 'add_role_dialog.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PartnerDetailScreen extends StatefulWidget {
   final String partnerId;
@@ -31,6 +34,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
   Partner? _partner;
   List<PartnerRole> _detailedRoles = [];
   List<PartnerIdentity> _detailedIdentities = [];
+  List<Map<String, dynamic>> _bankAccounts = [];
   String? _error;
 
   @override
@@ -55,23 +59,29 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
         final results = await Future.wait([
           PartnerService().getPartnerRoles(widget.partnerId).catchError((_) => <PartnerRole>[]),
           PartnerService().getPartnerIdentities(widget.partnerId).catchError((_) => <PartnerIdentity>[]),
+          PartnerService().getSupplierBankAccounts(widget.partnerId).catchError((_) => <Map<String, dynamic>>[]),
         ]);
         
         setState(() {
           _partner = partner;
           _detailedRoles = results[0] as List<PartnerRole>;
           _detailedIdentities = results[1] as List<PartnerIdentity>;
+          _bankAccounts = results[2] as List<Map<String, dynamic>>;
           _isLoading = false;
         });
       } else {
         setState(() {
-          _error = 'Failed to load details: ${response.statusCode}';
+          _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'The partner details could not be loaded. Please try again.',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }
@@ -104,13 +114,35 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     if (result == true) _fetchPartnerDetails();
   }
 
+  bool get _isSupplier => _detailedRoles.any((role) {
+        final value = '${role.id} ${role.description}'.toUpperCase();
+        return value.contains('SUPPLIER');
+      });
+
+  Future<void> _showSupplierBankingDialog() async {
+    final submitted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _SupplierBankingApprovalDialog(
+        partnerId: widget.partnerId,
+      ),
+    );
+    if (submitted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Supplier banking details submitted for approval.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final entityName = widget.isMemberContext ? 'Member' : 'Partner';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.title ?? '$entityName Details'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
@@ -188,6 +220,24 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
           _buildSectionHeader(Icons.info_outline, 'GENERAL INFORMATION'),
           const SizedBox(height: 12),
           _buildGeneralInfoCard(partner, colorScheme),
+          if (_isSupplier) ...[
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionHeader(Icons.account_balance_outlined, 'APPROVED BANKING DETAILS'),
+                TextButton.icon(
+                  onPressed: _showSupplierBankingDialog,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('SUBMIT CHANGE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ..._bankAccounts.map((account) => _buildBankAccountRow(account, colorScheme)),
+            if (_bankAccounts.isEmpty)
+              _buildEmptyPrompt('No approved supplier banking details recorded.'),
+          ],
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -418,10 +468,188 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
     );
   }
 
+  Widget _buildBankAccountRow(Map<String, dynamic> account, ColorScheme colorScheme) {
+    final number = (account['accountNumber'] ?? '').toString();
+    final masked = number.length > 4
+        ? '${'*' * (number.length - 4)}${number.substring(number.length - 4)}'
+        : number;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.account_balance, color: colorScheme.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (account['bankName'] ?? 'Bank account').toString(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('${account['accountHolder'] ?? ''} • $masked'),
+                Text(
+                  '${account['accountType'] ?? ''} • Universal branch ${account['branchCode'] ?? '-'}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyPrompt(String message) {
     return Padding(
       padding: const EdgeInsets.only(left: 8.0),
       child: Text(message, style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
+    );
+  }
+}
+
+
+class _SupplierBankingApprovalDialog extends StatefulWidget {
+  final String partnerId;
+
+  const _SupplierBankingApprovalDialog({required this.partnerId});
+
+  @override
+  State<_SupplierBankingApprovalDialog> createState() =>
+      _SupplierBankingApprovalDialogState();
+}
+
+class _SupplierBankingApprovalDialogState
+    extends State<_SupplierBankingApprovalDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _holder = TextEditingController();
+  final _number = TextEditingController();
+  String? _bankName;
+  String? _accountType;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _holder.dispose();
+    _number.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await PartnerService().submitSupplierBankingDetails(widget.partnerId, {
+        'partner': widget.partnerId,
+        'accountHolder': _holder.text.trim(),
+        'accountNumber': _number.text.trim(),
+        'bankName': _bankName,
+        'accountType': _accountType,
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    InputDecoration decoration(String label) => InputDecoration(labelText: label);
+    return AlertDialog(
+      title: const Text('Submit banking details'),
+      content: SizedBox(
+        width: 480,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Attach a bank confirmation letter or other banking evidence in the supplier Documents section before submitting. The approver will compare that evidence with these proposed details.',
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _holder,
+                  decoration: decoration('Account holder'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Account holder is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                AppDropdownField(
+                  field: 'BANK-NAME',
+                  label: 'Bank Name',
+                  value: _bankName,
+                  onChanged: (value) => setState(() => _bankName = value),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Bank Name is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _number,
+                  decoration: decoration('Account number'),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(20),
+                  ],
+                  validator: (value) => RegExp(r'^\d{5,20}$').hasMatch(value?.trim() ?? '')
+                      ? null
+                      : 'Account number must contain 5 to 20 digits',
+                ),
+                const SizedBox(height: 12),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'The universal branch code is assigned automatically from the selected bank.',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AppDropdownField(
+                  field: 'BANK-ACCOUNT-TYPE',
+                  label: 'Account Type',
+                  value: _accountType,
+                  onChanged: (value) => setState(() => _accountType = value),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Account Type is required'
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Submit for approval'),
+        ),
+      ],
     );
   }
 }

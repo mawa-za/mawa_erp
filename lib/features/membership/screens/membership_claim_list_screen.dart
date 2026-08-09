@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/membership_claim.dart';
 import '../services/membership_service.dart';
 import 'membership_claim_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipClaimListScreen extends StatefulWidget {
   const MembershipClaimListScreen({super.key});
@@ -12,172 +14,341 @@ class MembershipClaimListScreen extends StatefulWidget {
 }
 
 class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
+  static const Map<String, String> _statuses = {
+    'ALL': 'All',
+    'DRAFT': 'Draft',
+    'SUBMITTED': 'Submitted',
+    'APPROVED': 'Approved',
+    'PAYMENT_PENDING': 'Payment pending',
+    'PAYMENT_PROCESSING': 'Payment processing',
+    'PAYMENT_FAILED': 'Payment failed',
+    'REJECTED': 'Rejected',
+    'CANCELLED': 'Cancelled',
+    'PAID': 'Paid',
+  };
+
   final MembershipService _membershipService = MembershipService();
-  List<MembershipClaim> _claims = [];
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  final List<MembershipClaim> _claims = [];
+
+  Timer? _searchDebounce;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _lastPage = false;
+  int _page = 0;
+  int _requestGeneration = 0;
+  String _selectedStatus = 'ALL';
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchClaims();
+    _scrollController.addListener(_onScroll);
+    _fetchClaims(reset: true);
   }
 
-  Future<void> _fetchClaims() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 240 &&
+        !_isLoading &&
+        !_isLoadingMore &&
+        !_lastPage) {
+      _fetchClaims(reset: false);
+    }
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _fetchClaims(reset: true),
+    );
+    setState(() {});
+  }
+
+  Future<void> _fetchClaims({required bool reset}) async {
+    final generation = reset ? ++_requestGeneration : _requestGeneration;
+    if (reset) {
+      setState(() {
+        _page = 0;
+        _lastPage = false;
+        _claims.clear();
+        _isLoading = true;
+        _error = null;
+      });
+    } else {
+      setState(() => _isLoadingMore = true);
+    }
 
     try {
-      final claims = await _membershipService.getMembershipClaims();
+      final result = await _membershipService.getMembershipClaimPage(
+        status: _selectedStatus == 'ALL' ? null : _selectedStatus,
+        query: _searchController.text,
+        page: _page,
+        size: 50,
+      );
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        _claims = claims;
+        _claims.addAll(result.items);
+        _claims.sort((a, b) {
+          final ad = DateTime.tryParse(a.createdAt.replaceFirst(' ', 'T'));
+          final bd = DateTime.tryParse(b.createdAt.replaceFirst(' ', 'T'));
+          return (bd ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(ad ?? DateTime.fromMillisecondsSinceEpoch(0));
+        });
+        _page = result.page + 1;
+        _lastPage = result.last;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (e) {
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
   }
 
+  void _selectStatus(String status) {
+    if (_selectedStatus == status) return;
+    _selectedStatus = status;
+    _fetchClaims(reset: true);
+  }
+
+  Future<void> _openClaim(MembershipClaim claim) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MembershipClaimDetailScreen(claimId: claim.id),
+      ),
+    );
+    if (result == true) _fetchClaims(reset: true);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Membership Claims'),
-        titleTextStyle: TextStyle(
-          color: colorScheme.onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchClaims,
+            onPressed: () => _fetchClaims(reset: true),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorWidget()
-              : _claims.isEmpty
-                  ? _buildEmptyWidget()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _claims.length,
-                      itemBuilder: (context, index) {
-                        final claim = _claims[index];
-                        return _buildClaimCard(claim, colorScheme);
-                      },
-                    ),
-    );
-  }
-
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: _fetchClaims, child: const Text('RETRY')),
+          _buildSearchBar(),
+          _buildStatusFilters(),
+          Expanded(child: _buildBody()),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.assignment_outlined, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('No claims found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-        ],
+  Widget _buildSearchBar() {
+    return Material(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: TextField(
+          controller: _searchController,
+          onChanged: _onSearchChanged,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _fetchClaims(reset: true),
+          decoration: InputDecoration(
+            hintText: 'Search claim, membership, member or deceased ID',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      _fetchClaims(reset: true);
+                    },
+                  ),
+            filled: true,
+            fillColor: Colors.grey[100],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildClaimCard(MembershipClaim claim, ColorScheme colorScheme) {
+  Widget _buildStatusFilters() {
+    return Material(
+      color: Colors.white,
+      child: SizedBox(
+        height: 56,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          children: _statuses.entries.map((entry) {
+            final selected = entry.key == _selectedStatus;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                selected: selected,
+                label: Text(entry.value),
+                onSelected: (_) => _selectStatus(entry.key),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_error != null && _claims.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(_error!, textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => _fetchClaims(reset: true),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_claims.isEmpty) {
+      final search = _searchController.text.trim();
+      return Center(
+        child: Text(
+          search.isEmpty
+              ? 'No ${_statuses[_selectedStatus]!.toLowerCase()} claims'
+              : 'No claims match “$search”',
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _fetchClaims(reset: true),
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16),
+        itemCount: _claims.length + (_isLoadingMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _claims.length) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return _buildClaimCard(_claims[index]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildClaimCard(MembershipClaim claim) {
+    final memberReference = _firstNonEmpty(
+      claim.memberIdentityNumber,
+      claim.memberNumber,
+    );
+    final deceasedReference = _firstNonEmpty(
+      claim.deceasedIdentityNumber,
+      claim.deceasedNumber,
+    );
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: InkWell(
-        onTap: () async {
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => MembershipClaimDetailScreen(claimId: claim.id),
-            ),
-          );
-          if (result == true) _fetchClaims();
-        },
         borderRadius: BorderRadius.circular(16),
+        onTap: () => _openClaim(claim),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Claim #${claim.claimNo}', 
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 4),
-                      Text('Date: ${claim.claimDate}', 
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                    ],
+                  CircleAvatar(
+                    child: Text(claim.claimType.isEmpty ? '?' : claim.claimType[0]),
                   ),
-                  _buildStatusChip(claim.status),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          claim.claimNo.isEmpty ? 'Membership claim' : claim.claimNo,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${claim.claimType.replaceAll('_', ' ')} • ${claim.claimDate}',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _statusChip(claim.status),
                 ],
               ),
               const Divider(height: 24),
-              _buildMiniInfo('Membership', claim.membershipId),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildMiniInfo('Type', claim.claimType),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text('AMOUNT', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-                      Text(
-                        'R ${claim.claimAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.green),
-                      ),
-                    ],
-                  ),
-                ],
+              _referenceLine(
+                Icons.person_outline,
+                'Member',
+                claim.memberName,
+                memberReference.isEmpty ? null : 'ID / Reg: $memberReference',
               ),
-              if (claim.notes != null && claim.notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  claim.notes!,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 10),
+              _referenceLine(
+                Icons.card_membership_outlined,
+                'Membership',
+                claim.membershipNo.isEmpty ? 'Not available' : claim.membershipNo,
+                null,
+              ),
+              const SizedBox(height: 10),
+              _referenceLine(
+                Icons.person_off_outlined,
+                'Deceased',
+                claim.deceasedName,
+                deceasedReference.isEmpty ? null : 'ID / Reg: $deceasedReference',
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'R ${claim.claimAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
-              ],
+              ),
             ],
           ),
         ),
@@ -185,56 +356,50 @@ class _MembershipClaimListScreenState extends State<MembershipClaimListScreen> {
     );
   }
 
-  Widget _buildMiniInfo(String label, String value) {
-    return Column(
+  Widget _referenceLine(
+    IconData icon,
+    String label,
+    String value,
+    String? supporting,
+  ) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        Icon(icon, size: 18, color: Colors.grey[500]),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+              Text(
+                value.isEmpty ? 'Not available' : value,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              if (supporting != null)
+                Text(supporting, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    Color backgroundColor;
-    Color textColor;
+  String _firstNonEmpty(String first, String second) {
+    if (first.trim().isNotEmpty) return first.trim();
+    return second.trim();
+  }
 
-    switch (status.toUpperCase()) {
-      case 'APPROVED':
-        backgroundColor = Colors.green.withOpacity(0.1);
-        textColor = Colors.green.shade700;
-        break;
-      case 'DRAFT':
-        backgroundColor = Colors.blue.withOpacity(0.1);
-        textColor = Colors.blue.shade700;
-        break;
-      case 'REJECTED':
-        backgroundColor = Colors.red.withOpacity(0.1);
-        textColor = Colors.red.shade700;
-        break;
-      case 'SUBMITTED':
-        backgroundColor = Colors.orange.withOpacity(0.1);
-        textColor = Colors.orange.shade700;
-        break;
-      default:
-        backgroundColor = Colors.grey.withOpacity(0.1);
-        textColor = Colors.grey.shade700;
-    }
-
+  Widget _statusChip(String status) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status.toUpperCase(),
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
+        status.replaceAll('_', ' '),
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
   }

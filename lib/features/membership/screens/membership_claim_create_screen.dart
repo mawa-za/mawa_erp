@@ -9,6 +9,7 @@ import '../../../core/api_client.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
 import 'membership_claim_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipClaimCreateScreen extends StatefulWidget {
   final MembershipDetail membership;
@@ -41,16 +42,17 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
   // Banking details
   final _accHolderController = TextEditingController();
   final _accNumberController = TextEditingController();
-  final _branchCodeController = TextEditingController();
   
   DateTime _dateOfDeath = DateTime.now();
+  DateTime _burialDate = DateTime.now().add(const Duration(days: 7));
+  bool _isLoadingBenefit = false;
+  int? _claimAmountCents;
   String? _selectedClaimTypeCode;
   String? _selectedPayoutMethod;
   String? _selectedAccType;
   String? _selectedBankCode;
   String? _selectedCauseOfDeathCode;
   
-  Partner? _selectedClaimant;
   List<FieldOption> _claimTypeOptions = [];
   List<FieldOption> _payoutMethodOptions = [];
   List<FieldOption> _accTypeOptions = [];
@@ -61,10 +63,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
   void initState() {
     super.initState();
     _loadOptions();
-    
-    if (widget.dependent != null) {
-      _selectedClaimant = widget.member;
-    }
     
     final deceasedName = widget.deceasedPartner?.fullName ?? widget.member.fullName;
     final relationshipLabel = widget.dependent != null 
@@ -82,9 +80,25 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         FieldService().getOptionsByField('BANK-NAME'),
         FieldService().getOptionsByField('CAUSE-OF-DEATH'),
       ]);
+      final configuredResponse = await ApiClient().get(
+        '/v2/claim-type-configuration',
+        queryParameters: {'enabledOnly': true},
+      );
+      final enabledTypes = <String>{};
+      if (configuredResponse.statusCode == 200) {
+        final decoded = jsonDecode(configuredResponse.body);
+        if (decoded is List) {
+          for (final item in decoded) {
+            final row = Map<String, dynamic>.from(item as Map);
+            enabledTypes.add((row['claim_type'] ?? row['claimType']).toString().toUpperCase());
+          }
+        }
+      }
 
       setState(() {
-        _claimTypeOptions = results[0];
+        _claimTypeOptions = (results[0] as List<FieldOption>)
+            .where((option) => enabledTypes.isEmpty || enabledTypes.contains(option.code.toUpperCase()))
+            .toList();
         _payoutMethodOptions = results[1];
         _accTypeOptions = results[2];
         _bankOptions = results[3];
@@ -98,38 +112,52 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         
         _isLoadingOptions = false;
       });
+      await _loadBenefitAmount();
     } catch (e) {
       debugPrint('Error loading field options: $e');
       setState(() => _isLoadingOptions = false);
     }
   }
 
-  Future<List<Partner>> _searchClaimants(String query) async {
-    if (query.length < 2) return [];
+  Future<void> _loadBenefitAmount() async {
+    if (_selectedClaimTypeCode == null) return;
+    if (mounted) setState(() => _isLoadingBenefit = true);
     try {
-      final response = await ApiClient().get('/v2/partner?query=$query');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Partner.fromJson(json)).toList();
-      }
+      final deceasedPartnerId = widget.dependent?.dependentPartnerId ?? widget.member.id;
+      final response = await ApiClient().get('/v2/membership-claim/benefit', queryParameters: {
+        'membershipId': widget.membership.id,
+        'claimType': _selectedClaimTypeCode,
+        'deceasedPartnerId': deceasedPartnerId,
+        'eventDate': DateFormat('yyyy-MM-dd').format(_dateOfDeath),
+      });
+      if (response.statusCode != 200) throw AppException(response.body);
+      final data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+      final cents = (data['claimAmountCents'] as num?)?.toInt();
+      if (mounted) setState(() {
+        _claimAmountCents = cents;
+        _amountController.text = cents == null ? '' : (cents / 100).toStringAsFixed(2);
+      });
     } catch (e) {
-      debugPrint('Error searching partners: $e');
+      if (mounted) {
+        setState(() { _claimAmountCents = null; _amountController.clear(); });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage('Plan benefit could not be determined: $e'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingBenefit = false);
     }
-    return [];
   }
 
   Future<void> _submitClaim() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedClaimant == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a claimant'), behavior: SnackBarBehavior.floating));
-      return;
-    }
-
     setState(() => _isSubmitting = true);
 
     try {
-      final double amount = double.tryParse(_amountController.text) ?? 0.0;
-      final int amountCents = (amount * 100).toInt();
+      if (_claimAmountCents == null) {
+        throw AppException('The claim amount cannot be determined because the plan benefit is not configured.');
+      }
+      final int amountCents = _claimAmountCents!;
       
       final bool isCashClaim = _selectedClaimTypeCode == 'CASH';
       
@@ -150,9 +178,9 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         "deceasedPartnerId": widget.dependent?.dependentPartnerId ?? widget.member.id,
         "dateOfDeath": DateFormat('yyyy-MM-dd').format(_dateOfDeath),
         "claimDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        "causeOfDeath": selectedCause.description,
+        "burialDate": DateFormat('yyyy-MM-dd').format(_burialDate),
+        "causeOfDeath": selectedCause.code,
         "deathCertificateNo": _deathCertificateController.text.trim(),
-        "claimantPartnerId": _selectedClaimant!.id,
         "claimAmountCents": amountCents,
         "notes": _notesController.text.trim(),
         "submit": false,
@@ -160,7 +188,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         "bankName": (isCashClaim && _selectedPayoutMethod != 'CASH') ? selectedBank.description : null,
         "accountHolderName": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _accHolderController.text.trim() : null,
         "accountNumber": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _accNumberController.text.trim() : null,
-        "branchCode": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _branchCodeController.text.trim() : null,
         "accountType": (isCashClaim && _selectedPayoutMethod != 'CASH') ? _selectedAccType : null,
         "linkedClaimIds": []
       };
@@ -190,7 +217,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(friendlyErrorMessage('Error: $e')),
             backgroundColor: Colors.red[700],
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -207,7 +234,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Process Claim'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
@@ -226,9 +253,9 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
                 children: [
                   _buildSummaryCard(colorScheme),
                   const SizedBox(height: 32),
-                  _buildSectionHeader(Icons.person_search_outlined, '1. CLAIMANT (BENEFICIARY)'),
+                  _buildSectionHeader(Icons.person_outline, '1. MEMBERSHIP HOLDER'),
                   const SizedBox(height: 12),
-                  _buildClaimantSelector(colorScheme),
+                  _buildMembershipHolderCard(colorScheme),
                   const SizedBox(height: 32),
                   _buildSectionHeader(Icons.assignment_outlined, '2. CLAIM DETAILS'),
                   const SizedBox(height: 12),
@@ -340,67 +367,53 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     );
   }
 
-  Widget _buildClaimantSelector(ColorScheme colorScheme) {
+  Widget _buildMembershipHolderCard(ColorScheme colorScheme) {
+    final member = widget.member;
+    final identity = member.identityNumber.trim().isEmpty
+        ? 'Identity not captured'
+        : '${member.idType ?? 'ID'}: ${member.identityNumber}';
+
     return _buildCard([
-      SearchAnchor(
-        builder: (context, controller) => SearchBar(
-          controller: controller,
-          onTap: () => controller.openView(),
-          onChanged: (_) => controller.openView(),
-          hintText: 'Search for Beneficiary...',
-          leading: const Icon(Icons.search_rounded),
-          elevation: const WidgetStatePropertyAll(0),
-          backgroundColor: WidgetStatePropertyAll(Colors.grey[100]),
-          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16)),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
         ),
-        suggestionsBuilder: (context, controller) async {
-          final partners = await _searchClaimants(controller.text);
-          return partners.map((p) => ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person, size: 18)),
-            title: Text(p.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Policy No: ${p.number}'),
-            onTap: () {
-              setState(() => _selectedClaimant = p);
-              controller.closeView(p.fullName);
-            },
-          )).toList();
-        },
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: colorScheme.primary.withOpacity(0.1),
+              child: Text(
+                member.fullName.isNotEmpty ? member.fullName[0].toUpperCase() : '?',
+                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(member.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Text(identity, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text(
+                    'Membership #${widget.membership.membershipNo}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.lock_outline_rounded, color: colorScheme.primary, size: 20),
+          ],
+        ),
       ),
-      if (_selectedClaimant != null) ...[
-        const SizedBox(height: 20),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: colorScheme.primary.withOpacity(0.1),
-                child: Text(_selectedClaimant!.fullName.isNotEmpty ? _selectedClaimant!.fullName[0].toUpperCase() : '?', 
-                  style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_selectedClaimant!.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text('ID: ${_selectedClaimant!.identityNumber}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, size: 20),
-                onPressed: () => setState(() => _selectedClaimant = null),
-              ),
-            ],
-          ),
-        ),
-      ],
+      const SizedBox(height: 10),
+      Text(
+        'The claimant is derived from the selected membership and cannot be changed.',
+        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+      ),
     ]);
   }
 
@@ -413,14 +426,17 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
           value: opt.code,
           child: Text(opt.description, style: const TextStyle(fontSize: 14)),
         )).toList(),
-        onChanged: (v) => setState(() {
-          _selectedClaimTypeCode = v!;
-          if (_selectedClaimTypeCode != 'CASH') {
-            _selectedPayoutMethod = null;
-          } else if (_selectedPayoutMethod == null && _payoutMethodOptions.isNotEmpty) {
-            _selectedPayoutMethod = _payoutMethodOptions.first.code;
-          }
-        }),
+        onChanged: (v) {
+          setState(() {
+            _selectedClaimTypeCode = v!;
+            if (_selectedClaimTypeCode != 'CASH') {
+              _selectedPayoutMethod = null;
+            } else if (_selectedPayoutMethod == null && _payoutMethodOptions.isNotEmpty) {
+              _selectedPayoutMethod = _payoutMethodOptions.first.code;
+            }
+          });
+          _loadBenefitAmount();
+        },
         validator: (v) => v == null ? 'Required' : null,
       ),
       const SizedBox(height: 20),
@@ -432,7 +448,15 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
             firstDate: DateTime(2000),
             lastDate: DateTime.now(),
           );
-          if (picked != null) setState(() => _dateOfDeath = picked);
+          if (picked != null) {
+            setState(() {
+              _dateOfDeath = picked;
+              if (_burialDate.isBefore(_dateOfDeath)) {
+                _burialDate = _dateOfDeath.add(const Duration(days: 1));
+              }
+            });
+            _loadBenefitAmount();
+          }
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -460,16 +484,35 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         ),
       ),
       const SizedBox(height: 20),
+      InkWell(
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: _burialDate,
+            firstDate: _dateOfDeath,
+            lastDate: _dateOfDeath.add(const Duration(days: 365)),
+          );
+          if (picked != null) setState(() => _burialDate = picked);
+        },
+        child: InputDecorator(
+          decoration: _inputDecoration('Burial Date', Icons.event_available_outlined),
+          child: Text(DateFormat('EEEE, d MMMM yyyy').format(_burialDate),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ),
+      const SizedBox(height: 20),
       TextFormField(
         controller: _amountController,
+        readOnly: true,
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        decoration: _inputDecoration('Claim Amount', Icons.payments_outlined).copyWith(prefixText: 'R ', hintText: '0.00'),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validator: (v) {
-          if (v == null || v.isEmpty) return 'Required';
-          if (double.tryParse(v) == null) return 'Invalid amount';
-          return null;
-        },
+        decoration: _inputDecoration('Claim Amount (from plan benefit)', Icons.payments_outlined).copyWith(
+          prefixText: 'R ',
+          suffixIcon: _isLoadingBenefit
+              ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.lock_outline),
+          helperText: 'This amount is determined from the membership plan benefit and cannot be changed.',
+        ),
+        validator: (_) => _claimAmountCents == null ? 'Configure a plan benefit for this claim type' : null,
       ),
       const SizedBox(height: 20),
       TextFormField(
@@ -539,29 +582,22 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
           validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
         ),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _branchCodeController,
-                decoration: _inputDecoration('Branch', Icons.code_rounded),
-                keyboardType: TextInputType.number,
-                validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _selectedAccType,
-                decoration: _inputDecoration('Type', Icons.list_alt_rounded),
-                items: _accTypeOptions.map((opt) => DropdownMenuItem(
-                  value: opt.code,
-                  child: Text(opt.description, style: const TextStyle(fontSize: 12)),
-                )).toList(),
-                onChanged: (v) => setState(() => _selectedAccType = v!),
-              ),
-            ),
-          ],
+        DropdownButtonFormField<String>(
+          value: _selectedAccType,
+          decoration: _inputDecoration('Type', Icons.list_alt_rounded),
+          items: _accTypeOptions.map((opt) => DropdownMenuItem(
+            value: opt.code,
+            child: Text(opt.description, style: const TextStyle(fontSize: 12)),
+          )).toList(),
+          onChanged: (v) => setState(() => _selectedAccType = v!),
+        ),
+        const SizedBox(height: 8),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'The universal branch code is assigned automatically from the selected bank.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
         ),
       ],
     ]);
@@ -588,7 +624,6 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     _notesController.dispose();
     _accHolderController.dispose();
     _accNumberController.dispose();
-    _branchCodeController.dispose();
     super.dispose();
   }
 }

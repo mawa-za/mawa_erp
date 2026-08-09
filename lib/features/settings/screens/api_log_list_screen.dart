@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/api_endpoint_log.dart';
 import '../services/log_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ApiLogListScreen extends StatefulWidget {
   const ApiLogListScreen({super.key});
@@ -67,7 +68,7 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -96,7 +97,7 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
       if (mounted) {
         setState(() => _isLoadingMore = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more logs: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error loading more logs: $e'))),
         );
       }
     }
@@ -116,7 +117,7 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('API Endpoint Logs', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('API Activity Logs', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -205,9 +206,19 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
           '${log.method} ${log.endpoint}',
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(
-          formattedDate,
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        subtitle: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              formattedDate,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            _buildBadge(log.direction),
+            if ((log.integrationName ?? '').isNotEmpty)
+              _buildBadge(log.integrationName!),
+          ],
         ),
         childrenPadding: const EdgeInsets.all(16),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
@@ -248,12 +259,63 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('User Agent:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  const Text('Client:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 2),
                   Text(log.userAgent!, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                 ],
               ),
             ),
+          if ((log.requestBody ?? '').isNotEmpty)
+            _buildBodySection('Request Body', log.requestBody!),
+          if ((log.responseBody ?? '').isNotEmpty)
+            _buildBodySection('Response Body', log.responseBody!),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadge(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildBodySection(String title, String body) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$title:',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 320),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                body,
+                style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+              ),
+            ),
+          ),
         ],
       ),
     );

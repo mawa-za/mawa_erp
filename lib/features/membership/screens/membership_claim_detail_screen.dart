@@ -10,8 +10,12 @@ import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../screens/membership_detail_screen.dart';
 import '../../../core/widgets/attachment_section.dart';
+import '../../../core/api_client.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
+import '../../payments/screens/payment_request_detail_screen.dart';
+import '../../tombstones/screens/tombstone_order_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipClaimDetailScreen extends StatefulWidget {
   final String claimId;
@@ -25,7 +29,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   final MembershipService _membershipService = MembershipService();
   final PartnerService _partnerService = PartnerService();
   final ApprovalService _approvalService = ApprovalService();
-  
+  final ApiClient _api = ApiClient();
+
   late TabController _tabController;
   MembershipClaim? _claim;
   Partner? _deceasedPartner;
@@ -53,7 +58,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       final results = await Future.wait([
         _partnerService.getPartnerById(claim.deceasedPartnerId).catchError((_) => null),
         _partnerService.getPartnerById(claim.claimantPartnerId).catchError((_) => null),
-        if (claim.membershipId.isNotEmpty) 
+        if (claim.membershipId.isNotEmpty)
           _membershipService.getMembershipDetail(claim.membershipId).catchError((_) => null)
         else Future.value(null)
       ]);
@@ -72,7 +77,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -105,14 +110,14 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           approvalType: 'CLAIM',
           referenceId: _claim!.id,
           referenceNo: _claim!.claimNo,
-          title: 'Death Claim: ${_claim!.claimNo}',
+          title: 'Death claim ${_claim!.claimNo} - ${_deceasedPartner?.fullName ?? "Deceased not identified"}',
           description: 'Claim for R ${_claim!.claimAmount.toStringAsFixed(2)} (Deceased: ${_deceasedPartner?.fullName ?? "Unknown"})',
           requesterId: userId,
           payloadJson: jsonEncode(_claim!.toJson()),
         );
 
         await _approvalService.submitApproval(submission);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -128,7 +133,12 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to submit: $e'),
+              content: Text(
+                friendlyErrorMessage(
+                  e,
+                  fallback: 'The claim could not be submitted. Review the claim and try again.',
+                ),
+              ),
               backgroundColor: Colors.red[700],
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -146,9 +156,9 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(_claim != null ? 'Claim Detail' : 'Claim Details'),
+        title: Text(_claim == null || _claim!.claimNo.isEmpty ? 'Membership Claim' : 'Membership Claim ${_claim!.claimNo}'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -171,16 +181,16 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           unselectedLabelColor: Colors.grey,
         ),
       ),
-      body: (_isLoading || _isSubmitting) 
-          ? const Center(child: CircularProgressIndicator()) 
-          : _error != null 
-              ? _buildErrorWidget(colorScheme) 
+      body: (_isLoading || _isSubmitting)
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? _buildErrorWidget(colorScheme)
               : TabBarView(
                   controller: _tabController,
                   children: [
                     _buildDetailsTab(colorScheme),
                     SingleChildScrollView(
-                      padding: const EdgeInsets.all(24), 
+                      padding: const EdgeInsets.all(24),
                       child: _buildAttachmentContainer(),
                     ),
                   ],
@@ -201,20 +211,20 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => _cancelClaim(), 
+              onPressed: () => _cancelClaim(),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red,
                 side: const BorderSide(color: Colors.red),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-              ), 
+              ),
               child: const Text('CANCEL DRAFT', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: FilledButton(
-              onPressed: _submitClaim, 
+              onPressed: _submitClaim,
               style: FilledButton.styleFrom(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -237,7 +247,19 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildStatusBanner(claim, colorScheme),
           const SizedBox(height: 24),
           _buildAmountCard(claim, colorScheme),
-          
+          const SizedBox(height: 20),
+          _buildSigniFlowCard(claim, colorScheme),
+          if (claim.claimType.toUpperCase() == 'CASH' &&
+              (claim.paymentRequestId?.isNotEmpty ?? false)) ...[
+            const SizedBox(height: 20),
+            _buildDisbursementCard(claim, colorScheme),
+          ],
+          if ((claim.claimType.toUpperCase() == 'TOMBSTONE' || claim.claimType.toUpperCase() == 'COMBINATION') &&
+              (claim.tombstoneOrderId?.isNotEmpty ?? false)) ...[
+            const SizedBox(height: 20),
+            _buildTombstoneSettlementCard(claim, colorScheme),
+          ],
+
           if (_membershipDetail != null) ...[
             const SizedBox(height: 32),
             Row(
@@ -252,18 +274,41 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
               ]
             ),
             const SizedBox(height: 12),
-            _buildMembershipCard(_membershipDetail!, colorScheme),
+            _buildMembershipCard(_membershipDetail!, claim, colorScheme),
           ],
-          
+
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.people_outline, 'PEOPLE INVOLVED'),
           const SizedBox(height: 12),
-          if (_deceasedPartner != null) _buildPartnerCard('Deceased Person', _deceasedPartner!, colorScheme, isDeceased: true),
+          _buildClaimPersonReferenceCard(
+            role: 'Membership Holder',
+            name: claim.memberName,
+            partnerNumber: claim.memberNumber,
+            identityNumber: claim.memberIdentityNumber,
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: 12),
+          if (_deceasedPartner != null)
+            _buildPartnerCard(
+              'Deceased Person',
+              _deceasedPartner!,
+              colorScheme,
+              isDeceased: true,
+            )
+          else
+            _buildClaimPersonReferenceCard(
+              role: 'Deceased Person',
+              name: claim.deceasedName,
+              partnerNumber: claim.deceasedNumber,
+              identityNumber: claim.deceasedIdentityNumber,
+              colorScheme: colorScheme,
+              isDeceased: true,
+            ),
           if (_claimantPartner != null) ...[
             const SizedBox(height: 12),
             _buildPartnerCard('Claimant (Beneficiary)', _claimantPartner!, colorScheme),
           ],
-          
+
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.info_outline, 'CLAIM SPECIFICATIONS'),
           const SizedBox(height: 12),
@@ -275,11 +320,14 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   }
 
   Widget _buildStatusBanner(MembershipClaim claim, ColorScheme colorScheme) {
-    Color color; 
+    Color color;
     switch (claim.status.toUpperCase()) {
       case 'APPROVED': color = Colors.green; break;
+      case 'PAYMENT_PENDING': color = Colors.orange; break;
+      case 'PAYMENT_PROCESSING': color = Colors.blue; break;
+      case 'PAYMENT_FAILED':
       case 'REJECTED': color = Colors.red; break;
-      case 'SUBMITTED': 
+      case 'SUBMITTED':
       case 'AWAITING-APPROVAL': color = Colors.orange; break;
       case 'PAID': color = Colors.teal; break;
       default: color = colorScheme.primary;
@@ -325,6 +373,102 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     );
   }
 
+  Widget _buildDisbursementCard(MembershipClaim claim, ColorScheme colorScheme) {
+    final status = claim.status.toUpperCase();
+    final message = switch (status) {
+      'PAYMENT_PENDING' => 'The claim is approved and the payment instruction is queued for processing.',
+      'PAYMENT_PROCESSING' => 'FNB accepted the payment instruction. Bank confirmation is being monitored.',
+      'PAYMENT_FAILED' => 'The bank could not complete the payment. Review the linked payment request before retrying.',
+      'PAID' => 'The bank confirmed that the claim payment was completed.',
+      _ => 'A payment request was created from the approved claim.',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.account_balance_outlined, color: colorScheme.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('CLAIM DISBURSEMENT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.8)),
+                const SizedBox(height: 6),
+                Text(message),
+                const SizedBox(height: 8),
+                Text(
+                  'A linked payment request is available for review.',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PaymentRequestDetailScreen(paymentId: claim.paymentRequestId!),
+                    ),
+                  ),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: const Text('VIEW PAYMENT REQUEST'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTombstoneSettlementCard(MembershipClaim claim, ColorScheme colorScheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.account_balance_outlined, color: colorScheme.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('TOMBSTONE BENEFIT SETTLEMENT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.8)),
+                const SizedBox(height: 6),
+                const Text('The approved funeral-cover benefit was settled internally against a tombstone order. No cash payment is sent to the family for this allocation.'),
+                const SizedBox(height: 8),
+                Text('A linked tombstone order is available for review.', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                if (claim.settledAt?.isNotEmpty ?? false)
+                  Text('Settled: ${claim.settledAt}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TombstoneOrderDetailScreen(orderId: claim.tombstoneOrderId!),
+                    ),
+                  ),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: const Text('VIEW TOMBSTONE ORDER'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAmountCard(MembershipClaim claim, ColorScheme colorScheme) {
     return Container(
       width: double.infinity,
@@ -355,7 +499,300 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     );
   }
 
-  Widget _buildMembershipCard(MembershipDetail detail, ColorScheme colorScheme) {
+  Widget _buildSigniFlowCard(MembershipClaim claim, ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: colorScheme.primary.withOpacity(0.1),
+            child: Icon(Icons.draw_outlined, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SigniFlow electronic signature',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Generate the claim form, send it for signature and retrieve the signed copy.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: _openSigniFlow,
+            icon: const Icon(Icons.send_outlined),
+            label: const Text('Manage'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openSigniFlow() async {
+    setState(() => _isSubmitting = true);
+    try {
+      final responses = await Future.wait([
+        _api.get('/v2/membership-claim/${widget.claimId}/signiflow/signer-options'),
+        _api.get('/v2/membership-claim/${widget.claimId}/signiflow'),
+      ]);
+      if (responses.any((response) => response.statusCode != 200)) {
+        throw AppException(responses.firstWhere((response) => response.statusCode != 200).body);
+      }
+      final signers = (jsonDecode(responses[0].body) as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+      final workflows = (jsonDecode(responses[1].body) as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+      if (!mounted) return;
+      await _showSigniFlowDialog(signers, workflows);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage('Unable to open SigniFlow: $error'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _showSigniFlowDialog(
+    List<Map<String, dynamic>> initialSigners,
+    List<Map<String, dynamic>> initialWorkflows,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final name = TextEditingController();
+    final email = TextEditingController();
+    String? selectedPartnerId;
+    var workflows = List<Map<String, dynamic>>.from(initialWorkflows);
+    bool busy = false;
+
+    void applySigner(Map<String, dynamic>? signer) {
+      selectedPartnerId = signer?['partnerId']?.toString();
+      name.text = signer?['name']?.toString() ?? '';
+      email.text = signer?['email']?.toString() ?? '';
+    }
+
+    if (initialSigners.isNotEmpty) {
+      final preferred = initialSigners.firstWhere(
+        (row) => (row['relationship'] ?? '').toString() == 'CLAIMANT',
+        orElse: () => initialSigners.first,
+      );
+      applySigner(preferred);
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !busy,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (_, setDialogState) {
+          Future<void> reloadWorkflows() async {
+            final response = await _api.get(
+              '/v2/membership-claim/${widget.claimId}/signiflow',
+            );
+            if (response.statusCode != 200) throw AppException(response.body);
+            setDialogState(() {
+              workflows = (jsonDecode(response.body) as List)
+                  .map((row) => Map<String, dynamic>.from(row as Map))
+                  .toList();
+            });
+          }
+
+          Future<void> runWorkflowAction(String workflowId, String action) async {
+            setDialogState(() => busy = true);
+            try {
+              final response = await _api.post(
+                '/v2/signiflow/workflows/$workflowId/$action',
+              );
+              if (response.statusCode != 200) throw AppException(response.body);
+              await reloadWorkflows();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(action == 'download-signed'
+                        ? 'Signed claim form saved to attachments.'
+                        : 'Signature status refreshed.'),
+                  ),
+                );
+              }
+            } catch (error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(friendlyErrorMessage('SigniFlow action failed: $error'))),
+                );
+              }
+            } finally {
+              setDialogState(() => busy = false);
+            }
+          }
+
+          Future<void> send() async {
+            if (!formKey.currentState!.validate()) return;
+            setDialogState(() => busy = true);
+            try {
+              final response = await _api.post(
+                '/v2/membership-claim/${widget.claimId}/signiflow/send',
+                body: {
+                  'signerPartnerId': selectedPartnerId,
+                  'signerName': name.text.trim(),
+                  'signerEmail': email.text.trim(),
+                },
+              );
+              if (response.statusCode != 200) throw AppException(response.body);
+              await reloadWorkflows();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Claim form sent to SigniFlow.')),
+                );
+              }
+            } catch (error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(friendlyErrorMessage('Unable to send claim form: $error'))),
+                );
+              }
+            } finally {
+              setDialogState(() => busy = false);
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('SigniFlow claim form signature'),
+            content: SizedBox(
+              width: 720,
+              height: 620,
+              child: Form(
+                key: formKey,
+                child: ListView(
+                  children: [
+                    const Text(
+                      'Select the person who must sign. Existing partner email details are used where available and can be corrected before sending.',
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedPartnerId,
+                      decoration: const InputDecoration(
+                        labelText: 'Signer',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: initialSigners
+                          .map((signer) => DropdownMenuItem(
+                                value: signer['partnerId']?.toString(),
+                                child: Text(
+                                  '${signer['name'] ?? ''} (${signer['relationship'] ?? ''})',
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        final signer = initialSigners.cast<Map<String, dynamic>?>().firstWhere(
+                              (row) => row?['partnerId']?.toString() == value,
+                              orElse: () => null,
+                            );
+                        setDialogState(() => applySigner(signer));
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: name,
+                      decoration: const InputDecoration(
+                        labelText: 'Signer full name',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => value == null || value.trim().isEmpty
+                          ? 'Signer name is required'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: email,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Signer email address',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        final text = value?.trim() ?? '';
+                        if (text.isEmpty) return 'Signer email address is required';
+                        return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)
+                            ? null
+                            : 'Enter a valid email address';
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: busy ? null : send,
+                      icon: const Icon(Icons.send_outlined),
+                      label: const Text('Generate and send claim form'),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Signature workflows',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    if (workflows.isEmpty)
+                      const Text('No claim form has been sent for signature yet.')
+                    else
+                      ...workflows.map(
+                        (workflow) => Card(
+                          child: ListTile(
+                            title: Text(workflow['signer_name']?.toString() ?? ''),
+                            subtitle: Text(
+                              '${workflow['signer_email'] ?? ''}\nStatus: ${workflow['status'] ?? ''}',
+                            ),
+                            isThreeLine: true,
+                            trailing: PopupMenuButton<String>(
+                              enabled: !busy,
+                              onSelected: (action) => runWorkflowAction(
+                                workflow['id'].toString(),
+                                action,
+                              ),
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'refresh',
+                                  child: Text('Refresh status'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'download-signed',
+                                  child: Text('Retrieve signed form'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: busy ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    name.dispose();
+    email.dispose();
+  }
+
+  Widget _buildMembershipCard(MembershipDetail detail, MembershipClaim claim, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -365,12 +802,56 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       ),
       child: Column(
         children: [
-          _buildInfoRow('Plan Type', detail.planId, icon: Icons.shield_outlined),
+          _buildInfoRow(
+            'Coverage Plan',
+            claim.coveragePlanName.isNotEmpty ? claim.coveragePlanName : 'Not available',
+            icon: Icons.shield_outlined,
+          ),
           const Divider(height: 32),
           _buildInfoRow('Membership No', detail.membershipNo, icon: Icons.numbers_rounded),
           const Divider(height: 32),
           _buildInfoRow('Policy Status', detail.status.toUpperCase(), icon: Icons.toggle_on_outlined, valueColor: detail.status.toUpperCase() == 'ACTIVE' ? Colors.green : Colors.orange),
         ],
+      ),
+    );
+  }
+
+  Widget _buildClaimPersonReferenceCard({
+    required String role,
+    required String name,
+    required String partnerNumber,
+    required String identityNumber,
+    required ColorScheme colorScheme,
+    bool isDeceased = false,
+  }) {
+    final themeColor = isDeceased ? Colors.purple : colorScheme.primary;
+    final references = <String>[
+      if (identityNumber.trim().isNotEmpty)
+        'ID / Registration: ${identityNumber.trim()}',
+      if (partnerNumber.trim().isNotEmpty)
+        'Partner No: ${partnerNumber.trim()}',
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: themeColor.withOpacity(0.1),
+          child: Icon(Icons.person_outline, color: themeColor, size: 20),
+        ),
+        title: Text(
+          name.trim().isEmpty ? 'Not available' : name.trim(),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        subtitle: Text(
+          [role, ...references].join(' • '),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
       ),
     );
   }
@@ -397,7 +878,14 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           partner.fullName,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
-        subtitle: Text(role, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        subtitle: Text(
+          [
+            role,
+            if (partner.number.isNotEmpty) 'Partner No: ${partner.number}',
+            if (partner.identityNumber.isNotEmpty) '${partner.idType?.isNotEmpty == true ? partner.idType : 'ID / Registration'}: ${partner.identityNumber}',
+          ].join(' • '),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
         trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
       ),
     );
@@ -416,6 +904,12 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildInfoRow('Claim Type', claim.claimType, icon: Icons.category_outlined),
           const Divider(height: 32),
           _buildInfoRow('Date of Death', claim.dateOfDeath, icon: Icons.calendar_today_rounded),
+          if (claim.coveragePlanName.isNotEmpty) ...[
+            const Divider(height: 32),
+            _buildInfoRow('Coverage Plan', claim.coveragePlanName, icon: Icons.shield_outlined),
+            const Divider(height: 32),
+            _buildInfoRow('Coverage Effective Date', claim.coverageEventDate, icon: Icons.event_available_outlined),
+          ],
           const Divider(height: 32),
           _buildInfoRow('Certificate No', claim.deathCertificateNo ?? 'N/A', icon: Icons.badge_outlined),
           const Divider(height: 32),
@@ -441,7 +935,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         const Spacer(),
         Flexible(
           child: Text(
-            value, 
+            value,
             textAlign: TextAlign.right,
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: valueColor ?? Colors.black87),
           ),
@@ -497,8 +991,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       ),
     );
   }
-  
-  Future<void> _cancelClaim() async { 
+
+  Future<void> _cancelClaim() async {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -508,7 +1002,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('GO BACK')),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true), 
+            onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('CANCEL CLAIM'),
           ),
@@ -530,13 +1024,13 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
            _fetchDetails();
          }
        } catch (e) {
-         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red));
        } finally {
          if (mounted) setState(() => _isSubmitting = false);
        }
     }
   }
-  
+
   Future<void> _showEditDialog() async {
     // Navigate to create screen with existing data or implement a dialog
     // For now, let's just show a notification

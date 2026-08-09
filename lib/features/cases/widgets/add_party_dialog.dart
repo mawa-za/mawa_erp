@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/case_party.dart';
 import '../services/case_management_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AddPartyDialog extends StatefulWidget {
   final String caseId;
@@ -81,7 +83,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Error: $e'))));
       }
     }
   }
@@ -116,7 +118,22 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
               ),
               TextFormField(controller: _idNumberController, decoration: const InputDecoration(labelText: 'ID/Reg Number')),
               TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email')),
-              TextFormField(controller: _phoneController, decoration: const InputDecoration(labelText: 'Phone Number')),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(labelText: 'Contact Number'),
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                validator: (value) {
+                  final contact = value?.trim() ?? '';
+                  if (contact.isEmpty) return null;
+                  return RegExp(r'^\d{10}$').hasMatch(contact)
+                      ? null
+                      : 'Contact Number must be 10 numeric digits';
+                },
+              ),
               TextFormField(controller: _firmController, decoration: const InputDecoration(labelText: 'Attorney Firm')),
               TextFormField(controller: _attorneyController, decoration: const InputDecoration(labelText: 'Attorney Name')),
               TextFormField(controller: _notesController, decoration: const InputDecoration(labelText: 'Notes'), maxLines: 2),

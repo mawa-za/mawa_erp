@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/models/paginated_response.dart';
+import '../../../core/routing/app_routes.dart';
 import '../models/membership.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
-import '../../partners/models/partner.dart';
 import 'add_member_screen.dart';
-import 'membership_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MemberListScreen extends StatefulWidget {
   const MemberListScreen({super.key});
@@ -29,9 +30,17 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
   List<Membership> _memberships = [];
   Map<String, MembershipPlan> _plans = {};
-  Map<String, Partner> _partners = {};
   String? _error;
   List<String>? _currentMemberIds;
+  String _selectedStatus = 'ALL';
+  static const List<String> _statuses = [
+    'ALL',
+    'ACTIVE',
+    'PENDING',
+    'LAPSED',
+    'CANCELLED',
+    'INACTIVE',
+  ];
 
   @override
   void initState() {
@@ -64,32 +73,6 @@ class _MemberListScreenState extends State<MemberListScreen> {
     setState(() {});
   }
 
-  Future<void> _fetchPartners(List<String> ids) async {
-    final uniqueIds = ids.where((id) => id.isNotEmpty && !_partners.containsKey(id)).toSet();
-    if (uniqueIds.isEmpty) return;
-
-    final results = await Future.wait(
-      uniqueIds.map((id) async {
-        try {
-          final partner = await PartnerService().getPartnerById(id);
-          return MapEntry(id, partner);
-        } catch (_) {
-          return null;
-        }
-      }),
-    );
-
-    if (mounted) {
-      setState(() {
-        for (var entry in results) {
-          if (entry != null) {
-            _partners[entry.key] = entry.value;
-          }
-        }
-      });
-    }
-  }
-
   Future<void> _fetchInitialData() async {
     if (!mounted) return;
 
@@ -107,16 +90,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
 
       if (query.isNotEmpty) {
         try {
-          final partners = await PartnerService().getPartnersByRole('CUSTOMER', query: query);
+          final partners = await PartnerService().getPartnersByRole('MEMBER', query: query);
           _currentMemberIds = partners.map((p) => p.id).toList();
-
-          if (mounted) {
-            setState(() {
-              for (var p in partners) {
-                _partners[p.id] = p;
-              }
-            });
-          }
         } catch (e) {
           debugPrint('Error fetching partners: $e');
           _currentMemberIds = [];
@@ -127,9 +102,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
         MembershipService().getMemberships(
           page: _currentPage, 
           size: _pageSize, 
-          sort: ['membershipNo,asc'],
+          sort: ['createdAt,desc'],
           query: query,
           memberIds: _currentMemberIds,
+          status: _selectedStatus,
         ),
         MembershipService().getMembershipPlans(size: 100),
       ]);
@@ -144,14 +120,12 @@ class _MemberListScreenState extends State<MemberListScreen> {
           _hasMore = !membershipsResponse.last;
         });
 
-        await _fetchPartners(_memberships.map((m) => m.memberId).toList());
-
         setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -166,9 +140,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
       final response = await MembershipService().getMemberships(
         page: nextPage, 
         size: _pageSize, 
-        sort: ['membershipNo,asc'],
+        sort: ['createdAt,desc'],
         query: _searchController.text.trim(),
         memberIds: _currentMemberIds,
+        status: _selectedStatus,
       );
 
       if (mounted) {
@@ -179,8 +154,6 @@ class _MemberListScreenState extends State<MemberListScreen> {
           _hasMore = !response.last;
         });
 
-        await _fetchPartners(newMemberships.map((m) => m.memberId).toList());
-
         setState(() => _isLoadingMore = false);
       }
     } catch (e) {
@@ -188,7 +161,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         setState(() {
           _isLoadingMore = false;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error loading more: $e'), behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(friendlyErrorMessage('Error loading more: $e')), behavior: SnackBarBehavior.floating),
           );
         });
       }
@@ -200,7 +173,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Memberships'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
@@ -220,6 +193,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
       body: Column(
         children: [
           _buildSearchBar(),
+          _buildStatusFilter(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -281,6 +255,33 @@ class _MemberListScreenState extends State<MemberListScreen> {
           ),
           fillColor: const Color(0xFFF5F7F9),
           filled: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    return Material(
+      color: Colors.white,
+      child: SizedBox(
+        height: 52,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          itemCount: _statuses.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final status = _statuses[index];
+            return ChoiceChip(
+              selected: _selectedStatus == status,
+              label: Text(status.replaceAll('_', ' ')),
+              onSelected: (_) {
+                if (_selectedStatus == status) return;
+                setState(() => _selectedStatus = status);
+                _fetchInitialData();
+              },
+            );
+          },
         ),
       ),
     );
@@ -352,15 +353,24 @@ class _MemberListScreenState extends State<MemberListScreen> {
           
           final membership = _memberships[index];
           final plan = _plans[membership.planId];
-          final partner = _partners[membership.memberId];
 
-          return _buildMembershipCard(membership, plan, partner, colorScheme);
+          return _buildMembershipCard(membership, plan, colorScheme);
         },
       ),
     );
   }
 
-  Widget _buildMembershipCard(Membership membership, MembershipPlan? plan, Partner? partner, ColorScheme colorScheme) {
+  Widget _buildMembershipCard(
+    Membership membership,
+    MembershipPlan? plan,
+    ColorScheme colorScheme,
+  ) {
+    final memberReference = membership.memberNumber.trim().isNotEmpty
+        ? membership.memberNumber.trim()
+        : membership.memberId;
+    final memberName = membership.memberName.trim().isNotEmpty
+        ? membership.memberName.trim()
+        : 'Member $memberReference';
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -374,9 +384,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => MembershipDetailScreen(membershipId: membership.id)),
-            );
+            await context.push('${AppRoutes.memberships}/${membership.id}');
             _fetchInitialData();
           },
           borderRadius: BorderRadius.circular(20),
@@ -391,7 +399,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                       radius: 24,
                       backgroundColor: colorScheme.primary.withOpacity(0.1),
                       child: Text(
-                        partner != null && partner.fullName.isNotEmpty ? partner.fullName[0].toUpperCase() : '?',
+                        memberName.isNotEmpty ? memberName[0].toUpperCase() : '?',
                         style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 18),
                       ),
                     ),
@@ -401,7 +409,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            partner?.fullName ?? 'Loading...',
+                            memberName,
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                           ),
                           Text(
@@ -423,14 +431,18 @@ class _MemberListScreenState extends State<MemberListScreen> {
                       style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
-                if (partner?.identityNumber != null) ...[
+                if (membership.memberIdentityNumber.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Icon(Icons.badge_outlined, size: 14, color: Colors.grey[400]),
                       const SizedBox(width: 8),
-                      Text(partner!.identityNumber, 
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                      Text(
+                        membership.memberIdentityType.trim().isEmpty
+                            ? membership.memberIdentityNumber
+                            : '${membership.memberIdentityType}: ${membership.memberIdentityNumber}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      ),
                     ],
                   ),
                 ],

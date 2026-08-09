@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../home/models/workcenter.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class RoleWorkcenterAssignmentScreen extends StatefulWidget {
   final Role role;
@@ -17,6 +18,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
   bool _isSaving = false;
   List<Workcenter> _allWorkcenters = [];
   Set<String> _assignedWorkcenterIds = {};
+  Set<String> _originalAssignedWorkcenterIds = {};
   Map<String, int> _positions = {};
   String? _error;
 
@@ -39,6 +41,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
         setState(() {
           _allWorkcenters = all;
           _assignedWorkcenterIds = assigned.map((w) => w.id).toSet();
+          _originalAssignedWorkcenterIds = Set<String>.from(_assignedWorkcenterIds);
           _positions = {for (var w in assigned) w.id: w.position};
           // Initialize positions for unassigned ones to their current index or something
           for (var i = 0; i < _allWorkcenters.length; i++) {
@@ -52,7 +55,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error = friendlyErrorMessage(e);
           _isLoading = false;
         });
       }
@@ -71,7 +74,15 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
               })
           .toList();
 
+      final removed = _originalAssignedWorkcenterIds
+          .difference(_assignedWorkcenterIds)
+          .toList();
+      for (final workcenterId in removed) {
+        await _roleService.removeWorkcenterFromRole(widget.role.id, workcenterId);
+      }
+
       await _roleService.assignWorkcentersToRole(widget.role.id, assignments);
+      _originalAssignedWorkcenterIds = Set<String>.from(_assignedWorkcenterIds);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -82,7 +93,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -101,12 +112,31 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
             const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator(strokeWidth: 2)))
           else
             TextButton(
-              onPressed: _saveAssignments,
+              onPressed: widget.role.accessAllWorkcentres ? null : _saveAssignments,
               child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
         ],
       ),
-      body: _isLoading
+      body: widget.role.accessAllWorkcentres
+          ? Center(
+              child: Card(
+                margin: const EdgeInsets.all(24),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.all_inclusive_rounded, size: 56),
+                      SizedBox(height: 16),
+                      Text('All workcentres are granted automatically', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      SizedBox(height: 8),
+                      Text('This protected role automatically includes current and future workcentres. Individual assignments cannot be changed.'),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))

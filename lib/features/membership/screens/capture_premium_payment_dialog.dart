@@ -7,6 +7,8 @@ import '../services/membership_service.dart';
 import '../models/payment_batch_response.dart';
 import '../models/receipt_response.dart';
 import '../../../core/services/bluetooth_print_service.dart';
+import '../../settings/services/pos_printing_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CapturePremiumPaymentDialog extends StatefulWidget {
   final MembershipDetail membership;
@@ -26,13 +28,14 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
-  
+
   String _paymentMethod = 'CASH';
   bool _isSubmitting = false;
   bool _isLoadingUnpaid = true;
   List<Map<String, dynamic>> _unpaidPremiums = [];
   PaymentBatchResponse? _successResponse;
   String? _error;
+  String? _printWarning;
 
   BluetoothDevice? _selectedDevice;
   final BluetoothPrintService _printService = BluetoothPrintService();
@@ -98,7 +101,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId') ?? 'unknown';
-      final deviceId = prefs.getString('deviceId') ?? 'F100-01';
+      final deviceId = prefs.getString('deviceId') ?? 'ERP-ONLINE';
 
       final double amount = double.parse(_amountController.text);
       final int amountCents = (amount * 100).round();
@@ -109,16 +112,32 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
         amountCents: amountCents,
         createdBy: userId,
         deviceId: deviceId,
+        terminalId: prefs.getString('terminalId'),
+        location: prefs.getString('location'),
+        employeeResponsible: userId,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
+      final printFailures = <String>[];
+      for (final receipt in response.receipts) {
+        try {
+          await PosPrintingService().queueReceipt(receipt.id);
+        } catch (error) {
+          printFailures.add(receipt.receiptNo);
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
         _successResponse = response;
+        _printWarning = printFailures.isEmpty
+            ? null
+            : '${printFailures.length} receipt(s) could not be queued automatically. Use the print button next to the receipt to retry.';
         _isSubmitting = false;
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _isSubmitting = false;
       });
     }
@@ -126,17 +145,40 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
 
   Future<void> _printReceipt(ReceiptResponse receipt) async {
     try {
-      if (_selectedDevice == null) {
-        final devices = await _printService.getDevices();
-        if (devices.isEmpty) {
-          throw Exception('No bluetooth printers found. Please pair a printer in settings.');
-        }
-        
-        if (mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt queued for printing...'), duration: Duration(seconds: 1)),
+        );
+      }
+      await PosPrintingService().queueReceipt(receipt.id, reprint: receipt.printCount > 0);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt queued for the configured Windows printer'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    } catch (cloudError) {
+      if (!mounted) return;
+      final useBluetooth = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Windows printing unavailable'),
+          content: Text('$cloudError\n\nPrint directly to a paired Bluetooth printer instead?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Use Bluetooth')),
+          ],
+        ),
+      );
+      if (useBluetooth != true) return;
+      try {
+        if (_selectedDevice == null) {
+          final devices = await _printService.getDevices();
+          if (devices.isEmpty) throw AppException('No Bluetooth printers found. Pair a printer in device settings.');
+          if (!mounted) return;
           final device = await showDialog<BluetoothDevice>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Select Printer'),
+              title: const Text('Select Bluetooth printer'),
               content: SizedBox(
                 width: double.maxFinite,
                 child: ListView.builder(
@@ -151,36 +193,38 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
               ),
             ),
           );
-          if (device != null) {
-            setState(() => _selectedDevice = device);
-          } else {
-            return;
+          if (device == null) return;
+          setState(() => _selectedDevice = device);
+        }
+        final printData =
+            await PosPrintingService().getReceiptPrintData(receipt.id);
+        await _printService.printMembershipReceipt(
+          printData,
+          device: _selectedDevice,
+        );
+        try {
+          await PosPrintingService().confirmDirectPrint(receipt.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Receipt printed over Bluetooth')),
+            );
+          }
+        } catch (acknowledgementError) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Receipt printed, but MAWA could not record the print: $acknowledgementError'),
+                backgroundColor: Colors.orange,
+              ),
+            );
           }
         }
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Printing...'), duration: Duration(seconds: 1)),
-        );
-      }
-
-      await _printService.printMembershipReceipt(
-        receipt, 
-        widget.member.fullName, 
-        device: _selectedDevice
-      );
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Receipt printed successfully'), behavior: SnackBarBehavior.floating),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Print failed: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
-        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(friendlyErrorMessage('Bluetooth print failed: $e')), backgroundColor: Colors.red),
+          );
+        }
       }
     }
   }
@@ -218,7 +262,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                         _buildUnpaidPremiumsSection(colorScheme),
                         const SizedBox(height: 24),
                       ],
-                      Text('PAYMENT DETAILS', 
+                      Text('PAYMENT DETAILS',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2)),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -357,7 +401,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Capture Premium', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                Text('Process Premium Payment', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
                 Text('Membership Payment', style: TextStyle(color: Colors.grey, fontSize: 13)),
               ],
             ),
@@ -400,7 +444,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('OUTSTANDING PERIODS', 
+        Text('OUTSTANDING PERIODS',
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2)),
         const SizedBox(height: 12),
         Container(
@@ -471,7 +515,26 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                 decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: colorScheme.primary.withOpacity(0.1))),
                 child: Text('NEW PAID UP TO: ${response.paidUpToPeriod}', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5)),
               ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            if (_printWarning != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withOpacity(0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.print_disabled_outlined, color: Colors.orange),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(_printWarning!, style: const TextStyle(fontSize: 12))),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Align(alignment: Alignment.centerLeft, child: Text('RECEIPTS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2))),
             const SizedBox(height: 12),
             ...response.receipts.map((r) => _buildReceiptItem(r, colorScheme)),
@@ -523,7 +586,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
           IconButton.filledTonal(
             icon: const Icon(Icons.print_outlined, size: 20),
             onPressed: () => _printReceipt(receipt),
-            tooltip: 'Print Receipt',
+            tooltip: 'Reprint Receipt',
             style: IconButton.styleFrom(
               backgroundColor: colorScheme.secondaryContainer.withOpacity(0.5),
               foregroundColor: colorScheme.onSecondaryContainer,

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/membership_detail.dart';
-import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
-import '../widgets/membership_plan_dropdown.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class EditMembershipScreen extends StatefulWidget {
   final MembershipDetail membership;
@@ -18,7 +17,6 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
   bool _isLoading = false;
 
   late String _status;
-  late String _planId;
   late DateTime? _startDate;
   late DateTime? _endDate;
   late DateTime? _joinDate;
@@ -27,7 +25,6 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
   void initState() {
     super.initState();
     _status = widget.membership.status;
-    _planId = widget.membership.planId;
     _startDate = widget.membership.startDate != null ? DateTime.tryParse(widget.membership.startDate!) : null;
     _endDate = widget.membership.endDate != null ? DateTime.tryParse(widget.membership.endDate!) : null;
     _joinDate = widget.membership.joinDate != null ? DateTime.tryParse(widget.membership.joinDate!) : null;
@@ -40,7 +37,6 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
     try {
       final payload = widget.membership.toJson();
       payload['status'] = _status;
-      payload['planId'] = _planId;
       payload['startDate'] = _startDate?.toIso8601String().split('T')[0];
       payload['endDate'] = _endDate?.toIso8601String().split('T')[0];
       payload['joinDate'] = _joinDate?.toIso8601String().split('T')[0];
@@ -57,7 +53,7 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(friendlyErrorMessage('Update failed: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
         );
       }
     } finally {
@@ -70,7 +66,7 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Edit Membership'),
         titleTextStyle: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
@@ -95,9 +91,13 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
                     onChanged: (v) => setState(() => _status = v!),
                   ),
                   const SizedBox(height: 16),
-                  MembershipPlanDropdown(
-                    value: _planId,
-                    onChanged: (plan) => setState(() => _planId = plan!.id),
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Membership Plan',
+                      border: OutlineInputBorder(),
+                      helperText: 'Use Change Plan on Membership Details. Plan changes require approval.',
+                    ),
+                    child: Text(widget.membership.planId),
                   ),
                   const SizedBox(height: 32),
                   ElevatedButton(

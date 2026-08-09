@@ -3,15 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../models/invoice.dart';
-import '../../partners/models/partner.dart';
 import 'invoice_create_screen.dart' hide Partner;
 import 'invoice_detail_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class InvoiceListScreen extends StatefulWidget {
   final String? partnerId;
   final String? partnerName;
+  final String? title;
+  final bool allowCreate;
 
-  const InvoiceListScreen({super.key, this.partnerId, this.partnerName});
+  const InvoiceListScreen({
+    super.key,
+    this.partnerId,
+    this.partnerName,
+    this.title,
+    this.allowCreate = true,
+  });
 
   @override
   State<InvoiceListScreen> createState() => _InvoiceListScreenState();
@@ -23,9 +31,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   String? _error;
   String _selectedStatus = 'ALL';
   DateTime? _selectedDate;
-  final Map<String, String> _partnerNames = {};
 
-  final List<String> _statuses = ['ALL', 'DRAFT', 'PAID', 'NEW', 'OVERDUE'];
+  final List<String> _statuses = ['ALL', 'DRAFT', 'AWAITING_APPROVAL', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'REJECTED'];
 
   @override
   void initState() {
@@ -54,56 +61,34 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         queryParams['invoiceDate'] = DateFormat('yyyy-MM-dd').format(_selectedDate!);
       }
 
-      String url = '/v2/invoice';
-      if (queryParams.isNotEmpty) {
-        url += '?' + queryParams.entries.map((e) => '${e.key}=${e.value}').join('&');
-      }
-
-      final response = await ApiClient().get(url);
+      final response = await ApiClient().get(
+        '/v2/invoice',
+        queryParameters: queryParams,
+      );
       
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final invoices = data.map((json) => Invoice.fromJson(json)).toList();
+        final invoices = data.map((json) => Invoice.fromJson(json)).toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
         setState(() {
           _invoices = invoices;
           _isLoading = false;
         });
-        _resolvePartnerNames(invoices);
       } else {
         setState(() {
-          _error = 'Failed to load invoices: ${response.statusCode}';
+          _error = friendlyErrorMessage(
+            response.body,
+            statusCode: response.statusCode,
+            fallback: 'Invoices could not be loaded. Please try again.',
+          );
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _resolvePartnerNames(List<Invoice> invoices) async {
-    final uniquePartnerIds = invoices
-        .map((inv) => inv.partnerId)
-        .where((id) => id.isNotEmpty && !_partnerNames.containsKey(id))
-        .toSet();
-
-    for (final id in uniquePartnerIds) {
-      try {
-        final response = await ApiClient().get('/v2/partner/$id');
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final partner = Partner.fromJson(data);
-          if (mounted) {
-            setState(() {
-              _partnerNames[id] = partner.fullName;
-            });
-          }
-        }
-      } catch (e) {
-        debugPrint('Error resolving partner name for $id: $e');
-      }
     }
   }
 
@@ -129,7 +114,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.partnerName != null ? 'Invoices: ${widget.partnerName}' : 'Invoices'),
+        title: Text(widget.title ?? (widget.partnerName != null ? 'Invoices: ${widget.partnerName}' : 'Invoices')),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 18,
@@ -164,17 +149,18 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           Expanded(child: _buildBody(colorScheme)),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()),
-          );
-          // Always refresh when returning from create/detail flow
-          _fetchInvoices();
-        },
-        elevation: 2,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: widget.allowCreate
+          ? FloatingActionButton(
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const InvoiceCreateScreen()),
+                );
+                _fetchInvoices();
+              },
+              elevation: 2,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -286,25 +272,40 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: _buildSectionHeader(Icons.list_alt, 'Invoice Overview'),
-        ),
-        _buildListHeaderRow(),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-            itemCount: _invoices.length,
-            itemBuilder: (context, index) {
-              final invoice = _invoices[index];
-              return _buildInvoiceCard(invoice, colorScheme);
-            },
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 720;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                compact ? 12 : 16,
+                compact ? 12 : 16,
+                compact ? 12 : 16,
+                8,
+              ),
+              child: _buildSectionHeader(Icons.list_alt, 'Invoice Overview'),
+            ),
+            if (!compact) _buildListHeaderRow(),
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.fromLTRB(
+                  compact ? 8 : 12,
+                  0,
+                  compact ? 8 : 12,
+                  16,
+                ),
+                itemCount: _invoices.length,
+                itemBuilder: (context, index) {
+                  final invoice = _invoices[index];
+                  return _buildInvoiceCard(invoice, colorScheme);
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -348,8 +349,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   }
 
   Widget _buildInvoiceCard(Invoice invoice, ColorScheme colorScheme) {
-    final displayCustomerName = _partnerNames[invoice.partnerId] ?? invoice.customerName;
-
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
@@ -367,102 +366,186 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           );
           _fetchInvoices();
         },
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 650;
+            return Padding(
+              padding: EdgeInsets.all(compact ? 10 : 12),
+              child: compact
+                  ? _buildCompactInvoiceContent(invoice, colorScheme)
+                  : _buildDesktopInvoiceContent(invoice, colorScheme),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactInvoiceContent(
+    Invoice invoice,
+    ColorScheme colorScheme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _invoiceIcon(colorScheme, compact: true),
+            const SizedBox(width: 10),
+            Expanded(child: _invoiceIdentity(invoice)),
+            const SizedBox(width: 8),
+            Text(
+              'R ${invoice.amount.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                color: colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 12,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _invoiceDateLine(
+              Icons.calendar_today,
+              DateFormat('yyyy-MM-dd').format(invoice.date),
+            ),
+            if (invoice.dueDate != null)
+              _invoiceDateLine(
+                Icons.timer_outlined,
+                DateFormat('yyyy-MM-dd').format(invoice.dueDate!),
+                highlight: invoice.dueDate!.isBefore(DateTime.now()) &&
+                    invoice.status.toUpperCase() != 'PAID',
+              ),
+            _buildStatusChip(invoice.status),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopInvoiceContent(
+    Invoice invoice,
+    ColorScheme colorScheme,
+  ) {
+    return Row(
+      children: [
+        _invoiceIcon(colorScheme),
+        const SizedBox(width: 12),
+        Expanded(child: _invoiceIdentity(invoice)),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 142,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+              _invoiceDateLine(
+                Icons.calendar_today,
+                DateFormat('yyyy-MM-dd').format(invoice.date),
+              ),
+              if (invoice.dueDate != null) ...[
+                const SizedBox(height: 2),
+                _invoiceDateLine(
+                  Icons.timer_outlined,
+                  DateFormat('yyyy-MM-dd').format(invoice.dueDate!),
+                  highlight: invoice.dueDate!.isBefore(DateTime.now()) &&
+                      invoice.status.toUpperCase() != 'PAID',
                 ),
-                child: Icon(Icons.receipt_long, color: colorScheme.primary, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayCustomerName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Ref: ${invoice.transactionNumber}',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 10, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      Text(
-                        DateFormat('yyyy-MM-dd').format(invoice.date),
-                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                      ),
-                    ],
-                  ),
-                  if (invoice.dueDate != null) ...[
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.timer_outlined, 
-                          size: 10, 
-                          color: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
-                              ? Colors.red[300]
-                              : Colors.grey[400]
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          DateFormat('yyyy-MM-dd').format(invoice.dueDate!),
-                          style: TextStyle(
-                            fontSize: 10, 
-                            color: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
-                                ? Colors.red[700]
-                                : Colors.grey[500],
-                            fontWeight: (invoice.dueDate!.isBefore(DateTime.now()) && invoice.status.toUpperCase() != 'PAID')
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 100,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'R ${invoice.amount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    _buildStatusChip(invoice.status),
-                  ],
-                ),
-              ),
+              ],
             ],
           ),
         ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 100,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'R ${invoice.amount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  color: colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              _buildStatusChip(invoice.status),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _invoiceIcon(ColorScheme colorScheme, {bool compact = false}) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 8 : 10),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
       ),
+      child: Icon(
+        Icons.receipt_long,
+        color: colorScheme.primary,
+        size: compact ? 20 : 24,
+      ),
+    );
+  }
+
+  Widget _invoiceIdentity(Invoice invoice) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          invoice.customerName,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Ref: ${invoice.transactionNumber}',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _invoiceDateLine(
+    IconData icon,
+    String value, {
+    bool highlight = false,
+  }) {
+    final color = highlight ? Colors.red[700] : Colors.grey[600];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 11,
+          color: highlight ? Colors.red[300] : Colors.grey[400],
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 10,
+            color: color,
+            fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
     );
   }
 
@@ -480,6 +563,20 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         break;
       case 'DRAFT':
         color = Colors.grey;
+        break;
+      case 'AWAITING_APPROVAL':
+      case 'AWAITING-APPROVAL':
+        color = Colors.orange;
+        break;
+      case 'ISSUED':
+        color = Colors.indigo;
+        break;
+      case 'PARTIALLY_PAID':
+      case 'PARTIALLY-PAID':
+        color = Colors.teal;
+        break;
+      case 'REJECTED':
+        color = Colors.red;
         break;
       default:
         color = Colors.orange;

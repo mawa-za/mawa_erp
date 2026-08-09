@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/api_client.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
 import '../models/payment_request.dart';
 import '../services/payment_request_service.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PaymentRequestDetailScreen extends StatefulWidget {
   final String paymentId;
@@ -24,7 +24,10 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
   bool _isActionLoading = false;
   PaymentRequestResponse? _detail;
   List<PaymentRequestStatusHistoryEntity> _history = [];
+  List<PaymentDisbursementAttempt> _attempts = [];
   BankReport? _bankReport;
+  bool _isBankReportLoading = false;
+  String? _bankReportMessage;
   String? _error;
 
   @override
@@ -43,23 +46,22 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
       final results = await Future.wait([
         _service.getPaymentRequestById(widget.paymentId),
         _service.getPaymentRequestHistory(widget.paymentId),
-        ApiClient().get('/v2/payment-request/${widget.paymentId}/bank-report'),
+        _service.getPaymentAttempts(widget.paymentId),
       ]);
 
       _detail = results[0] as PaymentRequestResponse;
       _history = results[1] as List<PaymentRequestStatusHistoryEntity>;
-      
-      final bankResponse = results[2] as dynamic;
-      if (bankResponse.statusCode == 200) {
-        _bankReport = BankReport.fromJson(jsonDecode(bankResponse.body));
-      }
+      _attempts = results[2] as List<PaymentDisbursementAttempt>;
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      await _loadBankReport();
     } catch (e) {
       setState(() {
-        _error = 'An error occurred: $e';
+        _error = friendlyErrorMessage('An error occurred: $e');
         _isLoading = false;
       });
     }
@@ -76,7 +78,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         approvalType: 'PAYMENT_REQUEST',
         referenceId: _detail!.id,
         referenceNo: _detail!.requestNo,
-        title: 'Payment Approval: ${_detail!.requestNo}',
+        title: 'Payment request ${_detail!.requestNo} - ${_detail!.payeeName} - ${_detail!.currency} ${_detail!.amount.toStringAsFixed(2)}',
         description: 'Approval requested for payment to ${_detail!.payeeName} for ${_detail!.currency} ${_detail!.amount.toStringAsFixed(2)}',
         requesterId: userId,
         payloadJson: jsonEncode(_detail!.toJson()),
@@ -90,7 +92,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         _fetchData();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -119,7 +121,134 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         _fetchData();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
+    }
+  }
+
+  Future<void> _loadBankReport() async {
+    if (_detail == null || !(_detail!.fnbInstructionId?.isNotEmpty ?? false)) {
+      if (mounted) {
+        setState(() {
+          _bankReport = null;
+          _bankReportMessage = 'The bank report becomes available after FNB accepts the payment instruction.';
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isBankReportLoading = true;
+        _bankReportMessage = null;
+      });
+    }
+    try {
+      var report = await _service.getTypedBankReport(widget.paymentId);
+      if (report == null) {
+        try {
+          report = await _service.refreshTypedBankReport(widget.paymentId);
+          _attempts = await _service.getPaymentAttempts(widget.paymentId);
+        } catch (e) {
+          _bankReportMessage = friendlyErrorMessage(
+            e,
+            fallback: 'FNB has not returned a bank report yet. MAWA will continue checking automatically.',
+          );
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _bankReport = report;
+          _bankReportMessage = report == null
+              ? (_bankReportMessage ??
+                  'FNB has not returned a bank report yet. MAWA will continue checking automatically.')
+              : null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _bankReportMessage = friendlyErrorMessage(
+            e,
+            fallback: 'The bank report could not be loaded.',
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isBankReportLoading = false);
+    }
+  }
+
+  Future<void> _refreshBankReport() async {
+    if (_detail == null) return;
+    setState(() {
+      _isBankReportLoading = true;
+      _bankReportMessage = null;
+    });
+    try {
+      final report = await _service.refreshTypedBankReport(_detail!.id);
+      final attempts = await _service.getPaymentAttempts(_detail!.id);
+      if (mounted) {
+        setState(() {
+          _bankReport = report;
+          _attempts = attempts;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bank report refreshed'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _bankReportMessage = friendlyErrorMessage(
+            e,
+            fallback: 'The FNB bank report is not available yet.',
+          );
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_bankReportMessage!),
+            backgroundColor: Colors.orange.shade800,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBankReportLoading = false);
+    }
+  }
+
+  Future<void> _sendToBank() async {
+    if (_detail == null) return;
+    setState(() => _isActionLoading = true);
+    try {
+      await _service.sendToBank(_detail!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bank payment queued successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _fetchData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              friendlyErrorMessage(
+                e,
+                fallback: 'Unable to queue bank payment',
+              ),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -134,7 +263,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Mark as Paid'),
-          content: Column(
+          content: SizedBox(width: 520, child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
@@ -142,6 +271,8 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                 decoration: const InputDecoration(labelText: 'Payment Reference', hintText: 'E.g. Bank Ref #'),
               ),
               const SizedBox(height: 16),
+              AttachmentSection(objectId: widget.paymentId, documentTypeField: 'PAYMENT-PROOF-DOCUMENT-TYPE'),
+              const SizedBox(height: 12),
               ListTile(
                 title: const Text('Payment Date', style: TextStyle(fontSize: 14)),
                 subtitle: Text(DateFormat('yyyy-MM-dd').format(selectedDate)),
@@ -157,7 +288,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                 },
               ),
             ],
-          ),
+          )),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
             ElevatedButton(
@@ -183,7 +314,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         _fetchData();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed: $e')), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -200,6 +331,12 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             if (_detail!.status == 'DRAFT')
               IconButton(onPressed: _isActionLoading ? null : _submitForApproval, icon: const Icon(Icons.send_rounded), tooltip: 'Submit'),
             if (_detail!.status == 'APPROVED')
+              IconButton(
+                onPressed: _isActionLoading ? null : _sendToBank,
+                icon: const Icon(Icons.account_balance_outlined),
+                tooltip: 'Queue bank payment',
+              ),
+            if (_detail!.status == 'APPROVED' && _detail!.paymentMethod == 'MANUAL')
               IconButton(onPressed: _isActionLoading ? null : _markAsPaid, icon: const Icon(Icons.paid_outlined), tooltip: 'Mark Paid'),
             if (_detail!.status == 'DRAFT' || _detail!.status == 'PENDING_APPROVAL' || _detail!.status == 'PENDING')
               IconButton(onPressed: _isActionLoading ? null : _cancelRequest, icon: const Icon(Icons.cancel_outlined, color: Colors.red), tooltip: 'Cancel'),
@@ -240,9 +377,15 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Reference', _detail!.externalReference ?? 'N/A'),
             _buildInfoRow('Payment Reason', _detail!.paymentReason ?? 'N/A'),
             _buildInfoRow('Payment Method', _detail!.paymentMethod),
+            _buildInfoRow('Payment Request Type', _detail!.requestType),
+            _buildInfoRow('Bank Integration', _detail!.bankIntegration ?? 'Not routed'),
             _buildInfoRow('Created Date', _detail!.createdAt),
             _buildInfoRow('Due Date', _detail!.requestedPaymentDate ?? 'N/A'),
             _buildInfoRow('Status', _detail!.status, isStatus: true),
+            if (_detail!.approvalInherited)
+              _buildInfoRow('Approval Source', _detail!.approvalSource ?? 'CLAIM_APPROVAL'),
+            if (_detail!.fnbInstructionId?.isNotEmpty ?? false)
+              _buildInfoRow('FNB Instruction', _detail!.fnbInstructionId!),
           ]),
           const SizedBox(height: 24),
           _buildSectionTitle('Recipient & Banking'),
@@ -251,7 +394,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Bank', _detail!.bankName ?? 'N/A'),
             _buildInfoRow('Account Holder', _detail!.accountHolder ?? 'N/A'),
             _buildInfoRow('Account Number', _detail!.accountNumber ?? 'N/A'),
-            _buildInfoRow('Branch Code', _detail!.branchCode ?? 'N/A'),
+            _buildInfoRow('Universal Branch Code', _detail!.branchCode ?? 'N/A'),
           ]),
 
           if (_detail!.status == 'PAID') ...[
@@ -264,9 +407,15 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             ]),
           ],
 
-          if (_bankReport != null) ...[
+          if (_attempts.isNotEmpty) ...[
             const SizedBox(height: 24),
-            _buildSectionTitle('Bank Report Status'),
+            _buildSectionTitle('Disbursement Attempts'),
+            _buildAttemptCard(),
+          ],
+
+          if (_shouldShowBankReportSection) ...[
+            const SizedBox(height: 24),
+            _buildSectionTitle('Bank Report'),
             _buildBankReportCard(),
           ],
 
@@ -312,16 +461,90 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     );
   }
 
+  Widget _buildAttemptCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _attempts.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final attempt = _attempts[index];
+          final failed = attempt.status == 'FAILED';
+          final succeeded = attempt.status == 'SUCCEEDED';
+          return ListTile(
+            leading: Icon(
+              failed ? Icons.error_outline : succeeded ? Icons.check_circle_outline : Icons.sync_rounded,
+              color: failed ? Colors.red : succeeded ? Colors.green : Colors.blue,
+            ),
+            title: Text(
+              '${attempt.provider} attempt ${attempt.attemptNo}: ${attempt.status.replaceAll('_', ' ')}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (attempt.providerStatus?.isNotEmpty ?? false)
+                  Text('Bank status: ${attempt.providerStatus}'),
+                if (attempt.instructionId?.isNotEmpty ?? false)
+                  Text('Instruction: ${attempt.instructionId}'),
+                if (attempt.bankReportAvailable)
+                  Text('Bank report retrieved: ${attempt.bankReportRetrievedAt ?? 'Available'}'),
+                if (attempt.failureMessage?.isNotEmpty ?? false)
+                  Text(attempt.failureMessage!, style: const TextStyle(color: Colors.red)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  bool get _shouldShowBankReportSection {
+    if (_detail == null) return false;
+    return (_detail!.bankIntegration ?? '').toUpperCase() == 'FNB' ||
+        (_detail!.fnbInstructionId?.isNotEmpty ?? false) ||
+        _attempts.isNotEmpty;
+  }
+
+  PaymentDisbursementAttempt? get _latestAttempt =>
+      _attempts.isEmpty ? null : _attempts.last;
+
   Widget _buildBankReportCard() {
-    final report = _bankReport!;
-    final bool isRejected = report.groupStatus == 'RJCT';
+    final report = _bankReport;
+    final latestAttempt = _latestAttempt;
+    final status = (report?.groupStatus.isNotEmpty ?? false)
+        ? report!.groupStatus.toUpperCase()
+        : (latestAttempt?.providerStatus ?? latestAttempt?.status ?? 'PENDING').toUpperCase();
+    final isRejected = {'RJCT', 'REJECTED', 'FAILED'}.contains(status);
+    final isSuccessful = {'ACSC', 'ACCC', 'COMPLETED', 'COMPLETE', 'SUCCESS', 'SUCCEEDED', 'PAID'}.contains(status);
+    final cardColor = isRejected
+        ? Colors.red.shade50
+        : isSuccessful
+            ? Colors.green.shade50
+            : Colors.orange.shade50;
+    final borderColor = isRejected
+        ? Colors.red.shade200
+        : isSuccessful
+            ? Colors.green.shade200
+            : Colors.orange.shade200;
+    final statusColor = isRejected
+        ? Colors.red
+        : isSuccessful
+            ? Colors.green
+            : Colors.orange.shade800;
 
     return Card(
       elevation: 0,
-      color: isRejected ? Colors.red.shade50 : Colors.green.shade50,
+      color: cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: isRejected ? Colors.red.shade200 : Colors.green.shade200),
+        side: BorderSide(color: borderColor),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -330,30 +553,114 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           children: [
             Row(
               children: [
-                Icon(isRejected ? Icons.error_outline : Icons.check_circle_outline,
-                     color: isRejected ? Colors.red : Colors.green),
+                Icon(
+                  isRejected
+                      ? Icons.error_outline
+                      : isSuccessful
+                          ? Icons.check_circle_outline
+                          : Icons.schedule_outlined,
+                  color: statusColor,
+                ),
                 const SizedBox(width: 8),
-                Text(
-                  isRejected ? 'Bank Rejected (RJCT)' : 'Bank Accepted (${report.groupStatus})',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: isRejected ? Colors.red : Colors.green),
+                Expanded(
+                  child: Text(
+                    isRejected
+                        ? 'Bank rejected the payment ($status)'
+                        : isSuccessful
+                            ? 'Bank accepted the payment ($status)'
+                            : 'Bank report pending ($status)',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: statusColor),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _isBankReportLoading ||
+                          !(_detail!.fnbInstructionId?.isNotEmpty ?? false)
+                      ? null
+                      : _refreshBankReport,
+                  icon: _isBankReportLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                  tooltip: 'Refresh bank report',
                 ),
               ],
             ),
             const Divider(),
-            _buildInfoRow('Initiating Party', report.groupHeader?.initiatingPartyName ?? 'N/A', isDark: true),
-            _buildInfoRow('Creation Time', report.groupHeader?.creationDateTime ?? 'N/A', isDark: true),
-            if (isRejected && report.statusReasonInformation.isNotEmpty) ...[
+            _buildInfoRow(
+              'Instruction ID',
+              _detail!.fnbInstructionId ?? latestAttempt?.instructionId ?? 'Not assigned',
+              isDark: true,
+            ),
+            _buildInfoRow(
+              'Last checked',
+              latestAttempt?.bankReportRetrievedAt ??
+                  latestAttempt?.lastCheckedAt ??
+                  'Not checked yet',
+              isDark: true,
+            ),
+            if (report != null) ...[
+              _buildInfoRow('Initiating Party', report.groupHeader?.initiatingPartyName ?? 'N/A', isDark: true),
+              _buildInfoRow('Creation Time', report.groupHeader?.creationDateTime ?? 'N/A', isDark: true),
+              if (report.originalPaymentInformation.isNotEmpty)
+                _buildInfoRow(
+                  'Payment Status',
+                  report.originalPaymentInformation
+                      .map((item) => item.paymentInformationStatus)
+                      .whereType<String>()
+                      .where((value) => value.isNotEmpty)
+                      .join(', '),
+                  isDark: true,
+                ),
+              if (_reportReasons(report).isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text('Bank response details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ..._reportReasons(report).map(
+                  (reason) => Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text('• $reason', style: const TextStyle(fontSize: 12)),
+                  ),
+                ),
+              ],
+            ] else ...[
               const SizedBox(height: 8),
-              const Text('Reasons:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ...report.statusReasonInformation.map((r) => Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text('• ${r.reason}: ${r.additionalInformation ?? ""}', style: const TextStyle(fontSize: 12)),
-              )),
+              Text(
+                _bankReportMessage ??
+                    'FNB has not returned a report yet. MAWA will continue checking automatically.',
+                style: TextStyle(color: Colors.orange.shade900),
+              ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  List<String> _reportReasons(BankReport report) {
+    final reasons = <String>[];
+    void addReason(StatusReasonInformation reason) {
+      final code = reason.reason?.trim() ?? '';
+      final detail = reason.additionalInformation?.trim() ?? '';
+      final text = [code, detail].where((value) => value.isNotEmpty).join(': ');
+      if (text.isNotEmpty && !reasons.contains(text)) reasons.add(text);
+    }
+
+    for (final reason in report.statusReasonInformation) {
+      addReason(reason);
+    }
+    for (final payment in report.originalPaymentInformation) {
+      for (final reason in payment.statusReasonInformation) {
+        addReason(reason);
+      }
+      for (final transaction in payment.transactionInfoAndStatus) {
+        for (final reason in transaction.statusReasonInformation) {
+          addReason(reason);
+        }
+      }
+    }
+    return reasons;
   }
 
   Widget _buildSummaryHeader(ColorScheme colorScheme) {

@@ -4,6 +4,10 @@ import 'core/api_client.dart';
 import 'core/services/session_service.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
+import 'core/theme/app_theme.dart';
+
+final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,14 +28,18 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _checkInitialStatus();
-    _logoutSubscription = ApiClient().logoutStream.listen((_) {
+    _logoutSubscription = ApiClient().logoutStream.listen((sessionExpired) {
       if (mounted) {
         SessionService().stopMonitoring();
         // GoRouter will handle redirection via its own logic if we trigger a refresh
         // but for now we can also force a refresh or rely on the next navigation
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session expired. Please login again.')),
-        );
+        if (sessionExpired) {
+          rootScaffoldMessengerKey.currentState
+            ?..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(content: Text('Session expired. Please login again.')),
+            );
+        }
         // We can use the global navigator key if needed, or just let the router handle it
       }
     });
@@ -52,18 +60,21 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Mawa ERP',
+      title: 'mawa',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
+      theme: AppTheme.light,
       routerConfig: AppRouter.router,
       builder: (context, child) {
         return Listener(
           onPointerDown: (_) => SessionService().userActivityDetected(),
           onPointerMove: (_) => SessionService().userActivityDetected(),
-          child: child ?? const SizedBox.shrink(),
+          child: ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: SizedBox.expand(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         );
       },
     );

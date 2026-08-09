@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/api_client.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -39,17 +39,24 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           Navigator.of(context).pop();
         }
       } else {
-        final error = jsonDecode(response.body);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed: ${error['message'] ?? response.statusCode}')),
+            SnackBar(
+              content: Text(
+                friendlyErrorMessage(
+                  response.body,
+                  statusCode: response.statusCode,
+                  fallback: 'The password could not be updated. Please try again.',
+                ),
+              ),
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(friendlyErrorMessage('Error: $e'))),
         );
       }
     } finally {
@@ -80,14 +87,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 const Icon(
                   Icons.security,
                   size: 100,
-                  color: Colors.deepPurple,
+                  color: const Color(0xFFF20D1A),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Change Password',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
+                        color: const Color(0xFFF20D1A),
                       ),
                 ),
                 const SizedBox(height: 32),
@@ -141,7 +148,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         onPressed: _updatePassword,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
-                          backgroundColor: Colors.deepPurple,
+                          backgroundColor: const Color(0xFFF20D1A),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),

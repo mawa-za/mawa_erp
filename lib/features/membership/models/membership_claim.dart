@@ -2,7 +2,18 @@ class MembershipClaim {
   final String id;
   final String claimNo;
   final String membershipId;
+  final String membershipNo;
+  final String memberName;
+  final String memberNumber;
+  final String memberIdentityNumber;
+  final String deceasedName;
+  final String deceasedNumber;
+  final String deceasedIdentityNumber;
+  final String claimantName;
   final String claimType;
+  final String coveragePlanId;
+  final String coveragePlanName;
+  final String coverageEventDate;
   final String deceasedType;
   final String deceasedPartnerId;
   final String dateOfDeath;
@@ -11,8 +22,16 @@ class MembershipClaim {
   final String? deathCertificateNo;
   final String claimantPartnerId;
   final int claimAmountCents;
+  final int approvedAmountCents;
   final int combinedClaimAmountCents;
   final String status;
+  final String? payoutMethod;
+  final String? paymentRequestId;
+  final String? tombstoneOrderId;
+  final String? settlementMethod;
+  final String? settlementReference;
+  final String? settledAt;
+  final String? approvedAt;
   final String? rejectionReason;
   final String? notes;
   final bool parentCombinationClaim;
@@ -27,7 +46,18 @@ class MembershipClaim {
     required this.id,
     required this.claimNo,
     required this.membershipId,
+    required this.membershipNo,
+    required this.memberName,
+    required this.memberNumber,
+    required this.memberIdentityNumber,
+    required this.deceasedName,
+    required this.deceasedNumber,
+    required this.deceasedIdentityNumber,
+    required this.claimantName,
     required this.claimType,
+    required this.coveragePlanId,
+    required this.coveragePlanName,
+    required this.coverageEventDate,
     required this.deceasedType,
     required this.deceasedPartnerId,
     required this.dateOfDeath,
@@ -36,8 +66,16 @@ class MembershipClaim {
     this.deathCertificateNo,
     required this.claimantPartnerId,
     required this.claimAmountCents,
+    required this.approvedAmountCents,
     required this.combinedClaimAmountCents,
     required this.status,
+    this.payoutMethod,
+    this.paymentRequestId,
+    this.tombstoneOrderId,
+    this.settlementMethod,
+    this.settlementReference,
+    this.settledAt,
+    this.approvedAt,
     this.rejectionReason,
     this.notes,
     required this.parentCombinationClaim,
@@ -86,7 +124,18 @@ class MembershipClaim {
       id: (json['id'] ?? '').toString(),
       claimNo: (json['claimNo'] ?? '').toString(),
       membershipId: (json['membershipId'] ?? '').toString(),
+      membershipNo: (json['membershipNo'] ?? '').toString(),
+      memberName: (json['memberName'] ?? '').toString(),
+      memberNumber: (json['memberNumber'] ?? '').toString(),
+      memberIdentityNumber: (json['memberIdentityNumber'] ?? '').toString(),
+      deceasedName: (json['deceasedName'] ?? '').toString(),
+      deceasedNumber: (json['deceasedNumber'] ?? '').toString(),
+      deceasedIdentityNumber: (json['deceasedIdentityNumber'] ?? '').toString(),
+      claimantName: (json['claimantName'] ?? '').toString(),
       claimType: (json['claimType'] ?? '').toString(),
+      coveragePlanId: (json['coveragePlanId'] ?? '').toString(),
+      coveragePlanName: (json['coveragePlanName'] ?? json['coveragePlanId'] ?? '').toString(),
+      coverageEventDate: parseDate(json['coverageEventDate']),
       deceasedType: (json['deceasedType'] ?? '').toString(),
       deceasedPartnerId: (json['deceasedPartnerId'] ?? '').toString(),
       dateOfDeath: parseDate(json['dateOfDeath']),
@@ -95,8 +144,16 @@ class MembershipClaim {
       deathCertificateNo: json['deathCertificateNo']?.toString(),
       claimantPartnerId: (json['claimantPartnerId'] ?? '').toString(),
       claimAmountCents: toInt(json['claimAmountCents']),
+      approvedAmountCents: toInt(json['approvedAmountCents']),
       combinedClaimAmountCents: toInt(json['combinedClaimAmountCents']),
       status: (json['status'] ?? '').toString(),
+      payoutMethod: json['payoutMethod']?.toString(),
+      paymentRequestId: json['paymentRequestId']?.toString(),
+      tombstoneOrderId: json['tombstoneOrderId']?.toString(),
+      settlementMethod: json['settlementMethod']?.toString(),
+      settlementReference: json['settlementReference']?.toString(),
+      settledAt: json['settledAt'] == null ? null : parseDate(json['settledAt']),
+      approvedAt: json['approvedAt'] == null ? null : parseDate(json['approvedAt']),
       rejectionReason: json['rejectionReason']?.toString(),
       notes: json['notes']?.toString(),
       parentCombinationClaim: json['parentCombinationClaim'] == true,
@@ -117,7 +174,18 @@ class MembershipClaim {
       'id': id,
       'claimNo': claimNo,
       'membershipId': membershipId,
+      'membershipNo': membershipNo,
+      'memberName': memberName,
+      'memberNumber': memberNumber,
+      'memberIdentityNumber': memberIdentityNumber,
+      'deceasedName': deceasedName,
+      'deceasedNumber': deceasedNumber,
+      'deceasedIdentityNumber': deceasedIdentityNumber,
+      'claimantName': claimantName,
       'claimType': claimType,
+      'coveragePlanId': coveragePlanId,
+      'coveragePlanName': coveragePlanName,
+      'coverageEventDate': coverageEventDate,
       'deceasedType': deceasedType,
       'deceasedPartnerId': deceasedPartnerId,
       'dateOfDeath': dateOfDeath,
@@ -126,8 +194,16 @@ class MembershipClaim {
       'deathCertificateNo': deathCertificateNo,
       'claimantPartnerId': claimantPartnerId,
       'claimAmountCents': claimAmountCents,
+      'approvedAmountCents': approvedAmountCents,
       'combinedClaimAmountCents': combinedClaimAmountCents,
       'status': status,
+      'payoutMethod': payoutMethod,
+      'paymentRequestId': paymentRequestId,
+      'tombstoneOrderId': tombstoneOrderId,
+      'settlementMethod': settlementMethod,
+      'settlementReference': settlementReference,
+      'settledAt': settledAt,
+      'approvedAt': approvedAt,
       'rejectionReason': rejectionReason,
       'notes': notes,
       'parentCombinationClaim': parentCombinationClaim,

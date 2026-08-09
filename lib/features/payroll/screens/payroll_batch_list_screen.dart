@@ -4,6 +4,7 @@ import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
 import 'payroll_batch_detail_screen.dart';
 import 'payroll_batch_create_screen.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 class PayrollBatchListScreen extends StatefulWidget {
   const PayrollBatchListScreen({super.key});
@@ -14,7 +15,24 @@ class PayrollBatchListScreen extends StatefulWidget {
 
 class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   bool _isLoading = true;
+  List<PayrollBatchSummary> _allBatches = [];
   List<PayrollBatchSummary> _batches = [];
+  String _selectedStatus = 'ALL';
+  final List<String> _statuses = [
+    'ALL',
+    'NEW',
+    'DRAFT',
+    'PENDING_APPROVAL',
+    'AWAITING-APPROVAL',
+    'APPROVED',
+    'PROCESSING',
+    'SUBMITTED',
+    'PROCESSED',
+    'PAID',
+    'FAILED',
+    'REJECTED',
+    'CANCELLED',
+  ];
   String? _error;
   late String _selectedPayPeriod;
 
@@ -33,16 +51,27 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
 
     try {
       final batches = await PayrollService().getPayrollBatches(payPeriod: _selectedPayPeriod);
+      batches.sort((a, b) {
+        final byDate = b.paymentDate.compareTo(a.paymentDate);
+        return byDate != 0 ? byDate : b.batchNo.compareTo(a.batchNo);
+      });
       setState(() {
-        _batches = batches;
+        _allBatches = batches;
+        _applyStatusFilter();
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to load payroll batches: $e';
+        _error = friendlyErrorMessage('Failed to load payroll batches: $e');
         _isLoading = false;
       });
     }
+  }
+
+  void _applyStatusFilter() {
+    _batches = _selectedStatus == 'ALL'
+        ? List<PayrollBatchSummary>.from(_allBatches)
+        : _allBatches.where((batch) => batch.status.toUpperCase() == _selectedStatus).toList();
   }
 
   Future<void> _selectPayPeriod() async {
@@ -199,7 +228,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
           );
         }
       }
@@ -211,7 +240,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Payroll Batches'),
         titleTextStyle: TextStyle(
@@ -239,6 +268,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
       body: Column(
         children: [
           _buildPeriodIndicator(colorScheme),
+          _buildStatusFilter(),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -289,6 +319,32 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
             child: const Text('Change', style: TextStyle(fontSize: 12)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    return Container(
+      height: 52,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _statuses.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final status = _statuses[index];
+          return ChoiceChip(
+            label: Text(status.replaceAll('-', ' ').replaceAll('_', ' '), style: const TextStyle(fontSize: 10)),
+            selected: _selectedStatus == status,
+            showCheckmark: false,
+            onSelected: (_) => setState(() {
+              _selectedStatus = status;
+              _applyStatusFilter();
+            }),
+          );
+        },
       ),
     );
   }
@@ -510,17 +566,25 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
     Color color;
     switch (status.toUpperCase()) {
       case 'PROCESSED':
+      case 'APPROVED':
       case 'PAID':
         color = Colors.green;
         break;
       case 'FAILED':
+      case 'REJECTED':
         color = Colors.red;
         break;
+      case 'CANCELLED':
+        color = Colors.grey;
+        break;
       case 'AWAITING-APPROVAL':
+      case 'PENDING_APPROVAL':
       case 'NEW':
       case 'DRAFT':
         color = Colors.orange;
         break;
+      case 'PROCESSING':
+      case 'SUBMITTED':
       default:
         color = Colors.blue;
     }
@@ -533,7 +597,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Text(
-        status.replaceAll('-', ' '),
+        status.replaceAll('-', ' ').replaceAll('_', ' '),
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );

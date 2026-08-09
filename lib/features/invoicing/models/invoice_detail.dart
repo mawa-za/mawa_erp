@@ -18,6 +18,7 @@ class InvoiceDetail {
   final int discountCents;
   final int totalCents;
   final int paidCents;
+  final int creditedCents;
   final int balanceCents;
 
   InvoiceDetail({
@@ -38,6 +39,7 @@ class InvoiceDetail {
     this.discountCents = 0,
     this.totalCents = 0,
     this.paidCents = 0,
+    this.creditedCents = 0,
     this.balanceCents = 0,
   });
 
@@ -46,6 +48,7 @@ class InvoiceDetail {
   double get subtotalAmount => subtotalCents / 100.0;
   double get discountAmount => discountCents / 100.0;
   double get paidAmount => paidCents / 100.0;
+  double get creditedAmount => creditedCents / 100.0;
   double get balanceAmount => balanceCents / 100.0;
 
   factory InvoiceDetail.fromJson(Map<String, dynamic> json) {
@@ -57,6 +60,7 @@ class InvoiceDetail {
     final name2 = customer['name2'] ?? partner['name2'] ?? '';
     final name3 = customer['name3'] ?? partner['name3'] ?? '';
     final fullName = [name1, name2, name3].where((s) => s.isNotEmpty).join(' ');
+    final resolvedName = fullName.isEmpty ? (json['partnerName']?.toString() ?? '') : fullName;
 
     DateTime parsedDate;
     try {
@@ -87,8 +91,8 @@ class InvoiceDetail {
       id: json['id'] ?? '',
       number: json['invoiceNo'] ?? json['number'] ?? '',
       reference: json['externalRef'] ?? json['reference'] ?? '',
-      customerName: fullName.isEmpty ? 'Unknown' : fullName,
-      customerNumber: customer['number'] ?? partner['partnerNo'] ?? '',
+      customerName: resolvedName.isEmpty ? 'Unknown' : resolvedName,
+      customerNumber: customer['number'] ?? partner['partnerNo'] ?? json['partnerNumber'] ?? '',
       customerId: json['partnerId'] ?? customer['id'],
       invoiceDate: parsedDate,
       dueDate: parsedDueDate,
@@ -105,6 +109,7 @@ class InvoiceDetail {
       discountCents: json['discountCents'] ?? 0,
       totalCents: json['totalCents'] ?? 0,
       paidCents: json['paidCents'] ?? 0,
+      creditedCents: json['creditedCents'] ?? 0,
       balanceCents: json['balanceCents'] ?? 0,
     );
   }
@@ -124,6 +129,7 @@ class InvoiceDetail {
       'discountCents': discountCents,
       'totalCents': totalCents,
       'paidCents': paidCents,
+      'creditedCents': creditedCents,
       'balanceCents': balanceCents,
       'lines': items.map((e) => e.toJson()).toList(),
       'payments': payments.map((e) => e.toJson()).toList(),
@@ -139,6 +145,7 @@ class InvoiceItem {
   final double quantity;
   final double unitPrice;
   final double lineTotal;
+  final bool showAmount;
   final double discountPercentage;
   final int unitPriceCents;
   final int discountCents;
@@ -154,6 +161,7 @@ class InvoiceItem {
     required this.quantity,
     required this.unitPrice,
     required this.lineTotal,
+    this.showAmount = true,
     this.discountPercentage = 0,
     this.unitPriceCents = 0,
     this.discountCents = 0,
@@ -173,6 +181,7 @@ class InvoiceItem {
       unitPrice: json['unitPriceCents'] != null 
           ? json['unitPriceCents'] / 100.0 
           : (json['unitPrice'] ?? 0.0).toDouble(),
+      showAmount: json['showAmount'] != false,
       lineTotal: json['totalCents'] != null 
           ? json['totalCents'] / 100.0 
           : (json['lineTotal'] ?? 0.0).toDouble(),
@@ -191,6 +200,7 @@ class InvoiceItem {
       'productId': productId,
       'description': productName,
       'quantity': quantity,
+      'showAmount': showAmount,
       'unitPriceCents': unitPriceCents,
       'discountCents': discountCents,
       'taxCents': taxCents,
