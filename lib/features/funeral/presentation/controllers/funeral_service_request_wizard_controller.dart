@@ -42,6 +42,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   String contactNumber = '';
   DateTime funeralDate = DateTime.now().add(const Duration(days: 3));
   String funeralLocation = '';
+  String deceasedDeliveryDirections = '';
   List<FieldOption> salesAreaOptions = [];
 
   // Step 3: Package & Extras
@@ -122,6 +123,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     familyRepPartnerId = request.familyRepPartnerId;
     funeralDate = request.funeralDate;
     funeralLocation = request.funeralLocation;
+    deceasedDeliveryDirections = request.deceasedDeliveryDirections;
     extras = List.of(request.extras);
     selectedPackage = _firstWhereOrNull(packages, (item) => item.id == request.packageId);
     currentStep = request.status?.toUpperCase() == 'INVOICED'
@@ -231,6 +233,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         causeOfDeath: causeOfDeath!,
         funeralDate: funeralDate,
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
+        deceasedDeliveryDirections: deceasedDeliveryDirections.trim(),
         familyRepPartnerId: familyRepPartnerId!,
         packageId: package.id,
         extras: extras,

@@ -37,6 +37,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   final _contactNameController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _deathCertificateController = TextEditingController();
+  final _deliveryDirectionsController = TextEditingController();
 
   final List<String> _stepTitles = [
     'Deceased', 'Cover', 'Representative', 'Package', 'Claims', 'Preview', 'Generate'
@@ -58,6 +59,9 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     if (_idNumberController.text != _controller.deceasedIdentityNumber) {
       _idNumberController.text = _controller.deceasedIdentityNumber;
     }
+    if (_deliveryDirectionsController.text != _controller.deceasedDeliveryDirections) {
+      _deliveryDirectionsController.text = _controller.deceasedDeliveryDirections;
+    }
   }
 
   @override
@@ -68,6 +72,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _contactNameController.dispose();
     _contactNumberController.dispose();
     _deathCertificateController.dispose();
+    _deliveryDirectionsController.dispose();
     super.dispose();
   }
 
@@ -308,6 +313,21 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                   ))
               .toList(),
           onChanged: (value) => setState(() => _controller.funeralLocation = value ?? ''),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _deliveryDirectionsController,
+          minLines: 3,
+          maxLines: 6,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Directions to Deceased Delivery Location',
+            hintText: 'Type clear directions, landmarks, gate details, village/section, or turn-by-turn instructions.',
+            helperText: 'These directions will appear on the Funeral Service Request Form.',
+            alignLabelWithHint: true,
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => _controller.deceasedDeliveryDirections = value,
         ),
       ],
     );
