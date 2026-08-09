@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/files/download_bytes.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../widgets/funeral_status_chip.dart';
@@ -63,6 +65,48 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
   Future<void> _newRequest() async {
     await context.push(AppRoutes.funeralNewServiceRequest);
     await _load();
+  }
+
+  Future<void> _downloadConfirmationLetter(FuneralServiceRequestDto request) async {
+    final id = request.id;
+    if (id == null || id.isEmpty) return;
+    try {
+      final bytes = await _api.downloadConfirmationLetter(id);
+      final reference = request.serviceRequestNo?.trim().isNotEmpty == true
+          ? request.serviceRequestNo!.trim()
+          : id;
+      await downloadBytes(
+        bytes: Uint8List.fromList(bytes),
+        fileName: 'funeral-confirmation-$reference.pdf',
+        mimeType: 'application/pdf',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage('Unable to generate confirmation letter: $error'))),
+      );
+    }
+  }
+
+  Future<void> _downloadServiceRequestForm(FuneralServiceRequestDto request) async {
+    final id = request.id;
+    if (id == null || id.isEmpty) return;
+    try {
+      final bytes = await _api.downloadServiceRequestForm(id);
+      final reference = request.serviceRequestNo?.trim().isNotEmpty == true
+          ? request.serviceRequestNo!.trim()
+          : id;
+      await downloadBytes(
+        bytes: Uint8List.fromList(bytes),
+        fileName: 'funeral-service-request-$reference.pdf',
+        mimeType: 'application/pdf',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage('Unable to generate service request form: $error'))),
+      );
+    }
   }
 
   @override
@@ -208,6 +252,15 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                       Text('Total: ${currency.format(request.totalAmountCents / 100)}'),
                     ],
                   ),
+                  if (request.deceasedDeliveryDirections.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Directions: ${request.deceasedDeliveryDirections}',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -231,6 +284,16 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                         onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/invoice-preview'),
                         icon: const Icon(Icons.receipt_long_outlined),
                         label: const Text('Invoice Preview'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: id.isEmpty ? null : () => _downloadConfirmationLetter(request),
+                        icon: const Icon(Icons.description_outlined),
+                        label: const Text('Confirmation Letter'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: id.isEmpty ? null : () => _downloadServiceRequestForm(request),
+                        icon: const Icon(Icons.assignment_outlined),
+                        label: const Text('Service Request Form'),
                       ),
                     ],
                   ),
