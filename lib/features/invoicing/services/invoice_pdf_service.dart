@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import '../../../core/services/setting_service.dart';
@@ -36,9 +34,9 @@ class InvoicePdfService {
     // Load Logo if available
     pw.MemoryImage? logoImage;
     try {
-      final logoBase64 = await _loadLogoBase64();
-      if (logoBase64 != null) {
-        logoImage = pw.MemoryImage(base64Decode(logoBase64));
+      final logoBytes = await _loadLogoBytes();
+      if (logoBytes != null) {
+        logoImage = pw.MemoryImage(logoBytes);
       }
     } catch (e) {
       print('Error loading logo for PDF: $e');
@@ -90,32 +88,17 @@ class InvoicePdfService {
     }
   }
 
-  Future<String?> _loadLogoBase64() async {
+  Future<Uint8List?> _loadLogoBytes() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final tenantId = prefs.getString('tenant');
-      if (tenantId == null) return null;
-
-      final response = await ApiClient().get('/v2/attachment?objectId=$tenantId');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final logoAttachment = data.firstWhere(
-          (a) => a['documentType']?['id'] == 'LOGO',
-          orElse: () => null,
-        );
-
-        if (logoAttachment != null) {
-          final res = await ApiClient().get(
-            '/v2/attachment/${logoAttachment['id']}',
-            accept: 'text/plain',
-          );
-          if (res.statusCode == 200) {
-            return res.body.replaceAll('"', '');
-          }
-        }
+      final response = await ApiClient().get(
+        '/v2/company-logo/content',
+        accept: 'image/*',
+      );
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        return Uint8List.fromList(response.bodyBytes);
       }
     } catch (e) {
-      print('Error fetching logo: $e');
+      print('Error fetching company logo: $e');
     }
     return null;
   }

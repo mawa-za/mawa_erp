@@ -166,9 +166,14 @@ class _FnbIntegrationAdminScreenState extends State<FnbIntegrationAdminScreen> {
                       leading: Icon(
                         _debtorConfigured ? Icons.verified_outlined : Icons.warning_amber_outlined,
                       ),
-                      title: Text(_debtorConfigured ? 'FNB debtor account configured' : 'FNB debtor account required'),
+                      title: Text(
+                        _debtorConfigured
+                            ? 'FNB debtor account configured'
+                            : 'FNB debtor account required for payment routing',
+                      ),
                       subtitle: Text(
-                        '$_debtorSummary\nManage debtor account details in Payment Account Configuration.',
+                        '$_debtorSummary\nManage debtor account details in Payment Account Configuration. '
+                        'FNB can be activated before the debtor account is ready; payments remain blocked until it is configured.',
                       ),
                       isThreeLine: true,
                     ),
