@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config.dart';
@@ -217,6 +218,70 @@ class ApiClient {
       },
       body: body,
     );
+  }
+
+  Future<http.Response> postMultipartBytes(
+    String path, {
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+    String fieldName = 'file',
+    bool includeRole = true,
+  }) async {
+    final host = await _getApiHost();
+    if (host == null || host.isEmpty) {
+      throw AppException('API Host not configured');
+    }
+
+    final url = _buildUrl(host, path);
+
+    Future<http.Response> send({required bool refreshIfNeeded}) async {
+      final headers = await _getHeaders(
+        includeRole: includeRole,
+        refreshIfNeeded: refreshIfNeeded,
+      );
+      headers.remove('Content-Type');
+
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll(headers)
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            fieldName,
+            bytes,
+            filename: fileName,
+            contentType: MediaType.parse(contentType),
+          ),
+        );
+
+      try {
+        final streamed = await _client
+            .send(request)
+            .timeout(const Duration(seconds: 45));
+        return await http.Response.fromStream(streamed);
+      } on TimeoutException catch (error) {
+        throw AppException(
+          error,
+          fallback: 'The upload took too long. Check your connection and try again.',
+        );
+      } on AppException {
+        rethrow;
+      } catch (error) {
+        throw AppException(error);
+      }
+    }
+
+    var response = await send(refreshIfNeeded: true);
+    if (response.statusCode == 401) {
+      final refreshed = await ensureFreshAccessToken(force: true);
+      if (refreshed) {
+        response = await send(refreshIfNeeded: false);
+      }
+    }
+
+    if (kDebugMode) {
+      debugPrint('ApiClient MULTIPART POST $url -> ${response.statusCode}');
+    }
+    return response;
   }
 
   Future<http.Response> put(

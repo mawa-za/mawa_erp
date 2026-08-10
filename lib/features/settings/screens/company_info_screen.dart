@@ -1,10 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/api_client.dart';
 import '../../../core/models/setting.dart';
 import '../../../core/services/setting_service.dart';
-import '../../../core/widgets/attachment_section.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class CompanyInfoScreen extends StatefulWidget {
@@ -19,8 +19,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = true;
   bool _isSaving = false;
-  String? _tenantId;
-  String? _logoBase64;
+  List<int>? _logoBytes;
+  bool _isUploadingLogo = false;
   
   final Map<String, TextEditingController> _controllers = {
     'NAME': TextEditingController(),
@@ -46,9 +46,6 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _tenantId = prefs.getString('tenant');
-
       final settings = await SettingService().getSettings();
       final tenantSettings = settings.where((s) => s.type == 'TENANT').toList();
       
@@ -58,9 +55,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         }
       }
 
-      if (_tenantId != null) {
-        await _loadLogo();
-      }
+      await _loadLogo();
     } catch (e) {
       debugPrint('Error loading company info: $e');
     } finally {
@@ -70,28 +65,80 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
 
   Future<void> _loadLogo() async {
     try {
-      final response = await ApiClient().get('/v2/attachment?objectId=$_tenantId');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final logoAttachment = data.firstWhere(
-          (a) => a['documentType']?['id'] == 'LOGO',
-          orElse: () => null,
-        );
-
-        if (logoAttachment != null) {
-          final res = await ApiClient().get(
-            '/v2/attachment/${logoAttachment['id']}',
-            accept: 'text/plain',
-          );
-          if (res.statusCode == 200) {
-            setState(() {
-              _logoBase64 = res.body.replaceAll('"', '');
-            });
-          }
-        }
+      final response = await ApiClient().get(
+        '/v2/company-logo/content',
+        accept: 'image/*',
+      );
+      if (!mounted) return;
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        setState(() => _logoBytes = response.bodyBytes);
+      } else if (response.statusCode == 204) {
+        setState(() => _logoBytes = null);
       }
     } catch (e) {
-      debugPrint('Error loading logo: $e');
+      debugPrint('Error loading company logo: $e');
+    }
+  }
+
+  Future<void> _selectAndUploadLogo() async {
+    if (_isUploadingLogo || widget.isReadOnly) return;
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['png', 'jpg', 'jpeg'],
+      withData: true,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to read the selected image.')),
+        );
+      }
+      return;
+    }
+
+    final lowerName = file.name.toLowerCase();
+    final contentType = lowerName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+    setState(() => _isUploadingLogo = true);
+    try {
+      final response = await ApiClient().postMultipartBytes(
+        '/v2/company-logo',
+        bytes: bytes,
+        fileName: file.name,
+        contentType: contentType,
+      );
+      if (response.statusCode != 200) {
+        String message = response.body;
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map && decoded['message'] != null) {
+            message = decoded['message'].toString();
+          }
+        } catch (_) {}
+        throw AppException(message);
+      }
+      if (!mounted) return;
+      setState(() => _logoBytes = bytes);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Company logo updated successfully')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage('Unable to upload company logo: $e')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingLogo = false);
     }
   }
 
@@ -175,20 +222,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                     _buildTextField('POSTAL-CODE', 'Postal Code', Icons.mark_as_unread_outlined),
                   ]),
                   const SizedBox(height: 16),
-                  if (_tenantId != null) ...[
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4, bottom: 8),
-                      child: Text('DOCUMENTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 1)),
-                    ),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: AttachmentSection(objectId: _tenantId!),
-                      ),
-                    ),
-                  ],
+                  _buildLogoUploadCard(),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -211,8 +245,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
             ),
             child: ClipOval(
-              child: _logoBase64 != null
-                  ? Image.memory(base64Decode(_logoBase64!), fit: BoxFit.cover)
+              child: _logoBytes != null
+                  ? Image.memory(Uint8List.fromList(_logoBytes!), fit: BoxFit.contain)
                   : Icon(Icons.business, size: 60, color: Colors.grey[400]),
             ),
           ),
@@ -225,16 +259,57 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                 radius: 18,
                 child: IconButton(
                   icon: const Icon(Icons.edit, size: 18, color: Colors.white),
-                  onPressed: () {
-                    // This will be handled by AttachmentSection upload
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Use the Documents section below to upload a new LOGO')),
-                    );
-                  },
+                  onPressed: _isUploadingLogo ? null : _selectAndUploadLogo,
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLogoUploadCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.image_outlined),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Company logo', style: TextStyle(fontWeight: FontWeight.w600)),
+                  SizedBox(height: 4),
+                  Text(
+                    'Attach a PNG or JPG image only. Maximum 300 KB and 600 × 180 pixels. '
+                    'MAWA stores it as the company logo automatically for documents and printouts.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (!widget.isReadOnly)
+              FilledButton.icon(
+                onPressed: _isUploadingLogo ? null : _selectAndUploadLogo,
+                icon: _isUploadingLogo
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.upload),
+                label: Text(_isUploadingLogo ? 'Uploading...' : 'Choose image'),
+              ),
+          ],
+        ),
       ),
     );
   }
