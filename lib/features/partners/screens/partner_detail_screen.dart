@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api_client.dart';
 import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/attachment_section.dart';
 import '../models/partner.dart';
 import '../models/partner_identity.dart';
 import '../partner_service.dart';
@@ -225,7 +226,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSectionHeader(Icons.account_balance_outlined, 'APPROVED BANKING DETAILS'),
+                _buildSectionHeader(Icons.account_balance_outlined, 'BANKING DETAILS'),
                 TextButton.icon(
                   onPressed: _showSupplierBankingDialog,
                   icon: const Icon(Icons.add, size: 16),
@@ -236,7 +237,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             const SizedBox(height: 12),
             ..._bankAccounts.map((account) => _buildBankAccountRow(account, colorScheme)),
             if (_bankAccounts.isEmpty)
-              _buildEmptyPrompt('No approved supplier banking details recorded.'),
+              _buildEmptyPrompt('No supplier banking details recorded.'),
           ],
           const SizedBox(height: 32),
           Row(
@@ -533,6 +534,7 @@ class _SupplierBankingApprovalDialogState
   String? _bankName;
   String? _accountType;
   bool _saving = false;
+  int _attachmentCount = 0;
 
   @override
   void dispose() {
@@ -543,6 +545,15 @@ class _SupplierBankingApprovalDialogState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_attachmentCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Attach banking evidence before submitting for approval.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await PartnerService().submitSupplierBankingDetails(widget.partnerId, {
@@ -578,7 +589,16 @@ class _SupplierBankingApprovalDialogState
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Attach a bank confirmation letter or other banking evidence in the supplier Documents section before submitting. The approver will compare that evidence with these proposed details.',
+                  'Attach a bank confirmation letter or other banking evidence before submitting. The approver will compare that evidence with these proposed details.',
+                ),
+                const SizedBox(height: 12),
+                AttachmentSection(
+                  objectId: widget.partnerId,
+                  onAttachmentCountChanged: (count) {
+                    if (mounted) {
+                      setState(() => _attachmentCount = count);
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -640,7 +660,7 @@ class _SupplierBankingApprovalDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: _saving ? null : _submit,
+          onPressed: _saving || _attachmentCount == 0 ? null : _submit,
           child: _saving
               ? const SizedBox(
                   width: 18,
