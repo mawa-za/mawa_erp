@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,7 +35,9 @@ class _CashupListScreenState extends State<CashupListScreen> {
   final CashupService _cashupService = CashupService();
   final ManualReceiptBookService _manualReceiptBookService = ManualReceiptBookService();
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
   final List<Cashup> _cashups = [];
+  Timer? _searchDebounce;
 
   String _selectedStatus = 'ALL';
   int _page = 0;
@@ -52,6 +56,8 @@ class _CashupListScreenState extends State<CashupListScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
@@ -84,11 +90,13 @@ class _CashupListScreenState extends State<CashupListScreen> {
 
     final generation = _loadGeneration;
     final requestedStatus = _selectedStatus;
+    final requestedSearch = _searchController.text.trim();
     final requestedPage = _page;
 
     try {
       final result = await _cashupService.getCashupPage(
         status: requestedStatus,
+        search: requestedSearch,
         page: requestedPage,
         size: _pageSize,
       );
@@ -114,6 +122,14 @@ class _CashupListScreenState extends State<CashupListScreen> {
     if (_selectedStatus == status) return;
     _selectedStatus = status;
     _loadCashups(reset: true);
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _loadCashups(reset: true);
+    });
   }
 
 
@@ -488,9 +504,41 @@ class _CashupListScreenState extends State<CashupListScreen> {
       ),
       body: Column(
         children: [
+          _buildSearchBar(),
           _buildStatusSelector(),
           Expanded(child: _buildBody()),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Material(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: TextField(
+          controller: _searchController,
+          onChanged: _onSearchChanged,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Search cashup no, cashier, device, receipt book, employee or area',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {});
+                      _loadCashups(reset: true);
+                    },
+                    icon: const Icon(Icons.clear),
+                  ),
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
       ),
     );
   }
@@ -561,7 +609,9 @@ class _CashupListScreenState extends State<CashupListScreen> {
                         size: 64, color: Colors.grey.shade300),
                     const SizedBox(height: 12),
                     Text(
-                      'No ${_statuses[_selectedStatus]!.toLowerCase()} cashups',
+                      _searchController.text.trim().isEmpty
+                          ? 'No ${_statuses[_selectedStatus]!.toLowerCase()} cashups'
+                          : 'No cashups match “${_searchController.text.trim()}”',
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                   ],

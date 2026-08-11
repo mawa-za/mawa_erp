@@ -369,7 +369,12 @@ class PartnerService {
       body: details,
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw AppException('Failed to submit banking details for approval: ${response.body}');
+      dynamic decodedError;
+      try { decodedError = jsonDecode(response.body); } catch (_) {}
+      final message = decodedError is Map && decodedError['message'] != null
+          ? decodedError['message'].toString()
+          : 'Failed to submit banking details for approval';
+      throw AppException(message);
     }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }

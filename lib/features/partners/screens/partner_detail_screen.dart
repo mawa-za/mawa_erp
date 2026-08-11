@@ -226,7 +226,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSectionHeader(Icons.account_balance_outlined, 'APPROVED BANKING DETAILS'),
+                _buildSectionHeader(Icons.account_balance_outlined, 'BANKING DETAILS'),
                 TextButton.icon(
                   onPressed: _showSupplierBankingDialog,
                   icon: const Icon(Icons.add, size: 16),
@@ -237,7 +237,7 @@ class _PartnerDetailScreenState extends State<PartnerDetailScreen> {
             const SizedBox(height: 12),
             ..._bankAccounts.map((account) => _buildBankAccountRow(account, colorScheme)),
             if (_bankAccounts.isEmpty)
-              _buildEmptyPrompt('No approved supplier banking details recorded.'),
+              _buildEmptyPrompt('No supplier banking details recorded.'),
           ],
           const SizedBox(height: 32),
           Row(
