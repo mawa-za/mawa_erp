@@ -11,7 +11,7 @@ class ProductMaintenanceService {
     if (categoryId != null && categoryId.trim().isNotEmpty) params['category'] = categoryId.trim();
     if (query != null && query.trim().isNotEmpty) params['query'] = query.trim();
 
-    final response = await ApiClient().get('/product', queryParameters: params);
+    final response = await ApiClient().get('/product/maintenance', queryParameters: params);
     if (response.statusCode != 200) {
       throw AppException('Failed to load products (${response.statusCode})');
     }
