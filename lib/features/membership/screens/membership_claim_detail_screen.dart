@@ -470,6 +470,17 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   }
 
   Widget _buildAmountCard(MembershipClaim claim, ColorScheme colorScheme) {
+    final status = claim.status.toUpperCase();
+    final hasApprovedPayout = const {
+      'APPROVED',
+      'PAYMENT_PENDING',
+      'PAYMENT_PROCESSING',
+      'PAYMENT_FAILED',
+      'PAID',
+    }.contains(status);
+    final displayAmount = hasApprovedPayout ? claim.approvedAmount : claim.claimAmount;
+    final amountLabel = hasApprovedPayout ? 'APPROVED PAYOUT AMOUNT' : 'CLAIM AMOUNT';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(32),
@@ -488,12 +499,22 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         children: [
           const Icon(Icons.payments_outlined, color: Colors.white54, size: 24),
           const SizedBox(height: 12),
-          const Text('APPROVED PAYOUT AMOUNT', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+          Text(amountLabel, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
           const SizedBox(height: 8),
           Text(
-            'R ${claim.claimAmount.toStringAsFixed(2)}',
+            'R ${displayAmount.toStringAsFixed(2)}',
             style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1),
           ),
+          if (hasApprovedPayout && claim.arrearsMonths != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Gross claim R ${claim.claimAmount.toStringAsFixed(2)}  •  '
+              '${claim.arrearsMonths} month${claim.arrearsMonths == 1 ? '' : 's'} in arrears  •  '
+              'Fine R ${claim.arrearsFine.toStringAsFixed(2)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
         ],
       ),
     );

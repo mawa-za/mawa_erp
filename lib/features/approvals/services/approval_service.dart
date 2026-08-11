@@ -85,12 +85,18 @@ class ApprovalService {
     }
   }
 
-  Future<Approval> approve(String id, {String? comments, String? actionBy}) async {
+  Future<Approval> approve(
+    String id, {
+    String? comments,
+    String? actionBy,
+    int? arrearsMonths,
+  }) async {
     final response = await _apiClient.post(
       '/v2/approval/$id/approve',
       body: {
         'comments': comments,
         'actionBy': actionBy,
+        if (arrearsMonths != null) 'arrearsMonths': arrearsMonths,
       },
     );
 
