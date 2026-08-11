@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/api_client.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/widgets/attachment_section.dart';
@@ -197,7 +198,104 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     return null;
   }
 
+  Future<int?> _selectClaimArrearsMonths() async {
+    var oneMonthFineCents = 0;
+    var twoMonthFineCents = 0;
+    try {
+      final response = await ApiClient().get('/v2/membership-lapse/configuration');
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          oneMonthFineCents = _intValue(decoded['oneMonthArrearsFineCents']);
+          twoMonthFineCents = _intValue(decoded['twoMonthArrearsFineCents']);
+        }
+      }
+    } catch (_) {
+      // Backend remains the source of truth; the dialog can still collect months.
+    }
+
+    if (!mounted) return null;
+    int selected = 0;
+    return showDialog<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Membership arrears'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Specify how many months the membership is in arrears. '
+                'The applicable fine will be deducted from the claim payout.',
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                value: selected,
+                decoration: const InputDecoration(
+                  labelText: 'Months in arrears',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem(value: 0, child: Text('0 months — no fine')),
+                  DropdownMenuItem(
+                    value: 1,
+                    child: Text('1 month — fine ${_money(oneMonthFineCents)}'),
+                  ),
+                  DropdownMenuItem(
+                    value: 2,
+                    child: Text('2 months — fine ${_money(twoMonthFineCents)}'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setDialogState(() => selected = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '3 months in arrears means the membership has lapsed and this claim cannot be approved.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, selected),
+              child: const Text('CONTINUE'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _intValue(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _money(int cents) => NumberFormat.currency(
+        locale: 'en_ZA',
+        symbol: 'R',
+        decimalDigits: 2,
+      ).format(cents / 100);
+
   Future<void> _takeAction(String action) async {
+    int? arrearsMonths;
+    if (action.toUpperCase() == 'APPROVE' &&
+        _approval.approvalType.toUpperCase() == 'CLAIM') {
+      arrearsMonths = await _selectClaimArrearsMonths();
+      if (arrearsMonths == null) return;
+    }
+
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -234,7 +332,12 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       
       switch (action.toUpperCase()) {
         case 'APPROVE':
-          updated = await _service.approve(_approval.id, comments: comment, actionBy: userId);
+          updated = await _service.approve(
+            _approval.id,
+            comments: comment,
+            actionBy: userId,
+            arrearsMonths: arrearsMonths,
+          );
           break;
         case 'REJECT':
           updated = await _service.reject(_approval.id, comments: comment, actionBy: userId);

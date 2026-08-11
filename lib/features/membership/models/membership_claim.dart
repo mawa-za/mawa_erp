@@ -23,6 +23,8 @@ class MembershipClaim {
   final String claimantPartnerId;
   final int claimAmountCents;
   final int approvedAmountCents;
+  final int? arrearsMonths;
+  final int arrearsFineCents;
   final int combinedClaimAmountCents;
   final String status;
   final String? payoutMethod;
@@ -67,6 +69,8 @@ class MembershipClaim {
     required this.claimantPartnerId,
     required this.claimAmountCents,
     required this.approvedAmountCents,
+    this.arrearsMonths,
+    required this.arrearsFineCents,
     required this.combinedClaimAmountCents,
     required this.status,
     this.payoutMethod,
@@ -88,6 +92,8 @@ class MembershipClaim {
   });
 
   double get claimAmount => claimAmountCents / 100.0;
+  double get approvedAmount => approvedAmountCents / 100.0;
+  double get arrearsFine => arrearsFineCents / 100.0;
   double get combinedClaimAmount => combinedClaimAmountCents / 100.0;
 
   factory MembershipClaim.fromJson(Map<String, dynamic> json) {
@@ -145,6 +151,8 @@ class MembershipClaim {
       claimantPartnerId: (json['claimantPartnerId'] ?? '').toString(),
       claimAmountCents: toInt(json['claimAmountCents']),
       approvedAmountCents: toInt(json['approvedAmountCents']),
+      arrearsMonths: json['arrearsMonths'] == null ? null : toInt(json['arrearsMonths']),
+      arrearsFineCents: toInt(json['arrearsFineCents']),
       combinedClaimAmountCents: toInt(json['combinedClaimAmountCents']),
       status: (json['status'] ?? '').toString(),
       payoutMethod: json['payoutMethod']?.toString(),
@@ -195,6 +203,8 @@ class MembershipClaim {
       'claimantPartnerId': claimantPartnerId,
       'claimAmountCents': claimAmountCents,
       'approvedAmountCents': approvedAmountCents,
+      'arrearsMonths': arrearsMonths,
+      'arrearsFineCents': arrearsFineCents,
       'combinedClaimAmountCents': combinedClaimAmountCents,
       'status': status,
       'payoutMethod': payoutMethod,

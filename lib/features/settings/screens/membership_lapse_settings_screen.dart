@@ -17,6 +17,8 @@ class _MembershipLapseSettingsScreenState
     extends State<MembershipLapseSettingsScreen> {
   bool _enabled = true;
   int _missedPremiumsBeforeLapse = 3;
+  final _oneMonthFineController = TextEditingController();
+  final _twoMonthFineController = TextEditingController();
   bool _loading = true;
   bool _saving = false;
   bool _running = false;
@@ -29,6 +31,13 @@ class _MembershipLapseSettingsScreenState
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _oneMonthFineController.dispose();
+    _twoMonthFineController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -52,6 +61,12 @@ class _MembershipLapseSettingsScreenState
           data['missedPremiumsBeforeLapse'],
           fallback: 3,
         ).clamp(1, 24).toInt();
+        _oneMonthFineController.text = _formatCurrencyInput(
+          _asInt(data['oneMonthArrearsFineCents']),
+        );
+        _twoMonthFineController.text = _formatCurrencyInput(
+          _asInt(data['twoMonthArrearsFineCents']),
+        );
         _lastRunAt = data['lastRunAt']?.toString();
         _lastLapsedCount = _asInt(data['lastLapsedCount']);
         _loading = false;
@@ -67,6 +82,14 @@ class _MembershipLapseSettingsScreenState
 
   Future<void> _save() async {
     if (_saving || _running) return;
+
+    final oneMonthFine = _parseCurrencyCents(_oneMonthFineController.text);
+    final twoMonthFine = _parseCurrencyCents(_twoMonthFineController.text);
+    if (oneMonthFine == null || twoMonthFine == null) {
+      _showMessage('Enter valid non-negative fine amounts.', isError: true);
+      return;
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -75,6 +98,8 @@ class _MembershipLapseSettingsScreenState
         body: {
           'enabled': _enabled,
           'missedPremiumsBeforeLapse': _missedPremiumsBeforeLapse,
+          'oneMonthArrearsFineCents': oneMonthFine,
+          'twoMonthArrearsFineCents': twoMonthFine,
         },
       );
       if (!_isSuccessful(response.statusCode)) {
@@ -243,6 +268,47 @@ class _MembershipLapseSettingsScreenState
                                     }
                                   },
                           ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Claim arrears fines',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'The final claim approver selects the number of months in arrears. '
+                            'The configured fine is deducted from the approved payout.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _oneMonthFineController,
+                            enabled: !_saving && !_running,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: '1 month in arrears fine',
+                              prefixText: 'R ',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _twoMonthFineController,
+                            enabled: !_saving && !_running,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: '2 months in arrears fine',
+                              prefixText: 'R ',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '3 months in arrears means the membership has lapsed; the claim cannot be approved.',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           const SizedBox(height: 16),
                           SizedBox(
                             width: double.infinity,
@@ -375,6 +441,17 @@ class _MembershipLapseSettingsScreenState
       statusCode: statusCode,
       fallback: 'The membership lapse request could not be completed. Please try again.',
     );
+  }
+
+  int? _parseCurrencyCents(String value) {
+    final cleaned = value.trim().replaceAll(',', '');
+    final amount = double.tryParse(cleaned);
+    if (amount == null || amount < 0) return null;
+    return (amount * 100).round();
+  }
+
+  String _formatCurrencyInput(int cents) {
+    return (cents / 100).toStringAsFixed(2);
   }
 
   int _asInt(Object? value, {int fallback = 0}) {
