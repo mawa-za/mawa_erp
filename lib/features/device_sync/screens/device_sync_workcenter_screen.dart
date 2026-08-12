@@ -19,9 +19,9 @@ class _DeviceSyncWorkcenterScreenState extends State<DeviceSyncWorkcenterScreen>
   final _search = TextEditingController();
   List<DeviceSyncSubmission> _items = const [];
   bool _loading = true;
-  String _status = 'CORRECTION_REQUIRED';
+  String _status = 'ATTENTION_REQUIRED';
 
-  static const _statuses = ['ALL', 'RECEIVED', 'PROCESSING', 'COMPLETED', 'CORRECTION_REQUIRED', 'PROCESSING_FAILED'];
+  static const _statuses = ['ATTENTION_REQUIRED', 'CORRECTION_REQUIRED', 'PROCESSING_FAILED', 'RECEIVED', 'PROCESSING', 'COMPLETED', 'ALL'];
 
   @override
   void initState() { super.initState(); _load(); }
