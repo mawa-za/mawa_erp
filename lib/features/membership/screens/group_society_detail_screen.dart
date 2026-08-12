@@ -359,10 +359,6 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an amount greater than zero.')));
                   return;
                 }
-                if (selectedMethod == null || selectedMethod!.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a payment method.')));
-                  return;
-                }
                 setDialogState(() => submitting = true);
                 try {
                   final attachments = await _membershipService.getGroupSocietyAttachmentIds(widget.societyId);
