@@ -28,6 +28,11 @@ class MembershipClaim {
   final int combinedClaimAmountCents;
   final String status;
   final String? payoutMethod;
+  final String? bankName;
+  final String? accountHolderName;
+  final String? accountNumber;
+  final String? branchCode;
+  final String? accountType;
   final String? paymentRequestId;
   final String? tombstoneOrderId;
   final String? settlementMethod;
@@ -74,6 +79,11 @@ class MembershipClaim {
     required this.combinedClaimAmountCents,
     required this.status,
     this.payoutMethod,
+    this.bankName,
+    this.accountHolderName,
+    this.accountNumber,
+    this.branchCode,
+    this.accountType,
     this.paymentRequestId,
     this.tombstoneOrderId,
     this.settlementMethod,
@@ -156,6 +166,11 @@ class MembershipClaim {
       combinedClaimAmountCents: toInt(json['combinedClaimAmountCents']),
       status: (json['status'] ?? '').toString(),
       payoutMethod: json['payoutMethod']?.toString(),
+      bankName: json['bankName']?.toString(),
+      accountHolderName: json['accountHolderName']?.toString(),
+      accountNumber: json['accountNumber']?.toString(),
+      branchCode: json['branchCode']?.toString(),
+      accountType: json['accountType']?.toString(),
       paymentRequestId: json['paymentRequestId']?.toString(),
       tombstoneOrderId: json['tombstoneOrderId']?.toString(),
       settlementMethod: json['settlementMethod']?.toString(),
@@ -208,6 +223,13 @@ class MembershipClaim {
       'combinedClaimAmountCents': combinedClaimAmountCents,
       'status': status,
       'payoutMethod': payoutMethod,
+      if (payoutMethod?.toUpperCase() == 'EFT') ...{
+        'bankName': bankName,
+        'accountHolderName': accountHolderName,
+        'accountNumber': accountNumber,
+        'branchCode': branchCode,
+        'accountType': accountType,
+      },
       'paymentRequestId': paymentRequestId,
       'tombstoneOrderId': tombstoneOrderId,
       'settlementMethod': settlementMethod,

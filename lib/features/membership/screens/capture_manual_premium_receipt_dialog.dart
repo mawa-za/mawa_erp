@@ -36,7 +36,8 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
   String? _locationAreaCode;
   DateTime _originalDate = DateTime.now();
   String _mode = 'LEGACY_CATCH_UP';
-  String _paymentMethod = 'CASH';
+  String? _paymentMethod;
+  String? _periodYYYYMM;
   bool _loadingOptions = true;
   bool _saving = false;
   String? _error;
@@ -78,6 +79,33 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
     } catch (e) {
       if (mounted) setState(() { _loadingOptions = false; _error = friendlyErrorMessage(e); });
     }
+  }
+
+  List<String> get _paymentPeriods {
+    final now = DateTime.now();
+    final dateText = widget.membership.startDate ??
+        widget.membership.joinDate ??
+        widget.membership.createdAt;
+    final parsedStart = dateText == null ? null : DateTime.tryParse(dateText);
+    final startYear = parsedStart?.year ?? now.year - 10;
+    final periods = <String>[];
+    for (var year = startYear; year <= now.year + 1; year++) {
+      for (var month = 1; month <= 12; month++) {
+        periods.add('$year${month.toString().padLeft(2, '0')}');
+      }
+    }
+    return periods.reversed.toList();
+  }
+
+  String _formatPaymentPeriod(String period) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    final year = int.tryParse(period.substring(0, 4));
+    final month = int.tryParse(period.substring(4, 6));
+    if (year == null || month == null || month < 1 || month > 12) return period;
+    return '${months[month - 1]} $year';
   }
 
   String _employeePartnerId(Map<String, dynamic> record) {
@@ -124,7 +152,8 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
       await MembershipService().captureManualPremiumReceipt(
         membershipId: widget.membership.id,
         amountCents: (double.parse(_amount.text.replaceAll(',', '.')) * 100).round(),
-        paymentMethod: _paymentMethod,
+        paymentMethod: _paymentMethod!,
+        periodYYYYMM: _periodYYYYMM!,
         originalReceiptDate: _originalDate,
         receiptBookNo: _bookNo!,
         manualReceiptNo: _number.text.trim(),
@@ -237,6 +266,20 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                         if (date != null) setState(() => _originalDate = date);
                       },
                     ),
+                    DropdownButtonFormField<String>(
+                      value: _periodYYYYMM,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment period *',
+                        helperText: 'Select the membership premium period this manual receipt pays.',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _paymentPeriods
+                          .map((period) => DropdownMenuItem(value: period, child: Text(_formatPaymentPeriod(period))))
+                          .toList(),
+                      onChanged: (value) => setState(() => _periodYYYYMM = value),
+                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
                     Row(children: [
                       Expanded(
                         child: TextFormField(
@@ -257,7 +300,8 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                           decoration: const InputDecoration(labelText: 'Payment method', border: OutlineInputBorder()),
                           items: const ['CASH', 'CARD', 'EFT', 'OTHER']
                               .map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                          onChanged: (value) => setState(() => _paymentMethod = value!),
+                          onChanged: (value) => setState(() => _paymentMethod = value),
+                          validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                         ),
                       ),
                     ]),
