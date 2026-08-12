@@ -935,6 +935,22 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           _buildInfoRow('Certificate No', claim.deathCertificateNo ?? 'N/A', icon: Icons.badge_outlined),
           const Divider(height: 32),
           _buildInfoRow('Cause of Death', claim.causeOfDeath ?? 'N/A', icon: Icons.description_outlined, isMultiLine: true),
+          if (claim.payoutMethod != null && claim.payoutMethod!.isNotEmpty) ...[
+            const Divider(height: 32),
+            _buildInfoRow('Payout Method', claim.payoutMethod!, icon: Icons.payments_outlined),
+          ],
+          if (claim.payoutMethod?.toUpperCase() == 'EFT') ...[
+            const Divider(height: 32),
+            _buildInfoRow('Bank', claim.bankName ?? 'N/A', icon: Icons.account_balance_outlined),
+            const Divider(height: 32),
+            _buildInfoRow('Account Holder', claim.accountHolderName ?? 'N/A', icon: Icons.person_outline),
+            const Divider(height: 32),
+            _buildInfoRow('Account Number', claim.accountNumber ?? 'N/A', icon: Icons.numbers_outlined),
+            const Divider(height: 32),
+            _buildInfoRow('Branch Code', claim.branchCode ?? 'N/A', icon: Icons.account_tree_outlined),
+            const Divider(height: 32),
+            _buildInfoRow('Account Type', claim.accountType ?? 'N/A', icon: Icons.credit_card_outlined),
+          ],
           if (claim.notes != null && claim.notes!.isNotEmpty) ...[
             const Divider(height: 32),
             _buildInfoRow('Internal Notes', claim.notes!, icon: Icons.notes_rounded, isMultiLine: true),

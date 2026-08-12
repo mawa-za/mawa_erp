@@ -99,7 +99,9 @@ class _SchedulerConfigurationScreenState extends State<SchedulerConfigurationScr
 
   Widget _buildJobCard(Map<String, dynamic> job) {
     final enabled = job['enabled'] == true;
+    final isDailyTimeJob = job['runTime'] != null;
     final intervalController = TextEditingController(text: (job['intervalMinutes'] ?? 1440).toString());
+    final runTimeController = TextEditingController(text: (job['runTime'] ?? '00:00').toString());
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -136,12 +138,22 @@ class _SchedulerConfigurationScreenState extends State<SchedulerConfigurationScr
               children: [
                 SizedBox(
                   width: 220,
-                  child: TextFormField(
-                    controller: intervalController,
-                    decoration: const InputDecoration(labelText: 'Interval minutes', border: OutlineInputBorder()),
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) => job['intervalMinutes'] = int.tryParse(value) ?? job['intervalMinutes'],
-                  ),
+                  child: isDailyTimeJob
+                      ? TextFormField(
+                          controller: runTimeController,
+                          decoration: const InputDecoration(
+                            labelText: 'Run time (HH:mm)',
+                            hintText: '00:00',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) => job['runTime'] = value.trim(),
+                        )
+                      : TextFormField(
+                          controller: intervalController,
+                          decoration: const InputDecoration(labelText: 'Interval minutes', border: OutlineInputBorder()),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) => job['intervalMinutes'] = int.tryParse(value) ?? job['intervalMinutes'],
+                        ),
                 ),
                 ElevatedButton.icon(
                   onPressed: _saving ? null : () => _save(job),

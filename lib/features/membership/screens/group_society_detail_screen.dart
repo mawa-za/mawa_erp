@@ -172,7 +172,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     final refController = TextEditingController();
     final notesController = TextEditingController();
     DateTime selectedDate = DateTime.now();
-    String selectedMethod = 'CASH';
+    String? selectedMethod;
     bool submitting = false;
 
     final result = await showDialog<bool>(
@@ -219,7 +219,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     items: ['CASH', 'CARD', 'EFT', 'DEBIT_ORDER', 'OTHER']
                         .map((method) => DropdownMenuItem(value: method, child: Text(method.replaceAll('_', ' '))))
                         .toList(),
-                    onChanged: submitting ? null : (value) => setDialogState(() => selectedMethod = value!),
+                    onChanged: submitting ? null : (value) => setDialogState(() => selectedMethod = value),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference Number')),
@@ -252,13 +252,17 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an amount greater than zero.')));
                   return;
                 }
+                if (selectedMethod == null || selectedMethod!.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a payment method.')));
+                  return;
+                }
                 setDialogState(() => submitting = true);
                 try {
                   final prefs = await SharedPreferences.getInstance();
                   final response = await _membershipService.addGroupSocietyPayment(widget.societyId, {
                     'amountCents': (amount * 100).round(),
                     'paymentDate': DateFormat('yyyy-MM-dd').format(selectedDate),
-                    'paymentMethod': selectedMethod,
+                    'paymentMethod': selectedMethod!,
                     'referenceNo': refController.text.trim(),
                     'notes': notesController.text.trim(),
                     'createdBy': prefs.getString('userId') ?? 'unknown',
@@ -353,6 +357,10 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                 final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
                 if (amount == null || amount <= 0) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an amount greater than zero.')));
+                  return;
+                }
+                if (selectedMethod == null || selectedMethod!.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a payment method.')));
                   return;
                 }
                 setDialogState(() => submitting = true);
