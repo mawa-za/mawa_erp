@@ -44,6 +44,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
   @override
   void initState() {
     super.initState();
+    _amount.text = widget.membership.premium.toStringAsFixed(2);
     _loadOptions();
   }
 
@@ -240,8 +241,9 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                       Expanded(
                         child: TextFormField(
                           controller: _amount,
+                          readOnly: true,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'Amount', prefixText: 'R ', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(labelText: 'Amount', helperText: 'Amount is fixed to the membership monthly premium.', prefixText: 'R ', border: OutlineInputBorder()),
                           validator: (value) {
                             final amount = double.tryParse((value ?? '').replaceAll(',', '.'));
                             return amount == null || amount <= 0 ? 'Enter a valid amount' : null;

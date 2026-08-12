@@ -8,6 +8,7 @@ import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import 'add_member_screen.dart';
+import 'membership_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MemberListScreen extends StatefulWidget {
@@ -207,12 +208,20 @@ class _MemberListScreenState extends State<MemberListScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          final membershipId = await showDialog<String>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const AddMemberScreen(),
+          );
+          if (!mounted || membershipId == null || membershipId.isEmpty) return;
           await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const AddMemberScreen()),
+            MaterialPageRoute(
+              builder: (context) => MembershipDetailScreen(membershipId: membershipId),
+            ),
           );
           _fetchInitialData();
         },
-        label: const Text('LINK MEMBER', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        label: const Text('NEW MEMBERSHIP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         icon: const Icon(Icons.add_link_rounded),
         elevation: 2,
       ),
@@ -227,7 +236,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         controller: _searchController,
         onChanged: _onSearchChanged,
         decoration: InputDecoration(
-          hintText: 'Search by policy, name or ID...',
+          hintText: 'Search by membership number, name or ID...',
           hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
           suffixIcon: _searchController.text.isNotEmpty
