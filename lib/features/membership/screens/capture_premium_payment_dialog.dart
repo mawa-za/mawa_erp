@@ -7,6 +7,7 @@ import '../services/membership_service.dart';
 import '../models/payment_batch_response.dart';
 import '../models/receipt_response.dart';
 import '../../../core/services/bluetooth_print_service.dart';
+import '../../../core/services/setting_service.dart';
 import '../../settings/services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -36,6 +37,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   PaymentBatchResponse? _successResponse;
   String? _error;
   String? _printWarning;
+  int _maxPremiumMonths = 3;
 
   BluetoothDevice? _selectedDevice;
   final BluetoothPrintService _printService = BluetoothPrintService();
@@ -51,8 +53,27 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   void initState() {
     super.initState();
     _fetchUnpaidPremiums();
+    _loadPaymentLimit();
     _initBluetooth();
   }
+
+
+  Future<void> _loadPaymentLimit() async {
+    try {
+      final settings = await SettingService().getSettings();
+      final match = settings.where((s) =>
+          s.type.trim().toUpperCase() == 'MEMBERSHIP' &&
+          s.attribute.trim().toUpperCase() == 'MAX_PREMIUM_PAYMENT_MONTHS');
+      final configured = match.isEmpty ? null : int.tryParse(match.first.value.trim());
+      if (mounted && configured != null && configured > 0) {
+        setState(() => _maxPremiumMonths = configured);
+      }
+    } catch (_) {
+      // Safe default remains 3 months when no tenant configuration exists.
+    }
+  }
+
+  int get _maximumPaymentCents => widget.membership.premiumCents * _maxPremiumMonths;
 
   Future<void> _initBluetooth() async {
     try {
@@ -279,6 +300,9 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF8F9FD),
+                          helperText: widget.membership.premiumCents > 0
+                              ? 'Maximum $_maxPremiumMonths months: R ${(_maximumPaymentCents / 100).toStringAsFixed(2)}'
+                              : null,
                         ),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -286,6 +310,10 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                           if (value == null || value.isEmpty) return 'Required';
                           final amount = double.tryParse(value);
                           if (amount == null || amount <= 0) return 'Invalid amount';
+                          final amountCents = (amount * 100).round();
+                          if (widget.membership.premiumCents > 0 && amountCents > _maximumPaymentCents) {
+                            return 'Maximum is $_maxPremiumMonths months (R ${(_maximumPaymentCents / 100).toStringAsFixed(2)})';
+                          }
                           return null;
                         },
                       ),

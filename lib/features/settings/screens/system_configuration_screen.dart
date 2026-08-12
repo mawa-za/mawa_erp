@@ -30,8 +30,8 @@ import 'membership_lapse_settings_screen.dart';
 import 'membership_policy_configuration_screen.dart';
 import 'number_range_configuration_screen.dart';
 import 'payment_request_invoice_email_configuration_screen.dart';
-import 'pos_printing_settings_screen.dart';
 import 'premium_generation_settings_screen.dart';
+import 'premium_payment_settings_screen.dart';
 import 'purple_configuration_screen.dart';
 import 'role_list_screen.dart';
 import 'signiflow_configuration_screen.dart';
@@ -229,6 +229,14 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           onTap: () => _open(context, const MembershipLapseSettingsScreen()),
         ),
         _ConfigurationItem(
+          title: 'Premium Payment Limits',
+          description:
+              'Configure the maximum number of monthly premiums that can be processed in one payment.',
+          icon: Icons.payments_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () => _open(context, const PremiumPaymentSettingsScreen()),
+        ),
+        _ConfigurationItem(
           title: 'Funeral Cover Underwriters',
           description:
               'Maintain organisations permitted to underwrite third-party funeral cover.',
@@ -317,14 +325,6 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.warehouse_outlined,
           category: _ConfigurationCategory.operations,
           onTap: () => _open(context, const StorageConfigurationScreen()),
-        ),
-        _ConfigurationItem(
-          title: 'POS Printing',
-          description:
-              'Pair payment terminals, Windows print agents and receipt printers.',
-          icon: Icons.point_of_sale_outlined,
-          category: _ConfigurationCategory.operations,
-          onTap: () => _open(context, const PosPrintingSettingsScreen()),
         ),
         _ConfigurationItem(
           title: 'Device Sync Corrections',

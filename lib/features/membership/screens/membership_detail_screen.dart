@@ -110,12 +110,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Future<void> _replaceDependent(Dependent dependent) async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => EditDependentScreen(
-          membershipId: widget.membershipId,
-          dependent: dependent,
-        ),
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => EditDependentScreen(
+        membershipId: widget.membershipId,
+        dependent: dependent,
       ),
     );
     if (result == true) _fetchData();
@@ -215,8 +214,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               : _buildContent(colorScheme),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => AddDependentScreen(membershipId: widget.membershipId)),
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => AddDependentScreen(membershipId: widget.membershipId),
           );
           if (result == true) _fetchData();
         },
