@@ -28,7 +28,7 @@ class _CaptureInvoicePaymentDialogState
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
 
-  String _paymentMethod = 'CASH';
+  String? _paymentMethod;
   DateTime _paymentDate = DateTime.now();
   bool _submitting = false;
 
@@ -72,7 +72,7 @@ class _CaptureInvoicePaymentDialogState
         {
           'amountCents': amountCents,
           'paymentDate': DateFormat('yyyy-MM-dd').format(_paymentDate),
-          'paymentMethod': _paymentMethod,
+          'paymentMethod': _paymentMethod!,
           'reference': _referenceController.text.trim(),
           'notes': _notesController.text.trim(),
           'createdBy': userId,
@@ -201,7 +201,8 @@ class _CaptureInvoicePaymentDialogState
                   ],
                   onChanged: _submitting
                       ? null
-                      : (value) => setState(() => _paymentMethod = value!),
+                      : (value) => setState(() => _paymentMethod = value),
+                  validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
                 InkWell(

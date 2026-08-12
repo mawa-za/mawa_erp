@@ -30,7 +30,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
 
-  String _paymentMethod = 'CASH';
+  String? _paymentMethod;
   bool _isSubmitting = false;
   bool _isLoadingUnpaid = true;
   List<Map<String, dynamic>> _unpaidPremiums = [];
@@ -129,7 +129,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
 
       final response = await MembershipService().createMembershipPremiumPayment(
         membershipId: widget.membership.id,
-        paymentMethod: _paymentMethod,
+        paymentMethod: _paymentMethod!,
         amountCents: amountCents,
         createdBy: userId,
         deviceId: deviceId,
@@ -341,7 +341,8 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                             ],
                           ),
                         )).toList(),
-                        onChanged: (value) => setState(() => _paymentMethod = value!),
+                        onChanged: (value) => setState(() => _paymentMethod = value),
+                        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
