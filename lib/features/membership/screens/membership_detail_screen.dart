@@ -21,6 +21,7 @@ import 'membership_claim_detail_screen.dart';
 import 'capture_premium_payment_dialog.dart';
 import 'capture_manual_premium_receipt_dialog.dart';
 import '../widgets/membership_change_section.dart';
+import '../utils/membership_claim_eligibility.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
@@ -404,6 +405,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
   Widget _buildMemberCard(Partner member, ColorScheme colorScheme) {
     final isDeceased = member.status == 'DECEASED';
+    final canProcessClaim = canProcessMembershipClaim(
+      currentMembershipId: widget.membershipId,
+      deceasedPartnerId: member.id,
+      claims: _claims,
+    );
     final themeColor = isDeceased ? Colors.purple : colorScheme.primary;
 
     return Container(
@@ -458,7 +464,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               _buildProfileRow(Icons.wc_outlined, 'Gender', member.gender ?? 'N/A'),
               if (member.email.isNotEmpty) _buildProfileRow(Icons.email_outlined, 'Email', member.email),
               if (member.phone.isNotEmpty) _buildProfileRow(Icons.phone_outlined, 'Phone', member.phone),
-              if (!isDeceased) ...[
+              if (canProcessClaim) ...[
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
@@ -967,7 +973,14 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         String displayName = partner?.fullName ?? dependent.fullName;
         String displayId = partner?.identityNumber ?? dependent.identity?.number ?? 'N/A';
         String displayIdType = partner?.idType ?? dependent.identity?.type.description ?? 'ID';
-        final isDeceased = dependent.membershipStatus == 'DECEASED' || partner?.status == 'DECEASED';
+        final deceasedOnCurrentMembership = dependent.membershipStatus == 'DECEASED';
+        final isDeceased = deceasedOnCurrentMembership || partner?.status == 'DECEASED';
+        final canProcessClaim = canProcessMembershipClaim(
+          currentMembershipId: widget.membershipId,
+          deceasedPartnerId: dependent.dependentPartnerId,
+          claims: _claims,
+          deceasedOnCurrentMembership: deceasedOnCurrentMembership,
+        );
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1016,6 +1029,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                               style: TextButton.styleFrom(foregroundColor: Colors.red),
                               label: const Text('REMOVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
+                          ],
+                          if (canProcessClaim)
                             TextButton(
                               onPressed: () async {
                                 final result = await Navigator.of(context).push(
@@ -1025,7 +1040,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                               },
                               child: const Text('PROCESS CLAIM', style: TextStyle(color: Color(0xFFF20D1A), fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
-                          ],
                           FilledButton.tonal(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: dependent.dependentPartnerId, title: 'Dependent Details', isMemberContext: true)),
