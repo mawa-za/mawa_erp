@@ -25,6 +25,7 @@ import 'models/tenant_experience.dart';
 import '../auth/role_selection_screen.dart';
 import '../auth/change_password_screen.dart';
 import '../settings/screens/api_log_list_screen.dart';
+import '../settings/screens/pos_printing_settings_screen.dart';
 import '../invoicing/screens/invoice_create_screen.dart';
 import '../membership/screens/membership_claim_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
@@ -1735,6 +1736,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
           );
         }
+        if (value == 'printer_settings') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const PosPrintingSettingsScreen()),
+          );
+        }
         if (value == 'logout') _showLogoutConfirmation();
       },
       itemBuilder: (context) => [
@@ -1771,6 +1777,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           child: ListTile(
             leading: Icon(Icons.lock_outline_rounded),
             title: Text('Security'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'printer_settings',
+          child: ListTile(
+            leading: Icon(Icons.print_outlined),
+            title: Text('Printer configuration'),
             contentPadding: EdgeInsets.zero,
           ),
         ),
