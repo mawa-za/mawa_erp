@@ -223,6 +223,39 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           },
         ),
         const SizedBox(height: 16),
+        InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () async {
+            final now = DateTime.now();
+            final date = await showDatePicker(
+              context: context,
+              initialDate: _controller.dateOfDeath ?? now,
+              firstDate: DateTime(now.year - 120),
+              lastDate: now,
+            );
+            if (date != null) {
+              setState(() => _controller.dateOfDeath = date);
+            }
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Date of Death *',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.calendar_today_outlined),
+            ),
+            child: Text(
+              _controller.dateOfDeath == null
+                  ? 'Select date of death'
+                  : Formatters.formatDate(_controller.dateOfDeath!),
+              style: TextStyle(
+                color: _controller.dateOfDeath == null
+                    ? Theme.of(context).hintColor
+                    : null,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         SearchableDropdownFormField<String>(
           value: _controller.causeOfDeath,
           isExpanded: true,
@@ -237,29 +270,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                   ))
               .toList(),
           onChanged: (value) => setState(() => _controller.causeOfDeath = value),
-        ),
-        const SizedBox(height: 16),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Date of Death *'),
-          subtitle: Text(
-            _controller.dateOfDeath == null
-                ? 'Select date of death'
-                : Formatters.formatDate(_controller.dateOfDeath!),
-          ),
-          trailing: const Icon(Icons.calendar_today),
-          onTap: () async {
-            final now = DateTime.now();
-            final date = await showDatePicker(
-              context: context,
-              initialDate: _controller.dateOfDeath ?? now,
-              firstDate: DateTime(now.year - 120),
-              lastDate: now,
-            );
-            if (date != null) {
-              setState(() => _controller.dateOfDeath = date);
-            }
-          },
         ),
         const SizedBox(height: 16),
         TextFormField(
