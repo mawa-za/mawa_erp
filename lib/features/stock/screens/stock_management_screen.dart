@@ -26,6 +26,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
   bool _initialSectionApplied = false;
   _InventorySection? _selectedSection;
   final Map<_InventorySection, String> _statusFilters = <_InventorySection, String>{};
+  final Map<_InventorySection, String> _searchQueries = <_InventorySection, String>{};
   List<_InventoryCardDefinition> _visibleCards = [];
 
   Map<String, dynamic> _dashboard = <String, dynamic>{};
@@ -428,7 +429,12 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       case _InventorySection.purchaseOrders:
         return _purchaseOrderView();
       case _InventorySection.stock:
-        return _tableView(_stock, const ['product_code', 'product_description', 'warehouse_code', 'location_code', 'on_hand_qty', 'reserved_qty', 'available_qty', 'uom']);
+        return _searchableTableView(
+          section: _InventorySection.stock,
+          rows: _stock,
+          columns: const ['product_code', 'product_description', 'warehouse_code', 'location_code', 'on_hand_qty', 'reserved_qty', 'available_qty', 'uom'],
+          hintText: 'Search stock on hand',
+        );
       case _InventorySection.goodsReceipts:
         return _statusTableView(
           section: _InventorySection.goodsReceipts,
@@ -444,16 +450,20 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
           dateKeys: const ['movement_date', 'created_at', 'createdAt'],
         );
       case _InventorySection.movements:
-        return _tableView(
-          _sortLatest(_movements, const ['movement_at', 'created_at', 'createdAt']),
-          const ['movement_no', 'movement_type', 'product_code', 'quantity', 'uom', 'reference_no', 'processed_by', 'movement_at'],
+        return _searchableTableView(
+          section: _InventorySection.movements,
+          rows: _sortLatest(_movements, const ['movement_at', 'created_at', 'createdAt']),
+          columns: const ['movement_no', 'movement_type', 'product_code', 'quantity', 'uom', 'reference_no', 'processed_by', 'movement_at'],
+          hintText: 'Search stock movements',
         );
       case _InventorySection.salesOrders:
         return _salesOrderView();
       case _InventorySection.audit:
-        return _tableView(
-          _sortLatest(_audit, const ['created_at', 'createdAt']),
-          const ['entity_type', 'action', 'entity_id', 'notes', 'created_by', 'created_at'],
+        return _searchableTableView(
+          section: _InventorySection.audit,
+          rows: _sortLatest(_audit, const ['created_at', 'createdAt']),
+          columns: const ['entity_type', 'action', 'entity_id', 'notes', 'created_by', 'created_at'],
+          hintText: 'Search inventory audit',
         );
       case _InventorySection.setup:
         return _setupView(theme);
@@ -484,9 +494,13 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
   }
 
   Widget _setupView(ThemeData theme) {
+    final warehouses = _filterRows(_InventorySection.setup, _warehouses);
+    final locations = _filterRows(_InventorySection.setup, _locations);
     return ListView(padding: const EdgeInsets.all(16), children: [
-      _section('Warehouses', _simpleList(_warehouses, ['warehouse_code', 'name', 'status'])),
-      _section('Storage locations', _simpleList(_locations, ['location_code', 'name', 'location_type', 'warehouse_id'])),
+      _sectionSearchField(_InventorySection.setup, 'Search warehouses and storage locations'),
+      const SizedBox(height: 12),
+      _section('Warehouses', _simpleList(warehouses, ['warehouse_code', 'name', 'status'])),
+      _section('Storage locations', _simpleList(locations, ['location_code', 'name', 'location_type', 'warehouse_id'])),
       Align(
         alignment: Alignment.centerLeft,
         child: FilledButton.icon(onPressed: _openSetupDialog, icon: const Icon(Icons.add_business_outlined), label: const Text('Create Warehouse / Receiving Location')),
@@ -550,12 +564,10 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     final selected = statuses.contains(_statusFilters[section])
         ? _statusFilters[section]!
         : 'ALL';
-    final filtered = _sortLatest(
-      selected == 'ALL'
-          ? rows
-          : rows.where((row) => _text(row['status']).trim().toUpperCase() == selected).toList(),
-      dateKeys,
-    );
+    final statusFiltered = selected == 'ALL'
+        ? rows
+        : rows.where((row) => _text(row['status']).trim().toUpperCase() == selected).toList();
+    final filtered = _sortLatest(_filterRows(section, statusFiltered), dateKeys);
 
     final invoiceStyled = _isCommercialDocumentSection(section);
 
@@ -599,6 +611,13 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
               }).toList(),
             ),
           ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: _sectionSearchField(
+            section,
+            "Search ${_cardForSection(section)?.title.toLowerCase() ?? 'records'}",
+          ),
+        ),
         Expanded(
           child: invoiceStyled
               ? _commercialDocumentListView(
@@ -614,6 +633,49 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
                       actions: actions,
                     ),
         ),
+      ],
+    );
+  }
+
+  List<Map<String, dynamic>> _filterRows(
+    _InventorySection section,
+    List<Map<String, dynamic>> rows,
+  ) {
+    final query = (_searchQueries[section] ?? '').trim().toLowerCase();
+    if (query.isEmpty) return rows;
+    return rows.where((row) => row.entries
+        .map((entry) => '${entry.key} ${_text(entry.value)}')
+        .join(' ')
+        .toLowerCase()
+        .contains(query)).toList();
+  }
+
+  Widget _sectionSearchField(_InventorySection section, String hintText) {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: hintText,
+        prefixIcon: const Icon(Icons.search),
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      onChanged: (value) => setState(() => _searchQueries[section] = value),
+    );
+  }
+
+  Widget _searchableTableView({
+    required _InventorySection section,
+    required List<Map<String, dynamic>> rows,
+    required List<String> columns,
+    required String hintText,
+  }) {
+    final filtered = _filterRows(section, rows);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: _sectionSearchField(section, hintText),
+        ),
+        Expanded(child: _tableView(filtered, columns)),
       ],
     );
   }

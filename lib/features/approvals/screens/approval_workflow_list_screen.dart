@@ -22,6 +22,7 @@ class _ApprovalWorkflowListScreenState
   List<ApprovalWorkflow> _allWorkflows = [];
   List<ApprovalWorkflow> _workflows = [];
   String _selectedStatus = 'ALL';
+  String _searchQuery = '';
   String? _error;
 
   @override
@@ -57,13 +58,20 @@ class _ApprovalWorkflowListScreenState
   }
 
   void _applyStatusFilter() {
-    _workflows = switch (_selectedStatus) {
-      'ACTIVE' =>
-        _allWorkflows.where((workflow) => workflow.active).toList(),
-      'INACTIVE' =>
-        _allWorkflows.where((workflow) => !workflow.active).toList(),
-      _ => List<ApprovalWorkflow>.from(_allWorkflows),
-    };
+    final query = _searchQuery.trim().toLowerCase();
+    _workflows = _allWorkflows.where((workflow) {
+      final statusMatches = switch (_selectedStatus) {
+        'ACTIVE' => workflow.active,
+        'INACTIVE' => !workflow.active,
+        _ => true,
+      };
+      if (!statusMatches) return false;
+      if (query.isEmpty) return true;
+      return [workflow.name, workflow.description, workflow.approvalType]
+          .join(' ')
+          .toLowerCase()
+          .contains(query);
+    }).toList();
   }
 
   Future<void> _setWorkflowActive(
@@ -182,6 +190,21 @@ class _ApprovalWorkflowListScreenState
       body: Column(
         children: [
           _buildStatusFilter(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search workflows',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() {
+                _searchQuery = value;
+                _applyStatusFilter();
+              }),
+            ),
+          ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())

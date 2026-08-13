@@ -105,6 +105,7 @@ class _LeaveCalendarScreenState extends State<_LeaveCalendarScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -134,6 +135,20 @@ class _LeaveCalendarScreenState extends State<_LeaveCalendarScreen> {
     }).toList()..sort((a, b) => a.startDate.compareTo(b.startDate));
   }
 
+  List<LeaveRequest> get _visibleMonthRequests {
+    final values = _monthRequests;
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return values;
+    return values.where((request) => [
+      request.employeeName,
+      request.leaveTypeName,
+      request.status,
+      request.startDate,
+      request.endDate,
+      request.unit,
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -155,6 +170,18 @@ class _LeaveCalendarScreenState extends State<_LeaveCalendarScreen> {
                 ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Search leave calendar',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
+            ),
             Expanded(child: _body()),
           ]),
         ),
@@ -165,7 +192,7 @@ class _LeaveCalendarScreenState extends State<_LeaveCalendarScreen> {
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!));
-    final values = _monthRequests;
+    final values = _visibleMonthRequests;
     if (values.isEmpty) return const Center(child: Text('No approved or pending leave in this month.'));
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),

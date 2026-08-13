@@ -16,6 +16,7 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
   final ScrollController _scrollController = ScrollController();
   
   List<ApiEndpointLog> _logs = [];
+  String _searchQuery = '';
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -110,9 +111,26 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
     return Colors.blue;
   }
 
+  List<ApiEndpointLog> get _visibleLogs {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _logs;
+    return _logs.where((log) => [
+      log.method,
+      log.endpoint,
+      log.statusCode.toString(),
+      log.direction,
+      log.integrationName ?? '',
+      log.username ?? '',
+      log.requestId ?? '',
+      log.requestIp ?? '',
+      log.errorMessage ?? '',
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final logs = _visibleLogs;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -129,7 +147,22 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
         surfaceTintColor: Colors.white,
         centerTitle: false,
       ),
-      body: _isLoading
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search API activity',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            ),
+          ),
+          Expanded(
+            child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
@@ -144,14 +177,14 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
                     ],
                   ),
                 )
-              : _logs.isEmpty
+              : logs.isEmpty
                   ? const Center(child: Text('No logs found.'))
                   : ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.all(16),
-                      itemCount: _logs.length + (_hasMore ? 1 : 0),
+                      itemCount: logs.length + (_searchQuery.trim().isEmpty && _hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if (index == _logs.length) {
+                        if (index == logs.length) {
                           return const Center(
                             child: Padding(
                               padding: EdgeInsets.all(16.0),
@@ -159,10 +192,13 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
                             ),
                           );
                         }
-                        final log = _logs[index];
+                        final log = logs[index];
                         return _buildLogCard(log);
                       },
                     ),
+          ),
+        ],
+      ),
     );
   }
 
