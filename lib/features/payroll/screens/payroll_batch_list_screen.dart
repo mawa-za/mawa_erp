@@ -18,6 +18,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   List<PayrollBatchSummary> _allBatches = [];
   List<PayrollBatchSummary> _batches = [];
   String _selectedStatus = 'ALL';
+  String _searchQuery = '';
   final List<String> _statuses = [
     'ALL',
     'NEW',
@@ -69,9 +70,17 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   }
 
   void _applyStatusFilter() {
-    _batches = _selectedStatus == 'ALL'
-        ? List<PayrollBatchSummary>.from(_allBatches)
-        : _allBatches.where((batch) => batch.status.toUpperCase() == _selectedStatus).toList();
+    final query = _searchQuery.trim().toLowerCase();
+    _batches = _allBatches.where((batch) {
+      final statusMatches = _selectedStatus == 'ALL' ||
+          batch.status.toUpperCase() == _selectedStatus;
+      if (!statusMatches) return false;
+      if (query.isEmpty) return true;
+      return [batch.batchNo, batch.description, batch.payPeriod, batch.paymentDate, batch.status]
+          .join(' ')
+          .toLowerCase()
+          .contains(query);
+    }).toList();
   }
 
   Future<void> _selectPayPeriod() async {
@@ -269,6 +278,21 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         children: [
           _buildPeriodIndicator(colorScheme),
           _buildStatusFilter(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search payroll batches',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() {
+                _searchQuery = value;
+                _applyStatusFilter();
+              }),
+            ),
+          ),
           Expanded(child: _buildBody()),
         ],
       ),

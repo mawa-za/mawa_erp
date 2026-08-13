@@ -23,6 +23,7 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
   UserInbox? _inbox;
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -173,6 +174,18 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
     return Column(
       children: [
         _summary(inbox),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+          child: TextField(
+            decoration: const InputDecoration(
+              hintText: 'Search inbox',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
+        ),
         Expanded(
           child: TabBarView(
             controller: _tabController,
@@ -244,7 +257,17 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
   }
 
   Widget _approvalList(List<Approval> approvals) {
-    if (approvals.isEmpty) {
+    final query = _searchQuery.trim().toLowerCase();
+    final visible = query.isEmpty
+        ? approvals
+        : approvals.where((approval) => [
+            approval.title,
+            approval.description,
+            approval.referenceNo,
+            approval.approvalType,
+            approval.requesterId,
+          ].join(' ').toLowerCase().contains(query)).toList();
+    if (visible.isEmpty) {
       return _empty(
         Icons.task_alt_rounded,
         'You are all caught up',
@@ -255,10 +278,10 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.all(18),
-        itemCount: approvals.length,
+        itemCount: visible.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, index) {
-          final approval = approvals[index];
+          final approval = visible[index];
           return Material(
             color: MawaDesign.surface,
             borderRadius: BorderRadius.circular(16),
@@ -332,7 +355,19 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
   }
 
   Widget _notificationList(List<InboxNotification> notifications) {
-    if (notifications.isEmpty) {
+    final query = _searchQuery.trim().toLowerCase();
+    final visible = query.isEmpty
+        ? notifications
+        : notifications.where((notification) => [
+            notification.title,
+            notification.message,
+            notification.notificationType,
+            notification.approvalType ?? '',
+            notification.approvalStatus ?? '',
+            notification.referenceNo ?? '',
+            notification.actionByDisplayName ?? '',
+          ].join(' ').toLowerCase().contains(query)).toList();
+    if (visible.isEmpty) {
       return _empty(
         Icons.notifications_none_rounded,
         'No notifications yet',
@@ -343,10 +378,10 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.all(18),
-        itemCount: notifications.length,
+        itemCount: visible.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (_, index) {
-          final notification = notifications[index];
+          final notification = visible[index];
           final colour = notification.isApprovalRequired ? MawaDesign.red : MawaDesign.info;
           return Material(
             color: notification.isUnread ? colour.withOpacity(.045) : MawaDesign.surface,

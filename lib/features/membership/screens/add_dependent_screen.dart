@@ -29,6 +29,7 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
   String? _identityType;
   Partner? _partner;
   bool _notFound = false;
+  bool _withoutIdentity = false;
   bool _searching = false;
   bool _saving = false;
   int _step = 0;
@@ -62,6 +63,15 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
   }
 
   Future<void> _search() async {
+    if (_withoutIdentity) {
+      setState(() {
+        _partner = null;
+        _notFound = true;
+        _step = 1;
+        _error = null;
+      });
+      return;
+    }
     if (!_identityFormKey.currentState!.validate()) return;
     setState(() { _searching = true; _error = null; });
     try {
@@ -82,17 +92,24 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
     }
   }
 
-  Future<Partner> _createPartner() => PartnerService().createPartner({
-        'type': 'INDIVIDUAL',
-        'partnerType': 'INDIVIDUAL',
-        'name1': _lastName.text.trim().toUpperCase(),
-        'name2': _firstName.text.trim().toUpperCase(),
-        'name3': _middleName.text.trim().toUpperCase(),
-        'identityType': _identityType!.trim(),
-        'identityNumber': _identityNumber.text.trim(),
-        'birthDate': _isSaId ? _dateOfBirthFromSaId(_identityNumber.text.trim())?.toIso8601String() : null,
-        'status': 'ACTIVE',
-      });
+  Future<Partner> _createPartner() {
+    final payload = <String, dynamic>{
+      'type': 'INDIVIDUAL',
+      'partnerType': 'INDIVIDUAL',
+      'name1': _lastName.text.trim().toUpperCase(),
+      'name2': _firstName.text.trim().toUpperCase(),
+      'name3': _middleName.text.trim().toUpperCase(),
+      'status': 'ACTIVE',
+    };
+    if (!_withoutIdentity) {
+      payload['identityType'] = _identityType!.trim();
+      payload['identityNumber'] = _identityNumber.text.trim();
+      payload['birthDate'] = _isSaId
+          ? _dateOfBirthFromSaId(_identityNumber.text.trim())?.toIso8601String()
+          : null;
+    }
+    return PartnerService().createPartner(payload);
+  }
 
   Future<void> _save() async {
     if (!_detailsFormKey.currentState!.validate()) return;
@@ -150,16 +167,50 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
   Widget _identityStep() => Form(
         key: _identityFormKey,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('Search for the partner before continuing.', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 18),
-          AppDropdownField(field: 'ID-TYPE', label: 'ID Type', icon: Icons.badge_outlined, value: _identityType, onChanged: (v) => setState(() => _identityType = v), validator: (v) => (v ?? '').trim().isEmpty ? 'ID Type is required' : null),
+          Text(
+            _withoutIdentity
+                ? 'Capture the dependent details without an identity number.'
+                : 'Search for the partner before continuing.',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _withoutIdentity,
+            title: const Text('Dependent does not have an identity number'),
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: (value) => setState(() {
+              _withoutIdentity = value ?? false;
+              if (_withoutIdentity) {
+                _identityNumber.clear();
+                _error = null;
+              }
+            }),
+          ),
+          const SizedBox(height: 10),
+          IgnorePointer(
+            ignoring: _withoutIdentity,
+            child: Opacity(
+              opacity: _withoutIdentity ? .45 : 1,
+              child: AppDropdownField(
+                field: 'ID-TYPE',
+                label: 'ID Type',
+                icon: Icons.badge_outlined,
+                value: _identityType,
+                onChanged: (v) => setState(() => _identityType = v),
+                validator: (v) => _withoutIdentity || (v ?? '').trim().isNotEmpty ? null : 'ID Type is required',
+              ),
+            ),
+          ),
           const SizedBox(height: 14),
           TextFormField(
             controller: _identityNumber,
+            enabled: !_withoutIdentity,
             keyboardType: _isSaId ? TextInputType.number : TextInputType.text,
             inputFormatters: _isSaId ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)] : null,
             decoration: const InputDecoration(labelText: 'ID Number', border: OutlineInputBorder(), prefixIcon: Icon(Icons.numbers)),
             validator: (v) {
+              if (_withoutIdentity) return null;
               final value = (v ?? '').trim();
               if (value.isEmpty) return 'ID Number is required';
               if (_isSaId && (value.length != 13 || _dateOfBirthFromSaId(value) == null)) return 'Enter a valid 13-digit SA ID';
@@ -168,7 +219,7 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
           ),
           if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
           const SizedBox(height: 24),
-          FilledButton.icon(onPressed: _searching ? null : _search, icon: _searching ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search), label: const Text('SEARCH PARTNER')),
+          FilledButton.icon(onPressed: _searching ? null : _search, icon: _searching ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search), label: Text(_withoutIdentity ? 'CONTINUE' : 'SEARCH PARTNER')),
         ]),
       );
 
@@ -197,7 +248,17 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
         ]),
       );
 
-  Widget _identitySummary() => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)), child: Text('${_identityType ?? 'ID'} • ${_identityNumber.text.trim()}', style: const TextStyle(fontWeight: FontWeight.w700)));
+  Widget _identitySummary() => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          _withoutIdentity ? 'No identity number' : '${_identityType ?? 'ID'} • ${_identityNumber.text.trim()}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      );
 
   Widget _partnerSummary(Partner p) => Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Partner found', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 6), Text(p.fullName, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), if (p.number.isNotEmpty) Text('Partner #: ${p.number}')] )));
 

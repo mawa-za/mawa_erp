@@ -16,6 +16,7 @@ class _UpcomingEventsScreenState extends State<UpcomingEventsScreen> {
   final CaseManagementService _caseService = CaseManagementService();
   List<CaseEvent> _events = [];
   bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -41,8 +42,23 @@ class _UpcomingEventsScreenState extends State<UpcomingEventsScreen> {
     }
   }
 
+  List<CaseEvent> get _visibleEvents {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _events;
+    return _events.where((event) => [
+      event.title,
+      event.description ?? '',
+      event.eventType,
+      event.location ?? '',
+      event.status,
+      event.caseId,
+      event.startAt.toIso8601String(),
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final events = _visibleEvents;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -56,16 +72,31 @@ class _UpcomingEventsScreenState extends State<UpcomingEventsScreen> {
             onPressed: _fetchEvents,
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(64),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search upcoming events',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            ),
+          ),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _events.isEmpty
+          : events.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _events.length,
+                  itemCount: events.length,
                   itemBuilder: (context, index) {
-                    final event = _events[index];
+                    final event = events[index];
                     return _buildEventCard(event);
                   },
                 ),

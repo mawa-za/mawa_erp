@@ -34,6 +34,7 @@ class _LeaveBalanceManagementScreenState
   List<Map<String, dynamic>> _leaveTypes = const [];
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -134,6 +135,18 @@ class _LeaveBalanceManagementScreenState
                           padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                           child: _hero(),
                         ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                          child: TextField(
+                            decoration: const InputDecoration(
+                              hintText: 'Search leave balances and adjustments',
+                              prefixIcon: Icon(Icons.search),
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (value) => setState(() => _searchQuery = value),
+                          ),
+                        ),
                         Expanded(
                           child: TabBarView(
                             controller: _tabs,
@@ -194,15 +207,23 @@ class _LeaveBalanceManagementScreenState
   }
 
   Widget _balanceList() {
-    if (_balances.isEmpty) {
+    final query = _searchQuery.trim().toLowerCase();
+    final balances = query.isEmpty
+        ? _balances
+        : _balances.where((item) => item.entries
+            .map((entry) => '${entry.key} ${entry.value}')
+            .join(' ')
+            .toLowerCase()
+            .contains(query)).toList();
+    if (balances.isEmpty) {
       return const Center(child: Text('No leave balances found.'));
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
-      itemCount: _balances.length,
+      itemCount: balances.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
-        final balance = _balances[index];
+        final balance = balances[index];
         return Card(
           child: ListTile(
             contentPadding: const EdgeInsets.all(17),
@@ -240,17 +261,25 @@ class _LeaveBalanceManagementScreenState
   }
 
   Widget _adjustmentList() {
-    if (_adjustments.isEmpty) {
+    final query = _searchQuery.trim().toLowerCase();
+    final adjustments = query.isEmpty
+        ? _adjustments
+        : _adjustments.where((item) => item.entries
+            .map((entry) => '${entry.key} ${entry.value}')
+            .join(' ')
+            .toLowerCase()
+            .contains(query)).toList();
+    if (adjustments.isEmpty) {
       return const Center(
         child: Text('No leave balance adjustment requests found.'),
       );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
-      itemCount: _adjustments.length,
+      itemCount: adjustments.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
-        final item = _adjustments[index];
+        final item = adjustments[index];
         return Card(
           child: ListTile(
             contentPadding: const EdgeInsets.all(17),

@@ -22,6 +22,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   List<ApprovalStep> _steps = [];
   bool _isSaving = false;
   bool _active = true;
+  bool _autoApprove = false;
 
   final List<String> _approvalTypes = [
     'ADDITIONAL_MEMBERSHIP',
@@ -67,6 +68,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
       _selectedApprovalType = widget.workflow!.approvalType;
       _steps = List.from(widget.workflow!.steps);
       _active = widget.workflow!.active;
+      _autoApprove = widget.workflow!.autoApprove;
     }
   }
 
@@ -114,7 +116,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_steps.isEmpty) {
+    if (!_autoApprove && _steps.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please add at least one approval step')),
       );
@@ -129,6 +131,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
         name: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
         active: _active,
+        autoApprove: _autoApprove,
         steps: _steps,
       );
 
@@ -181,7 +184,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('APPROVAL STEPS', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                Text(_autoApprove ? 'APPROVAL STEPS (OPTIONAL IN AUTO MODE)' : 'APPROVAL STEPS', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                 TextButton.icon(
                   onPressed: _addStep,
                   icon: const Icon(Icons.add),
@@ -238,6 +241,23 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
               controller: _descriptionController,
               decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
               maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Active workflow'),
+              subtitle: const Text('Requests use this workflow when it is active.'),
+              value: _active,
+              onChanged: (value) => setState(() => _active = value),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Auto approve'),
+              subtitle: const Text(
+                'Create the approval request and audit actions, then approve it automatically without waiting for an approver.',
+              ),
+              value: _autoApprove,
+              onChanged: (value) => setState(() => _autoApprove = value),
             ),
           ],
         ),
