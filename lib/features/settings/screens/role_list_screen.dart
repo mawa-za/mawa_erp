@@ -17,6 +17,7 @@ class _RoleListScreenState extends State<RoleListScreen> {
   bool _loading = true;
   String? _error;
   List<Role> _roles = [];
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -163,8 +164,18 @@ class _RoleListScreenState extends State<RoleListScreen> {
     }
   }
 
+  List<Role> get _visibleRoles {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _roles;
+    return _roles.where((role) => [role.id, role.description]
+        .join(' ')
+        .toLowerCase()
+        .contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final roles = _visibleRoles;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Role Maintenance'),
@@ -181,12 +192,29 @@ class _RoleListScreenState extends State<RoleListScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : ListView.separated(
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Search roles',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (value) => setState(() => _searchQuery = value),
+                      ),
+                    ),
+                    Expanded(
+                      child: roles.isEmpty
+                          ? const Center(child: Text('No roles match your search'))
+                          : ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _roles.length,
+                  itemCount: roles.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final role = _roles[index];
+                    final role = roles[index];
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
@@ -247,6 +275,9 @@ class _RoleListScreenState extends State<RoleListScreen> {
                       ),
                     );
                   },
+                ),
+                    ),
+                  ],
                 ),
     );
   }

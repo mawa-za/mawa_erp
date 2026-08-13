@@ -18,6 +18,7 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
   List<MembershipPlan> _allPlans = [];
   List<MembershipPlan> _plans = [];
   String _selectedStatus = 'ALL';
+  String _searchQuery = '';
   String? _error;
 
   @override
@@ -54,11 +55,20 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
   }
 
   void _applyStatusFilter() {
-    _plans = switch (_selectedStatus) {
-      'ACTIVE' => _allPlans.where((plan) => plan.active).toList(),
-      'INACTIVE' => _allPlans.where((plan) => !plan.active).toList(),
-      _ => List<MembershipPlan>.from(_allPlans),
-    };
+    final query = _searchQuery.trim().toLowerCase();
+    _plans = _allPlans.where((plan) {
+      final statusMatches = switch (_selectedStatus) {
+        'ACTIVE' => plan.active,
+        'INACTIVE' => !plan.active,
+        _ => true,
+      };
+      if (!statusMatches) return false;
+      if (query.isEmpty) return true;
+      return [plan.planCode, plan.name, plan.description]
+          .join(' ')
+          .toLowerCase()
+          .contains(query);
+    }).toList();
   }
 
   @override
@@ -91,6 +101,21 @@ class _MembershipPlanListScreenState extends State<MembershipPlanListScreen> {
       body: Column(
         children: [
           _buildStatusFilter(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search membership plans',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() {
+                _searchQuery = value;
+                _applyStatusFilter();
+              }),
+            ),
+          ),
           Expanded(child: _buildBody(colorScheme)),
         ],
       ),

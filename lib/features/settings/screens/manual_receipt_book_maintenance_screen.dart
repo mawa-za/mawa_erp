@@ -22,6 +22,7 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
   List<ManualReceiptBook> _books = const [];
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -68,8 +69,22 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
     }
   }
 
+  List<ManualReceiptBook> get _visibleBooks {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _books;
+    return _books.where((book) => [
+      book.receiptBookNo,
+      book.description,
+      book.rangeLabel,
+      book.assignedEmployeeName ?? '',
+      book.assignedAreaName ?? '',
+      book.status,
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final books = _visibleBooks;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manual Receipt Book Maintenance'),
@@ -84,14 +99,29 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : _books.isEmpty
-                  ? const Center(child: Text('No manual receipt books have been maintained.'))
-                  : ListView.separated(
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Search receipt books',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (value) => setState(() => _searchQuery = value),
+                      ),
+                    ),
+                    Expanded(
+                      child: books.isEmpty
+                          ? const Center(child: Text('No manual receipt books match your search.'))
+                          : ListView.separated(
                       padding: const EdgeInsets.all(16),
-                      itemCount: _books.length,
+                      itemCount: books.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        final book = _books[index];
+                        final book = books[index];
                         return Card(
                           child: ListTile(
                             leading: CircleAvatar(
@@ -119,6 +149,9 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
                         );
                       },
                     ),
+                    ),
+                  ],
+                ),
     );
   }
 }
