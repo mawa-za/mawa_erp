@@ -139,12 +139,24 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
     return [];
   }
 
+  bool get _requiresRecipient => _selectedType == 'SUPPLIER_INVOICE';
+
   Future<void> _submit() async {
-    if (_selectedType == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select payment request type before proceeding'))); return; }
-    if (!_formKey.currentState!.validate() || _selectedRecipient == null) {
-      if (_selectedRecipient == null) {
+    if (_selectedType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select payment request type before proceeding')),
+      );
+      return;
+    }
+
+    final formValid = _formKey.currentState!.validate();
+    if (!formValid || (_requiresRecipient && _selectedRecipient == null)) {
+      if (_requiresRecipient && _selectedRecipient == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a recipient'), behavior: SnackBarBehavior.floating),
+          const SnackBar(
+            content: Text('Please select a supplier'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
       return;
@@ -154,7 +166,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
     try {
       final bool isEFT = _selectedPaymentMethod == 'EFT';
-      
+
       String? bankName;
       if (isEFT && _selectedBankCode != null) {
         final selectedBank = _bankOptions.firstWhere((opt) => opt.code == _selectedBankCode);
@@ -164,8 +176,8 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
       final payload = {
         "requestType": _selectedType,
         "sourceType": "MANUAL",
-        "payeePartnerId": _selectedRecipient!.id,
-        "payeeName": _selectedRecipient!.fullName,
+        "payeePartnerId": _requiresRecipient ? _selectedRecipient?.id : null,
+        "payeeName": _requiresRecipient ? _selectedRecipient?.fullName : null,
         "amount": double.tryParse(_amountController.text) ?? 0.0,
         "currency": "ZAR",
         "paymentMethod": _selectedPaymentMethod,
@@ -253,12 +265,14 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
                           value == null ? 'Payment request type is required' : null,
                     ),
                     const SizedBox(height: 24),
-                    if (_selectedType != null) ...[
-                    _buildSectionHeader(Icons.person_outline, 'Recipient'),
-                    const SizedBox(height: 8),
-                    _buildRecipientSearch(),
-                    if (_selectedRecipient != null) _buildSelectedRecipientCard(colorScheme),
-                    const SizedBox(height: 24),],
+                    if (_requiresRecipient) ...[
+                      _buildSectionHeader(Icons.person_outline, 'Supplier'),
+                      const SizedBox(height: 8),
+                      _buildRecipientSearch(),
+                      if (_selectedRecipient != null)
+                        _buildSelectedRecipientCard(colorScheme),
+                      const SizedBox(height: 24),
+                    ],
 
                     _buildSectionHeader(Icons.payment_outlined, 'Payment Details'),
                     const SizedBox(height: 8),
@@ -319,7 +333,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
           onTap: () => controller.openView(),
           onChanged: (_) => controller.openView(),
           leading: const Icon(Icons.search, size: 20),
-          hintText: _selectedType == 'SUPPLIER_INVOICE' ? 'Search approved suppliers...' : 'Select the petty cash recipient...',
+          hintText: 'Search approved suppliers...',
           elevation: const WidgetStatePropertyAll(0),
           side: WidgetStatePropertyAll(BorderSide(color: Colors.grey.shade300)),
           shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
