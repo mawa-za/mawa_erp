@@ -8,6 +8,8 @@ import '../models/dependent.dart';
 import '../services/membership_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class EditDependentScreen extends StatefulWidget {
   final String membershipId;
   final Dependent dependent;
@@ -147,7 +149,7 @@ class _EditDependentScreenState extends State<EditDependentScreen> {
           TextFormField(controller: _lastName, decoration: const InputDecoration(labelText:'Last Name',border:OutlineInputBorder()),validator:_required),
         ],
         const SizedBox(height: 18),
-        DropdownButtonFormField<DependentType>(value: _relationship, decoration: const InputDecoration(labelText:'Replacement Relationship',border:OutlineInputBorder()), items: DependentType.values.where((v)=>v!=DependentType.ANY&&v!=DependentType.MAIN_MEMBER).map((v)=>DropdownMenuItem(value:v,child:Text(v.label))).toList(), onChanged:(v)=>setState(()=>_relationship=v??DependentType.OTHER)),
+        SearchableDropdownFormField<DependentType>(value: _relationship, decoration: const InputDecoration(labelText:'Replacement Relationship',border:OutlineInputBorder()), items: DependentType.values.where((v)=>v!=DependentType.ANY&&v!=DependentType.MAIN_MEMBER).map((v)=>DropdownMenuItem(value:v,child:Text(v.label))).toList(), onChanged:(v)=>setState(()=>_relationship=v??DependentType.OTHER)),
         const SizedBox(height: 14), TextFormField(controller:_reason,maxLines:3,decoration:const InputDecoration(labelText:'Reason',helperText:'The existing dependent remains in audit history.',border:OutlineInputBorder()),validator:_required),
         if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
         const SizedBox(height:24), Row(children:[Expanded(child:OutlinedButton.icon(onPressed:_saving?null:()=>setState((){_step=0;_replacement=null;_notFound=false;_error=null;}),icon:const Icon(Icons.arrow_back),label:const Text('SEARCH AGAIN'))),const SizedBox(width:12),Expanded(child:FilledButton(onPressed:_saving?null:_save,child:_saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Text('REPLACE DEPENDENT')))]),

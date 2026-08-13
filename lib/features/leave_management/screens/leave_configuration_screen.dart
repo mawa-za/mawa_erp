@@ -6,6 +6,8 @@ import '../../employment/services/employment_service.dart';
 import '../services/leave_configuration_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class LeaveConfigurationScreen extends StatefulWidget {
   final int initialTab;
   const LeaveConfigurationScreen({super.key, this.initialTab = 0});
@@ -370,7 +372,7 @@ class _LeaveTypeDialogState extends State<_LeaveTypeDialog> {
                 const SizedBox(height: 12),
                 _text(_description, 'Description', lines: 2),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(value: _unit, decoration: const InputDecoration(labelText: 'Unit'), items: const [DropdownMenuItem(value: 'DAYS', child: Text('Days')), DropdownMenuItem(value: 'HOURS', child: Text('Hours'))], onChanged: (value) => setState(() => _unit = value ?? 'DAYS')),
+                SearchableDropdownFormField<String>(value: _unit, decoration: const InputDecoration(labelText: 'Unit'), items: const [DropdownMenuItem(value: 'DAYS', child: Text('Days')), DropdownMenuItem(value: 'HOURS', child: Text('Hours'))], onChanged: (value) => setState(() => _unit = value ?? 'DAYS')),
                 const SizedBox(height: 12),
                 Row(children: [Expanded(child: _number(_minimum, 'Minimum request')), const SizedBox(width: 12), Expanded(child: _number(_maximum, 'Maximum consecutive')), const SizedBox(width: 12), Expanded(child: _number(_documentAfter, 'Document after'))]),
                 const SizedBox(height: 12),
@@ -610,7 +612,7 @@ class _ProfileDialogState extends State<_ProfileDialog> {
               const SizedBox(height: 12),
               TextField(controller: _description, maxLines: 2, decoration: const InputDecoration(labelText: 'Description')),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _calendarId,
                 decoration: const InputDecoration(labelText: 'Working calendar'),
                 items: widget.calendars.map((calendar) => DropdownMenuItem(value: calendar['id'].toString(), child: Text(calendar['name']?.toString() ?? '-'))).toList(),
@@ -643,7 +645,7 @@ class _ProfileDialogState extends State<_ProfileDialog> {
             ),
             if (rule.enabled) ...[
               const Divider(),
-              Row(children: [Expanded(child: _number(rule.entitlement, 'Entitlement')), const SizedBox(width: 10), Expanded(child: _number(rule.cycleMonths, 'Cycle months')), const SizedBox(width: 10), Expanded(child: DropdownButtonFormField<String>(value: rule.accrualMethod, decoration: const InputDecoration(labelText: 'Accrual method'), items: const [DropdownMenuItem(value: 'UPFRONT', child: Text('Upfront')), DropdownMenuItem(value: 'MONTHLY', child: Text('Monthly')), DropdownMenuItem(value: 'NONE', child: Text('None'))], onChanged: (value) => setState(() => rule.accrualMethod = value ?? 'UPFRONT')))]),
+              Row(children: [Expanded(child: _number(rule.entitlement, 'Entitlement')), const SizedBox(width: 10), Expanded(child: _number(rule.cycleMonths, 'Cycle months')), const SizedBox(width: 10), Expanded(child: SearchableDropdownFormField<String>(value: rule.accrualMethod, decoration: const InputDecoration(labelText: 'Accrual method'), items: const [DropdownMenuItem(value: 'UPFRONT', child: Text('Upfront')), DropdownMenuItem(value: 'MONTHLY', child: Text('Monthly')), DropdownMenuItem(value: 'NONE', child: Text('None'))], onChanged: (value) => setState(() => rule.accrualMethod = value ?? 'UPFRONT')))]),
               const SizedBox(height: 10),
               Row(children: [Expanded(child: _number(rule.accrualAmount, 'Accrual amount')), const SizedBox(width: 10), Expanded(child: _number(rule.maximumNegative, 'Maximum negative balance')), const SizedBox(width: 10), Expanded(child: _number(rule.waitingDays, 'Waiting period days'))]),
               const SizedBox(height: 10),
@@ -763,9 +765,9 @@ class _EmployeeAssignmentDialogState extends State<_EmployeeAssignmentDialog> {
   Widget build(BuildContext context) => AlertDialog(
         title: const Text('Assign Employee Leave Profile'),
         content: SizedBox(width: 620, child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<String>(value: _employmentId, decoration: const InputDecoration(labelText: 'Employee'), items: widget.employments.map((employment) => DropdownMenuItem(value: employment['id'].toString(), child: Text('${_employeeName(employment)} • ${employment['employeeNumber'] ?? '-'}'))).toList(), onChanged: (value) => setState(() => _employmentId = value)),
+          SearchableDropdownFormField<String>(value: _employmentId, decoration: const InputDecoration(labelText: 'Employee'), items: widget.employments.map((employment) => DropdownMenuItem(value: employment['id'].toString(), child: Text('${_employeeName(employment)} • ${employment['employeeNumber'] ?? '-'}'))).toList(), onChanged: (value) => setState(() => _employmentId = value)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(value: _profileId, decoration: const InputDecoration(labelText: 'Leave profile'), items: widget.profiles.where((profile) => profile['active'] == true).map((profile) => DropdownMenuItem(value: profile['id'].toString(), child: Text(profile['name']?.toString() ?? '-'))).toList(), onChanged: (value) => setState(() => _profileId = value)),
+          SearchableDropdownFormField<String>(value: _profileId, decoration: const InputDecoration(labelText: 'Leave profile'), items: widget.profiles.where((profile) => profile['active'] == true).map((profile) => DropdownMenuItem(value: profile['id'].toString(), child: Text(profile['name']?.toString() ?? '-'))).toList(), onChanged: (value) => setState(() => _profileId = value)),
           const SizedBox(height: 12),
           OutlinedButton.icon(onPressed: () async { final date = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime(2100), initialDate: _from); if (date != null) setState(() => _from = date); }, icon: const Icon(Icons.event), label: Text('Effective ${DateFormat('yyyy-MM-dd').format(_from)}')),
           const SizedBox(height: 12),
@@ -799,7 +801,7 @@ class _PositionAssignmentDialogState extends State<_PositionAssignmentDialog> {
         content: SizedBox(width: 620, child: Column(mainAxisSize: MainAxisSize.min, children: [
           AppDropdownField(field: 'EMPLOYMENT-POSITION', label: 'Position', value: _position, onChanged: (value) => setState(() => _position = value)),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(value: _profileId, decoration: const InputDecoration(labelText: 'Leave profile'), items: widget.profiles.where((profile) => profile['active'] == true).map((profile) => DropdownMenuItem(value: profile['id'].toString(), child: Text(profile['name']?.toString() ?? '-'))).toList(), onChanged: (value) => setState(() => _profileId = value)),
+          SearchableDropdownFormField<String>(value: _profileId, decoration: const InputDecoration(labelText: 'Leave profile'), items: widget.profiles.where((profile) => profile['active'] == true).map((profile) => DropdownMenuItem(value: profile['id'].toString(), child: Text(profile['name']?.toString() ?? '-'))).toList(), onChanged: (value) => setState(() => _profileId = value)),
           const SizedBox(height: 12),
           OutlinedButton.icon(onPressed: () async { final date = await showDatePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime(2100), initialDate: _from); if (date != null) setState(() => _from = date); }, icon: const Icon(Icons.event), label: Text('Effective ${DateFormat('yyyy-MM-dd').format(_from)}')),
         ])),

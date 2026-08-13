@@ -6,6 +6,8 @@ import 'group_society_detail_screen.dart';
 import 'group_society_create_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class GroupSocietyListScreen extends StatefulWidget {
   const GroupSocietyListScreen({super.key});
 
@@ -305,7 +307,7 @@ class _GroupSocietyListScreenState extends State<GroupSocietyListScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _selectedType,
                 decoration: const InputDecoration(labelText: 'Society Type'),
                 items: ['GROUP', 'SOCIETY', 'BURIAL'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),

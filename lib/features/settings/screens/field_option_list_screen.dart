@@ -5,6 +5,8 @@ import '../../../core/models/field_option.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/theme/mawa_design.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class FieldOptionListScreen extends StatefulWidget {
   const FieldOptionListScreen({super.key});
 
@@ -246,7 +248,7 @@ class _FieldOptionListScreenState extends State<FieldOptionListScreen> {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: selectedField != null &&
                                 fieldItems.any(
                                   (field) =>

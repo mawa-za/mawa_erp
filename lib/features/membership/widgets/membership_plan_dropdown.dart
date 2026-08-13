@@ -3,6 +3,8 @@ import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class MembershipPlanDropdown extends StatefulWidget {
   final String? value;
   final ValueChanged<MembershipPlan?> onChanged;
@@ -105,7 +107,7 @@ class _MembershipPlanDropdownState extends State<MembershipPlanDropdown> {
         ? widget.value 
         : null;
 
-    return DropdownButtonFormField<String>(
+    return SearchableDropdownFormField<String>(
       key: ValueKey(widget.value),
       value: currentPlanId,
       decoration: InputDecoration(

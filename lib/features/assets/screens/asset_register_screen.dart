@@ -8,6 +8,8 @@ import '../../products/models/product_maintenance.dart';
 import '../../products/services/product_maintenance_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AssetRegisterScreen extends StatefulWidget {
   const AssetRegisterScreen({super.key});
 
@@ -383,7 +385,7 @@ class _AssetDialogState extends State<_AssetDialog> {
               const SizedBox(height: 12),
               Row(children: [Expanded(child: _dateButton('Acquisition Date', _acquisitionDate, (v) => setState(() => _acquisitionDate = v))), const SizedBox(width: 12), Expanded(child: _dateButton('Warranty Expiry', _warrantyDate, (v) => setState(() => _warrantyDate = v)))]),
               const SizedBox(height: 12),
-              Row(children: [Expanded(child: DropdownButtonFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: ['ACTIVE','IN_REPAIR','LOST','DISPOSED'].map((e) => DropdownMenuItem(value: e, child: Text(e.replaceAll('_', ' ')))).toList(), onChanged: (v) => setState(() => _status = v ?? 'ACTIVE'))), const SizedBox(width: 12), Expanded(child: DropdownButtonFormField<String>(value: _condition, decoration: const InputDecoration(labelText: 'Condition'), items: ['NEW','GOOD','FAIR','POOR','DAMAGED','LOST'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _condition = v ?? 'GOOD')))]),
+              Row(children: [Expanded(child: SearchableDropdownFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: ['ACTIVE','IN_REPAIR','LOST','DISPOSED'].map((e) => DropdownMenuItem(value: e, child: Text(e.replaceAll('_', ' ')))).toList(), onChanged: (v) => setState(() => _status = v ?? 'ACTIVE'))), const SizedBox(width: 12), Expanded(child: SearchableDropdownFormField<String>(value: _condition, decoration: const InputDecoration(labelText: 'Condition'), items: ['NEW','GOOD','FAIR','POOR','DAMAGED','LOST'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _condition = v ?? 'GOOD')))]),
               const SizedBox(height: 12),
               _field('notes', 'Notes', lines: 3),
             ]),
@@ -526,7 +528,7 @@ class _HireReservationsDialogState extends State<_HireReservationsDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: condition,
                   decoration: const InputDecoration(labelText: 'Return condition'),
                   items: ['NEW','GOOD','FAIR','POOR','DAMAGED','LOST'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
@@ -595,7 +597,7 @@ class _HireReservationsDialogState extends State<_HireReservationsDialog> {
                   const SizedBox(width: 12),
                   SizedBox(
                     width: 210,
-                    child: DropdownButtonFormField<String>(
+                    child: SearchableDropdownFormField<String>(
                       value: _status,
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: ['ALL','RESERVED','ISSUED','RETURNED','CANCELLED'].map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
@@ -750,7 +752,7 @@ class _NewHireReservationDialogState extends State<_NewHireReservationDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (_loading) const LinearProgressIndicator(),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _productId,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Hire service product'),
@@ -765,7 +767,7 @@ class _NewHireReservationDialogState extends State<_NewHireReservationDialog> {
                   Expanded(child: OutlinedButton.icon(onPressed: () async { final value = await _pickDateTime(_end); if (value != null) { setState(() => _end = value); _loadAssets(); } }, icon: const Icon(Icons.logout), label: Text('End: ${DateFormat('dd MMM yyyy HH:mm').format(_end)}'))),
                 ]),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _assetId,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Available linked asset'),

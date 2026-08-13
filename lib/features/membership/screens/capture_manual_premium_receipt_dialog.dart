@@ -11,6 +11,8 @@ import '../models/membership_detail.dart';
 import '../services/membership_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CaptureManualPremiumReceiptDialog extends StatefulWidget {
   final MembershipDetail membership;
   final Partner member;
@@ -200,7 +202,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                           child: Text('No active manual receipt book exists. Maintain a receipt book under System Configuration before capturing a manual receipt.'),
                         ),
                       ),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: _mode,
                       decoration: const InputDecoration(labelText: 'Capture type', border: OutlineInputBorder()),
                       items: const [
@@ -212,7 +214,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                     const SizedBox(height: 12),
                     Row(children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownFormField<String>(
                           value: _bookNo,
                           decoration: const InputDecoration(labelText: 'Receipt book number *', border: OutlineInputBorder()),
                           items: _books.map((book) => DropdownMenuItem(
@@ -266,7 +268,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                         if (date != null) setState(() => _originalDate = date);
                       },
                     ),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: _periodYYYYMM,
                       decoration: const InputDecoration(
                         labelText: 'Payment period *',
@@ -295,7 +297,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownFormField<String>(
                           value: _paymentMethod,
                           decoration: const InputDecoration(labelText: 'Payment method', border: OutlineInputBorder()),
                           items: const ['CASH', 'CARD', 'EFT', 'OTHER']
@@ -306,7 +308,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                       ),
                     ]),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: _collectorEmployeeId,
                       decoration: const InputDecoration(labelText: 'Original collector/cashier *', border: OutlineInputBorder()),
                       items: _employees.map((record) {
@@ -317,7 +319,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                       validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: _locationAreaCode,
                       decoration: const InputDecoration(labelText: 'Location/branch (SALES-AREA) *', border: OutlineInputBorder()),
                       items: _areas.map((area) => DropdownMenuItem(value: area.code, child: Text(area.description))).toList(),

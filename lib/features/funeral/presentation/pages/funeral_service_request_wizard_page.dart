@@ -12,7 +12,6 @@ import '../widgets/invoice_preview_summary_card.dart';
 import '../widgets/funeral_money_text.dart';
 import '../widgets/funeral_status_chip.dart';
 import '../../../../core/files/download_bytes.dart';
-import '../../../../core/widgets/partner_search_dropdown.dart';
 import '../../../../core/widgets/attachment_section.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/theme/mawa_design.dart';
@@ -21,6 +20,8 @@ import '../../data/models/funeral_service_request_dto.dart';
 import '../../data/models/funeral_enums.dart';
 import '../../../../core/models/product_lookup.dart';
 import '../../../invoicing/screens/invoice_detail_screen.dart';
+
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class FuneralServiceRequestWizardPage extends StatefulWidget {
   const FuneralServiceRequestWizardPage({super.key, this.serviceRequestId});
@@ -34,8 +35,9 @@ class FuneralServiceRequestWizardPage extends StatefulWidget {
 class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestWizardPage> {
   late final FuneralServiceRequestWizardController _controller;
   final _idNumberController = TextEditingController();
-  final _contactNameController = TextEditingController();
-  final _contactNumberController = TextEditingController();
+  final _familyNamesController = TextEditingController();
+  final _familySurnameController = TextEditingController();
+  final _familyContactController = TextEditingController();
   final _deathCertificateController = TextEditingController();
   final _deliveryDirectionsController = TextEditingController();
 
@@ -62,6 +64,18 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     if (_deliveryDirectionsController.text != _controller.deceasedDeliveryDirections) {
       _deliveryDirectionsController.text = _controller.deceasedDeliveryDirections;
     }
+    if (_familyNamesController.text != _controller.familyRepresentativeNames) {
+      _familyNamesController.text = _controller.familyRepresentativeNames;
+    }
+    if (_familySurnameController.text != _controller.familyRepresentativeSurname) {
+      _familySurnameController.text = _controller.familyRepresentativeSurname;
+    }
+    if (_familyContactController.text != _controller.familyRepresentativeContactDetails) {
+      _familyContactController.text = _controller.familyRepresentativeContactDetails;
+    }
+    if (_deathCertificateController.text != _controller.deathCertificateNo) {
+      _deathCertificateController.text = _controller.deathCertificateNo;
+    }
   }
 
   @override
@@ -69,8 +83,9 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     _idNumberController.dispose();
-    _contactNameController.dispose();
-    _contactNumberController.dispose();
+    _familyNamesController.dispose();
+    _familySurnameController.dispose();
+    _familyContactController.dispose();
     _deathCertificateController.dispose();
     _deliveryDirectionsController.dispose();
     super.dispose();
@@ -208,7 +223,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           },
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           value: _controller.causeOfDeath,
           isExpanded: true,
           decoration: const InputDecoration(
@@ -222,6 +237,29 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                   ))
               .toList(),
           onChanged: (value) => setState(() => _controller.causeOfDeath = value),
+        ),
+        const SizedBox(height: 16),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Date of Death *'),
+          subtitle: Text(
+            _controller.dateOfDeath == null
+                ? 'Select date of death'
+                : Formatters.formatDate(_controller.dateOfDeath!),
+          ),
+          trailing: const Icon(Icons.calendar_today),
+          onTap: () async {
+            final now = DateTime.now();
+            final date = await showDatePicker(
+              context: context,
+              initialDate: _controller.dateOfDeath ?? now,
+              firstDate: DateTime(now.year - 120),
+              lastDate: now,
+            );
+            if (date != null) {
+              setState(() => _controller.dateOfDeath = date);
+            }
+          },
         ),
         const SizedBox(height: 16),
         TextFormField(
@@ -242,42 +280,36 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       children: [
         const Text('Family Representative Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
-        PartnerSearchDropdown(
-          role: 'CUSTOMER',
-          label: 'Search Family Representative',
-          initialPartnerId: _controller.familyRepPartnerId,
-          onPartnerSelected: (p) {
-            setState(() {
-              _controller.familyRepPartnerId = p?.id;
-              _controller.familyRepName = p?.fullName;
-              if (p != null) {
-                _contactNameController.text = p.fullName;
-                _contactNumberController.text = p.phone;
-                _controller.contactName = p.fullName;
-                _controller.contactNumber = p.phone;
-              }
-            });
-          },
-        ),
-        const SizedBox(height: 24),
         TextFormField(
-          controller: _contactNameController,
-          decoration: const InputDecoration(labelText: 'Contact Name', border: OutlineInputBorder()),
-          onChanged: (v) => _controller.contactName = v,
+          controller: _familyNamesController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Names *',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => _controller.familyRepresentativeNames = value,
         ),
         const SizedBox(height: 16),
         TextFormField(
-          controller: _contactNumberController,
-          decoration: const InputDecoration(labelText: 'Contact Number', border: OutlineInputBorder()),
-          keyboardType: TextInputType.phone,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(10),
-          ],
-          validator: (value) => RegExp(r'^\d{10}$').hasMatch(value?.trim() ?? '')
-              ? null
-              : 'Contact Number must be 10 numeric digits',
-          onChanged: (v) => _controller.contactNumber = v,
+          controller: _familySurnameController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Surname *',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => _controller.familyRepresentativeSurname = value,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _familyContactController,
+          minLines: 1,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Contact Details *',
+            hintText: 'Cellphone, alternate contact, email or other contact details',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (value) => _controller.familyRepresentativeContactDetails = value,
         ),
         const Divider(height: 48),
         const Text('Funeral Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -299,7 +331,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           },
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           value: _controller.funeralLocation.isEmpty ? null : _controller.funeralLocation,
           isExpanded: true,
           decoration: const InputDecoration(
@@ -613,7 +645,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ),
         if (_controller.selectedCovers.isNotEmpty) ...[
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             value: _controller.groceryCoverSelectionId,
             decoration: const InputDecoration(
               labelText: 'Cover to use for grocery claim',
@@ -1144,7 +1176,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: selectedSocietyId,
                       isExpanded: true,
                       decoration:
@@ -1201,7 +1233,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       children: [
                         SizedBox(
                           width: 180,
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownFormField<String>(
                             value: identityType,
                             decoration:
                                 const InputDecoration(labelText: 'ID Type'),
@@ -1553,6 +1585,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         setState(() => _controller.errorMessage = 'Please select the cause of death.');
         return;
       }
+      if (_controller.dateOfDeath == null) {
+        setState(() => _controller.errorMessage = 'Date of Death is required.');
+        return;
+      }
       if (_controller.deathCertificateNo.trim().isEmpty) {
         setState(() => _controller.errorMessage = 'Death Certificate Number is required.');
         return;
@@ -1566,8 +1602,16 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       _controller.errorMessage = null;
       _controller.nextStep();
     } else if (_controller.currentStep == 2) {
-      if (_controller.familyRepPartnerId == null) {
-        setState(() => _controller.errorMessage = 'Please search and select a family representative.');
+      if (_controller.familyRepresentativeNames.trim().isEmpty) {
+        setState(() => _controller.errorMessage = 'Family representative names are required.');
+        return;
+      }
+      if (_controller.familyRepresentativeSurname.trim().isEmpty) {
+        setState(() => _controller.errorMessage = 'Family representative surname is required.');
+        return;
+      }
+      if (_controller.familyRepresentativeContactDetails.trim().isEmpty) {
+        setState(() => _controller.errorMessage = 'Family representative contact details are required.');
         return;
       }
       if (_controller.funeralLocation.trim().isEmpty) {
@@ -1636,7 +1680,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       onClose: () => Navigator.pop(context),
                     ),
                     const SizedBox(height: 22),
-                    DropdownButtonFormField<ProductLookup>(
+                    SearchableDropdownFormField<ProductLookup>(
                       value: selected,
                       isExpanded: true,
                       decoration: const InputDecoration(

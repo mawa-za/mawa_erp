@@ -11,6 +11,8 @@ import '../../service_orders/services/service_order_service.dart';
 import '../../service_orders/screens/service_order_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AppointmentCalendarScreen extends StatefulWidget {
   const AppointmentCalendarScreen({super.key});
 
@@ -240,7 +242,7 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
           const SizedBox(width: 12),
           SizedBox(
             width: 220,
-            child: DropdownButtonFormField<String>(
+            child: SearchableDropdownFormField<String>(
               value: _statusFilter,
               decoration: const InputDecoration(
                 labelText: 'Status',
@@ -765,7 +767,7 @@ class _AppointmentBookingDialogState extends State<AppointmentBookingDialog> {
                     future: _productsFuture,
                     builder: (context, snapshot) {
                       final products = snapshot.data ?? const <ProductLookup>[];
-                      return DropdownButtonFormField<String>(
+                      return SearchableDropdownFormField<String>(
                         value: products.any((p) => p.id == _productId) ? _productId : null,
                         isExpanded: true,
                         decoration: const InputDecoration(

@@ -7,6 +7,8 @@ import '../../../core/services/user_service.dart';
 import '../../../core/models/user.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CreateCaseScreen extends StatefulWidget {
   const CreateCaseScreen({super.key});
 
@@ -142,7 +144,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                         validator: (partner) => partner == null ? 'Required' : null,
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _caseType,
                         decoration: const InputDecoration(labelText: 'Case Type'),
                         items: _caseTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
@@ -151,14 +153,14 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                     ]),
                     const SizedBox(height: 16),
                     _buildSection('Management', [
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _priority,
                         decoration: const InputDecoration(labelText: 'Priority'),
                         items: _priorities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                         onChanged: (val) => setState(() => _priority = val!),
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String?>(
+                      SearchableDropdownFormField<String?>(
                         value: _assignedTo,
                         decoration: const InputDecoration(labelText: 'Assigned To'),
                         items: [
@@ -170,7 +172,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                     ]),
                     const SizedBox(height: 16),
                     _buildSection('Billing', [
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _billingType,
                         decoration: const InputDecoration(labelText: 'Billing Type'),
                         items: _billingTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

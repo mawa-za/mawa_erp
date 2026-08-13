@@ -7,6 +7,8 @@ import '../services/membership_service.dart';
 import 'group_society_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class GroupSocietyCreateScreen extends StatefulWidget {
   const GroupSocietyCreateScreen({super.key});
 
@@ -237,7 +239,7 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
           const SizedBox(height: 8),
           _buildProductField(),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             value: _selectedType,
             decoration: const InputDecoration(
               labelText: 'Society Type',
@@ -295,7 +297,7 @@ class _GroupSocietyCreateScreenState extends State<GroupSocietyCreateScreen> {
         ),
       );
     }
-    return DropdownButtonFormField<String>(
+    return SearchableDropdownFormField<String>(
       value: _selectedProductId,
       isExpanded: true,
       decoration: const InputDecoration(

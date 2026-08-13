@@ -33,6 +33,8 @@ class MembershipClaim {
   final String? accountNumber;
   final String? branchCode;
   final String? accountType;
+  final int claimFormDownloadCount;
+  final String? claimFormDownloadedAt;
   final String? paymentRequestId;
   final String? tombstoneOrderId;
   final String? settlementMethod;
@@ -84,6 +86,8 @@ class MembershipClaim {
     this.accountNumber,
     this.branchCode,
     this.accountType,
+    required this.claimFormDownloadCount,
+    this.claimFormDownloadedAt,
     this.paymentRequestId,
     this.tombstoneOrderId,
     this.settlementMethod,
@@ -171,6 +175,8 @@ class MembershipClaim {
       accountNumber: json['accountNumber']?.toString(),
       branchCode: json['branchCode']?.toString(),
       accountType: json['accountType']?.toString(),
+      claimFormDownloadCount: toInt(json['claimFormDownloadCount']),
+      claimFormDownloadedAt: json['claimFormDownloadedAt'] == null ? null : parseDate(json['claimFormDownloadedAt']),
       paymentRequestId: json['paymentRequestId']?.toString(),
       tombstoneOrderId: json['tombstoneOrderId']?.toString(),
       settlementMethod: json['settlementMethod']?.toString(),
@@ -223,6 +229,8 @@ class MembershipClaim {
       'combinedClaimAmountCents': combinedClaimAmountCents,
       'status': status,
       'payoutMethod': payoutMethod,
+      'claimFormDownloadCount': claimFormDownloadCount,
+      'claimFormDownloadedAt': claimFormDownloadedAt,
       if (payoutMethod?.toUpperCase() == 'EFT') ...{
         'bankName': bankName,
         'accountHolderName': accountHolderName,

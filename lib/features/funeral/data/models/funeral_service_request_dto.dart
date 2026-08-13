@@ -9,10 +9,14 @@ class FuneralServiceRequestDto {
   final String deceasedIdentityNumber;
   final String deathCertificateNo;
   final String causeOfDeath;
+  final DateTime dateOfDeath;
   final DateTime funeralDate;
   final String funeralLocation;
   final String deceasedDeliveryDirections;
-  final String familyRepPartnerId;
+  final String familyRepresentativeNames;
+  final String familyRepresentativeSurname;
+  final String familyRepresentativeContactDetails;
+  final String? familyRepPartnerId;
   final String packageId;
   final List<FuneralExtraDto> extras;
 
@@ -27,10 +31,14 @@ class FuneralServiceRequestDto {
     required this.deceasedIdentityNumber,
     required this.deathCertificateNo,
     required this.causeOfDeath,
+    required this.dateOfDeath,
     required this.funeralDate,
     required this.funeralLocation,
     this.deceasedDeliveryDirections = '',
-    required this.familyRepPartnerId,
+    required this.familyRepresentativeNames,
+    required this.familyRepresentativeSurname,
+    required this.familyRepresentativeContactDetails,
+    this.familyRepPartnerId,
     required this.packageId,
     required this.extras,
   });
@@ -47,15 +55,17 @@ class FuneralServiceRequestDto {
       'deceasedIdentityNumber': deceasedIdentityNumber,
       'deathCertificateNo': deathCertificateNo,
       'causeOfDeath': causeOfDeath,
+      'dateOfDeath': dateOfDeath.toIso8601String().substring(0, 10),
       'funeralDate': funeralDate.toIso8601String().substring(0, 10),
-      // Backend DTO uses funeralArea/familyRepId. Keep the existing Flutter names too
-      // for backwards compatibility with older builds/endpoints.
       'funeralArea': funeralLocation,
       'funeralLocation': funeralLocation,
       'deceasedDeliveryDirections': deceasedDeliveryDirections,
       'deliveryDirections': deceasedDeliveryDirections,
-      'familyRepId': familyRepPartnerId,
-      'familyRepPartnerId': familyRepPartnerId,
+      'familyRepresentativeNames': familyRepresentativeNames,
+      'familyRepresentativeSurname': familyRepresentativeSurname,
+      'familyRepresentativeContactDetails': familyRepresentativeContactDetails,
+      if (familyRepPartnerId != null && familyRepPartnerId!.trim().isNotEmpty)
+        'familyRepId': familyRepPartnerId,
       'packageId': packageId,
       'extras': extras.map((e) => e.toJson()).toList(),
     };
@@ -73,10 +83,14 @@ class FuneralServiceRequestDto {
       deceasedIdentityNumber: json['deceasedIdentityNumber']?.toString() ?? '',
       deathCertificateNo: (json['deathCertificateNo'] ?? json['deathCertificateNumber'] ?? json['certificateNumber'] ?? '').toString(),
       causeOfDeath: json['causeOfDeath']?.toString() ?? '',
+      dateOfDeath: _parseDateTime(json['dateOfDeath'] ?? json['deathDate'] ?? json['funeralDate']),
       funeralDate: _parseDateTime(json['funeralDate']),
       funeralLocation: (json['funeralLocation'] ?? json['funeralArea'] ?? '').toString(),
       deceasedDeliveryDirections: (json['deceasedDeliveryDirections'] ?? json['deliveryDirections'] ?? '').toString(),
-      familyRepPartnerId: (json['familyRepPartnerId'] ?? json['familyRepId'] ?? '').toString(),
+      familyRepresentativeNames: (json['familyRepresentativeNames'] ?? json['familyRepNames'] ?? '').toString(),
+      familyRepresentativeSurname: (json['familyRepresentativeSurname'] ?? json['familyRepSurname'] ?? '').toString(),
+      familyRepresentativeContactDetails: (json['familyRepresentativeContactDetails'] ?? json['familyRepContactDetails'] ?? '').toString(),
+      familyRepPartnerId: (json['familyRepPartnerId'] ?? json['familyRepId'])?.toString(),
       packageId: json['packageId']?.toString() ?? '',
       extras: (json['extras'] as List? ?? [])
           .map((e) => FuneralExtraDto.fromJson(Map<String, dynamic>.from(e)))

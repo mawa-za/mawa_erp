@@ -13,6 +13,8 @@ import '../../settings/models/manual_receipt_book.dart';
 import '../../settings/services/manual_receipt_book_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CashupListScreen extends StatefulWidget {
   const CashupListScreen({super.key});
 
@@ -199,7 +201,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: employeeResponsibleId,
                     isExpanded: true,
                     decoration: const InputDecoration(
@@ -236,7 +238,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     onChanged: (value) => setDialogState(() => areaCode = value),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<ManualReceiptBook>(
+                  SearchableDropdownFormField<ManualReceiptBook>(
                     value: selectedBook,
                     isExpanded: true,
                     decoration: const InputDecoration(

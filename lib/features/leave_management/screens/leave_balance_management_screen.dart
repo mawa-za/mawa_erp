@@ -6,6 +6,8 @@ import '../../../core/widgets/attachment_section.dart';
 import '../../employment/services/employment_service.dart';
 import '../services/leave_configuration_service.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class LeaveBalanceManagementScreen extends StatefulWidget {
   final int initialTab;
 
@@ -412,7 +414,7 @@ class _BalanceAdjustmentDialogState
           child: SingleChildScrollView(
             child: Column(
               children: [
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _employmentId,
                   decoration: const InputDecoration(labelText: 'Employee'),
                   items: widget.employments
@@ -431,7 +433,7 @@ class _BalanceAdjustmentDialogState
                       value == null ? 'Employee is required' : null,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _leaveTypeId,
                   decoration: const InputDecoration(labelText: 'Leave type'),
                   items: widget.leaveTypes

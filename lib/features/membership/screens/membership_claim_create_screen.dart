@@ -11,6 +11,8 @@ import '../../../core/models/field_option.dart';
 import 'membership_claim_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class MembershipClaimCreateScreen extends StatefulWidget {
   final MembershipDetail membership;
   final Partner member;
@@ -419,7 +421,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
 
   Widget _buildClaimForm(ColorScheme colorScheme) {
     return _buildCard([
-      DropdownButtonFormField<String>(
+      SearchableDropdownFormField<String>(
         value: _selectedClaimTypeCode,
         decoration: _inputDecoration('Claim Type', Icons.category_outlined),
         items: _claimTypeOptions.map((opt) => DropdownMenuItem(
@@ -522,7 +524,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         textCapitalization: TextCapitalization.characters,
       ),
       const SizedBox(height: 20),
-      DropdownButtonFormField<String>(
+      SearchableDropdownFormField<String>(
         value: _selectedCauseOfDeathCode,
         decoration: _inputDecoration('Cause of Death', Icons.description_outlined),
         items: _causeOfDeathOptions.map((opt) => DropdownMenuItem(
@@ -545,7 +547,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
     final showBankFields = _selectedPayoutMethod != 'CASH';
 
     return _buildCard([
-      DropdownButtonFormField<String>(
+      SearchableDropdownFormField<String>(
         value: _selectedPayoutMethod,
         decoration: _inputDecoration('Payout Method', Icons.account_balance_wallet_outlined),
         items: _payoutMethodOptions.map((opt) => DropdownMenuItem(
@@ -558,7 +560,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
         const SizedBox(height: 24),
         const Divider(),
         const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           value: _selectedBankCode,
           decoration: _inputDecoration('Bank Name', Icons.account_balance_outlined),
           items: _bankOptions.map((opt) => DropdownMenuItem(
@@ -582,7 +584,7 @@ class _MembershipClaimCreateScreenState extends State<MembershipClaimCreateScree
           validator: (v) => showBankFields && (v == null || v.isEmpty) ? 'Required' : null,
         ),
         const SizedBox(height: 20),
-        DropdownButtonFormField<String>(
+        SearchableDropdownFormField<String>(
           value: _selectedAccType,
           decoration: _inputDecoration('Type', Icons.list_alt_rounded),
           items: _accTypeOptions.map((opt) => DropdownMenuItem(

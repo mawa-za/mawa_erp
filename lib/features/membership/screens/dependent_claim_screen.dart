@@ -10,6 +10,8 @@ import '../../../core/services/field_service.dart';
 import '../../../core/models/field_option.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class DependentClaimScreen extends StatefulWidget {
   final MembershipDetail membership;
   final Partner member;
@@ -314,7 +316,7 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               value: _selectedClaimTypeCode,
               decoration: const InputDecoration(
                 labelText: 'Claim Type',
