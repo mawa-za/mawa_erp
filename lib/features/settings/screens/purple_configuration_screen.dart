@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/purple_configuration.dart';
 import '../services/purple_configuration_service.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class PurpleConfigurationScreen extends StatefulWidget {
   const PurpleConfigurationScreen({super.key});
 
@@ -106,7 +108,7 @@ class _PurpleConfigurationScreenState extends State<PurpleConfigurationScreen> {
       builder: (context) => StatefulBuilder(builder: (context, setLocal) => AlertDialog(
         title: Text(existing == null ? 'Enrol Purple service' : 'Edit Purple service'),
         content: SizedBox(width: 560, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             value: _products.any((p) => '${p['id']}' == productId) ? productId : null,
             decoration: const InputDecoration(labelText: 'MAWA product/service'),
             items: _products.map((p) => DropdownMenuItem(value: '${p['id']}', child: Text('${p['description'] ?? p['code']}'))).toList(),
@@ -163,13 +165,13 @@ class _PurpleConfigurationScreenState extends State<PurpleConfigurationScreen> {
       builder: (context, setLocal) => AlertDialog(
         title: Text(existing == null ? 'Add availability' : 'Edit availability'),
         content: SizedBox(width: 520, child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<String>(
+          SearchableDropdownFormField<String>(
             value: services.any((s) => '${s['id']}' == serviceId) ? serviceId : null,
             decoration: const InputDecoration(labelText: 'Purple service'),
             items: services.map((s) => DropdownMenuItem(value: '${s['id']}', child: Text('${s['displayName']}'))).toList(),
             onChanged: (value) => setLocal(() => serviceId = value),
           ),
-          DropdownButtonFormField<int>(
+          SearchableDropdownFormField<int>(
             value: day,
             decoration: const InputDecoration(labelText: 'Day'),
             items: List.generate(7, (i) => DropdownMenuItem(value: i + 1, child: Text(const ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][i]))),

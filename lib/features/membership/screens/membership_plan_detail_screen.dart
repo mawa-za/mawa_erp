@@ -6,6 +6,8 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 import '../../../core/theme/mawa_design.dart';
 import '../../../core/widgets/mawa_ui.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class MembershipPlanDetailScreen extends StatefulWidget {
   final String planId;
 
@@ -492,7 +494,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                             style: TextStyle(color: MawaDesign.textMuted),
                           ),
                           const SizedBox(height: 20),
-                          DropdownButtonFormField<DependentType>(
+                          SearchableDropdownFormField<DependentType>(
                             value: selectedType,
                             isExpanded: true,
                             decoration: const InputDecoration(
@@ -736,7 +738,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                             style: TextStyle(color: MawaDesign.textMuted),
                           ),
                           const SizedBox(height: 20),
-                          DropdownButtonFormField<ClaimType>(
+                          SearchableDropdownFormField<ClaimType>(
                             value: selectedClaimType,
                             isExpanded: true,
                             decoration: const InputDecoration(
@@ -761,7 +763,7 @@ class _MembershipPlanDetailScreenState extends State<MembershipPlanDetailScreen>
                                   },
                           ),
                           const SizedBox(height: 18),
-                          DropdownButtonFormField<DependentType>(
+                          SearchableDropdownFormField<DependentType>(
                             value: selectedDependentType,
                             isExpanded: true,
                             decoration: const InputDecoration(

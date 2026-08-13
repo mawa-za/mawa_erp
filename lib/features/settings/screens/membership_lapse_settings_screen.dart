@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class MembershipLapseSettingsScreen extends StatefulWidget {
   const MembershipLapseSettingsScreen({super.key});
 
@@ -241,7 +243,7 @@ class _MembershipLapseSettingsScreenState
                             ),
                           ),
                           const Divider(),
-                          DropdownButtonFormField<int>(
+                          SearchableDropdownFormField<int>(
                             value: _missedPremiumsBeforeLapse,
                             decoration: const InputDecoration(
                               labelText: 'Missed premiums before lapse',

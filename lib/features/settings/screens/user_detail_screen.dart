@@ -6,6 +6,8 @@ import '../models/role.dart';
 import '../services/role_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class UserDetailScreen extends StatefulWidget {
   final String userId;
   const UserDetailScreen({super.key, required this.userId});
@@ -60,7 +62,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     String account=u.accountType,status=u.status;bool test=u.testUser,blocked=u.externalTransactionsBlocked,mfa=u.mfaRequired;
     final save=await showDialog<bool>(context:context,builder:(dialogContext)=>StatefulBuilder(builder:(context,setLocal)=>AlertDialog(title:Text('Access policy — ${u.username}'),content:SizedBox(width:650,child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
       TextField(controller:email,decoration:const InputDecoration(labelText:'Email')),const SizedBox(height:8),TextField(controller:cellphone,decoration:const InputDecoration(labelText:'Contact Number'),keyboardType:TextInputType.phone,inputFormatters:[FilteringTextInputFormatter.digitsOnly,LengthLimitingTextInputFormatter(10)]),const SizedBox(height:8),
-      Row(children:[Expanded(child:DropdownButtonFormField<String>(value:account,decoration:const InputDecoration(labelText:'Account type'),items:['STANDARD','QA_TESTER','AUTOMATION_TEST','DEMO_USER','SUPPORT_VERIFICATION'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v)=>setLocal(()=>account=v!))),const SizedBox(width:8),Expanded(child:InputDecorator(decoration:const InputDecoration(labelText:'Access scope',helperText:'Derived from assigned roles'),child:Text(u.accessScope))),const SizedBox(width:8),Expanded(child:DropdownButtonFormField<String>(value:status,decoration:const InputDecoration(labelText:'Status'),items:['ACTIVE','LOCKED'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v)=>setLocal(()=>status=v!)))]),
+      Row(children:[Expanded(child:SearchableDropdownFormField<String>(value:account,decoration:const InputDecoration(labelText:'Account type'),items:['STANDARD','QA_TESTER','AUTOMATION_TEST','DEMO_USER','SUPPORT_VERIFICATION'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v)=>setLocal(()=>account=v!))),const SizedBox(width:8),Expanded(child:InputDecorator(decoration:const InputDecoration(labelText:'Access scope',helperText:'Derived from assigned roles'),child:Text(u.accessScope))),const SizedBox(width:8),Expanded(child:SearchableDropdownFormField<String>(value:status,decoration:const InputDecoration(labelText:'Status'),items:['ACTIVE','LOCKED'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),onChanged:(v)=>setLocal(()=>status=v!)))]),
       SwitchListTile(value:test,title:const Text('Testing user'),onChanged:(v)=>setLocal((){test=v;if(v){blocked=true;if(env.text.isEmpty)env.text='DEV,ALPHA,BETA';}})),
       SwitchListTile(value:u.protectedUser,title:const Text('Protected — cannot be deleted'),subtitle:const Text('Derived from protected roles in Role Maintenance'),onChanged:null),
       SwitchListTile(value:blocked,title:const Text('Block external transactions'),onChanged:(v)=>setLocal(()=>blocked=v)),SwitchListTile(value:mfa,title:const Text('MFA required'),onChanged:(v)=>setLocal(()=>mfa=v)),

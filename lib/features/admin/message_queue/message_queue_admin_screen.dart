@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class MessageQueueAdminScreen extends StatefulWidget {
   const MessageQueueAdminScreen({super.key});
 
@@ -271,7 +273,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
               children: [
                 SizedBox(
                   width: 220,
-                  child: DropdownButtonFormField<String>(
+                  child: SearchableDropdownFormField<String>(
                     value: _status,
                     decoration: const InputDecoration(
                       labelText: 'Status',

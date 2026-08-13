@@ -3,6 +3,8 @@ import '../models/case_note.dart';
 import '../services/case_management_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddNoteDialog extends StatefulWidget {
   final String caseId;
 
@@ -54,7 +56,7 @@ class _AddNoteDialogState extends State<AddNoteDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _noteType,
                 decoration: const InputDecoration(labelText: 'Note Type'),
                 items: _noteTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

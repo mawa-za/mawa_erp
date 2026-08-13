@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ThirdPartyFuneralCoverUnderwritingPage extends StatefulWidget {
   const ThirdPartyFuneralCoverUnderwritingPage({super.key});
 
@@ -201,7 +203,7 @@ class _ThirdPartyFuneralCoverUnderwritingPageState
                       },
                     ),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: underwriterId,
                       decoration: const InputDecoration(
                         labelText: 'Underwriter',

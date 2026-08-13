@@ -8,6 +8,8 @@ import '../../../core/models/field_option.dart';
 import '../../../core/services/field_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class PaymentAccountConfigurationScreen extends StatefulWidget {
   const PaymentAccountConfigurationScreen({super.key});
 
@@ -96,7 +98,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                       'Debtor accounts fund payment requests. Creditor accounts identify internal receiving accounts such as petty cash.',
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: role,
                       decoration: const InputDecoration(
                         labelText: 'Account role',
@@ -131,7 +133,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                     ),
                     const SizedBox(height: 12),
                     if (role == 'DEBTOR') ...[
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _valueInOptions(requestType, _requestTypeOptions),
                         decoration: const InputDecoration(
                           labelText: 'Payment request type',
@@ -152,7 +154,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                       const SizedBox(height: 12),
                     ],
                     if (role == 'DEBTOR' || role == 'PAYROLL_DEBTOR') ...[
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: role == 'PAYROLL_DEBTOR' ? 'FNB' : bankIntegration,
                         decoration: InputDecoration(
                           labelText: 'Bank integration',
@@ -173,7 +175,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                       ),
                       const SizedBox(height: 12),
                     ],
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: role == 'PAYROLL_DEBTOR'
                           ? _valueInOptions('FNB', _bankOptions)
                           : _valueInOptions(bankName, _bankOptions),
@@ -228,7 +230,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                       style: TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: _valueInOptions(accountType, _accountTypeOptions),
                       decoration: const InputDecoration(
                         labelText: 'Bank account type',

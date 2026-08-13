@@ -8,6 +8,8 @@ import '../../invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../models/service_order.dart';
 import '../services/service_order_service.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ServiceOrderScreen extends StatefulWidget {
   const ServiceOrderScreen({
     super.key,
@@ -265,7 +267,7 @@ class _ServiceOrderScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: _products.any((product) => product.id == selectedProductId)
                         ? selectedProductId
                         : null,
@@ -299,7 +301,7 @@ class _ServiceOrderScreenState
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownFormField<String>(
                           value: itemType,
                           decoration: const InputDecoration(
                             labelText: 'Line Type',
@@ -319,7 +321,7 @@ class _ServiceOrderScreenState
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownFormField<String>(
                           value: completionStatus,
                           decoration: const InputDecoration(
                             labelText: 'Completion Status',
@@ -885,7 +887,7 @@ class _ServiceOrderScreenState
             children: [
               SizedBox(
                 width: 260,
-                child: DropdownButtonFormField<String>(
+                child: SearchableDropdownFormField<String>(
                   value: _status,
                   decoration: const InputDecoration(
                     labelText: 'Status',

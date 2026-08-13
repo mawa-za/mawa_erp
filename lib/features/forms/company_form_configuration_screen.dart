@@ -9,6 +9,8 @@ import '../../core/services/field_service.dart';
 import '../../core/services/access_profile_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CompanyFormConfigurationScreen extends StatefulWidget {
   const CompanyFormConfigurationScreen({super.key});
 
@@ -93,7 +95,7 @@ class _CompanyFormConfigurationScreenState extends State<CompanyFormConfiguratio
                     ),
                     TextFormField(controller: title, decoration: const InputDecoration(labelText: 'Title'), validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null),
                     TextFormField(controller: description, maxLines: 2, decoration: const InputDecoration(labelText: 'Description')),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: category,
                       decoration: const InputDecoration(labelText: 'Category'),
                       items: _categories.map((option) => DropdownMenuItem(value: option.code, child: Text(option.description))).toList(),

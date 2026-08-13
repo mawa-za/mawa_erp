@@ -8,6 +8,8 @@ import '../models/dependent.dart';
 import '../services/membership_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddDependentScreen extends StatefulWidget {
   final String membershipId;
   const AddDependentScreen({super.key, required this.membershipId});
@@ -177,7 +179,7 @@ class _AddDependentScreenState extends State<AddDependentScreen> {
           const SizedBox(height: 14),
           if (_partner != null) _partnerSummary(_partner!) else if (_notFound) _newPartnerFields(),
           const SizedBox(height: 18),
-          DropdownButtonFormField<DependentType>(
+          SearchableDropdownFormField<DependentType>(
             value: _relationship,
             decoration: const InputDecoration(labelText: 'Relationship Type', border: OutlineInputBorder()),
             items: DependentType.values.where((v) => v != DependentType.ANY && v != DependentType.MAIN_MEMBER).map((v) => DropdownMenuItem(value: v, child: Text(v.label))).toList(),

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class PremiumGenerationSettingsScreen extends StatefulWidget {
   const PremiumGenerationSettingsScreen({super.key});
 
@@ -233,7 +235,7 @@ class _PremiumGenerationSettingsScreenState
                             Padding(
                               padding:
                                   const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                              child: DropdownButtonFormField<int>(
+                              child: SearchableDropdownFormField<int>(
                                 value: _generationDay,
                                 decoration: const InputDecoration(
                                   labelText: 'Automatic generation day',

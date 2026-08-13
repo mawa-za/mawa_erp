@@ -7,6 +7,8 @@ import '../../../core/errors/app_error.dart';
 import '../models/device_sync_submission.dart';
 import '../services/device_sync_service.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class DeviceSyncWorkcenterScreen extends StatefulWidget {
   const DeviceSyncWorkcenterScreen({super.key});
 
@@ -98,7 +100,7 @@ class _DeviceSyncWorkcenterScreenState extends State<DeviceSyncWorkcenterScreen>
     body: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
       Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
         Expanded(child: TextField(controller: _search, onSubmitted: (_) => _load(), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search submission, serial, device, user, endpoint or error', border: OutlineInputBorder()))),
-        const SizedBox(width: 12), SizedBox(width: 230, child: DropdownButtonFormField<String>(initialValue: _status, decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()), items: _statuses.map((s) => DropdownMenuItem(value: s, child: Text(s.replaceAll('_', ' ')))).toList(), onChanged: (v) { if (v != null) { setState(() => _status = v); _load(); } })),
+        const SizedBox(width: 12), SizedBox(width: 230, child: SearchableDropdownFormField<String>(initialValue: _status, decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()), items: _statuses.map((s) => DropdownMenuItem(value: s, child: Text(s.replaceAll('_', ' ')))).toList(), onChanged: (v) { if (v != null) { setState(() => _status = v); _load(); } })),
         const SizedBox(width: 12), FilledButton.icon(onPressed: _load, icon: const Icon(Icons.filter_alt), label: const Text('Apply')),
       ]))),
       const SizedBox(height: 12),

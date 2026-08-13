@@ -3,6 +3,8 @@ import '../models/pos_printing_models.dart';
 import '../services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class PosPrintingSettingsScreen extends StatefulWidget {
   const PosPrintingSettingsScreen({super.key});
   @override
@@ -237,7 +239,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Row(children: [Expanded(child: Text('Windows print agent', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))), OutlinedButton.icon(onPressed: _createEnrollment, icon: const Icon(Icons.add_link), label: const Text('Setup code'))]),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
+                        SearchableDropdownFormField<String>(
                           value: _agents.any((a) => a.id == _agentId) ? _agentId : null,
                           decoration: const InputDecoration(labelText: 'Agent'),
                           items: _agents.where((a) => a.active).map((a) => DropdownMenuItem(
@@ -252,7 +254,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
                           }),
                         ),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
+                        SearchableDropdownFormField<String>(
                           value: _printers.any((p) => p.id == _printerId) ? _printerId : null,
                           decoration: const InputDecoration(labelText: 'Default receipt printer'),
                           items: _printers.map((p) => DropdownMenuItem(value: p.id, child: Text('${p.displayName}${p.online ? '' : ' • Offline'}'))).toList(),
@@ -275,7 +277,7 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
                           ),
                         ],
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<int>(
+                        SearchableDropdownFormField<int>(
                           value: const [32, 42, 48].contains(_paperWidthChars) ? _paperWidthChars : 42,
                           decoration: const InputDecoration(labelText: 'Receipt width'),
                           items: const [

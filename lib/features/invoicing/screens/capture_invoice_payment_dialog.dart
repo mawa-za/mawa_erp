@@ -8,6 +8,8 @@ import '../../settings/services/pos_printing_service.dart';
 import '../models/invoice_detail.dart';
 import '../services/invoice_service.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CaptureInvoicePaymentDialog extends StatefulWidget {
   final InvoiceDetail invoice;
 
@@ -187,7 +189,7 @@ class _CaptureInvoicePaymentDialogState
                   },
                 ),
                 const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _paymentMethod,
                   decoration: const InputDecoration(
                     labelText: 'Payment method',

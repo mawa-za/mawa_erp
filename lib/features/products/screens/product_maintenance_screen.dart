@@ -10,6 +10,8 @@ import '../models/product_maintenance.dart';
 import '../services/product_maintenance_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ProductMaintenanceScreen extends StatefulWidget {
   const ProductMaintenanceScreen({super.key});
 
@@ -244,7 +246,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
                 ),
                 SizedBox(
                   width: 230,
-                  child: DropdownButtonFormField<String?>(
+                  child: SearchableDropdownFormField<String?>(
                     value: _selectedTypeFilter,
                     decoration: const InputDecoration(labelText: 'Product Type'),
                     items: [
@@ -264,7 +266,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
                 ),
                 SizedBox(
                   width: 300,
-                  child: DropdownButtonFormField<String?>(
+                  child: SearchableDropdownFormField<String?>(
                     value: _selectedCategoryFilter,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Product Category'),
@@ -625,7 +627,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _typeCode,
                   decoration: const InputDecoration(
                     labelText: 'Product Type',
@@ -654,7 +656,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                   _ProductBehaviourCard(type: type),
                 ],
                 const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _availableCategories.any((item) => item.id == _categoryId) ? _categoryId : null,
                   isExpanded: true,
                   decoration: const InputDecoration(
@@ -683,7 +685,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownFormField<String>(
                         value: _uomCode,
                         decoration: const InputDecoration(labelText: 'Base Unit of Measure'),
                         items: _fieldItems(widget.uoms),
@@ -693,7 +695,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownFormField<String>(
                         value: _pricingTypeCode,
                         decoration: const InputDecoration(labelText: 'Pricing Type'),
                         items: _fieldItems(widget.pricingTypes),
@@ -729,7 +731,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                           const SizedBox(height: 4),
                           const Text('Link the actual vehicles or equipment that can fulfil this customer-facing service. Capacity supports sets such as 100 chairs.'),
                           const SizedBox(height: 12),
-                          if (_assetsLoading) const LinearProgressIndicator() else DropdownButtonFormField<String>(
+                          if (_assetsLoading) const LinearProgressIndicator() else SearchableDropdownFormField<String>(
                             value: null,
                             isExpanded: true,
                             decoration: const InputDecoration(labelText: 'Add operational asset'),
@@ -1111,7 +1113,7 @@ class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
+                SearchableDropdownFormField<String?>(
                   value: _parentId,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Parent Category'),
@@ -1129,7 +1131,7 @@ class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
                   },
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
+                SearchableDropdownFormField<String?>(
                   value: inheritedProductType ?? _productType,
                   decoration: InputDecoration(
                     labelText: 'Applicable Product Type',
