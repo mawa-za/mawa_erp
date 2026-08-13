@@ -36,6 +36,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   bool _isSubmitting = false;
   bool _isLoadingUnpaid = true;
   List<Map<String, dynamic>> _unpaidPremiums = [];
+  String? _selectedPeriodYYYYMM;
   PaymentBatchResponse? _successResponse;
   String? _error;
   String? _printWarning;
@@ -77,6 +78,29 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
 
   int get _maximumPaymentCents => widget.membership.premiumCents * _maxPremiumMonths;
 
+  int? get _selectedOutstandingBalanceCents {
+    if (_selectedPeriodYYYYMM == null) return null;
+    for (final premium in _unpaidPremiums) {
+      if (premium['periodYYYYMM']?.toString() == _selectedPeriodYYYYMM) {
+        return (premium['balanceCents'] as num?)?.toInt() ?? 0;
+      }
+    }
+    return null;
+  }
+
+  String? get _paymentAmountHelperText {
+    if (_unpaidPremiums.length > 1) {
+      final selectedBalance = _selectedOutstandingBalanceCents;
+      if (selectedBalance == null) {
+        return 'Select an outstanding premium month above.';
+      }
+      return 'Selected month outstanding: R ${(selectedBalance / 100).toStringAsFixed(2)}';
+    }
+    return widget.membership.premiumCents > 0
+        ? 'Maximum $_maxPremiumMonths months: R ${(_maximumPaymentCents / 100).toStringAsFixed(2)}'
+        : null;
+  }
+
   Future<void> _initBluetooth() async {
     try {
       final devices = await _printService.getDevices();
@@ -103,6 +127,9 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
       if (mounted) {
         setState(() {
           _unpaidPremiums = unpaid;
+          _selectedPeriodYYYYMM = unpaid.length == 1
+              ? unpaid.first['periodYYYYMM']?.toString()
+              : null;
           _isLoadingUnpaid = false;
         });
       }
@@ -134,6 +161,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
         paymentMethod: _paymentMethod!,
         amountCents: amountCents,
         createdBy: userId,
+        periodYYYYMM: _unpaidPremiums.length > 1 ? _selectedPeriodYYYYMM : null,
         deviceId: deviceId,
         terminalId: prefs.getString('terminalId'),
         location: prefs.getString('location'),
@@ -302,9 +330,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF8F9FD),
-                          helperText: widget.membership.premiumCents > 0
-                              ? 'Maximum $_maxPremiumMonths months: R ${(_maximumPaymentCents / 100).toStringAsFixed(2)}'
-                              : null,
+                          helperText: _paymentAmountHelperText,
                         ),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -315,6 +341,12 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                           final amountCents = (amount * 100).round();
                           if (widget.membership.premiumCents > 0 && amountCents > _maximumPaymentCents) {
                             return 'Maximum is $_maxPremiumMonths months (R ${(_maximumPaymentCents / 100).toStringAsFixed(2)})';
+                          }
+                          if (_unpaidPremiums.length > 1 && _selectedOutstandingBalanceCents != null) {
+                            final balanceCents = _selectedOutstandingBalanceCents!;
+                            if (amountCents > balanceCents) {
+                              return 'Amount exceeds the selected month outstanding balance of R ${(balanceCents / 100).toStringAsFixed(2)}';
+                            }
                           }
                           return null;
                         },
@@ -398,7 +430,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                   const SizedBox(width: 16),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _isSubmitting ? null : _submitPayment,
+                      onPressed: _isSubmitting || _isLoadingUnpaid ? null : _submitPayment,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -472,12 +504,44 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   }
 
   Widget _buildUnpaidPremiumsSection(ColorScheme colorScheme) {
+    final requiresSelection = _unpaidPremiums.length > 1;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('OUTSTANDING PERIODS',
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1.2)),
         const SizedBox(height: 12),
+        if (requiresSelection) ...[
+          SearchableDropdownFormField<String>(
+            value: _selectedPeriodYYYYMM,
+            decoration: InputDecoration(
+              labelText: 'Premium Month',
+              helperText: 'Select the outstanding month this payment must be allocated to.',
+              prefixIcon: const Icon(Icons.calendar_month_outlined),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.grey.shade200),
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF8F9FD),
+            ),
+            items: _unpaidPremiums.map((premium) {
+              final period = premium['periodYYYYMM']?.toString() ?? '';
+              final balanceCents = (premium['balanceCents'] as num?)?.toInt() ?? 0;
+              return DropdownMenuItem<String>(
+                value: period,
+                child: Text('${_formatPeriod(period)} — R ${(balanceCents / 100).toStringAsFixed(2)}'),
+              );
+            }).toList(),
+            isExpanded: true,
+            onChanged: (value) => setState(() => _selectedPeriodYYYYMM = value),
+            validator: (value) => value == null || value.isEmpty
+                ? 'Select the premium month to process'
+                : null,
+          ),
+          const SizedBox(height: 12),
+        ],
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -488,13 +552,22 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
           child: Column(
             children: _unpaidPremiums.map((p) {
               final period = p['periodYYYYMM']?.toString() ?? '-';
-              final amount = (p['balanceCents'] as int? ?? 0) / 100.0;
+              final amount = ((p['balanceCents'] as num?)?.toInt() ?? 0) / 100.0;
+              final isSelected = period == _selectedPeriodYYYYMM;
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    if (requiresSelection) ...[
+                      Icon(
+                        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        size: 18,
+                        color: isSelected ? colorScheme.primary : Colors.grey.shade400,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Text(_formatPeriod(period), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Spacer(),
                     Text('R ${amount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.w900, fontSize: 13)),
                   ],
                 ),
