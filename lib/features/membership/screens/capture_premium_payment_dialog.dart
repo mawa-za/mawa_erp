@@ -11,6 +11,8 @@ import '../../../core/services/setting_service.dart';
 import '../../settings/services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CapturePremiumPaymentDialog extends StatefulWidget {
   final MembershipDetail membership;
   final Partner member;
@@ -318,7 +320,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                         },
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _paymentMethod,
                         decoration: InputDecoration(
                           labelText: 'Payment Method',

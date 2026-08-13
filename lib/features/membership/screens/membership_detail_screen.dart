@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
@@ -607,6 +608,118 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
+  Future<void> _requestPremiumPaymentDeletion(Premium premium) async {
+    try {
+      final receipts = await MembershipService().getPremiumReceipts(
+        widget.membershipId,
+        premium.id,
+      );
+      if (!mounted) return;
+      if (receipts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No posted receipt is available for this premium payment.')),
+        );
+        return;
+      }
+
+      ReceiptResponse? selectedReceipt;
+      if (receipts.length == 1) {
+        selectedReceipt = receipts.first;
+      } else {
+        selectedReceipt = await showDialog<ReceiptResponse>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select payment to delete'),
+            content: SizedBox(
+              width: 480,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: receipts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final receipt = receipts[index];
+                  return ListTile(
+                    leading: const Icon(Icons.receipt_long_outlined),
+                    title: Text(receipt.receiptNo),
+                    subtitle: Text('${receipt.paymentMethod} • R ${receipt.totalAmount.toStringAsFixed(2)}'),
+                    onTap: () => Navigator.pop(context, receipt),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            ],
+          ),
+        );
+      }
+      if (selectedReceipt == null) return;
+      if (selectedReceipt.paymentBatchId.trim().isEmpty) {
+        throw StateError('This receipt does not have a payment batch reference.');
+      }
+
+      final reasonController = TextEditingController();
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Request premium payment deletion'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'The full payment batch will be reversed only after approval. This is allowed only while its linked cash-up remains OPEN.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                autofocus: true,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for deletion *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: () {
+                final value = reasonController.text.trim();
+                if (value.isNotEmpty) Navigator.pop(context, value);
+              },
+              child: const Text('SUBMIT FOR APPROVAL'),
+            ),
+          ],
+        ),
+      );
+      reasonController.dispose();
+      if (reason == null || reason.isEmpty) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final requesterId = prefs.getString('userId') ?? '';
+      await MembershipService().requestPremiumPaymentDeletion(
+        paymentBatchId: selectedReceipt.paymentBatchId,
+        requesterId: requesterId,
+        reason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium payment deletion submitted for approval.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to request premium payment deletion: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Widget _buildPremiumSection(ColorScheme colorScheme) {
     if (_premiums.isEmpty) {
       return _buildEmptyStateCard(
@@ -838,10 +951,22 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _reprintPremiumReceipt(premium),
-                    icon: const Icon(Icons.print_outlined, size: 18),
-                    label: const Text('REPRINT RECEIPT'),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _reprintPremiumReceipt(premium),
+                        icon: const Icon(Icons.print_outlined, size: 18),
+                        label: const Text('REPRINT RECEIPT'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _requestPremiumPaymentDeletion(premium),
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('DELETE PAYMENT'),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      ),
+                    ],
                   ),
                 ),
               ],

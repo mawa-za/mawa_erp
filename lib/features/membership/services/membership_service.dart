@@ -284,6 +284,27 @@ class MembershipService {
         .toList();
   }
 
+  Future<void> requestPremiumPaymentDeletion({
+    required String paymentBatchId,
+    required String requesterId,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/payment-batches/$paymentBatchId/deletion-request',
+      body: {
+        'requesterId': requesterId,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The premium payment deletion request could not be submitted.',
+      );
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getUnpaidPremiums(String membershipId) async {
     try {
       final response = await ApiClient().get('/v2/memberships/$membershipId/premiums/unpaid');
@@ -626,6 +647,18 @@ class MembershipService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<Uint8List> downloadMembershipClaimForm(String id) async {
+    final response = await ApiClient().get('/v2/membership-claim/$id/claim-form');
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    }
+    throw AppException.fromHttp(
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      fallback: 'The claim form could not be generated. Please try again.',
+    );
   }
 
   Future<void> submitMembershipClaim(String id) async {

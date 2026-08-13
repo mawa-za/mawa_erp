@@ -16,6 +16,8 @@ import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class GroupSocietyDetailScreen extends StatefulWidget {
   final String societyId;
   const GroupSocietyDetailScreen({super.key, required this.societyId});
@@ -213,7 +215,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: selectedMethod,
                     decoration: const InputDecoration(labelText: 'Payment Method', prefixIcon: Icon(Icons.payments_outlined)),
                     items: ['CASH', 'CARD', 'EFT', 'DEBIT_ORDER', 'OTHER']
@@ -326,7 +328,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: direction,
                   decoration: const InputDecoration(labelText: 'Adjustment Direction'),
                   items: const [
@@ -952,7 +954,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextFormField(initialValue: _society!.groupNo, enabled: false, decoration: const InputDecoration(labelText: 'Group Number', helperText: 'The allocated group number cannot be changed.')),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: selectedType,
                 decoration: const InputDecoration(labelText: 'Society Type'),
                 items: ['GROUP', 'SOCIETY', 'BURIAL'].map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),

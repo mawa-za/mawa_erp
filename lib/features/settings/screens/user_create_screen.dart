@@ -6,6 +6,8 @@ import '../models/role.dart';
 import '../services/role_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class UserCreateScreen extends StatefulWidget {
   const UserCreateScreen({super.key});
   @override State<UserCreateScreen> createState() => _UserCreateScreenState();
@@ -93,9 +95,9 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
         const SizedBox(height: 24),
         _title('Access policy'),
         Row(children: [
-          Expanded(child: DropdownButtonFormField<String>(value: _userType, decoration: const InputDecoration(labelText: 'User type'), items: ['INTERNAL','ADMIN','EXTERNAL'].map(_item).toList(), onChanged: (v) => setState(() => _userType = v!))),
+          Expanded(child: SearchableDropdownFormField<String>(value: _userType, decoration: const InputDecoration(labelText: 'User type'), items: ['INTERNAL','ADMIN','EXTERNAL'].map(_item).toList(), onChanged: (v) => setState(() => _userType = v!))),
           const SizedBox(width: 12),
-          Expanded(child: DropdownButtonFormField<String>(value: _accountType, decoration: const InputDecoration(labelText: 'Account type'), items: ['STANDARD','QA_TESTER','AUTOMATION_TEST','DEMO_USER','SUPPORT_VERIFICATION'].map(_item).toList(), onChanged: (v) => setState(() { _accountType = v!; _testUser = v != 'STANDARD'; if (_testUser) { _blocked = true; if (_environmentScope.text.isEmpty) _environmentScope.text = 'DEV,ALPHA,BETA'; } }))),
+          Expanded(child: SearchableDropdownFormField<String>(value: _accountType, decoration: const InputDecoration(labelText: 'Account type'), items: ['STANDARD','QA_TESTER','AUTOMATION_TEST','DEMO_USER','SUPPORT_VERIFICATION'].map(_item).toList(), onChanged: (v) => setState(() { _accountType = v!; _testUser = v != 'STANDARD'; if (_testUser) { _blocked = true; if (_environmentScope.text.isEmpty) _environmentScope.text = 'DEV,ALPHA,BETA'; } }))),
         ]),
         const SizedBox(height: 12),
         InputDecorator(decoration: const InputDecoration(labelText: 'Access scope', helperText: 'Derived from roles maintained in Role Maintenance'), child: Text(_selectedRoleGrantsProtection ? 'TENANT_ALL' : 'STANDARD')),

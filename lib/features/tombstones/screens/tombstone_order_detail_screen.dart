@@ -3,6 +3,8 @@ import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class TombstoneOrderDetailScreen extends StatefulWidget {
   final String orderId;
   const TombstoneOrderDetailScreen({super.key, required this.orderId});
@@ -570,7 +572,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
     final result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => StatefulBuilder(builder: (context, setLocal) => AlertDialog(
       title: const Text('Add Funding Allocation'),
       content: SizedBox(width: 440, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: type, decoration: const InputDecoration(labelText: 'Funding Type'), items: const [
+        SearchableDropdownFormField<String>(value: type, decoration: const InputDecoration(labelText: 'Funding Type'), items: const [
           DropdownMenuItem(value: 'CASH', child: Text('Cash Receipt')),
           DropdownMenuItem(value: 'FUNERAL_COVER', child: Text('Funeral Cover Claim')),
         ], onChanged: (v) => setLocal(() => type = v ?? 'CASH')),
@@ -596,7 +598,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
         TextField(controller: deposit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Deposit Required (R)')),
         TextField(controller: installment, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Instalment Amount (R)')),
         TextField(controller: admin, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Administration Fee (R)')),
-        DropdownButtonFormField<String>(value: frequency, decoration: const InputDecoration(labelText: 'Frequency'), items: const [
+        SearchableDropdownFormField<String>(value: frequency, decoration: const InputDecoration(labelText: 'Frequency'), items: const [
           DropdownMenuItem(value: 'WEEKLY', child: Text('Weekly')), DropdownMenuItem(value: 'FORTNIGHTLY', child: Text('Fortnightly')), DropdownMenuItem(value: 'MONTHLY', child: Text('Monthly')),
         ], onChanged: (v) => setLocal(() => frequency = v ?? 'MONTHLY')),
       ])),
@@ -632,7 +634,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
     final result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => StatefulBuilder(builder: (context, setLocal) => AlertDialog(
       title: const Text('Site Assessment'),
       content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: status, decoration: const InputDecoration(labelText: 'Status'), items: const [
+        SearchableDropdownFormField<String>(value: status, decoration: const InputDecoration(labelText: 'Status'), items: const [
           DropdownMenuItem(value: 'REQUESTED', child: Text('Requested')), DropdownMenuItem(value: 'SCHEDULED', child: Text('Scheduled')), DropdownMenuItem(value: 'COMPLETED', child: Text('Completed')), DropdownMenuItem(value: 'FAILED', child: Text('Failed')),
         ], onChanged: (v) => setLocal(() => status = v ?? 'COMPLETED')),
         TextField(controller: assessor, decoration: const InputDecoration(labelText: 'Assessor Partner ID')),

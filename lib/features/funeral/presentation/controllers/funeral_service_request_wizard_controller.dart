@@ -36,10 +36,11 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<FieldOption> causeOfDeathOptions = [];
 
   // Step 2: Family Rep & Funeral Info
-  String? familyRepPartnerId;
-  String? familyRepName;
-  String contactName = '';
-  String contactNumber = '';
+  String? familyRepPartnerId; // Legacy arrangements only. New arrangements use free text.
+  String familyRepresentativeNames = '';
+  String familyRepresentativeSurname = '';
+  String familyRepresentativeContactDetails = '';
+  DateTime? dateOfDeath;
   DateTime funeralDate = DateTime.now().add(const Duration(days: 3));
   String funeralLocation = '';
   String deceasedDeliveryDirections = '';
@@ -121,6 +122,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     deathCertificateNo = request.deathCertificateNo;
     causeOfDeath = request.causeOfDeath;
     familyRepPartnerId = request.familyRepPartnerId;
+    familyRepresentativeNames = request.familyRepresentativeNames;
+    familyRepresentativeSurname = request.familyRepresentativeSurname;
+    familyRepresentativeContactDetails = request.familyRepresentativeContactDetails;
+    dateOfDeath = request.dateOfDeath;
     funeralDate = request.funeralDate;
     funeralLocation = request.funeralLocation;
     deceasedDeliveryDirections = request.deceasedDeliveryDirections;
@@ -210,7 +215,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   Future<bool> createServiceRequest() async {
     final package = effectiveSelectedPackage;
     if (selectedDeceased == null ||
-        familyRepPartnerId == null ||
+        familyRepresentativeNames.trim().isEmpty ||
+        familyRepresentativeSurname.trim().isEmpty ||
+        familyRepresentativeContactDetails.trim().isEmpty ||
+        dateOfDeath == null ||
         package == null ||
         deathCertificateNo.trim().isEmpty ||
         causeOfDeath == null ||
@@ -231,10 +239,14 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         deceasedIdentityNumber: deceasedIdentityNumber,
         deathCertificateNo: deathCertificateNo.trim(),
         causeOfDeath: causeOfDeath!,
+        dateOfDeath: dateOfDeath!,
         funeralDate: funeralDate,
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
         deceasedDeliveryDirections: deceasedDeliveryDirections.trim(),
-        familyRepPartnerId: familyRepPartnerId!,
+        familyRepresentativeNames: familyRepresentativeNames.trim(),
+        familyRepresentativeSurname: familyRepresentativeSurname.trim(),
+        familyRepresentativeContactDetails: familyRepresentativeContactDetails.trim(),
+        familyRepPartnerId: familyRepPartnerId,
         packageId: package.id,
         extras: extras,
       );

@@ -3,6 +3,8 @@ import '../models/approval_workflow.dart';
 import '../services/approval_workflow_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ApprovalWorkflowCreateScreen extends StatefulWidget {
   final ApprovalWorkflow? workflow;
 
@@ -46,6 +48,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'PAYMENT',
     'PAYMENT_REQUEST',
     'PAYROLL_BATCH',
+    'PREMIUM_PAYMENT_DELETION',
     'PURCHASE_ORDER',
     'CUSTOMER_REFUND',
     'SUPPLIER_BANKING_DETAILS',
@@ -216,7 +219,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<String>(
+            SearchableDropdownFormField<String>(
               value: _selectedApprovalType,
               decoration: const InputDecoration(labelText: 'Approval Type', border: OutlineInputBorder()),
               items: _approvalTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
@@ -291,7 +294,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: SearchableDropdownFormField<String>(
                     value: _approverTypes.contains(approverType) ? approverType : _approverTypes.first,
                     decoration: const InputDecoration(labelText: 'Approver Type', border: OutlineInputBorder(), isDense: true),
                     items: _approverTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

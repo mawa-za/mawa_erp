@@ -10,6 +10,8 @@ import '../../../../core/models/product_lookup.dart';
 import '../../../../core/services/product_lookup_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class FuneralPackageSetupPage extends StatefulWidget {
   const FuneralPackageSetupPage({super.key});
 
@@ -380,7 +382,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                   validator: (value) => value == null || value.trim().isEmpty ? 'Package name is required' : null,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _pricingMode,
                   decoration: const InputDecoration(
                     labelText: 'Package pricing',
@@ -426,7 +428,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<ProductLookup>(
+                        child: SearchableDropdownFormField<ProductLookup>(
                           value: _componentToAdd,
                           isExpanded: true,
                           decoration: const InputDecoration(

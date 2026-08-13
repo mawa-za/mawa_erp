@@ -6,6 +6,8 @@ import '../services/case_management_service.dart';
 import '../../../core/models/user.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddTimeEntryDialog extends StatefulWidget {
   final String caseId;
   final List<CaseTask> tasks;
@@ -78,7 +80,7 @@ class _AddTimeEntryDialogState extends State<AddTimeEntryDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String?>(
+              SearchableDropdownFormField<String?>(
                 value: _taskId,
                 decoration: const InputDecoration(labelText: 'Related Task (Optional)'),
                 items: [
@@ -87,7 +89,7 @@ class _AddTimeEntryDialogState extends State<AddTimeEntryDialog> {
                 ],
                 onChanged: (v) => setState(() => _taskId = v),
               ),
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _userId,
                 decoration: const InputDecoration(labelText: 'User*'),
                 items: widget.users.map((u) => DropdownMenuItem(value: u.id, child: Text(u.displayName ?? u.username))).toList(),

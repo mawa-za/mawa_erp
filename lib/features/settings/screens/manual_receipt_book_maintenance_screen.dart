@@ -8,6 +8,8 @@ import '../models/manual_receipt_book.dart';
 import '../services/manual_receipt_book_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ManualReceiptBookMaintenanceScreen extends StatefulWidget {
   const ManualReceiptBookMaintenanceScreen({super.key});
 
@@ -272,7 +274,7 @@ class _ManualReceiptBookDialogState extends State<_ManualReceiptBookDialog> {
                         Expanded(child: TextFormField(controller: _to, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Receipt To', border: OutlineInputBorder()), validator: _numberOrBlank)),
                       ]),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _employeeId,
                         decoration: const InputDecoration(labelText: 'Assigned Employee', border: OutlineInputBorder()),
                         items: _employees.map((record) {
@@ -282,14 +284,14 @@ class _ManualReceiptBookDialogState extends State<_ManualReceiptBookDialog> {
                         onChanged: (value) => setState(() => _employeeId = value),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _areaCode,
                         decoration: const InputDecoration(labelText: 'Assigned SALES-AREA', border: OutlineInputBorder()),
                         items: _areas.map((area) => DropdownMenuItem(value: area.code, child: Text(area.description))).toList(),
                         onChanged: (value) => setState(() => _areaCode = value),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _status,
                         decoration: const InputDecoration(labelText: 'Status *', border: OutlineInputBorder()),
                         items: const ['ACTIVE', 'CLOSED', 'CANCELLED', 'LOST']

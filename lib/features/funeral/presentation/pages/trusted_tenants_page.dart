@@ -5,6 +5,8 @@ import '../../data/models/funeral_tenant_option_dto.dart';
 import '../../data/models/tenant_trust_relationship_dto.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class TrustedTenantsPage extends StatefulWidget {
   const TrustedTenantsPage({super.key});
 
@@ -74,7 +76,7 @@ class _TrustedTenantsPageState extends State<TrustedTenantsPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       decoration: const InputDecoration(
                         labelText: 'Membership and claims tenant',
                         border: OutlineInputBorder(),

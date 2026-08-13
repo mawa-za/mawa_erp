@@ -7,6 +7,8 @@ import '../models/leave_request.dart';
 import '../services/leave_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class LeaveRequestCreateScreen extends StatefulWidget {
   const LeaveRequestCreateScreen({super.key});
 
@@ -156,7 +158,7 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
                 _header(),
                 const SizedBox(height: 16),
                 _section('Request details', Icons.event_available_outlined, [
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: _employment?['id']?.toString(),
                     decoration: const InputDecoration(labelText: 'Employee'),
                     items: _employees.map((employment) => DropdownMenuItem(
@@ -170,7 +172,7 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
                     validator: (value) => value == null ? 'Employee is required' : null,
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: _leaveType?['id']?.toString(),
                     decoration: const InputDecoration(labelText: 'Leave type'),
                     items: _leaveTypes.map((type) => DropdownMenuItem(

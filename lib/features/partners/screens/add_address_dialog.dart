@@ -4,6 +4,8 @@ import '../../../core/widgets/app_dropdown.dart';
 import '../models/partner.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddAddressDialog extends StatefulWidget {
   final String partnerId;
 
@@ -83,7 +85,7 @@ class _AddAddressDialogState extends State<AddAddressDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _selectedType,
                 decoration: const InputDecoration(labelText: 'Address Type'),
                 items: _addressTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

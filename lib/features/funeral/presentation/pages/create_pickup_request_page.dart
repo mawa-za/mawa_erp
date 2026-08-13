@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/models/field_option.dart';
-import '../../../../core/services/field_service.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/create_pickup_request_dto.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -18,45 +16,19 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
   final _formKey = GlobalKey<FormState>();
   final _api = FuneralApi();
   final _deceasedNameController = TextEditingController();
+  final _pickupLocationController = TextEditingController();
   final _contactPersonController = TextEditingController();
   final _contactNumberController = TextEditingController();
 
-  List<FieldOption> _salesAreas = [];
-  String? _pickupLocationCode;
-  bool _isLoading = true;
   bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSalesAreas();
-  }
 
   @override
   void dispose() {
     _deceasedNameController.dispose();
+    _pickupLocationController.dispose();
     _contactPersonController.dispose();
     _contactNumberController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadSalesAreas() async {
-    try {
-      final options = await FieldService().getOptionsByField('SALES-AREA');
-      if (mounted) {
-        setState(() {
-          _salesAreas = options;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyErrorMessage('Could not load pickup areas: $e'))),
-        );
-      }
-    }
   }
 
   Future<void> _submit() async {
@@ -66,7 +38,7 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
       await _api.createPickupRequest(
         CreatePickupRequestDto(
           deceasedName: _deceasedNameController.text.trim(),
-          pickupLocationCode: _pickupLocationCode!,
+          pickupLocation: _pickupLocationController.text.trim(),
           contactPerson: _contactPersonController.text.trim(),
           contactNumber: _contactNumberController.text.trim(),
         ),
@@ -89,9 +61,7 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('New Pickup Request')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
+      body: Form(
               key: _formKey,
               child: ListView(
                 padding: const EdgeInsets.all(16),
@@ -107,23 +77,17 @@ class _CreatePickupRequestPageState extends State<CreatePickupRequestPage> {
                         : null,
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _pickupLocationCode,
+                  TextFormField(
+                    controller: _pickupLocationController,
                     decoration: const InputDecoration(
                       labelText: 'Pickup Location',
-                      helperText: 'Configured from SALES-AREA.',
+                      hintText: 'Enter the pickup address, village, section or landmark',
                       border: OutlineInputBorder(),
                     ),
-                    items: _salesAreas
-                        .map(
-                          (option) => DropdownMenuItem(
-                            value: option.code,
-                            child: Text(option.description),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) => setState(() => _pickupLocationCode = value),
-                    validator: (value) => value == null ? 'Pickup location is required' : null,
+                    textCapitalization: TextCapitalization.words,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Pickup location is required'
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

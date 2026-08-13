@@ -1,20 +1,19 @@
 class CreatePickupRequestDto {
   final String deceasedName;
-  final String pickupLocationCode;
+  final String pickupLocation;
   final String contactPerson;
   final String contactNumber;
 
   CreatePickupRequestDto({
     required this.deceasedName,
-    required this.pickupLocationCode,
+    required this.pickupLocation,
     required this.contactPerson,
     required this.contactNumber,
   });
 
   Map<String, dynamic> toJson() => {
         'deceasedName': deceasedName,
-        'pickupLocationCode': pickupLocationCode,
-        'pickupLocation': pickupLocationCode,
+        'pickupLocation': pickupLocation,
         'contactPerson': contactPerson,
         'contactNumber': contactNumber,
       };

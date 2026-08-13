@@ -14,6 +14,8 @@ import '../models/field_option.dart';
 import '../services/field_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AttachmentSection extends StatefulWidget {
   final String objectId;
   final bool readOnly;
@@ -131,7 +133,7 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                 children: [
                   const Text('DOCUMENT TYPE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<FieldOption>(
+                  SearchableDropdownFormField<FieldOption>(
                     decoration: InputDecoration(
                       hintText: 'Select category',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),

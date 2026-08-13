@@ -11,6 +11,8 @@ import '../../partners/models/partner.dart';
 import '../services/payment_request_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class PaymentRequestCreateScreen extends StatefulWidget {
   const PaymentRequestCreateScreen({super.key});
 
@@ -224,7 +226,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
                   children: [
                     _buildSectionHeader(Icons.category_outlined, 'Payment Request Type'),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: _selectedType,
                       decoration: const InputDecoration(
                         labelText: 'Request type',
@@ -495,7 +497,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
   Widget _buildDropdown(String label, String? value, List<FieldOption> options,
       Function(String?) onChanged, {bool isRequired = true, bool enabled = true}) {
-    return DropdownButtonFormField<String>(
+    return SearchableDropdownFormField<String>(
       value: value,
       decoration: InputDecoration(
         labelText: label,

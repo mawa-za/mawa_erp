@@ -17,6 +17,8 @@ import '../models/approval.dart';
 import '../services/approval_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class _ApprovalComparisonHeader extends StatelessWidget {
   final String text;
   final bool emphasise;
@@ -150,6 +152,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       case 'MEMBERSHIP_TRANSFER':
       case 'MEMBERSHIP_PLAN_CHANGE':
       case 'MEMBERSHIP_DEPENDENT_CHANGE':
+      case 'PREMIUM_PAYMENT_DELETION':
         final membershipId = _membershipIdFromPayload();
         if (membershipId != null) {
           screen = MembershipDetailScreen(membershipId: membershipId);
@@ -231,7 +234,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                 'The applicable fine will be deducted from the claim payout.',
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
+              SearchableDropdownFormField<int>(
                 value: selected,
                 decoration: const InputDecoration(
                   labelText: 'Months in arrears',
@@ -1302,7 +1305,8 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       case 'INVOICE': return const Color(0xFF0891B2);
       case 'CLAIM': return const Color(0xFF7C3AED);
       case 'PAYMENT': return const Color(0xFF2563EB);
-      case 'PAYMENT_REQUEST': return const Color(0xFFF20D1A);
+      case 'PAYMENT_REQUEST':
+      case 'PREMIUM_PAYMENT_DELETION': return const Color(0xFFF20D1A);
       case 'CASHUP': return const Color(0xFFEA580C);
       case 'LEAVE': return const Color(0xFFDB2777);
       default: return const Color(0xFF475569);
