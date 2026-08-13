@@ -330,6 +330,25 @@ class _ApprovalWorkflowListScreenState
                                               ),
                                             ),
                                           ),
+                                          if (workflow.autoApprove)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 3,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: colorScheme.secondaryContainer,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'AUTO',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: colorScheme.onSecondaryContainer,
+                                                ),
+                                              ),
+                                            ),
                                           Text(
                                             '${workflow.steps.length} steps',
                                             style: TextStyle(
