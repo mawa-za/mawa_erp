@@ -221,7 +221,7 @@ String _widgetText(Widget widget) {
   if (widget is Wrap) return widget.children.map(_widgetText).join(' ');
   if (widget is Expanded) return _widgetText(widget.child);
   if (widget is Flexible) return _widgetText(widget.child);
-  if (widget is Padding) return _widgetText(widget.child);
+  if (widget is Padding) return widget.child == null ? '' : _widgetText(widget.child!);
   if (widget is Align) return widget.child == null ? '' : _widgetText(widget.child!);
   if (widget is Center) return widget.child == null ? '' : _widgetText(widget.child!);
   if (widget is SizedBox) return widget.child == null ? '' : _widgetText(widget.child!);
