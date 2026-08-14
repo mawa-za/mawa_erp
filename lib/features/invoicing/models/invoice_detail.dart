@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/app_date_utils.dart';
+
 class InvoiceDetail {
   final String id;
   final String number;
@@ -62,30 +64,20 @@ class InvoiceDetail {
     final fullName = [name1, name2, name3].where((s) => s.isNotEmpty).join(' ');
     final resolvedName = fullName.isEmpty ? (json['partnerName']?.toString() ?? '') : fullName;
 
-    DateTime parsedDate;
-    try {
-      final dateStr = json['invoiceDate'] ?? '';
+    DateTime parseInvoiceDate(dynamic value, {DateTime? fallback}) {
+      final normalized = AppDateUtils.parse(value);
+      if (normalized != null) return normalized;
       try {
-        parsedDate = DateTime.parse(dateStr);
+        return DateFormat('MMM d, yyyy, h:mm:ss a').parse(value?.toString() ?? '');
       } catch (_) {
-        parsedDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(dateStr);
+        return fallback ?? DateTime.now();
       }
-    } catch (e) {
-      parsedDate = DateTime.now();
     }
 
-    DateTime? parsedDueDate;
-    try {
-      if (json['dueDate'] != null) {
-        try {
-          parsedDueDate = DateTime.parse(json['dueDate']);
-        } catch (_) {
-          parsedDueDate = DateFormat('MMM d, yyyy, h:mm:ss a').parse(json['dueDate']);
-        }
-      }
-    } catch (e) {
-      parsedDueDate = null;
-    }
+    final parsedDate = parseInvoiceDate(json['invoiceDate']);
+    final parsedDueDate = json['dueDate'] == null
+        ? null
+        : parseInvoiceDate(json['dueDate']);
 
     return InvoiceDetail(
       id: json['id'] ?? '',
@@ -228,12 +220,8 @@ class InvoicePayment {
   double get amount => amountCents / 100.0;
 
   factory InvoicePayment.fromJson(Map<String, dynamic> json) {
-    DateTime parsedDate;
-    try {
-      parsedDate = DateTime.parse(json['paymentDate'] ?? '');
-    } catch (e) {
-      parsedDate = DateTime.now();
-    }
+    final parsedDate =
+        AppDateUtils.parse(json['paymentDate']) ?? DateTime.now();
 
     return InvoicePayment(
       id: json['id'] ?? '',

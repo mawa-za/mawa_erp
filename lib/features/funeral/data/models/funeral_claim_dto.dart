@@ -1,5 +1,6 @@
 import 'funeral_enums.dart';
 
+import '../../../../core/utils/app_date_utils.dart';
 class FuneralClaimDto {
   final String id;
   final String? claimNumber;
@@ -78,7 +79,7 @@ class FuneralClaimDto {
       sourceReference: json['sourceReference']?.toString(),
       claimFormPrinted: json['claimFormPrinted'] == true || (json['claimFormPrintCount'] as num? ?? 0) > 0,
       claimFormPrintCount: (json['claimFormPrintCount'] as num?)?.toInt() ?? 0,
-      claimFormLastPrintedAt: json['claimFormLastPrintedAt'] == null ? null : DateTime.tryParse(json['claimFormLastPrintedAt'].toString()),
+      claimFormLastPrintedAt: AppDateUtils.parse(json['claimFormLastPrintedAt']),
     );
   }
 }

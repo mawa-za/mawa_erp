@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class DeviceSyncSubmission {
   final String submissionId;
   final String idempotencyKey;
@@ -42,7 +44,7 @@ class DeviceSyncSubmission {
         idempotencyKey: json['idempotencyKey']?.toString() ?? '',
         deviceId: json['deviceId']?.toString(),
         deviceSerialNumber: json['deviceSerialNumber']?.toString(),
-        syncTime: DateTime.tryParse(json['syncTime']?.toString() ?? ''),
+        syncTime: AppDateUtils.parse(json['syncTime']),
         submittedBy: json['submittedBy']?.toString(),
         method: json['method']?.toString() ?? '',
         path: json['path']?.toString() ?? '',
@@ -52,8 +54,8 @@ class DeviceSyncSubmission {
         status: json['status']?.toString() ?? 'UNKNOWN',
         attemptCount: (json['attemptCount'] as num?)?.toInt() ?? 0,
         errorMessage: json['errorMessage']?.toString(),
-        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
-        updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
-        processedAt: DateTime.tryParse(json['processedAt']?.toString() ?? ''),
+        createdAt: AppDateUtils.parse(json['createdAt']),
+        updatedAt: AppDateUtils.parse(json['updatedAt']),
+        processedAt: AppDateUtils.parse(json['processedAt']),
       );
 }

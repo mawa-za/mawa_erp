@@ -1,3 +1,5 @@
+import '../../../../core/utils/app_date_utils.dart';
+
 class GroupSocietyFuneralClaimDto {
   final String id;
   final String claimNo;
@@ -56,7 +58,7 @@ class GroupSocietyFuneralClaimDto {
       status: '${json['status'] ?? ''}',
       approvalRequestId: json['approvalRequestId']?.toString(),
       notes: json['notes']?.toString(),
-      createdAt: json['createdAt']?.toString(),
+      createdAt: json['createdAt'] == null ? null : AppDateUtils.normalizeDateTime(json['createdAt']),
     );
   }
 }

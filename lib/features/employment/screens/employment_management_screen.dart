@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
@@ -276,7 +277,7 @@ class _EmploymentManagementScreenState extends State<EmploymentManagementScreen>
                       const SizedBox(height: 5),
                       Text('${record['employeeNumber'] ?? 'Number pending'} • ${_positionLabel(record)}'),
                       const SizedBox(height: 3),
-                      Text('${record['startDate'] ?? '-'} to ${record['endDate'] ?? '-'}', style: Theme.of(context).textTheme.bodySmall),
+                      Text('${AppDateUtils.displayDate(record['startDate'])} to ${record['endDate'] == null ? 'Open ended' : AppDateUtils.displayDate(record['endDate'])}', style: Theme.of(context).textTheme.bodySmall),
                     ]),
                   ),
                   _statusChip(status),
@@ -332,7 +333,7 @@ class _EmploymentManagementScreenState extends State<EmploymentManagementScreen>
                   style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('${_employeeName(employee)}\nEffective ${action['effectiveDate'] ?? '-'} • ${action['reason'] ?? ''}'),
+                child: Text('${_employeeName(employee)}\nEffective ${AppDateUtils.displayDate(action['effectiveDate'])} • ${action['reason'] ?? ''}'),
               ),
               isThreeLine: true,
               trailing: _statusChip((action['status'] ?? '').toString()),
@@ -359,7 +360,7 @@ class _EmploymentManagementScreenState extends State<EmploymentManagementScreen>
               leading: const CircleAvatar(child: Icon(Icons.history_toggle_off_rounded)),
               title: Text(_label(event['eventType']), style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text(
-                'Employment ${event['employmentId'] ?? '-'} • ${event['effectiveDate'] ?? '-'}\n'
+                'Employment ${event['employmentId'] ?? '-'} • ${AppDateUtils.displayDate(event['effectiveDate'])}\n'
                 '${event['oldStatus'] ?? '—'} → ${event['newStatus'] ?? '—'} • ${event['reason'] ?? ''}',
               ),
               isThreeLine: true,
@@ -444,8 +445,8 @@ class _EmploymentFormDialogState extends State<_EmploymentFormDialog> {
     _position = _optionCode(record['position']);
     _branch = _optionCode(record['branch']);
     _department = _optionCode(record['department']);
-    _startDate = DateTime.tryParse((record['startDate'] ?? '').toString()) ?? DateTime.now();
-    _endDate = DateTime.tryParse((record['endDate'] ?? '').toString());
+    _startDate = AppDateUtils.parse(record['startDate']) ?? DateTime.now();
+    _endDate = AppDateUtils.parse(record['endDate']);
     if (record['employee'] is Map) _partner = Partner.fromJson(Map<String, dynamic>.from(record['employee'] as Map));
   }
 
@@ -637,7 +638,7 @@ class _EmploymentActionDialogState extends State<_EmploymentActionDialog> {
   void initState() {
     super.initState();
     _attachmentObjectId = 'EMPLOYMENT-ACTION-${DateTime.now().microsecondsSinceEpoch}';
-    final previousEnd = DateTime.tryParse((widget.record['endDate'] ?? '').toString());
+    final previousEnd = AppDateUtils.parse(widget.record['endDate']);
     _effectiveDate = isRehire && previousEnd != null ? previousEnd.add(const Duration(days: 1)) : DateTime.now();
     _type = _optionCode(widget.record['type']);
     _position = _optionCode(widget.record['position']);

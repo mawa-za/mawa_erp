@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class MembershipClaim {
   final String id;
   final String claimNo;
@@ -119,26 +121,8 @@ class MembershipClaim {
       return 0;
     }
 
-    String parseDate(dynamic date) {
-      if (date == null) return '';
-      if (date is String) return date;
-      if (date is List && date.length >= 3) {
-        try {
-          final year = date[0].toString();
-          final month = date[1].toString().padLeft(2, '0');
-          final day = date[2].toString().padLeft(2, '0');
-          if (date.length >= 5) {
-            final hour = date[3].toString().padLeft(2, '0');
-            final minute = date[4].toString().padLeft(2, '0');
-            return '$year-$month-$day $hour:$minute';
-          }
-          return '$year-$month-$day';
-        } catch (e) {
-          return date.toString();
-        }
-      }
-      return date.toString();
-    }
+    String parseDate(dynamic date) =>
+        AppDateUtils.normalizeDateTime(date);
 
     return MembershipClaim(
       id: (json['id'] ?? '').toString(),
@@ -155,11 +139,11 @@ class MembershipClaim {
       claimType: (json['claimType'] ?? '').toString(),
       coveragePlanId: (json['coveragePlanId'] ?? '').toString(),
       coveragePlanName: (json['coveragePlanName'] ?? json['coveragePlanId'] ?? '').toString(),
-      coverageEventDate: parseDate(json['coverageEventDate']),
+      coverageEventDate: AppDateUtils.normalizeDate(json['coverageEventDate']),
       deceasedType: (json['deceasedType'] ?? '').toString(),
       deceasedPartnerId: (json['deceasedPartnerId'] ?? '').toString(),
-      dateOfDeath: parseDate(json['dateOfDeath']),
-      claimDate: parseDate(json['claimDate']),
+      dateOfDeath: AppDateUtils.normalizeDate(json['dateOfDeath']),
+      claimDate: AppDateUtils.normalizeDate(json['claimDate']),
       causeOfDeath: json['causeOfDeath']?.toString(),
       deathCertificateNo: json['deathCertificateNo']?.toString(),
       claimantPartnerId: (json['claimantPartnerId'] ?? '').toString(),

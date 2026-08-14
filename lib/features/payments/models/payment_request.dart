@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class PaymentRequestResponse {
   final String id;
   final String requestNo;
@@ -104,7 +106,9 @@ class PaymentRequestResponse {
       externalReference: json['externalReference']?.toString(),
       paymentReason: json['paymentReason']?.toString(),
       notes: json['notes']?.toString(),
-      requestedPaymentDate: json['requestedPaymentDate']?.toString(),
+      requestedPaymentDate: json['requestedPaymentDate'] == null
+          ? null
+          : AppDateUtils.normalizeDate(json['requestedPaymentDate']),
       status: (json['status'] ?? 'DRAFT').toString(),
       approvalRequestId: json['approvalRequestId']?.toString(),
       approvalSource: json['approvalSource']?.toString(),
@@ -114,12 +118,14 @@ class PaymentRequestResponse {
       debtorAccountId: json['debtorAccountId']?.toString(),
       bankIntegration: json['bankIntegration']?.toString(),
       fnbInstructionId: json['fnbInstructionId']?.toString(),
-      paidDate: json['paidDate']?.toString(),
+      paidDate: json['paidDate'] == null
+          ? null
+          : AppDateUtils.normalizeDate(json['paidDate']),
       paidReference: json['paidReference']?.toString(),
       paidBy: json['paidBy']?.toString(),
-      createdAt: (json['createdAt'] ?? '').toString(),
+      createdAt: AppDateUtils.normalizeDateTime(json['createdAt']),
       createdBy: (json['createdBy'] ?? '').toString(),
-      updatedAt: (json['updatedAt'] ?? '').toString(),
+      updatedAt: AppDateUtils.normalizeDateTime(json['updatedAt']),
       updatedBy: json['updatedBy']?.toString(),
     );
   }
@@ -211,10 +217,18 @@ class PaymentDisbursementAttempt {
       failureCode: json['failureCode']?.toString(),
       failureMessage: json['failureMessage']?.toString(),
       bankReportAvailable: json['bankReportAvailable'] == true,
-      bankReportRetrievedAt: json['bankReportRetrievedAt']?.toString(),
-      submittedAt: json['submittedAt']?.toString(),
-      lastCheckedAt: json['lastCheckedAt']?.toString(),
-      completedAt: json['completedAt']?.toString(),
+      bankReportRetrievedAt: json['bankReportRetrievedAt'] == null
+          ? null
+          : AppDateUtils.normalizeDateTime(json['bankReportRetrievedAt']),
+      submittedAt: json['submittedAt'] == null
+          ? null
+          : AppDateUtils.normalizeDateTime(json['submittedAt']),
+      lastCheckedAt: json['lastCheckedAt'] == null
+          ? null
+          : AppDateUtils.normalizeDateTime(json['lastCheckedAt']),
+      completedAt: json['completedAt'] == null
+          ? null
+          : AppDateUtils.normalizeDateTime(json['completedAt']),
     );
   }
 }
@@ -248,7 +262,7 @@ class PaymentRequestStatusHistoryEntity {
       oldStatus: (json['oldStatus'] ?? '').toString(),
       newStatus: (json['newStatus'] ?? '').toString(),
       comment: json['comment']?.toString(),
-      changedAt: (json['changedAt'] ?? '').toString(),
+      changedAt: AppDateUtils.normalizeDateTime(json['changedAt']),
       changedBy: (json['changedBy'] ?? '').toString(),
     );
   }
@@ -307,7 +321,9 @@ class BankGroupHeader {
   factory BankGroupHeader.fromJson(Map<String, dynamic> json) {
     return BankGroupHeader(
       messageId: json['messageId']?.toString(),
-      creationDateTime: json['creationDateTime']?.toString(),
+      creationDateTime: json['creationDateTime'] == null
+          ? null
+          : AppDateUtils.normalizeDateTime(json['creationDateTime']),
       initiatingPartyName: json['initiatingPartyName']?.toString(),
       initiatingPartyBIC: json['initiatingPartyBIC']?.toString(),
       totalNumberOfTransactions: json['totalNumberOfTransactions'] as int?,
@@ -336,7 +352,9 @@ class OriginalGroupHeader {
   factory OriginalGroupHeader.fromJson(Map<String, dynamic> json) {
     return OriginalGroupHeader(
       originalMessageId: json['originalMessageId']?.toString(),
-      originalCreationDateTime: json['originalCreationDateTime']?.toString(),
+      originalCreationDateTime: json['originalCreationDateTime'] == null
+          ? null
+          : AppDateUtils.normalizeDateTime(json['originalCreationDateTime']),
       originalInitiatingPartyName: json['originalInitiatingPartyName']?.toString(),
       originalInitiatingPartyBIC: json['originalInitiatingPartyBIC']?.toString(),
       originalTotalNumberOfTransactions: json['originalTotalNumberOfTransactions'] as int?,

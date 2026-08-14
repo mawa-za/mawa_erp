@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../../../core/models/field_option.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/field_service.dart';
 import '../../../core/services/user_service.dart';
@@ -29,7 +29,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
   final _referenceController = TextEditingController();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
-  DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
+  DateTime _dueDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
   String? _selectedPaymentReason;
   String? _selectedPaymentMethod;
@@ -188,7 +188,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         "externalReference": _referenceController.text,
         "paymentReason": _selectedPaymentReason,
         "notes": _notesController.text,
-        "requestedPaymentDate": DateFormat('yyyy-MM-dd').format(_dueDate)
+        "requestedPaymentDate": AppDateUtils.apiDate(_dueDate)
       };
 
       await PaymentRequestService().createPaymentRequest(payload);
@@ -539,7 +539,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         final picked = await showDatePicker(
           context: context,
           initialDate: _dueDate,
-          firstDate: DateTime.now(),
+          firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
           lastDate: DateTime.now().add(const Duration(days: 365)),
         );
         if (picked != null) setState(() => _dueDate = picked);
@@ -554,7 +554,7 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(DateFormat('yyyy-MM-dd').format(_dueDate), style: const TextStyle(fontSize: 14)),
+            Text(AppDateUtils.displayDate(_dueDate), style: const TextStyle(fontSize: 14)),
             const Icon(Icons.calendar_today, size: 18),
           ],
         ),

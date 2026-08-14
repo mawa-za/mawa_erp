@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class SchedulerConfigurationScreen extends StatefulWidget {
@@ -165,8 +166,8 @@ class _SchedulerConfigurationScreenState extends State<SchedulerConfigurationScr
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Run now'),
                 ),
-                Text('Last: ${job['lastRunAt'] ?? 'Never'}'),
-                Text('Next: ${job['nextRunAt'] ?? 'Stopped'}'),
+                Text('Last: ${job['lastRunAt'] == null ? 'Never' : AppDateUtils.displayDateTime(job['lastRunAt'])}'),
+                Text('Next: ${job['nextRunAt'] == null ? 'Stopped' : AppDateUtils.displayDateTime(job['nextRunAt'])}'),
               ],
             ),
           ],
