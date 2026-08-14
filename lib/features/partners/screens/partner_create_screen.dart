@@ -249,7 +249,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           }
         }
       } else {
-        throw AppException('Failed to save partner: ${response.statusCode}');
+        throw AppException(response.body.trim().isEmpty ? 'Failed to save partner: ${response.statusCode}' : 'Failed to save partner: ${response.body}');
       }
     } catch (e) {
       if (mounted) {

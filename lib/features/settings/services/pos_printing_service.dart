@@ -6,6 +6,14 @@ import '../models/pos_printing_models.dart';
 import '../../membership/models/receipt_print_data.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+
+class ReceiptPrinterAvailability {
+  final bool online;
+  final String message;
+
+  const ReceiptPrinterAvailability({required this.online, required this.message});
+}
+
 class PosPrintingService {
   static String _requestId({String? prefix}) {
     final random = Random.secure();
@@ -47,6 +55,63 @@ class PosPrintingService {
     await prefs.setString(_terminalNamePreference, name);
     await prefs.setString(_terminalLocationPreference, terminalLocation);
     return PosTerminal.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+  }
+
+  Future<ReceiptPrinterAvailability> receiptPrinterAvailability() async {
+    try {
+      final terminal = await ensureTerminal();
+      if (!terminal.configured) {
+        return const ReceiptPrinterAvailability(
+          online: false,
+          message: 'This device does not have a receipt printer configured.',
+        );
+      }
+
+      final agents = await getAgents();
+      PosPrintAgent? assignedAgent;
+      for (final agent in agents) {
+        if (agent.id == terminal.agentId) {
+          assignedAgent = agent;
+          break;
+        }
+      }
+      if (assignedAgent == null || !assignedAgent.active || !assignedAgent.online) {
+        return const ReceiptPrinterAvailability(
+          online: false,
+          message: 'The configured Windows print agent is offline.',
+        );
+      }
+
+      PosPrinter? receiptPrinter;
+      for (final printer in assignedAgent.printers) {
+        if (printer.id == terminal.defaultReceiptPrinterId) {
+          receiptPrinter = printer;
+          break;
+        }
+      }
+      if (receiptPrinter == null) {
+        return const ReceiptPrinterAvailability(
+          online: false,
+          message: 'The configured receipt printer could not be found on the print agent.',
+        );
+      }
+      if (!receiptPrinter.online) {
+        return ReceiptPrinterAvailability(
+          online: false,
+          message: 'Receipt printer ${receiptPrinter.displayName} is offline.',
+        );
+      }
+
+      return ReceiptPrinterAvailability(
+        online: true,
+        message: 'Receipt printer ${receiptPrinter.displayName} is online.',
+      );
+    } catch (error) {
+      return ReceiptPrinterAvailability(
+        online: false,
+        message: 'MAWA could not confirm the receipt printer status: ${friendlyErrorMessage(error)}',
+      );
+    }
   }
 
   Future<List<PosPrintAgent>> getAgents() async {

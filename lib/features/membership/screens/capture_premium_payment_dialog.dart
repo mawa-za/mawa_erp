@@ -143,6 +143,33 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   Future<void> _submitPayment() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final printerStatus = await PosPrintingService().receiptPrinterAvailability();
+    if (!mounted) return;
+    if (!printerStatus.online) {
+      final continueWithoutPrinting = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Receipt printer offline'),
+          content: Text(
+            '${printerStatus.message}\n\n'
+            'The payment can still be processed, but MAWA will not be able to print the receipt automatically. '
+            'Use another device with an online printer or process a manual payment if a printed receipt is required.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('PROCESS WITHOUT PRINTING'),
+            ),
+          ],
+        ),
+      );
+      if (continueWithoutPrinting != true) return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _error = null;

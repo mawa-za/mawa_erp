@@ -9,8 +9,6 @@ import '../services/cashup_service.dart';
 import 'cashup_detail_screen.dart';
 import '../../employment/services/employment_service.dart';
 import '../../../core/widgets/app_dropdown.dart';
-import '../../settings/models/manual_receipt_book.dart';
-import '../../settings/services/manual_receipt_book_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
@@ -35,7 +33,6 @@ class _CashupListScreenState extends State<CashupListScreen> {
   };
 
   final CashupService _cashupService = CashupService();
-  final ManualReceiptBookService _manualReceiptBookService = ManualReceiptBookService();
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final List<Cashup> _cashups = [];
@@ -136,33 +133,23 @@ class _CashupListScreenState extends State<CashupListScreen> {
 
 
   Future<void> _showManualCashupDialog() async {
-    List<ManualReceiptBook> receiptBooks;
     List<Map<String, dynamic>> activeEmployees;
     try {
-      final results = await Future.wait([
-        _manualReceiptBookService.list(activeOnly: true),
-        EmploymentService().list(status: 'ACTIVE'),
-      ]);
-      receiptBooks = results[0] as List<ManualReceiptBook>;
-      activeEmployees = results[1] as List<Map<String, dynamic>>;
+      activeEmployees = await EmploymentService().list(status: 'ACTIVE');
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyErrorMessage('Failed to load manual receipt books: $error')), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage('Failed to load active employees: $error'),
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
 
     if (!mounted) return;
-    if (receiptBooks.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No active manual receipt books exist. Maintain a receipt book before creating a manual cashup.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
 
     final fromController = TextEditingController();
     final toController = TextEditingController();
@@ -171,7 +158,6 @@ class _CashupListScreenState extends State<CashupListScreen> {
     String? employeeResponsibleId;
     String? employeeResponsibleName;
     String? areaCode;
-    ManualReceiptBook? selectedBook;
     DateTime cashupDate = DateTime.now();
     String? validationError;
 
@@ -188,12 +174,13 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Enter the physical receipt-book range. Any captured manual receipts in the range will be linked automatically.',
+                    'Enter the physical receipt range. MAWA will identify the receipt book and validate that both receipt numbers belong to the same active book.',
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: amountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Manual Cashup Amount *',
                       prefixText: 'R ',
@@ -225,7 +212,8 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     onChanged: (value) {
                       setDialogState(() {
                         employeeResponsibleId = value;
-                        employeeResponsibleName = _employeeNameByPartnerId(activeEmployees, value);
+                        employeeResponsibleName =
+                            _employeeNameByPartnerId(activeEmployees, value);
                         validationError = null;
                       });
                     },
@@ -235,47 +223,10 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     field: 'SALES-AREA',
                     label: 'Area *',
                     value: areaCode,
-                    onChanged: (value) => setDialogState(() => areaCode = value),
-                  ),
-                  const SizedBox(height: 12),
-                  SearchableDropdownFormField<ManualReceiptBook>(
-                    value: selectedBook,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Receipt Book Number *',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: receiptBooks
-                        .map(
-                          (book) => DropdownMenuItem(
-                            value: book,
-                            child: Text('${book.receiptBookNo} • ${book.rangeLabel}'),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (book) {
-                      setDialogState(() {
-                        selectedBook = book;
-                        final assignedEmployeeId = book?.assignedEmployeeId?.trim();
-                        if (assignedEmployeeId != null && assignedEmployeeId.isNotEmpty) {
-                          final isActive = activeEmployees
-                              .any((record) => _employeePartnerId(record) == assignedEmployeeId);
-                          if (isActive) {
-                            employeeResponsibleId = assignedEmployeeId;
-                            employeeResponsibleName = _employeeNameByPartnerId(
-                              activeEmployees,
-                              assignedEmployeeId,
-                            );
-                          }
-                        }
-                        if (book?.assignedAreaCode != null && book!.assignedAreaCode!.isNotEmpty) {
-                          areaCode = book.assignedAreaCode;
-                        }
-                        fromController.text = book?.receiptFromNo ?? '';
-                        toController.text = book?.receiptToNo ?? '';
-                        validationError = null;
-                      });
-                    },
+                    onChanged: (value) => setDialogState(() {
+                      areaCode = value;
+                      validationError = null;
+                    }),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -286,6 +237,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
                             labelText: 'Receipt From *',
+                            helperText: 'Book is determined automatically',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -297,6 +249,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
                             labelText: 'Receipt To *',
+                            helperText: 'Must be in the same book',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -314,7 +267,8 @@ class _CashupListScreenState extends State<CashupListScreen> {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: cashupDate,
-                          firstDate: DateTime.now().subtract(const Duration(days: 3650)),
+                          firstDate: DateTime.now()
+                              .subtract(const Duration(days: 3650)),
                           lastDate: DateTime.now(),
                         );
                         if (picked != null) {
@@ -337,7 +291,8 @@ class _CashupListScreenState extends State<CashupListScreen> {
                     const SizedBox(height: 12),
                     Text(
                       validationError!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style:
+                          TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
                   ],
                 ],
@@ -351,44 +306,28 @@ class _CashupListScreenState extends State<CashupListScreen> {
             ),
             FilledButton(
               onPressed: () {
-                final book = selectedBook;
                 final from = fromController.text.trim();
                 final to = toController.text.trim();
                 final fromNumber = int.tryParse(from);
                 final toNumber = int.tryParse(to);
+                final amount = double.tryParse(
+                  amountController.text.trim().replaceAll(',', '.'),
+                );
 
-                final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
                 String? error;
                 if (amount == null || amount <= 0) {
                   error = 'A valid manual cashup amount is required.';
-                } else if (employeeResponsibleId == null || employeeResponsibleId!.isEmpty) {
+                } else if (employeeResponsibleId == null ||
+                    employeeResponsibleId!.isEmpty) {
                   error = activeEmployees.isEmpty
                       ? 'No active employees are available for manual cashup.'
                       : 'Employee responsible is required.';
                 } else if (areaCode == null || areaCode!.isEmpty) {
                   error = 'Area is required.';
-                } else if (book == null) {
-                  error = 'Receipt book number is required.';
-                } else if (book.assignedEmployeeId != null &&
-                    book.assignedEmployeeId!.isNotEmpty &&
-                    book.assignedEmployeeId != employeeResponsibleId) {
-                  error = 'Receipt book ${book.receiptBookNo} is assigned to ${book.assignedEmployeeName ?? 'another employee'}.';
-                } else if (book.assignedAreaCode != null &&
-                    book.assignedAreaCode!.isNotEmpty &&
-                    book.assignedAreaCode != areaCode) {
-                  error = 'Receipt book ${book.receiptBookNo} is assigned to ${book.assignedAreaName ?? book.assignedAreaCode}.';
                 } else if (fromNumber == null || toNumber == null) {
                   error = 'Receipt from and receipt to must be numeric.';
                 } else if (fromNumber > toNumber) {
                   error = 'Receipt from cannot be greater than receipt to.';
-                } else {
-                  final configuredFrom = int.tryParse(book!.receiptFromNo ?? '');
-                  final configuredTo = int.tryParse(book.receiptToNo ?? '');
-                  if (configuredFrom != null && fromNumber < configuredFrom) {
-                    error = 'Receipt from is outside the configured book range (${book.rangeLabel}).';
-                  } else if (configuredTo != null && toNumber > configuredTo) {
-                    error = 'Receipt to is outside the configured book range (${book.rangeLabel}).';
-                  }
                 }
 
                 if (error != null) {
@@ -399,10 +338,10 @@ class _CashupListScreenState extends State<CashupListScreen> {
                 Navigator.pop(context, {
                   'amountCents': (amount! * 100).round(),
                   'employeeResponsibleId': employeeResponsibleId,
-                  'employeeResponsibleName': employeeResponsibleName ?? employeeResponsibleId,
+                  'employeeResponsibleName':
+                      employeeResponsibleName ?? employeeResponsibleId,
                   'areaCode': areaCode,
                   'areaName': areaCode,
-                  'receiptBookNo': book!.receiptBookNo,
                   'receiptFromNo': from,
                   'receiptToNo': to,
                   'cashupDate': DateFormat('yyyy-MM-dd').format(cashupDate),
@@ -427,28 +366,22 @@ class _CashupListScreenState extends State<CashupListScreen> {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId') ?? '';
       if (userId.isEmpty) {
-        throw AppException('The current user could not be identified. Please sign in again.');
+        throw AppException(
+          'The current user could not be identified. Please sign in again.',
+        );
       }
       request['userId'] = userId;
-      final cashup = await _cashupService.createManualCashup(request);
+      await _cashupService.createManualCashup(request);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Manual cashup #${cashup.cashupNo} created successfully'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('Manual cashup created successfully.')),
       );
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CashupDetailScreen(cashupId: cashup.id),
-        ),
-      );
-      if (mounted) await _loadCashups(reset: true);
+      await _loadCashups(reset: true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(friendlyErrorMessage('Failed to create manual cashup: $error')),
+          content: Text(friendlyErrorMessage(error)),
           backgroundColor: Colors.red,
         ),
       );
