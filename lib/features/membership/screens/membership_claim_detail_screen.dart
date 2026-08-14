@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_claim.dart';
 import '../models/membership_detail.dart';
@@ -458,7 +459,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
                 const SizedBox(height: 8),
                 Text('A linked tombstone order is available for review.', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 if (claim.settledAt?.isNotEmpty ?? false)
-                  Text('Settled: ${claim.settledAt}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text('Settled: ${AppDateUtils.displayDateTime(claim.settledAt)}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: () => Navigator.of(context).push(

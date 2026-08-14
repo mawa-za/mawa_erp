@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 import '../../../core/widgets/attachment_section.dart';
 import '../models/leave_request.dart';
@@ -150,7 +151,7 @@ class _LeaveRequestDetailScreenState extends State<LeaveRequestDetailScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.circle_outlined, size: 18),
                   title: Text(_label(_fieldCode(event['status']))),
-                  subtitle: Text('${event['changedAt'] ?? event['createdAt'] ?? '-'} • ${event['changedBy'] ?? '-'}${event['reason'] != null ? '\n${event['reason']}' : ''}'),
+                  subtitle: Text('${AppDateUtils.displayDateTime(event['changedAt'] ?? event['createdAt'])} • ${event['changedBy'] ?? '-'}${event['reason'] != null ? '\n${event['reason']}' : ''}'),
                 )),
             ]),
             if (request.status == 'PENDING') ...[

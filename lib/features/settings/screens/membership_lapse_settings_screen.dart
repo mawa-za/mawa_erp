@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
@@ -69,7 +70,7 @@ class _MembershipLapseSettingsScreenState
         _twoMonthFineController.text = _formatCurrencyInput(
           _asInt(data['twoMonthArrearsFineCents']),
         );
-        _lastRunAt = data['lastRunAt']?.toString();
+        _lastRunAt = AppDateUtils.normalizeDateTime(data['lastRunAt'], fallback: '');
         _lastLapsedCount = _asInt(data['lastLapsedCount']);
         _loading = false;
       });
@@ -111,7 +112,7 @@ class _MembershipLapseSettingsScreenState
       final data = _decodeObject(response.body);
       if (!mounted) return;
       setState(() {
-        _lastRunAt = data['lastRunAt']?.toString();
+        _lastRunAt = AppDateUtils.normalizeDateTime(data['lastRunAt'], fallback: '');
         _lastLapsedCount = _asInt(data['lastLapsedCount']);
       });
       _showMessage('Membership lapse configuration saved.');
@@ -474,19 +475,8 @@ class _MembershipLapseSettingsScreenState
     return fallback;
   }
 
-  String _formatDateTime(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Never';
-    try {
-      final date = DateTime.parse(value).toLocal();
-      return '${date.year.toString().padLeft(4, '0')}-'
-          '${date.month.toString().padLeft(2, '0')}-'
-          '${date.day.toString().padLeft(2, '0')} '
-          '${date.hour.toString().padLeft(2, '0')}:'
-          '${date.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return value;
-    }
-  }
+  String _formatDateTime(String? value) =>
+      AppDateUtils.displayDateTime(value, fallback: 'Never');
 
   void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(

@@ -1,5 +1,6 @@
 import 'funeral_enums.dart';
 
+import '../../../../core/utils/app_date_utils.dart';
 class PickupRequestDto {
   final String? id;
   final String deceasedName;
@@ -65,10 +66,10 @@ class PickupRequestDto {
       pickupLocationCode: json['pickupLocationCode']?.toString(),
       status: PickupStatus.parse(json['status']),
       staffId: (json['assignedStaffId'] ?? json['staffId'])?.toString(),
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
-      arrivalTime: json['arrivalTime'] != null ? DateTime.tryParse(json['arrivalTime'].toString()) : null,
-      injuryAssessedAt: json['injuryAssessedAt'] != null ? DateTime.tryParse(json['injuryAssessedAt'].toString()) : null,
-      completionTime: json['completionTime'] != null ? DateTime.tryParse(json['completionTime'].toString()) : null,
+      createdAt: AppDateUtils.parse(json['createdAt']),
+      arrivalTime: AppDateUtils.parse(json['arrivalTime']),
+      injuryAssessedAt: AppDateUtils.parse(json['injuryAssessedAt']),
+      completionTime: AppDateUtils.parse(json['completionTime']),
     );
   }
 }

@@ -1,3 +1,4 @@
+import '../../../core/utils/app_date_utils.dart';
 import 'receipt_allocation_response.dart';
 
 class ReceiptResponse {
@@ -49,7 +50,7 @@ class ReceiptResponse {
       paymentBatchNo: (json['paymentBatchNo'] ?? '').toString(),
       sourceType: (json['sourceType'] ?? '').toString(),
       membershipId: (json['membershipId'] ?? '').toString(),
-      receiptDate: (json['receiptDate'] ?? '').toString(),
+      receiptDate: AppDateUtils.normalizeDateTime(json['receiptDate']),
       paymentMethod: (json['paymentMethod'] ?? '').toString(),
       totalAmountCents: json['totalAmountCents'] ?? 0,
       status: (json['status'] ?? '').toString(),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -309,7 +310,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
         ...order.laybyInstallments.map((row) => ListTile(
           dense: true,
           leading: Icon(row['status'] == 'PAID' ? Icons.check_circle : Icons.schedule),
-          title: Text('Instalment ${row['installmentNo']} • ${row['dueDate']}'),
+          title: Text('Instalment ${row['installmentNo']} • ${AppDateUtils.displayDate(row['dueDate'])}'),
           subtitle: Text(_label(row['status']?.toString() ?? '')),
           trailing: Text('R ${_cents(row['paidAmountCents']).toStringAsFixed(2)} / R ${_cents(row['amountCents']).toStringAsFixed(2)}'),
         )),
@@ -388,7 +389,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       final checklist = (installation['checklist'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
       return ExpansionTile(
         title: Text('${installation['installationNo']} • ${_label(installation['status']?.toString() ?? '')}'),
-        subtitle: Text('${installation['scheduledStartAt'] ?? 'Not scheduled'} • ${(installation['team'] as List? ?? const []).length} team member(s)'),
+        subtitle: Text('${installation['scheduledStartAt'] == null ? 'Not scheduled' : AppDateUtils.displayDateTime(installation['scheduledStartAt'])} • ${(installation['team'] as List? ?? const []).length} team member(s)'),
         children: [
           ...checklist.map((item) => CheckboxListTile(
             value: item['completed'] == true,
@@ -449,7 +450,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       dense: true,
       leading: const Icon(Icons.change_circle_outlined),
       title: Text('${h['statusDimension']}: ${_label(h['fromStatus']?.toString() ?? 'New')} → ${_label(h['toStatus']?.toString() ?? '')}'),
-      subtitle: Text('${h['changedAt'] ?? ''}${h['reason'] == null ? '' : '\n${h['reason']}'}'),
+      subtitle: Text('${AppDateUtils.displayDateTime(h['changedAt'])}${h['reason'] == null ? '' : '\n${h['reason']}'}'),
     )).toList(),
   );
 
@@ -787,7 +788,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
   }
 
   Future<void> _scheduleInstallation(Map<String, dynamic> installation) async {
-    final start = TextEditingController(text: installation['scheduledStartAt']?.toString() ?? '');
+    final start = TextEditingController(text: AppDateUtils.normalizeDateTime(installation['scheduledStartAt']) ?? '');
     final end = TextEditingController(text: installation['scheduledEndAt']?.toString() ?? '');
     final result = await _simpleDialog('Schedule Installation', [
       _DialogField('Start (YYYY-MM-DDTHH:mm)', start),

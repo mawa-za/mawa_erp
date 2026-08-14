@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
@@ -69,8 +70,10 @@ class _PremiumGenerationSettingsScreenState
             : rawMode;
         _generationDay = configuredDay.clamp(1, 31).toInt();
         _enabled = _asBool(data['enabled'], fallback: true);
-        _lastRunAt =
-            (data['lastRunAt'] ?? data['last_run_at'])?.toString();
+        _lastRunAt = AppDateUtils.normalizeDateTime(
+          data['lastRunAt'] ?? data['last_run_at'],
+          fallback: '',
+        );
         _lastGeneratedPeriod =
             (data['lastGeneratedPeriod'] ?? data['last_generated_period'])
                 ?.toString();
@@ -105,8 +108,10 @@ class _PremiumGenerationSettingsScreenState
       final data = _decodeObject(response.body);
       if (!mounted) return;
       setState(() {
-        _lastRunAt =
-            (data['lastRunAt'] ?? data['last_run_at'])?.toString();
+        _lastRunAt = AppDateUtils.normalizeDateTime(
+          data['lastRunAt'] ?? data['last_run_at'],
+          fallback: '',
+        );
         _lastGeneratedPeriod =
             (data['lastGeneratedPeriod'] ?? data['last_generated_period'])
                 ?.toString();
@@ -433,17 +438,8 @@ class _PremiumGenerationSettingsScreenState
     };
   }
 
-  static String _formatDateTime(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Not run yet';
-    final parsed = DateTime.tryParse(value);
-    if (parsed == null) return value;
-    final local = parsed.toLocal();
-    return '${local.year.toString().padLeft(4, '0')}-'
-        '${local.month.toString().padLeft(2, '0')}-'
-        '${local.day.toString().padLeft(2, '0')} '
-        '${local.hour.toString().padLeft(2, '0')}:'
-        '${local.minute.toString().padLeft(2, '0')}';
-  }
+  static String _formatDateTime(String? value) =>
+      AppDateUtils.displayDateTime(value, fallback: 'Not run yet');
 
   static String _formatPeriod(String? value) {
     if (value == null || value.length != 6) return 'Not generated yet';

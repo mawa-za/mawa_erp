@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class DeviceCrashLog {
   final String logId;
   final String? deviceId;
@@ -47,7 +49,7 @@ class DeviceCrashLog {
         platform: json['platform']?.toString(),
         deviceModel: json['deviceModel']?.toString(),
         osVersion: json['osVersion']?.toString(),
-        occurredAt: DateTime.tryParse(json['occurredAt']?.toString() ?? ''),
-        receivedAt: DateTime.tryParse(json['receivedAt']?.toString() ?? ''),
+        occurredAt: AppDateUtils.parse(json['occurredAt']),
+        receivedAt: AppDateUtils.parse(json['receivedAt']),
       );
 }
