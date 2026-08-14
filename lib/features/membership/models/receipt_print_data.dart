@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/app_date_utils.dart';
+
 class ReceiptPrintData {
   final String receiptNo;
   final String traceId;
@@ -83,7 +85,7 @@ class ReceiptPrintData {
         customerNumber: (json['customerNumber'] ?? '').toString(),
         amountCents: (json['amountCents'] as num?)?.toInt() ?? 0,
         paymentMethod: (json['paymentMethod'] ?? '').toString(),
-        receiptDate: (json['receiptDate'] ?? '').toString(),
+        receiptDate: AppDateUtils.normalizeDateTime(json['receiptDate']),
         employeeResponsible:
             (json['employeeResponsible'] ?? '').toString(),
       );

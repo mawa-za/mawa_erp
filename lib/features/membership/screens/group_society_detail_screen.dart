@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/group_society.dart';
@@ -864,7 +865,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Group Society Agreement', style: TextStyle(fontWeight: FontWeight.w800)),
-                Text('Printed ${_society?.agreementPrintCount ?? 0} time(s)${_society?.agreementLastPrintedAt == null ? '' : ' • Last ${_society!.agreementLastPrintedAt}'}'),
+                Text('Printed ${_society?.agreementPrintCount ?? 0} time(s)${_society?.agreementLastPrintedAt == null ? '' : ' • Last ${AppDateUtils.displayDateTime(_society!.agreementLastPrintedAt)}'}'),
               ])),
               FilledButton.icon(onPressed: _printAgreement, icon: const Icon(Icons.print_outlined), label: const Text('Print')),
             ]),
@@ -909,7 +910,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
               child: Icon(isCredit ? Icons.add_rounded : Icons.remove_rounded, color: isCredit ? Colors.green : Colors.red),
             ),
             title: Text('R ${p.amount.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.w900, color: isCredit ? Colors.green : Colors.red)),
-            subtitle: Text('${p.txnType} • ${p.txnDate}', style: const TextStyle(fontSize: 12)),
+            subtitle: Text('${p.txnType} • ${AppDateUtils.displayDate(p.txnDate)}', style: const TextStyle(fontSize: 12)),
             children: [
               Padding(
                 padding: const EdgeInsets.all(16),

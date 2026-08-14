@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class ApprovalSubmission {
   final String approvalType; // Enum: CLAIM, PAYMENT, LEAVE, etc.
   final String referenceId;
@@ -89,10 +91,10 @@ class Approval {
       status: (json['status'] ?? 'PENDING').toString(),
       payloadJson: json['payloadJson']?.toString(),
       finalActionBy: json['finalActionBy']?.toString(),
-      finalActionAt: json['finalActionAt']?.toString(),
-      createdAt: (json['createdAt'] ?? '').toString(),
+      finalActionAt: json['finalActionAt'] == null ? null : AppDateUtils.normalizeDateTime(json['finalActionAt']),
+      createdAt: AppDateUtils.normalizeDateTime(json['createdAt']),
       createdBy: json['createdBy']?.toString(),
-      updatedAt: (json['updatedAt'] ?? '').toString(),
+      updatedAt: AppDateUtils.normalizeDateTime(json['updatedAt']),
       updatedBy: json['updatedBy']?.toString(),
     );
   }
@@ -152,7 +154,7 @@ class ApprovalAction {
       stepNo: toInt(json['stepNo']),
       action: (json['action'] ?? '').toString(),
       actionBy: (json['actionBy'] ?? '').toString(),
-      actionAt: (json['actionAt'] ?? '').toString(),
+      actionAt: AppDateUtils.normalizeDateTime(json['actionAt']),
       comments: json['comments']?.toString(),
     );
   }

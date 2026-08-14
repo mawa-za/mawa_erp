@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class PayrollBatchSummary {
   final String id;
   final String batchNo;
@@ -48,7 +50,7 @@ class PayrollBatchSummary {
       batchNo: (json['batchNo'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       payPeriod: (json['payPeriod'] ?? '').toString(),
-      paymentDate: (json['paymentDate'] ?? '').toString(),
+      paymentDate: AppDateUtils.normalizeDate(json['paymentDate']),
       status: (json['status'] ?? 'NEW').toString(),
       totalAmount: amount,
       itemCount: toInt(json['totalEmployees'] ?? json['itemCount']),
@@ -126,7 +128,7 @@ class PayrollBatchDetail {
       batchNo: (json['batchNo'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       payPeriod: (json['payPeriod'] ?? '').toString(),
-      paymentDate: (json['paymentDate'] ?? '').toString(),
+      paymentDate: AppDateUtils.normalizeDate(json['paymentDate']),
       notes: (json['notes'] ?? '').toString(),
       status: (json['status'] ?? 'NEW').toString(),
       totalAmount: amount,
@@ -136,9 +138,9 @@ class PayrollBatchDetail {
       bankReportStatus: json['bankReportStatus']?.toString(),
       bankReportReason: json['bankReportReason']?.toString(),
       bankReportJson: json['bankReportJson']?.toString(),
-      bankQueuedAt: json['bankQueuedAt']?.toString(),
-      bankSubmittedAt: json['bankSubmittedAt']?.toString(),
-      bankReportRetrievedAt: json['bankReportRetrievedAt']?.toString(),
+      bankQueuedAt: json['bankQueuedAt'] == null ? null : AppDateUtils.normalizeDateTime(json['bankQueuedAt']),
+      bankSubmittedAt: json['bankSubmittedAt'] == null ? null : AppDateUtils.normalizeDateTime(json['bankSubmittedAt']),
+      bankReportRetrievedAt: json['bankReportRetrievedAt'] == null ? null : AppDateUtils.normalizeDateTime(json['bankReportRetrievedAt']),
       items: (json['items'] is List)
           ? (json['items'] as List).map((item) => PayrollItem.fromJson(item)).toList()
           : [],

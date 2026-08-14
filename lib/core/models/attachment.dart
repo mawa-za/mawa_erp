@@ -1,3 +1,5 @@
+import '../utils/app_date_utils.dart';
+
 class Attachment {
   final String id;
   final String description;
@@ -29,7 +31,7 @@ class Attachment {
       id: (json['id'] ?? '').toString(),
       description: docType?['description']?.toString() ?? 'Document',
       extension: (json['extension'] ?? '').toString(),
-      uploadDate: (json['uploadDate'] ?? '').toString(),
+      uploadDate: AppDateUtils.normalizeDateTime(json['uploadDate']),
       uploadedBy: '${uploadBy?['name2'] ?? ''} ${uploadBy?['name1'] ?? ''}'.trim(),
     );
   }

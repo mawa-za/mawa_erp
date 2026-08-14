@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class PosPrinter {
   final String id;
   final String agentId;
@@ -69,7 +71,7 @@ class PosPrintAgent {
         status: (json['status'] ?? '').toString(),
         online: json['online'] == true,
         agentVersion: (json['agentVersion'] ?? '').toString(),
-        lastHeartbeatAt: json['lastHeartbeatAt']?.toString(),
+        lastHeartbeatAt: json['lastHeartbeatAt'] == null ? null : AppDateUtils.normalizeDateTime(json['lastHeartbeatAt']),
         printers: ((json['printers'] as List?) ?? const [])
             .whereType<Map>()
             .map((e) => PosPrinter.fromJson(Map<String, dynamic>.from(e)))
@@ -127,7 +129,7 @@ class PosEnrollmentCode {
 
   factory PosEnrollmentCode.fromJson(Map<String, dynamic> json) => PosEnrollmentCode(
         code: (json['code'] ?? '').toString(),
-        expiresAt: (json['expiresAt'] ?? '').toString(),
+        expiresAt: AppDateUtils.normalizeDateTime(json['expiresAt']),
         agentName: (json['agentName'] ?? '').toString(),
         location: (json['location'] ?? '').toString(),
       );

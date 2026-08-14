@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_detail.dart';
@@ -1210,7 +1211,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             },
             leading: CircleAvatar(backgroundColor: statusColor.withOpacity(0.1), child: Icon(Icons.description_outlined, color: statusColor, size: 20)),
             title: Text('Claim #${claim.claimNo}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: Text('${claim.claimType} • ${claim.claimDate}', style: const TextStyle(fontSize: 12)),
+            subtitle: Text('${claim.claimType} • ${AppDateUtils.displayDate(claim.claimDate)}', style: const TextStyle(fontSize: 12)),
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,

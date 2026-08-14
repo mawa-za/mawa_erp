@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
 import 'payroll_batch_detail_screen.dart';
@@ -173,7 +174,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(DateFormat('yyyy-MM-dd').format(paymentDate)),
+                        Text(AppDateUtils.displayDate(paymentDate)),
                         const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
                       ],
                     ),
@@ -502,7 +503,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
                           children: [
                             const Icon(Icons.calendar_today_rounded, size: 12, color: Colors.grey),
                             const SizedBox(width: 4),
-                            Text(batch.paymentDate, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            Text(AppDateUtils.displayDate(batch.paymentDate), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
@@ -289,7 +290,7 @@ class _LeaveBalanceManagementScreenState
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
             subtitle: Text(
-              '${item['leaveTypeName'] ?? '-'}: ${item['adjustmentAmount'] ?? 0} effective ${item['effectiveDate'] ?? '-'}\n${item['reason'] ?? ''}',
+              '${item['leaveTypeName'] ?? '-'}: ${item['adjustmentAmount'] ?? 0} effective ${AppDateUtils.displayDate(item['effectiveDate'])}\n${item['reason'] ?? ''}',
             ),
             isThreeLine: true,
             trailing: Chip(label: Text(_label(item['status']))),

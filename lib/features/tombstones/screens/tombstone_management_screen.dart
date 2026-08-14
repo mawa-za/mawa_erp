@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'tombstone_order_detail_screen.dart';
@@ -405,7 +406,7 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
     final status = record['status']?.toString() ?? '';
     final subtitle = switch (_section) {
       'laybys' => 'Balance R ${_cents(record['balanceCents']).toStringAsFixed(2)} • ${_label(status)}',
-      'calendar' => '${record['scheduledStartAt'] ?? 'Not scheduled'} • ${_label(status)}',
+      'calendar' => '${record['scheduledStartAt'] == null ? 'Not scheduled' : AppDateUtils.displayDateTime(record['scheduledStartAt'])} • ${_label(status)}',
       'teams' => '${(record['team'] as List? ?? const []).length} team member(s) • ${_label(status)}',
       _ => _label(status),
     };
