@@ -36,7 +36,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<FieldOption> causeOfDeathOptions = [];
 
   // Step 2: Family Rep & Funeral Info
-  String? familyRepPartnerId; // Legacy arrangements only. New arrangements use free text.
+  String? familyRepPartnerId;
   String familyRepresentativeNames = '';
   String familyRepresentativeSurname = '';
   String familyRepresentativeContactDetails = '';

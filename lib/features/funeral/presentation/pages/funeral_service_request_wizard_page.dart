@@ -11,6 +11,7 @@ import '../widgets/membership_cover_selection_card.dart';
 import '../widgets/invoice_preview_summary_card.dart';
 import '../widgets/funeral_money_text.dart';
 import '../widgets/funeral_status_chip.dart';
+import '../widgets/family_representative_selector_dialog.dart';
 import '../../../../core/files/download_bytes.dart';
 import '../../../../core/widgets/attachment_section.dart';
 import '../../../../core/utils/formatters.dart';
@@ -35,9 +36,6 @@ class FuneralServiceRequestWizardPage extends StatefulWidget {
 class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestWizardPage> {
   late final FuneralServiceRequestWizardController _controller;
   final _idNumberController = TextEditingController();
-  final _familyNamesController = TextEditingController();
-  final _familySurnameController = TextEditingController();
-  final _familyContactController = TextEditingController();
   final _deathCertificateController = TextEditingController();
   final _deliveryDirectionsController = TextEditingController();
 
@@ -64,15 +62,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     if (_deliveryDirectionsController.text != _controller.deceasedDeliveryDirections) {
       _deliveryDirectionsController.text = _controller.deceasedDeliveryDirections;
     }
-    if (_familyNamesController.text != _controller.familyRepresentativeNames) {
-      _familyNamesController.text = _controller.familyRepresentativeNames;
-    }
-    if (_familySurnameController.text != _controller.familyRepresentativeSurname) {
-      _familySurnameController.text = _controller.familyRepresentativeSurname;
-    }
-    if (_familyContactController.text != _controller.familyRepresentativeContactDetails) {
-      _familyContactController.text = _controller.familyRepresentativeContactDetails;
-    }
     if (_deathCertificateController.text != _controller.deathCertificateNo) {
       _deathCertificateController.text = _controller.deathCertificateNo;
     }
@@ -83,9 +72,6 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     _idNumberController.dispose();
-    _familyNamesController.dispose();
-    _familySurnameController.dispose();
-    _familyContactController.dispose();
     _deathCertificateController.dispose();
     _deliveryDirectionsController.dispose();
     super.dispose();
@@ -285,44 +271,80 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
   }
 
   Widget _buildFamilyRepStep() {
+    final hasRepresentative =
+        (_controller.familyRepPartnerId ?? '').trim().isNotEmpty;
+    final representativeName = [
+      _controller.familyRepresentativeNames.trim(),
+      _controller.familyRepresentativeSurname.trim(),
+    ].where((value) => value.isNotEmpty).join(' ');
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Family Representative Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _familyNamesController,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Names *',
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (value) => _controller.familyRepresentativeNames = value,
+        const Text(
+          'Family Representative',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Search for the representative as an existing partner before continuing. If the partner does not exist, MAWA will create the partner with the CUSTOMER role.',
         ),
         const SizedBox(height: 16),
-        TextFormField(
-          controller: _familySurnameController,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Surname *',
-            border: OutlineInputBorder(),
+        if (hasRepresentative)
+          Card(
+            elevation: 0,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.check_circle_outline, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text(
+                        'Representative selected',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    representativeName.isEmpty
+                        ? 'Selected partner'
+                        : representativeName,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (_controller.familyRepresentativeContactDetails
+                      .trim()
+                      .isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(_controller.familyRepresentativeContactDetails.trim()),
+                  ],
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _selectFamilyRepresentative,
+                    icon: const Icon(Icons.manage_search),
+                    label: const Text('CHANGE REPRESENTATIVE'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          FilledButton.icon(
+            onPressed: _selectFamilyRepresentative,
+            icon: const Icon(Icons.person_search_outlined),
+            label: const Text('SEARCH / SELECT REPRESENTATIVE'),
           ),
-          onChanged: (value) => _controller.familyRepresentativeSurname = value,
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _familyContactController,
-          minLines: 1,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Contact Details *',
-            hintText: 'Cellphone, alternate contact, email or other contact details',
-            border: OutlineInputBorder(),
-          ),
-          onChanged: (value) => _controller.familyRepresentativeContactDetails = value,
-        ),
         const Divider(height: 48),
-        const Text('Funeral Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text(
+          'Funeral Information',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 16),
         ListTile(
           title: const Text('Funeral Date'),
@@ -342,19 +364,24 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ),
         const SizedBox(height: 8),
         SearchableDropdownFormField<String>(
-          value: _controller.funeralLocation.isEmpty ? null : _controller.funeralLocation,
+          value: _controller.funeralLocation.isEmpty
+              ? null
+              : _controller.funeralLocation,
           isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Funeral Location / Area',
             border: OutlineInputBorder(),
           ),
           items: _controller.salesAreaOptions
-              .map((option) => DropdownMenuItem<String>(
-                    value: option.description,
-                    child: Text(option.description),
-                  ))
+              .map(
+                (option) => DropdownMenuItem<String>(
+                  value: option.description,
+                  child: Text(option.description),
+                ),
+              )
               .toList(),
-          onChanged: (value) => setState(() => _controller.funeralLocation = value ?? ''),
+          onChanged: (value) =>
+              setState(() => _controller.funeralLocation = value ?? ''),
         ),
         const SizedBox(height: 16),
         TextFormField(
@@ -364,15 +391,39 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
             labelText: 'Directions to Deceased Delivery Location',
-            hintText: 'Type clear directions, landmarks, gate details, village/section, or turn-by-turn instructions.',
-            helperText: 'These directions will appear on the Funeral Service Request Form.',
+            hintText:
+                'Type clear directions, landmarks, gate details, village/section, or turn-by-turn instructions.',
+            helperText:
+                'These directions will appear on the Funeral Service Request Form.',
             alignLabelWithHint: true,
             border: OutlineInputBorder(),
           ),
-          onChanged: (value) => _controller.deceasedDeliveryDirections = value,
+          onChanged: (value) =>
+              _controller.deceasedDeliveryDirections = value,
         ),
       ],
     );
+  }
+
+  Future<void> _selectFamilyRepresentative() async {
+    final selection = await showDialog<FamilyRepresentativeSelection>(
+      context: context,
+      builder: (context) => const FamilyRepresentativeSelectorDialog(),
+    );
+    if (selection == null || !mounted) return;
+
+    final partner = selection.partner;
+    setState(() {
+      _controller.familyRepPartnerId = partner.id;
+      _controller.familyRepresentativeNames = [
+        partner.name2.trim(),
+        partner.name3.trim(),
+      ].where((value) => value.isNotEmpty).join(' ');
+      _controller.familyRepresentativeSurname = partner.name1.trim();
+      _controller.familyRepresentativeContactDetails =
+          selection.contactDetails.trim();
+      _controller.errorMessage = null;
+    });
   }
 
   Widget _buildPackageStep() {
@@ -1612,16 +1663,14 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       _controller.errorMessage = null;
       _controller.nextStep();
     } else if (_controller.currentStep == 2) {
-      if (_controller.familyRepresentativeNames.trim().isEmpty) {
-        setState(() => _controller.errorMessage = 'Family representative names are required.');
-        return;
-      }
-      if (_controller.familyRepresentativeSurname.trim().isEmpty) {
-        setState(() => _controller.errorMessage = 'Family representative surname is required.');
+      if ((_controller.familyRepPartnerId ?? '').trim().isEmpty) {
+        setState(() => _controller.errorMessage =
+            'Please search for and select the family representative.');
         return;
       }
       if (_controller.familyRepresentativeContactDetails.trim().isEmpty) {
-        setState(() => _controller.errorMessage = 'Family representative contact details are required.');
+        setState(() => _controller.errorMessage =
+            'Family representative contact details are required.');
         return;
       }
       if (_controller.funeralLocation.trim().isEmpty) {

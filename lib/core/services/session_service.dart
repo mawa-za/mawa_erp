@@ -12,7 +12,7 @@ class SessionService {
   SessionService._internal();
 
   Timer? _inactivityTimer;
-  int _timeoutSeconds = 600;
+  int _timeoutSeconds = 1200;
   bool _isMonitoring = false;
 
   void startMonitoring() async {

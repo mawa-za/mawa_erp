@@ -91,7 +91,7 @@ class Partner {
     final title = getStringFromObj(json['title']);
     final gender = getStringFromObj(json['gender']);
     final maritalStatus = getStringFromObj(json['maritalStatus']);
-    final language = getStringFromObj(json['language'], key: 'description');
+    final language = getStringFromObj(json['language']);
 
     final identityObj = asMap(json['identity']);
 
