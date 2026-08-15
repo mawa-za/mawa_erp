@@ -23,6 +23,7 @@ class AttachmentSection extends StatefulWidget {
   final ValueChanged<int>? onAttachmentCountChanged;
   final bool allowDelete;
   final Set<String> protectedDocumentTypes;
+  final Set<String> hiddenDocumentTypes;
   
   const AttachmentSection({
     super.key, 
@@ -32,6 +33,7 @@ class AttachmentSection extends StatefulWidget {
     this.onAttachmentCountChanged,
     this.allowDelete = false,
     this.protectedDocumentTypes = const <String>{},
+    this.hiddenDocumentTypes = const <String>{},
   });
 
   @override
@@ -68,8 +70,14 @@ class _AttachmentSectionState extends State<AttachmentSection> {
         }
 
         if (mounted) {
+          final hiddenTypes = widget.hiddenDocumentTypes
+              .map((value) => value.trim().toUpperCase())
+              .toSet();
           final loaded = data
               .map((json) => Attachment.fromJson(Map<String, dynamic>.from(json)))
+              .where((attachment) => !hiddenTypes.contains(
+                    attachment.documentType.trim().toUpperCase(),
+                  ))
               .toList();
           setState(() {
             _attachments = loaded;
@@ -101,7 +109,13 @@ class _AttachmentSectionState extends State<AttachmentSection> {
 
   Future<void> _uploadAttachment() async {
     try {
-      final List<FieldOption> docTypes = await FieldService().getOptionsByField(widget.documentTypeField);
+      final hiddenTypes = widget.hiddenDocumentTypes
+          .map((value) => value.trim().toUpperCase())
+          .toSet();
+      final List<FieldOption> docTypes = (await FieldService()
+              .getOptionsByField(widget.documentTypeField))
+          .where((type) => !hiddenTypes.contains(type.code.trim().toUpperCase()))
+          .toList();
       
       if (!mounted) return;
 

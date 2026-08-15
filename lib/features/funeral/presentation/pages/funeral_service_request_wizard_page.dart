@@ -894,6 +894,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                       documentTypeField: 'DOCUMENT-TYPE-CLAIM',
                       allowDelete: claim.rawStatus == 'DRAFT',
                       protectedDocumentTypes: const {'CLAIM-FORM'},
+                      hiddenDocumentTypes: const {'CLAIM-FORM'},
                     ),
                     if (claim.status == ClaimStatus.PENDING &&
                         !claim.managedExternally)
