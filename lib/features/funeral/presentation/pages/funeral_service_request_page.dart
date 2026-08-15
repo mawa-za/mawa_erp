@@ -261,6 +261,13 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                   ],
+                  if (request.deceasedDeliveryDateTime != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Deceased delivery: ${Formatters.formatDate(request.deceasedDeliveryDateTime!)} '
+                      '${TimeOfDay.fromDateTime(request.deceasedDeliveryDateTime!).format(context)}',
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,

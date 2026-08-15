@@ -241,6 +241,11 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
   IconData _iconForType(String type) {
     switch (type.toUpperCase()) {
       case 'CLAIM':
+      case 'CLAIM_CASH':
+      case 'CLAIM_TOMBSTONE':
+      case 'CLAIM_FUNERAL':
+      case 'CLAIM_COMBINATION':
+      case 'CLAIM_GROCERY':
         return Icons.request_quote_outlined;
       case 'PAYMENT':
       case 'PAYMENT_REQUEST':

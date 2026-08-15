@@ -138,6 +138,11 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         screen = InvoiceDetailScreen(invoiceId: id);
         break;
       case 'CLAIM':
+      case 'CLAIM_CASH':
+      case 'CLAIM_TOMBSTONE':
+      case 'CLAIM_FUNERAL':
+      case 'CLAIM_COMBINATION':
+      case 'CLAIM_GROCERY':
         screen = MembershipClaimDetailScreen(claimId: id);
         break;
       case 'PAYMENT':
@@ -294,7 +299,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   Future<void> _takeAction(String action) async {
     int? arrearsMonths;
     if (action.toUpperCase() == 'APPROVE' &&
-        _approval.approvalType.toUpperCase() == 'CLAIM') {
+        _isClaimApprovalType(_approval.approvalType)) {
       arrearsMonths = await _selectClaimArrearsMonths();
       if (arrearsMonths == null) return;
     }
@@ -382,6 +387,11 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         );
       }
     }
+  }
+
+  bool _isClaimApprovalType(String value) {
+    final type = value.trim().toUpperCase();
+    return type == 'CLAIM' || type.startsWith('CLAIM_');
   }
 
   @override
@@ -1303,7 +1313,13 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   Color _getTypeColor(String type) {
     switch (type.toUpperCase()) {
       case 'INVOICE': return const Color(0xFF0891B2);
-      case 'CLAIM': return const Color(0xFF7C3AED);
+      case 'CLAIM':
+      case 'CLAIM_CASH':
+      case 'CLAIM_TOMBSTONE':
+      case 'CLAIM_FUNERAL':
+      case 'CLAIM_COMBINATION':
+      case 'CLAIM_GROCERY':
+        return const Color(0xFF7C3AED);
       case 'PAYMENT': return const Color(0xFF2563EB);
       case 'PAYMENT_REQUEST':
       case 'PREMIUM_PAYMENT_DELETION': return const Color(0xFFF20D1A);

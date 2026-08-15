@@ -115,7 +115,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         final userId = prefs.getString('userId') ?? '';
 
         final submission = ApprovalSubmission(
-          approvalType: 'CLAIM',
+          approvalType: _approvalTypeForClaim(_claim!.claimType),
           referenceId: _claim!.id,
           referenceNo: _claim!.claimNo,
           title: 'Death claim ${_claim!.claimNo} - ${_deceasedPartner?.fullName ?? "Deceased not identified"}',
@@ -156,6 +156,23 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
       }
+    }
+  }
+
+  String _approvalTypeForClaim(String claimType) {
+    switch (claimType.trim().toUpperCase()) {
+      case 'CASH':
+        return 'CLAIM_CASH';
+      case 'TOMBSTONE':
+        return 'CLAIM_TOMBSTONE';
+      case 'FUNERAL':
+        return 'CLAIM_FUNERAL';
+      case 'COMBINATION':
+        return 'CLAIM_COMBINATION';
+      case 'GROCERY':
+        return 'CLAIM_GROCERY';
+      default:
+        return 'CLAIM';
     }
   }
 
