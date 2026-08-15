@@ -15,6 +15,7 @@ import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../../settings/services/pos_printing_service.dart';
+import '../../../core/services/setting_service.dart';
 import '../../../core/widgets/attachment_section.dart';
 import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
@@ -22,6 +23,7 @@ import 'membership_claim_create_screen.dart';
 import 'membership_claim_detail_screen.dart';
 import 'capture_premium_payment_dialog.dart';
 import 'capture_manual_premium_receipt_dialog.dart';
+import 'transfer_premium_payment_dialog.dart';
 import '../widgets/membership_change_section.dart';
 import '../utils/membership_claim_eligibility.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -43,6 +45,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   Map<String, Partner> _dependentPartners = {};
   List<Premium> _premiums = [];
   List<MembershipClaim> _claims = [];
+  bool _allowPremiumPaymentTransfer = false;
+  bool _allowDeleteWithoutCashupValidation = false;
   String? _error;
 
   @override
@@ -76,7 +80,31 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       final plan = results[1] as MembershipPlan;
       final premiums = results[2] as List<Premium>;
       final claims = results[3] as List<MembershipClaim>;
-      
+
+      var allowPremiumPaymentTransfer = false;
+      var allowDeleteWithoutCashupValidation = false;
+      try {
+        final settings = await SettingService().getSettings();
+        for (final setting in settings) {
+          if (setting.type.trim().toUpperCase() != 'MEMBERSHIP') continue;
+          final value = setting.value.trim().toLowerCase();
+          final enabled = value == '1' ||
+              value == 'true' ||
+              value == 'yes' ||
+              value == 'on';
+          switch (setting.attribute.trim().toUpperCase()) {
+            case 'ALLOW_PREMIUM_PAYMENT_TRANSFER':
+              allowPremiumPaymentTransfer = enabled;
+              break;
+            case 'ALLOW_PREMIUM_PAYMENT_DELETE_WITHOUT_CASHUP_VALIDATION':
+              allowDeleteWithoutCashupValidation = enabled;
+              break;
+          }
+        }
+      } catch (_) {
+        // Restricted correction actions remain disabled when settings cannot load.
+      }
+
       final Map<String, Partner> dependentPartners = {};
       await Future.wait(dependents.map((d) async {
         if (d.dependentPartnerId.isNotEmpty) {
@@ -98,6 +126,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _dependentPartners = dependentPartners;
           _premiums = premiums;
           _claims = claims;
+          _allowPremiumPaymentTransfer = allowPremiumPaymentTransfer;
+          _allowDeleteWithoutCashupValidation = allowDeleteWithoutCashupValidation;
           _isLoading = false;
         });
       }
@@ -668,8 +698,10 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'The full payment batch will be reversed only after approval. This is allowed only while its linked cash-up remains OPEN.',
+              Text(
+                _allowDeleteWithoutCashupValidation
+                    ? 'The full payment batch will be reversed only after approval. Cash-up OPEN-status validation is disabled by configuration.'
+                    : 'The full payment batch will be reversed only after approval. This is allowed only while its linked cash-up remains OPEN.',
               ),
               const SizedBox(height: 16),
               TextField(
@@ -715,6 +747,111 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(friendlyErrorMessage('Unable to request premium payment deletion: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _transferPremiumPayment(Premium premium) async {
+    try {
+      final receipts = await MembershipService().getPremiumReceipts(
+        widget.membershipId,
+        premium.id,
+      );
+      if (!mounted) return;
+      final manualReceipts = receipts
+          .where((receipt) =>
+              receipt.status.toUpperCase() == 'POSTED' &&
+              receipt.isManualPremiumReceipt)
+          .toList();
+      if (manualReceipts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Only manually captured premium payments can be transferred.'),
+          ),
+        );
+        return;
+      }
+
+      ReceiptResponse? selectedReceipt;
+      if (manualReceipts.length == 1) {
+        selectedReceipt = manualReceipts.first;
+      } else {
+        selectedReceipt = await showDialog<ReceiptResponse>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select manual payment to transfer'),
+            content: SizedBox(
+              width: 500,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: manualReceipts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final receipt = manualReceipts[index];
+                  final manualNo = receipt.manualReceiptNo.trim();
+                  return ListTile(
+                    leading: const Icon(Icons.receipt_long_outlined),
+                    title: Text(receipt.receiptNo),
+                    subtitle: Text(
+                      '${manualNo.isEmpty ? 'Manual receipt' : 'Manual receipt $manualNo'} • R ${receipt.totalAmount.toStringAsFixed(2)}',
+                    ),
+                    onTap: () => Navigator.pop(context, receipt),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CANCEL'),
+              ),
+            ],
+          ),
+        );
+      }
+      if (selectedReceipt == null) return;
+      final receiptToTransfer = selectedReceipt;
+      if (receiptToTransfer.paymentBatchId.trim().isEmpty) {
+        throw StateError('This receipt does not have a payment batch reference.');
+      }
+
+      final transfer = await showDialog<PremiumPaymentTransferInput>(
+        context: context,
+        builder: (context) => TransferPremiumPaymentDialog(
+          currentMembershipId: widget.membershipId,
+          sourcePeriodYYYYMM: premium.periodYYYYMM,
+          amountCents: receiptToTransfer.totalAmountCents,
+        ),
+      );
+      if (transfer == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final requesterId = (prefs.getString('userId') ?? '').trim();
+      if (requesterId.isEmpty) {
+        throw StateError('The current user could not be identified.');
+      }
+
+      await MembershipService().transferManualPremiumPayment(
+        paymentBatchId: receiptToTransfer.paymentBatchId,
+        targetMembershipId: transfer.targetMembershipId,
+        targetPeriodYYYYMM: transfer.targetPeriodYYYYMM,
+        requestedBy: requesterId,
+        reason: transfer.reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium payment transferred successfully.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage('Unable to transfer premium payment: $error'),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -961,6 +1098,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                         icon: const Icon(Icons.print_outlined, size: 18),
                         label: const Text('REPRINT RECEIPT'),
                       ),
+                      if (_allowPremiumPaymentTransfer)
+                        OutlinedButton.icon(
+                          onPressed: () => _transferPremiumPayment(premium),
+                          icon: const Icon(Icons.swap_horiz, size: 18),
+                          label: const Text('TRANSFER PAYMENT'),
+                        ),
                       OutlinedButton.icon(
                         onPressed: () => _requestPremiumPaymentDeletion(premium),
                         icon: const Icon(Icons.delete_outline, size: 18),

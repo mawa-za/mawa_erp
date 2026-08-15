@@ -14,6 +14,8 @@ class _PremiumPaymentSettingsScreenState extends State<PremiumPaymentSettingsScr
   final _controller = TextEditingController(text: '3');
   bool _loading = true;
   bool _saving = false;
+  bool _allowDeleteWithoutCashupValidation = false;
+  bool _allowPremiumPaymentTransfer = false;
   String? _error;
 
   @override
@@ -31,12 +33,31 @@ class _PremiumPaymentSettingsScreenState extends State<PremiumPaymentSettingsScr
   Future<void> _load() async {
     try {
       final settings = await SettingService().getSettings();
-      final matches = settings.where((s) =>
-          s.type.trim().toUpperCase() == 'MEMBERSHIP' &&
-          s.attribute.trim().toUpperCase() == 'MAX_PREMIUM_PAYMENT_MONTHS');
-      if (matches.isNotEmpty && int.tryParse(matches.first.value) != null) {
-        _controller.text = matches.first.value;
+      String? valueFor(String attribute) {
+        final matches = settings.where((s) =>
+            s.type.trim().toUpperCase() == 'MEMBERSHIP' &&
+            s.attribute.trim().toUpperCase() == attribute);
+        return matches.isEmpty ? null : matches.first.value;
       }
+
+      bool enabled(String? value) {
+        final normalized = value?.trim().toLowerCase();
+        return normalized == '1' ||
+            normalized == 'true' ||
+            normalized == 'yes' ||
+            normalized == 'on';
+      }
+
+      final maxMonths = valueFor('MAX_PREMIUM_PAYMENT_MONTHS');
+      if (maxMonths != null && int.tryParse(maxMonths) != null) {
+        _controller.text = maxMonths;
+      }
+      _allowDeleteWithoutCashupValidation = enabled(
+        valueFor('ALLOW_PREMIUM_PAYMENT_DELETE_WITHOUT_CASHUP_VALIDATION'),
+      );
+      _allowPremiumPaymentTransfer = enabled(
+        valueFor('ALLOW_PREMIUM_PAYMENT_TRANSFER'),
+      );
     } catch (e) {
       _error = friendlyErrorMessage(e);
     } finally {
@@ -52,9 +73,22 @@ class _PremiumPaymentSettingsScreenState extends State<PremiumPaymentSettingsScr
     }
     setState(() { _saving = true; _error = null; });
     try {
-      await SettingService().updateSetting('MEMBERSHIP', 'MAX_PREMIUM_PAYMENT_MONTHS', '$value');
+      final settings = SettingService();
+      await settings.updateSetting('MEMBERSHIP', 'MAX_PREMIUM_PAYMENT_MONTHS', '$value');
+      await settings.updateSetting(
+        'MEMBERSHIP',
+        'ALLOW_PREMIUM_PAYMENT_DELETE_WITHOUT_CASHUP_VALIDATION',
+        _allowDeleteWithoutCashupValidation ? '1' : '0',
+      );
+      await settings.updateSetting(
+        'MEMBERSHIP',
+        'ALLOW_PREMIUM_PAYMENT_TRANSFER',
+        _allowPremiumPaymentTransfer ? '1' : '0',
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Premium payment limit saved.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium payment settings saved.')),
+      );
     } catch (e) {
       if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
@@ -70,7 +104,9 @@ class _PremiumPaymentSettingsScreenState extends State<PremiumPaymentSettingsScr
             : ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  const Text('Limit how many months of membership premiums can be processed in one online ERP payment.'),
+                  const Text(
+                    'Control premium payment limits and restricted correction actions. Override options are disabled by default.',
+                  ),
                   const SizedBox(height: 20),
                   TextField(
                     controller: _controller,
@@ -79,6 +115,36 @@ class _PremiumPaymentSettingsScreenState extends State<PremiumPaymentSettingsScr
                       labelText: 'Maximum premium months per payment',
                       helperText: 'Default is 3 months.',
                       border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          title: const Text(
+                            'Allow deletion without cash-up validation',
+                          ),
+                          subtitle: const Text(
+                            'When enabled, approved premium payment deletions are not restricted to receipts linked to an OPEN cash-up. Cash-up totals are recalculated when links exist.',
+                          ),
+                          value: _allowDeleteWithoutCashupValidation,
+                          onChanged: (value) => setState(
+                            () => _allowDeleteWithoutCashupValidation = value,
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          title: const Text('Allow manual premium payment transfer'),
+                          subtitle: const Text(
+                            'Allows a manually captured premium payment posted to the wrong membership to be reassigned to another membership and premium month.',
+                          ),
+                          value: _allowPremiumPaymentTransfer,
+                          onChanged: (value) => setState(
+                            () => _allowPremiumPaymentTransfer = value,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   if (_error != null) ...[

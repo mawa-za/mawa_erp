@@ -3,14 +3,14 @@ class FuneralServiceConfigurationDto {
   final bool coverSelectionLimitEnabled;
 
   const FuneralServiceConfigurationDto({
-    this.maxSelectableCovers = 0,
-    this.coverSelectionLimitEnabled = false,
+    this.maxSelectableCovers = 3,
+    this.coverSelectionLimitEnabled = true,
   });
 
   bool get hasCoverSelectionLimit => maxSelectableCovers > 0;
 
   factory FuneralServiceConfigurationDto.fromJson(Map<String, dynamic> json) {
-    final maxSelectableCovers = _parseInt(json['maxSelectableCovers']);
+    final maxSelectableCovers = _parseInt(json['maxSelectableCovers'], fallback: 3);
     return FuneralServiceConfigurationDto(
       maxSelectableCovers: maxSelectableCovers < 0 ? 0 : maxSelectableCovers,
       coverSelectionLimitEnabled: json['coverSelectionLimitEnabled'] is bool
@@ -24,9 +24,9 @@ class FuneralServiceConfigurationDto {
         'coverSelectionLimitEnabled': maxSelectableCovers > 0,
       };
 
-  static int _parseInt(dynamic value) {
+  static int _parseInt(dynamic value, {int fallback = 0}) {
     if (value is int) return value;
     if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
   }
 }

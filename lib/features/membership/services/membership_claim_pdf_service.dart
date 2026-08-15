@@ -4,6 +4,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../models/membership_claim.dart';
 import '../models/membership_detail.dart';
 import '../../partners/models/partner.dart';
+import '../../../core/pdf/company_pdf_branding.dart';
 
 class MembershipClaimPdfService {
   Future<Uint8List> buildClaimForm({
@@ -13,14 +14,15 @@ class MembershipClaimPdfService {
     MembershipDetail? membership,
   }) async {
     final doc = pw.Document();
+    final branding = await CompanyPdfBranding.load();
 
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
         build: (context) => [
-          pw.Text('Membership Claim Form', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 8),
+          branding.header(documentTitle: 'MEMBERSHIP CLAIM FORM'),
+          pw.SizedBox(height: 18),
           pw.Text('Claim No: ${claim.claimNo}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
           pw.Divider(height: 24),
           _section('Claim Details', [

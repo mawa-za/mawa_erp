@@ -363,6 +363,41 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           },
         ),
         const SizedBox(height: 8),
+        ListTile(
+          title: const Text('Deceased Delivery Date & Time'),
+          subtitle: Text(
+            _controller.deceasedDeliveryDateTime == null
+                ? 'Not selected'
+                : '${Formatters.formatDate(_controller.deceasedDeliveryDateTime!)} '
+                    '${TimeOfDay.fromDateTime(_controller.deceasedDeliveryDateTime!).format(context)}',
+          ),
+          trailing: const Icon(Icons.event_available_outlined),
+          onTap: () async {
+            final current = _controller.deceasedDeliveryDateTime ?? _controller.funeralDate;
+            final date = await showDatePicker(
+              context: context,
+              initialDate: current,
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+            );
+            if (date == null || !context.mounted) return;
+            final time = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(current),
+            );
+            if (time == null) return;
+            setState(() {
+              _controller.deceasedDeliveryDateTime = DateTime(
+                date.year,
+                date.month,
+                date.day,
+                time.hour,
+                time.minute,
+              );
+            });
+          },
+        ),
+        const SizedBox(height: 8),
         SearchableDropdownFormField<String>(
           value: _controller.funeralLocation.isEmpty
               ? null
@@ -582,7 +617,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
             const Padding(
               padding: EdgeInsets.only(top: 4),
               child: Text(
-                'Each selected membership contributes its Funeral benefit. A Combination benefit is only used for an explicit Combination claim.',
+                'Multiple selected covers use the Combination benefit and create Combination claims for the selected covers.',
                 style: TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ),

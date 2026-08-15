@@ -2,10 +2,8 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import '../models/case_trust.dart';
-import '../../../core/services/setting_service.dart';
-import '../../../core/api_client.dart';
+import '../../../core/pdf/company_pdf_branding.dart';
 
 class CaseTrustPdfService {
   static final CaseTrustPdfService _instance = CaseTrustPdfService._internal();
@@ -15,32 +13,7 @@ class CaseTrustPdfService {
   Future<Uint8List> generateTrustReceiptPdf(CaseTrustTransaction transaction) async {
     final doc = pw.Document();
 
-    // Load company info
-    List<dynamic> settings = [];
-    try {
-      settings = await SettingService().getSettings();
-    } catch (e) {
-      print('Error loading settings for PDF: $e');
-    }
-
-    final companyName = _getSetting(settings, 'NAME', 'mawa');
-    final companyAddress1 = _getSetting(settings, 'ADDRESS-LINE-1', '');
-    final companyAddress2 = _getSetting(settings, 'ADDRESS-LINE-2', '');
-    final companyCity = _getSetting(settings, 'CITY', '');
-    final companyPostalCode = _getSetting(settings, 'POSTAL-CODE', '');
-    final companyEmail = _getSetting(settings, 'EMAIL', '');
-    final companyPhone = _getSetting(settings, 'PHONE', '');
-
-    // Load Logo if available
-    pw.MemoryImage? logoImage;
-    try {
-      final logoBytes = await _loadLogoBytes();
-      if (logoBytes != null) {
-        logoImage = pw.MemoryImage(logoBytes);
-      }
-    } catch (e) {
-      print('Error loading logo for PDF: $e');
-    }
+    final branding = await CompanyPdfBranding.load();
 
     doc.addPage(
       pw.Page(
@@ -49,7 +22,7 @@ class CaseTrustPdfService {
         build: (pw.Context context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            _buildHeader(companyName, companyAddress1, companyAddress2, companyCity, companyPostalCode, companyEmail, companyPhone, logoImage),
+            branding.header(),
             pw.SizedBox(height: 30),
             pw.Center(
               child: pw.Text('TRUST RECEIPT', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
@@ -77,30 +50,6 @@ class CaseTrustPdfService {
     );
 
     return doc.save();
-  }
-
-  pw.Widget _buildHeader(String name, String a1, String a2, String city, String pc, String email, String phone, pw.MemoryImage? logo) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            if (logo != null)
-              pw.Container(height: 60, width: 60, child: pw.Image(logo))
-            else
-              pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-            pw.SizedBox(height: 4),
-            pw.Text(a1, style: const pw.TextStyle(fontSize: 9)),
-            if (a2.isNotEmpty) pw.Text(a2, style: const pw.TextStyle(fontSize: 9)),
-            pw.Text('$city, $pc', style: const pw.TextStyle(fontSize: 9)),
-            pw.Text('Phone: $phone', style: const pw.TextStyle(fontSize: 9)),
-            pw.Text('Email: $email', style: const pw.TextStyle(fontSize: 9)),
-          ],
-        ),
-      ],
-    );
   }
 
   pw.Widget _buildReceiptInfo(CaseTrustTransaction tx) {
@@ -152,26 +101,4 @@ class CaseTrustPdfService {
     );
   }
 
-  String _getSetting(List<dynamic> settings, String attribute, String defaultValue) {
-    try {
-      return settings.firstWhere((s) => s.type == 'TENANT' && s.attribute == attribute).value;
-    } catch (_) {
-      return defaultValue;
-    }
-  }
-
-  Future<Uint8List?> _loadLogoBytes() async {
-    try {
-      final response = await ApiClient().get(
-        '/v2/company-logo/content',
-        accept: 'image/*',
-      );
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        return Uint8List.fromList(response.bodyBytes);
-      }
-    } catch (e) {
-      print('Error fetching company logo: $e');
-    }
-    return null;
-  }
 }

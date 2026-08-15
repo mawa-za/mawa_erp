@@ -16,6 +16,9 @@ class ReceiptResponse {
   final String syncStatus;
   final bool printed;
   final int printCount;
+  final String captureSource;
+  final String manualReceiptBookNo;
+  final String manualReceiptNo;
   final List<ReceiptAllocationResponse> allocations;
 
   ReceiptResponse({
@@ -33,10 +36,18 @@ class ReceiptResponse {
     required this.syncStatus,
     required this.printed,
     required this.printCount,
+    required this.captureSource,
+    required this.manualReceiptBookNo,
+    required this.manualReceiptNo,
     required this.allocations,
   });
 
   double get totalAmount => totalAmountCents / 100.0;
+
+  bool get isManualPremiumReceipt =>
+      captureSource.toUpperCase() == 'LEGACY_CATCH_UP' ||
+      captureSource.toUpperCase() == 'MANUAL_EMERGENCY' ||
+      manualReceiptNo.trim().isNotEmpty;
 
   factory ReceiptResponse.fromJson(Map<String, dynamic> json) {
     var list = json['allocations'] as List? ?? [];
@@ -57,6 +68,9 @@ class ReceiptResponse {
       syncStatus: (json['syncStatus'] ?? '').toString(),
       printed: json['printed'] ?? false,
       printCount: json['printCount'] ?? 0,
+      captureSource: (json['captureSource'] ?? '').toString(),
+      manualReceiptBookNo: (json['manualReceiptBookNo'] ?? '').toString(),
+      manualReceiptNo: (json['manualReceiptNo'] ?? '').toString(),
       allocations: allocationsList,
     );
   }
