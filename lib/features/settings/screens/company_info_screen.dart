@@ -124,7 +124,7 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         throw AppException(message);
       }
       if (!mounted) return;
-      await _loadCompanyLogo();
+      await _loadLogo();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Company logo updated successfully')),
