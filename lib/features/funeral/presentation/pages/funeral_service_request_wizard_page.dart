@@ -796,9 +796,14 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       children: [
         const Text('Claim Documentation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        const Text('Upload the signed claim form and supporting documents once. They will be attached to every generated claim and the claims will then be submitted for approval.'),
+        const Text('Upload the supporting documents once. They will be included with every generated claim when the claims are submitted for approval.'),
         const SizedBox(height: 16),
-        AttachmentSection(objectId: serviceId, documentTypeField: 'DOCUMENT-TYPE-CLAIM'),
+        AttachmentSection(
+          objectId: serviceId,
+          documentTypeField: 'DOCUMENT-TYPE-CLAIM',
+          allowDelete: _controller.claims.isEmpty ||
+              _controller.claims.any((claim) => claim.rawStatus == 'DRAFT'),
+        ),
       ],
     );
   }
@@ -884,7 +889,13 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                           label: Text('Printed ${claim.claimFormPrintCount} time${claim.claimFormPrintCount == 1 ? '' : 's'}'),
                         ),
                     ]),
-                    AttachmentSection(objectId: claim.id, documentTypeField: 'DOCUMENT-TYPE-CLAIM'),
+                    AttachmentSection(
+                      objectId: claim.id,
+                      documentTypeField: 'DOCUMENT-TYPE-CLAIM',
+                      allowDelete: claim.rawStatus == 'DRAFT',
+                      protectedDocumentTypes: const {'CLAIM-FORM'},
+                      hiddenDocumentTypes: const {'CLAIM-FORM'},
+                    ),
                     if (claim.status == ClaimStatus.PENDING &&
                         !claim.managedExternally)
                       Padding(
