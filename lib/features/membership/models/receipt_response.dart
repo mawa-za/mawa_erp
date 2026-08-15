@@ -19,6 +19,8 @@ class ReceiptResponse {
   final String captureSource;
   final String manualReceiptBookNo;
   final String manualReceiptNo;
+  final String externalReceiptNo;
+  final String legacyPremiumPaymentId;
   final List<ReceiptAllocationResponse> allocations;
 
   ReceiptResponse({
@@ -39,15 +41,23 @@ class ReceiptResponse {
     required this.captureSource,
     required this.manualReceiptBookNo,
     required this.manualReceiptNo,
+    required this.externalReceiptNo,
+    required this.legacyPremiumPaymentId,
     required this.allocations,
   });
 
   double get totalAmount => totalAmountCents / 100.0;
 
-  bool get isManualPremiumReceipt =>
-      captureSource.toUpperCase() == 'LEGACY_CATCH_UP' ||
-      captureSource.toUpperCase() == 'MANUAL_EMERGENCY' ||
-      manualReceiptNo.trim().isNotEmpty;
+  bool get isManualPremiumReceipt {
+    final source = captureSource.trim().toUpperCase();
+    final migratedLegacyManual =
+        legacyPremiumPaymentId.trim().isNotEmpty &&
+        externalReceiptNo.trim().isNotEmpty;
+    return source == 'LEGACY_CATCH_UP' ||
+        source == 'MANUAL_EMERGENCY' ||
+        manualReceiptNo.trim().isNotEmpty ||
+        migratedLegacyManual;
+  }
 
   factory ReceiptResponse.fromJson(Map<String, dynamic> json) {
     var list = json['allocations'] as List? ?? [];
@@ -71,6 +81,8 @@ class ReceiptResponse {
       captureSource: (json['captureSource'] ?? '').toString(),
       manualReceiptBookNo: (json['manualReceiptBookNo'] ?? '').toString(),
       manualReceiptNo: (json['manualReceiptNo'] ?? '').toString(),
+      externalReceiptNo: (json['externalReceiptNo'] ?? '').toString(),
+      legacyPremiumPaymentId: (json['legacyPremiumPaymentId'] ?? '').toString(),
       allocations: allocationsList,
     );
   }

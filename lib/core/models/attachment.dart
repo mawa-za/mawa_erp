@@ -3,6 +3,7 @@ import '../utils/app_date_utils.dart';
 class Attachment {
   final String id;
   final String description;
+  final String documentType;
   final String extension;
   final String uploadDate;
   final String uploadedBy;
@@ -10,6 +11,7 @@ class Attachment {
   Attachment({
     required this.id,
     required this.description,
+    required this.documentType,
     required this.extension,
     required this.uploadDate,
     required this.uploadedBy,
@@ -30,6 +32,7 @@ class Attachment {
     return Attachment(
       id: (json['id'] ?? '').toString(),
       description: docType?['description']?.toString() ?? 'Document',
+      documentType: docType?['code']?.toString() ?? json['documentType']?.toString() ?? '',
       extension: (json['extension'] ?? '').toString(),
       uploadDate: AppDateUtils.normalizeDateTime(json['uploadDate']),
       uploadedBy: '${uploadBy?['name2'] ?? ''} ${uploadBy?['name1'] ?? ''}'.trim(),

@@ -116,8 +116,8 @@ class CompanyPdfBranding {
                   ? pw.Align(
                       alignment: pw.Alignment.topLeft,
                       child: pw.Container(
-                        width: 160,
-                        height: 48,
+                        width: 72,
+                        height: 72,
                         child: pw.Image(logo!, fit: pw.BoxFit.contain),
                       ),
                     )

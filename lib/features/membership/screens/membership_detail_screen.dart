@@ -791,11 +791,15 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 itemBuilder: (context, index) {
                   final receipt = manualReceipts[index];
                   final manualNo = receipt.manualReceiptNo.trim();
+                  final legacyManualNo = receipt.externalReceiptNo.trim();
+                  final displayManualNo = manualNo.isNotEmpty
+                      ? manualNo
+                      : legacyManualNo;
                   return ListTile(
                     leading: const Icon(Icons.receipt_long_outlined),
                     title: Text(receipt.receiptNo),
                     subtitle: Text(
-                      '${manualNo.isEmpty ? 'Manual receipt' : 'Manual receipt $manualNo'} • R ${receipt.totalAmount.toStringAsFixed(2)}',
+                      '${displayManualNo.isEmpty ? 'Manual receipt' : 'Manual receipt $displayManualNo'} • R ${receipt.totalAmount.toStringAsFixed(2)}',
                     ),
                     onTap: () => Navigator.pop(context, receipt),
                   );
