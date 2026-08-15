@@ -21,6 +21,8 @@ class AttachmentSection extends StatefulWidget {
   final bool readOnly;
   final String documentTypeField;
   final ValueChanged<int>? onAttachmentCountChanged;
+  final bool allowDelete;
+  final Set<String> protectedDocumentTypes;
   
   const AttachmentSection({
     super.key, 
@@ -28,6 +30,8 @@ class AttachmentSection extends StatefulWidget {
     this.readOnly = false,
     this.documentTypeField = 'DOCUMENT-TYPE',
     this.onAttachmentCountChanged,
+    this.allowDelete = false,
+    this.protectedDocumentTypes = const <String>{},
   });
 
   @override
@@ -305,6 +309,57 @@ class _AttachmentSectionState extends State<AttachmentSection> {
     }
   }
 
+  bool _canDelete(Attachment attachment) {
+    if (!widget.allowDelete || widget.readOnly) return false;
+    final protected = widget.protectedDocumentTypes
+        .map((value) => value.trim().toUpperCase())
+        .toSet();
+    return !protected.contains(attachment.documentType.trim().toUpperCase());
+  }
+
+  Future<void> _deleteAttachment(Attachment attachment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete attachment?'),
+        content: Text(
+          'Delete "${attachment.description}"? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final response = await ApiClient().delete('/v2/attachment/${attachment.id}');
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AppException('Failed to delete attachment: ${response.statusCode}');
+      }
+      await _loadAttachments();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Attachment deleted successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Delete failed: $e')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _showImagePreview(Uint8List bytes, Attachment att, String base64String) {
     showDialog(
       context: context,
@@ -565,10 +620,23 @@ class _AttachmentSectionState extends State<AttachmentSection> {
                   ),
                   title: Text(att.description, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   subtitle: Text('By ${att.uploadedBy} • ${att.uploadDate}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                  trailing: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: Colors.grey.shade50, shape: BoxShape.circle),
-                    child: const Icon(Icons.visibility_outlined, size: 18, color: Colors.blueGrey),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () => _viewAttachment(att),
+                        icon: const Icon(Icons.visibility_outlined, size: 18),
+                        tooltip: 'View attachment',
+                        color: Colors.blueGrey,
+                      ),
+                      if (_canDelete(att))
+                        IconButton(
+                          onPressed: () => _deleteAttachment(att),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          tooltip: 'Delete attachment',
+                          color: Colors.red.shade700,
+                        ),
+                    ],
                   ),
                   onTap: () => _viewAttachment(att),
                 ),
