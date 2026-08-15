@@ -332,6 +332,16 @@ class FuneralApi {
       throw AppException('Failed to submit claim: ${response.body}');
     }
   }
+
+  Future<void> submitClaimsForApproval(String serviceRequestId) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceRequestId/claims/submit-for-approval',
+    );
+    if (response.statusCode != 200) {
+      throw AppException('Failed to submit funeral claims: ${response.body}');
+    }
+  }
+
   Future<List<FuneralClaimDto>> getClaims(String serviceRequestId) async {
     final response = await _apiClient.get('/v2/funeral/service-request/$serviceRequestId/claims');
     if (response.statusCode == 200) {
