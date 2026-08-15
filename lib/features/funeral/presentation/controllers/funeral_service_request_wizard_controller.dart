@@ -323,22 +323,34 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   Future<bool> submitClaimsForApproval() async {
-    if (claims.isEmpty) return true;
+    if (claims.isEmpty || claims.every((claim) => claim.rawStatus != 'DRAFT')) {
+      return true;
+    }
+    if (serviceRequestId == null) {
+      errorMessage = 'Save the funeral arrangement before submitting claims for approval.';
+      notifyListeners();
+      return false;
+    }
     final unprinted = claims.where((claim) => !claim.claimFormPrinted).toList();
     if (unprinted.isNotEmpty) {
       errorMessage = 'Print or download every claim form at least once before continuing.';
       notifyListeners();
       return false;
     }
-    isLoading = true; errorMessage = null; notifyListeners();
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
     try {
-      for (final claim in claims.where((c) => c.rawStatus == 'DRAFT')) {
-        await _api.submitClaimForApproval(claim.id);
-      }
+      await _api.submitClaimsForApproval(serviceRequestId!);
       await loadClaims();
       return true;
-    } catch (e) { errorMessage = friendlyErrorMessage('Upload the signed claim form once in Claim Documentation before continuing: $e'); return false; }
-    finally { isLoading = false; notifyListeners(); }
+    } catch (e) {
+      errorMessage = friendlyErrorMessage('Failed to submit funeral claims for approval: $e');
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<List<int>> downloadClaimForm(String claimId) async {
