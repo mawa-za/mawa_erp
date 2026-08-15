@@ -148,10 +148,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
   Widget _buildToolbar(int visibleCount) {
     return Material(
       color: Colors.white,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1180),
-          child: Padding(
+      child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,8 +228,6 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
                 ),
               ],
             ),
-          ),
-        ),
       ),
     );
   }
@@ -273,12 +268,7 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         itemCount: visible.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, index) => Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1150),
-            child: _buildPaymentCard(visible[index]),
-          ),
-        ),
+        itemBuilder: (context, index) => _buildPaymentCard(visible[index]),
       ),
     );
   }
