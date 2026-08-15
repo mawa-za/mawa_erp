@@ -198,7 +198,7 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
         _ConfigurationItem(
           title: 'Membership Policy',
           description:
-              'Control multiple memberships and approval requirements for additional cover.',
+              'Control multiple memberships, dependant eligibility overrides and approval requirements for additional cover.',
           icon: Icons.policy_outlined,
           category: _ConfigurationCategory.membership,
           onTap: () =>
@@ -229,9 +229,9 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           onTap: () => _open(context, const MembershipLapseSettingsScreen()),
         ),
         _ConfigurationItem(
-          title: 'Premium Payment Limits',
+          title: 'Premium Payment Settings',
           description:
-              'Configure the maximum number of monthly premiums that can be processed in one payment.',
+              'Configure payment limits and controlled premium payment deletion and transfer overrides.',
           icon: Icons.payments_outlined,
           category: _ConfigurationCategory.membership,
           onTap: () => _open(context, const PremiumPaymentSettingsScreen()),

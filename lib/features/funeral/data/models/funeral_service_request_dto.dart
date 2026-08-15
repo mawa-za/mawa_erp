@@ -13,6 +13,7 @@ class FuneralServiceRequestDto {
   final DateTime funeralDate;
   final String funeralLocation;
   final String deceasedDeliveryDirections;
+  final DateTime? deceasedDeliveryDateTime;
   final String familyRepresentativeNames;
   final String familyRepresentativeSurname;
   final String familyRepresentativeContactDetails;
@@ -35,6 +36,7 @@ class FuneralServiceRequestDto {
     required this.funeralDate,
     required this.funeralLocation,
     this.deceasedDeliveryDirections = '',
+    this.deceasedDeliveryDateTime,
     required this.familyRepresentativeNames,
     required this.familyRepresentativeSurname,
     required this.familyRepresentativeContactDetails,
@@ -61,6 +63,8 @@ class FuneralServiceRequestDto {
       'funeralLocation': funeralLocation,
       'deceasedDeliveryDirections': deceasedDeliveryDirections,
       'deliveryDirections': deceasedDeliveryDirections,
+      if (deceasedDeliveryDateTime != null)
+        'deceasedDeliveryDateTime': deceasedDeliveryDateTime!.toIso8601String(),
       'familyRepresentativeNames': familyRepresentativeNames,
       'familyRepresentativeSurname': familyRepresentativeSurname,
       'familyRepresentativeContactDetails': familyRepresentativeContactDetails,
@@ -87,6 +91,7 @@ class FuneralServiceRequestDto {
       funeralDate: _parseDateTime(json['funeralDate']),
       funeralLocation: (json['funeralLocation'] ?? json['funeralArea'] ?? '').toString(),
       deceasedDeliveryDirections: (json['deceasedDeliveryDirections'] ?? json['deliveryDirections'] ?? '').toString(),
+      deceasedDeliveryDateTime: _parseNullableDateTime(json['deceasedDeliveryDateTime'] ?? json['deliveryDateTime']),
       familyRepresentativeNames: (json['familyRepresentativeNames'] ?? json['familyRepNames'] ?? '').toString(),
       familyRepresentativeSurname: (json['familyRepresentativeSurname'] ?? json['familyRepSurname'] ?? '').toString(),
       familyRepresentativeContactDetails: (json['familyRepresentativeContactDetails'] ?? json['familyRepContactDetails'] ?? '').toString(),
@@ -97,6 +102,11 @@ class FuneralServiceRequestDto {
           .toList(),
     );
   }
+}
+
+DateTime? _parseNullableDateTime(dynamic value) {
+  if (value == null || value.toString().trim().isEmpty) return null;
+  return _parseDateTime(value);
 }
 
 DateTime _parseDateTime(dynamic value) {

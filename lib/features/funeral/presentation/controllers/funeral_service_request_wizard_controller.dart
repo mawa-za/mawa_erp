@@ -8,6 +8,7 @@ import '../../data/models/mortuary_inventory_dto.dart';
 import '../../data/models/funeral_package_dto.dart';
 import '../../data/models/funeral_membership_cover_dto.dart';
 import '../../data/models/funeral_service_request_dto.dart';
+import '../../data/models/funeral_service_configuration_dto.dart';
 import '../../data/models/initiate_funeral_claims_request_dto.dart';
 import '../../data/models/funeral_claim_dto.dart';
 import '../../data/models/funeral_invoice_preview_line_dto.dart';
@@ -44,6 +45,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   DateTime funeralDate = DateTime.now().add(const Duration(days: 3));
   String funeralLocation = '';
   String deceasedDeliveryDirections = '';
+  DateTime? deceasedDeliveryDateTime;
   List<FieldOption> salesAreaOptions = [];
 
   // Step 3: Package & Extras
@@ -55,6 +57,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   // Cover step: Funding selection
   List<FuneralMembershipCoverDto> availableCovers = [];
   List<FuneralMembershipCoverDto> selectedCovers = [];
+  int maxSelectableCovers = 3;
   String? groceryCoverSelectionId;
   String? selectedGroupSocietyId;
   String groupSocietyDeceasedFirstNames = '';
@@ -89,6 +92,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         _fieldService.getOptionsByField('SALES-AREA'),
         _productService.getProducts(),
         _api.getActiveGroupSocieties(),
+        _api.getServiceConfiguration(),
       ]);
       inventory = results[0] as List<MortuaryInventoryDto>;
       packages = results[1] as List<FuneralPackageDto>;
@@ -97,6 +101,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       salesAreaOptions = results[3] as List<FieldOption>;
       products = results[4] as List<ProductLookup>;
       groupSocieties = results[5] as List<GroupSocietyCoverOptionDto>;
+      maxSelectableCovers = (results[6] as FuneralServiceConfigurationDto).maxSelectableCovers;
       if (resumeServiceRequestId != null && resumeServiceRequestId.isNotEmpty) {
         await _restoreArrangement(resumeServiceRequestId);
       }
@@ -129,6 +134,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     funeralDate = request.funeralDate;
     funeralLocation = request.funeralLocation;
     deceasedDeliveryDirections = request.deceasedDeliveryDirections;
+    deceasedDeliveryDateTime = request.deceasedDeliveryDateTime;
     extras = List.of(request.extras);
     selectedPackage = _firstWhereOrNull(packages, (item) => item.id == request.packageId);
     currentStep = request.status?.toUpperCase() == 'INVOICED'
@@ -243,6 +249,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         funeralDate: funeralDate,
         funeralLocation: funeralLocation.isNotEmpty ? funeralLocation : 'TBC',
         deceasedDeliveryDirections: deceasedDeliveryDirections.trim(),
+        deceasedDeliveryDateTime: deceasedDeliveryDateTime,
         familyRepresentativeNames: familyRepresentativeNames.trim(),
         familyRepresentativeSurname: familyRepresentativeSurname.trim(),
         familyRepresentativeContactDetails: familyRepresentativeContactDetails.trim(),
@@ -299,11 +306,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
           serviceRequestId!,
           InitiateFuneralClaimsRequestDto(
             membershipIds: selectionIds,
-            // Selecting more than one membership does not turn the claim into a
-            // COMBINATION claim. Each selected membership contributes its normal
-            // FUNERAL benefit unless a separate combination workflow explicitly
-            // requests COMBINATION.
-            claimType: 'FUNERAL',
+            claimType: selectionIds.length > 1 ? 'COMBINATION' : 'FUNERAL',
             groceryCoverSelectionId: groceryCoverSelectionId,
           ),
         );
@@ -545,12 +548,21 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         groceryCoverSelectionId = null;
       }
     } else {
+      if (maxSelectableCovers > 0 && selectedCovers.length >= maxSelectableCovers) {
+        errorMessage = 'A maximum of $maxSelectableCovers covers can be selected for one funeral.';
+        notifyListeners();
+        return;
+      }
       selectedCovers.add(cover);
+      errorMessage = null;
     }
     notifyListeners();
   }
 
   int _coverAmountCents(FuneralMembershipCoverDto cover) {
+    if (selectedCovers.length > 1) {
+      return cover.combinationAmountCents;
+    }
     final funeralAmount = cover.funeralAmountCents > 0
         ? cover.funeralAmountCents
         : cover.coverAmountCents;

@@ -305,6 +305,34 @@ class MembershipService {
     }
   }
 
+  Future<PaymentBatchResponse> transferManualPremiumPayment({
+    required String paymentBatchId,
+    required String targetMembershipId,
+    required String targetPeriodYYYYMM,
+    required String requestedBy,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/payment-batches/$paymentBatchId/transfer',
+      body: {
+        'targetMembershipId': targetMembershipId,
+        'targetPeriodYYYYMM': targetPeriodYYYYMM,
+        'requestedBy': requestedBy,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The premium payment could not be transferred.',
+      );
+    }
+    return PaymentBatchResponse.fromJson(
+      Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getUnpaidPremiums(String membershipId) async {
     try {
       final response = await ApiClient().get('/v2/memberships/$membershipId/premiums/unpaid');
