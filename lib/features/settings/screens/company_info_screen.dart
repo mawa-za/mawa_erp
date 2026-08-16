@@ -124,7 +124,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         throw AppException(message);
       }
       if (!mounted) return;
-      setState(() => _logoBytes = bytes);
+      await _loadLogo();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Company logo updated successfully')),
       );
@@ -240,11 +241,12 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
             height: 120,
             decoration: BoxDecoration(
               color: Colors.white,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade200, width: 2),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
             ),
-            child: ClipOval(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
               child: _logoBytes != null
                   ? Image.memory(Uint8List.fromList(_logoBytes!), fit: BoxFit.contain)
                   : Icon(Icons.business, size: 60, color: Colors.grey[400]),
@@ -288,8 +290,8 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
                   Text('Company logo', style: TextStyle(fontWeight: FontWeight.w600)),
                   SizedBox(height: 4),
                   Text(
-                    'Attach a PNG or JPG image only. Maximum 300 KB and 600 × 180 pixels. '
-                    'MAWA stores it as the company logo automatically for documents and printouts.',
+                    'Attach a PNG or JPG image only (maximum 300 KB). MAWA places the logo inside a 400 × 400 pixel square frame. '
+                    'Larger images are shrunk proportionally to fit without cropping or distortion.',
                     style: TextStyle(color: Colors.black54),
                   ),
                 ],

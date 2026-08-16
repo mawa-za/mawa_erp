@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../employment/services/employment_service.dart';
 import '../services/leave_configuration_service.dart';
+
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class LeaveBalanceManagementScreen extends StatefulWidget {
   final int initialTab;
@@ -32,6 +35,7 @@ class _LeaveBalanceManagementScreenState
   List<Map<String, dynamic>> _leaveTypes = const [];
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -132,6 +136,18 @@ class _LeaveBalanceManagementScreenState
                           padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                           child: _hero(),
                         ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                          child: TextField(
+                            decoration: const InputDecoration(
+                              hintText: 'Search leave balances and adjustments',
+                              prefixIcon: Icon(Icons.search),
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (value) => setState(() => _searchQuery = value),
+                          ),
+                        ),
                         Expanded(
                           child: TabBarView(
                             controller: _tabs,
@@ -192,15 +208,23 @@ class _LeaveBalanceManagementScreenState
   }
 
   Widget _balanceList() {
-    if (_balances.isEmpty) {
+    final query = _searchQuery.trim().toLowerCase();
+    final balances = query.isEmpty
+        ? _balances
+        : _balances.where((item) => item.entries
+            .map((entry) => '${entry.key} ${entry.value}')
+            .join(' ')
+            .toLowerCase()
+            .contains(query)).toList();
+    if (balances.isEmpty) {
       return const Center(child: Text('No leave balances found.'));
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
-      itemCount: _balances.length,
+      itemCount: balances.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
-        final balance = _balances[index];
+        final balance = balances[index];
         return Card(
           child: ListTile(
             contentPadding: const EdgeInsets.all(17),
@@ -238,17 +262,25 @@ class _LeaveBalanceManagementScreenState
   }
 
   Widget _adjustmentList() {
-    if (_adjustments.isEmpty) {
+    final query = _searchQuery.trim().toLowerCase();
+    final adjustments = query.isEmpty
+        ? _adjustments
+        : _adjustments.where((item) => item.entries
+            .map((entry) => '${entry.key} ${entry.value}')
+            .join(' ')
+            .toLowerCase()
+            .contains(query)).toList();
+    if (adjustments.isEmpty) {
       return const Center(
         child: Text('No leave balance adjustment requests found.'),
       );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
-      itemCount: _adjustments.length,
+      itemCount: adjustments.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
-        final item = _adjustments[index];
+        final item = adjustments[index];
         return Card(
           child: ListTile(
             contentPadding: const EdgeInsets.all(17),
@@ -258,7 +290,7 @@ class _LeaveBalanceManagementScreenState
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
             subtitle: Text(
-              '${item['leaveTypeName'] ?? '-'}: ${item['adjustmentAmount'] ?? 0} effective ${item['effectiveDate'] ?? '-'}\n${item['reason'] ?? ''}',
+              '${item['leaveTypeName'] ?? '-'}: ${item['adjustmentAmount'] ?? 0} effective ${AppDateUtils.displayDate(item['effectiveDate'])}\n${item['reason'] ?? ''}',
             ),
             isThreeLine: true,
             trailing: Chip(label: Text(_label(item['status']))),
@@ -412,7 +444,7 @@ class _BalanceAdjustmentDialogState
           child: SingleChildScrollView(
             child: Column(
               children: [
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _employmentId,
                   decoration: const InputDecoration(labelText: 'Employee'),
                   items: widget.employments
@@ -431,7 +463,7 @@ class _BalanceAdjustmentDialogState
                       value == null ? 'Employee is required' : null,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _leaveTypeId,
                   decoration: const InputDecoration(labelText: 'Leave type'),
                   items: widget.leaveTypes

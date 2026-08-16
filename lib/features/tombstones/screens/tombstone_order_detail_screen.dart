@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class TombstoneOrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -307,7 +310,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
         ...order.laybyInstallments.map((row) => ListTile(
           dense: true,
           leading: Icon(row['status'] == 'PAID' ? Icons.check_circle : Icons.schedule),
-          title: Text('Instalment ${row['installmentNo']} • ${row['dueDate']}'),
+          title: Text('Instalment ${row['installmentNo']} • ${AppDateUtils.displayDate(row['dueDate'])}'),
           subtitle: Text(_label(row['status']?.toString() ?? '')),
           trailing: Text('R ${_cents(row['paidAmountCents']).toStringAsFixed(2)} / R ${_cents(row['amountCents']).toStringAsFixed(2)}'),
         )),
@@ -386,7 +389,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       final checklist = (installation['checklist'] as List? ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
       return ExpansionTile(
         title: Text('${installation['installationNo']} • ${_label(installation['status']?.toString() ?? '')}'),
-        subtitle: Text('${installation['scheduledStartAt'] ?? 'Not scheduled'} • ${(installation['team'] as List? ?? const []).length} team member(s)'),
+        subtitle: Text('${installation['scheduledStartAt'] == null ? 'Not scheduled' : AppDateUtils.displayDateTime(installation['scheduledStartAt'])} • ${(installation['team'] as List? ?? const []).length} team member(s)'),
         children: [
           ...checklist.map((item) => CheckboxListTile(
             value: item['completed'] == true,
@@ -447,7 +450,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
       dense: true,
       leading: const Icon(Icons.change_circle_outlined),
       title: Text('${h['statusDimension']}: ${_label(h['fromStatus']?.toString() ?? 'New')} → ${_label(h['toStatus']?.toString() ?? '')}'),
-      subtitle: Text('${h['changedAt'] ?? ''}${h['reason'] == null ? '' : '\n${h['reason']}'}'),
+      subtitle: Text('${AppDateUtils.displayDateTime(h['changedAt'])}${h['reason'] == null ? '' : '\n${h['reason']}'}'),
     )).toList(),
   );
 
@@ -570,7 +573,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
     final result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => StatefulBuilder(builder: (context, setLocal) => AlertDialog(
       title: const Text('Add Funding Allocation'),
       content: SizedBox(width: 440, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: type, decoration: const InputDecoration(labelText: 'Funding Type'), items: const [
+        SearchableDropdownFormField<String>(value: type, decoration: const InputDecoration(labelText: 'Funding Type'), items: const [
           DropdownMenuItem(value: 'CASH', child: Text('Cash Receipt')),
           DropdownMenuItem(value: 'FUNERAL_COVER', child: Text('Funeral Cover Claim')),
         ], onChanged: (v) => setLocal(() => type = v ?? 'CASH')),
@@ -596,7 +599,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
         TextField(controller: deposit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Deposit Required (R)')),
         TextField(controller: installment, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Instalment Amount (R)')),
         TextField(controller: admin, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Administration Fee (R)')),
-        DropdownButtonFormField<String>(value: frequency, decoration: const InputDecoration(labelText: 'Frequency'), items: const [
+        SearchableDropdownFormField<String>(value: frequency, decoration: const InputDecoration(labelText: 'Frequency'), items: const [
           DropdownMenuItem(value: 'WEEKLY', child: Text('Weekly')), DropdownMenuItem(value: 'FORTNIGHTLY', child: Text('Fortnightly')), DropdownMenuItem(value: 'MONTHLY', child: Text('Monthly')),
         ], onChanged: (v) => setLocal(() => frequency = v ?? 'MONTHLY')),
       ])),
@@ -632,7 +635,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
     final result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => StatefulBuilder(builder: (context, setLocal) => AlertDialog(
       title: const Text('Site Assessment'),
       content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: status, decoration: const InputDecoration(labelText: 'Status'), items: const [
+        SearchableDropdownFormField<String>(value: status, decoration: const InputDecoration(labelText: 'Status'), items: const [
           DropdownMenuItem(value: 'REQUESTED', child: Text('Requested')), DropdownMenuItem(value: 'SCHEDULED', child: Text('Scheduled')), DropdownMenuItem(value: 'COMPLETED', child: Text('Completed')), DropdownMenuItem(value: 'FAILED', child: Text('Failed')),
         ], onChanged: (v) => setLocal(() => status = v ?? 'COMPLETED')),
         TextField(controller: assessor, decoration: const InputDecoration(labelText: 'Assessor Partner ID')),
@@ -785,7 +788,7 @@ class _TombstoneOrderDetailScreenState extends State<TombstoneOrderDetailScreen>
   }
 
   Future<void> _scheduleInstallation(Map<String, dynamic> installation) async {
-    final start = TextEditingController(text: installation['scheduledStartAt']?.toString() ?? '');
+    final start = TextEditingController(text: AppDateUtils.normalizeDateTime(installation['scheduledStartAt']) ?? '');
     final end = TextEditingController(text: installation['scheduledEndAt']?.toString() ?? '');
     final result = await _simpleDialog('Schedule Installation', [
       _DialogField('Start (YYYY-MM-DDTHH:mm)', start),

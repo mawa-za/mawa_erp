@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
@@ -13,6 +15,7 @@ import '../services/membership_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../../settings/services/pos_printing_service.dart';
+import '../../../core/services/setting_service.dart';
 import '../../../core/widgets/attachment_section.dart';
 import 'add_dependent_screen.dart';
 import 'edit_dependent_screen.dart';
@@ -20,7 +23,9 @@ import 'membership_claim_create_screen.dart';
 import 'membership_claim_detail_screen.dart';
 import 'capture_premium_payment_dialog.dart';
 import 'capture_manual_premium_receipt_dialog.dart';
+import 'transfer_premium_payment_dialog.dart';
 import '../widgets/membership_change_section.dart';
+import '../utils/membership_claim_eligibility.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipDetailScreen extends StatefulWidget {
@@ -40,6 +45,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   Map<String, Partner> _dependentPartners = {};
   List<Premium> _premiums = [];
   List<MembershipClaim> _claims = [];
+  bool _allowPremiumPaymentTransfer = false;
+  bool _allowDeleteWithoutCashupValidation = false;
   String? _error;
 
   @override
@@ -73,7 +80,31 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       final plan = results[1] as MembershipPlan;
       final premiums = results[2] as List<Premium>;
       final claims = results[3] as List<MembershipClaim>;
-      
+
+      var allowPremiumPaymentTransfer = false;
+      var allowDeleteWithoutCashupValidation = false;
+      try {
+        final settings = await SettingService().getSettings();
+        for (final setting in settings) {
+          if (setting.type.trim().toUpperCase() != 'MEMBERSHIP') continue;
+          final value = setting.value.trim().toLowerCase();
+          final enabled = value == '1' ||
+              value == 'true' ||
+              value == 'yes' ||
+              value == 'on';
+          switch (setting.attribute.trim().toUpperCase()) {
+            case 'ALLOW_PREMIUM_PAYMENT_TRANSFER':
+              allowPremiumPaymentTransfer = enabled;
+              break;
+            case 'ALLOW_PREMIUM_PAYMENT_DELETE_WITHOUT_CASHUP_VALIDATION':
+              allowDeleteWithoutCashupValidation = enabled;
+              break;
+          }
+        }
+      } catch (_) {
+        // Restricted correction actions remain disabled when settings cannot load.
+      }
+
       final Map<String, Partner> dependentPartners = {};
       await Future.wait(dependents.map((d) async {
         if (d.dependentPartnerId.isNotEmpty) {
@@ -95,6 +126,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _dependentPartners = dependentPartners;
           _premiums = premiums;
           _claims = claims;
+          _allowPremiumPaymentTransfer = allowPremiumPaymentTransfer;
+          _allowDeleteWithoutCashupValidation = allowDeleteWithoutCashupValidation;
           _isLoading = false;
         });
       }
@@ -109,12 +142,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Future<void> _replaceDependent(Dependent dependent) async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => EditDependentScreen(
-          membershipId: widget.membershipId,
-          dependent: dependent,
-        ),
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => EditDependentScreen(
+        membershipId: widget.membershipId,
+        dependent: dependent,
       ),
     );
     if (result == true) _fetchData();
@@ -214,8 +246,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               : _buildContent(colorScheme),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => AddDependentScreen(membershipId: widget.membershipId)),
+          final result = await showDialog<bool>(
+            context: context,
+            builder: (context) => AddDependentScreen(membershipId: widget.membershipId),
           );
           if (result == true) _fetchData();
         },
@@ -303,13 +336,46 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildStatusBanner(MembershipDetail detail, ColorScheme colorScheme) {
+    final normalizedStatus = detail.status.trim().toUpperCase().replaceAll('-', '_');
     Color color;
-    switch (detail.status.toUpperCase()) {
+    switch (normalizedStatus) {
       case 'ACTIVE': color = Colors.green; break;
-      case 'WAITING-PERIOD':
-      case 'UPGRADE-WAITING-PERIOD': color = Colors.orange; break;
-      case 'INACTIVE': color = Colors.red; break;
+      case 'WAITING_PERIOD':
+      case 'UPGRADE_WAITING_PERIOD':
+      case 'SUSPENDED': color = Colors.orange; break;
+      case 'INACTIVE': color = Colors.grey.shade700; break;
+      case 'CANCELLED':
+      case 'CANCELED': color = Colors.red; break;
       default: color = colorScheme.primary;
+    }
+
+    final actions = <MapEntry<String, String>>[];
+    switch (normalizedStatus) {
+      case 'ACTIVE':
+        actions.addAll(const [
+          MapEntry('SUSPEND', 'Suspend'),
+          MapEntry('DEACTIVATE', 'Deactivate'),
+          MapEntry('CANCEL', 'Cancel'),
+        ]);
+        break;
+      case 'SUSPENDED':
+        actions.addAll(const [
+          MapEntry('REACTIVATE', 'Reactivate'),
+          MapEntry('DEACTIVATE', 'Deactivate'),
+          MapEntry('CANCEL', 'Cancel'),
+        ]);
+        break;
+      case 'INACTIVE':
+        actions.addAll(const [
+          MapEntry('REACTIVATE', 'Reactivate'),
+          MapEntry('SUSPEND', 'Suspend'),
+          MapEntry('CANCEL', 'Cancel'),
+        ]);
+        break;
+      case 'CANCELLED':
+      case 'CANCELED':
+        actions.add(const MapEntry('REACTIVATE', 'Reactivate'));
+        break;
     }
 
     return Container(
@@ -320,40 +386,68 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: color.withOpacity(0.2), width: 1.5),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(Icons.shield_outlined, color: color, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  detail.status.replaceAll('-', ' ').toUpperCase(),
-                  style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Joined: ${detail.joinDate ?? detail.startDate ?? '-'}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Text('PREMIUM', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
-              Text(
-                'R ${detail.premium.toStringAsFixed(2)}',
-                style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(Icons.shield_outlined, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      detail.status.replaceAll('-', ' ').toUpperCase(),
+                      style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Joined: ${detail.joinDate ?? detail.startDate ?? '-'}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('PREMIUM', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text(
+                    'R ${detail.premium.toStringAsFixed(2)}',
+                    style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20),
+                  ),
+                ],
               ),
             ],
           ),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: actions.map((entry) {
+                final destructive = entry.key == 'CANCEL';
+                return OutlinedButton.icon(
+                  onPressed: () => _requestMembershipStatusChange(entry.key, entry.value),
+                  icon: Icon(
+                    entry.key == 'REACTIVATE' ? Icons.play_circle_outline :
+                    entry.key == 'SUSPEND' ? Icons.pause_circle_outline :
+                    entry.key == 'DEACTIVATE' ? Icons.block_outlined : Icons.cancel_outlined,
+                    size: 18,
+                  ),
+                  label: Text(entry.value.toUpperCase()),
+                  style: destructive ? OutlinedButton.styleFrom(foregroundColor: Colors.red) : null,
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -404,6 +498,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
   Widget _buildMemberCard(Partner member, ColorScheme colorScheme) {
     final isDeceased = member.status == 'DECEASED';
+    final canProcessClaim = canProcessMembershipClaim(
+      currentMembershipId: widget.membershipId,
+      deceasedPartnerId: member.id,
+      claims: _claims,
+    );
     final themeColor = isDeceased ? Colors.purple : colorScheme.primary;
 
     return Container(
@@ -458,7 +557,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               _buildProfileRow(Icons.wc_outlined, 'Gender', member.gender ?? 'N/A'),
               if (member.email.isNotEmpty) _buildProfileRow(Icons.email_outlined, 'Email', member.email),
               if (member.phone.isNotEmpty) _buildProfileRow(Icons.phone_outlined, 'Phone', member.phone),
-              if (!isDeceased) ...[
+              if (canProcessClaim) ...[
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
@@ -595,6 +694,459 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(friendlyErrorMessage('Unable to reprint receipt: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _requestPremiumPaymentDeletion(Premium premium) async {
+    try {
+      final receipts = await MembershipService().getPremiumReceipts(
+        widget.membershipId,
+        premium.id,
+      );
+      if (!mounted) return;
+      if (receipts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No posted receipt is available for this premium payment.')),
+        );
+        return;
+      }
+
+      ReceiptResponse? selectedReceipt;
+      if (receipts.length == 1) {
+        selectedReceipt = receipts.first;
+      } else {
+        selectedReceipt = await showDialog<ReceiptResponse>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select payment to delete'),
+            content: SizedBox(
+              width: 480,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: receipts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final receipt = receipts[index];
+                  return ListTile(
+                    leading: const Icon(Icons.receipt_long_outlined),
+                    title: Text(receipt.receiptNo),
+                    subtitle: Text('${receipt.paymentMethod} • R ${receipt.totalAmount.toStringAsFixed(2)}'),
+                    onTap: () => Navigator.pop(context, receipt),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            ],
+          ),
+        );
+      }
+      if (selectedReceipt == null) return;
+      if (selectedReceipt.paymentBatchId.trim().isEmpty) {
+        throw StateError('This receipt does not have a payment batch reference.');
+      }
+
+      final reasonController = TextEditingController();
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Request premium payment deletion'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _allowDeleteWithoutCashupValidation
+                    ? 'The full payment batch will be reversed only after approval. Cash-up OPEN-status validation is disabled by configuration.'
+                    : 'The full payment batch will be reversed only after approval. This is allowed only while its linked cash-up remains OPEN.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                autofocus: true,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for deletion *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: () {
+                final value = reasonController.text.trim();
+                if (value.isNotEmpty) Navigator.pop(context, value);
+              },
+              child: const Text('SUBMIT FOR APPROVAL'),
+            ),
+          ],
+        ),
+      );
+      reasonController.dispose();
+      if (reason == null || reason.isEmpty) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final requesterId = prefs.getString('userId') ?? '';
+      await MembershipService().requestPremiumPaymentDeletion(
+        paymentBatchId: selectedReceipt.paymentBatchId,
+        requesterId: requesterId,
+        reason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium payment deletion submitted for approval.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to request premium payment deletion: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _requestMembershipStatusChange(String action, String label) async {
+    final reasonController = TextEditingController();
+    try {
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('$label membership'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$label will take effect only after the approval request is approved.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                autofocus: true,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Reason *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: () {
+                final value = reasonController.text.trim();
+                if (value.isNotEmpty) Navigator.pop(context, value);
+              },
+              child: const Text('SUBMIT FOR APPROVAL'),
+            ),
+          ],
+        ),
+      );
+      if (reason == null || reason.trim().isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final requestedBy = (prefs.getString('userId') ?? '').trim();
+      if (requestedBy.isEmpty) throw StateError('Unable to identify the logged-in user. Please log in again.');
+      await MembershipService().requestMembershipStatusChange(
+        membershipId: widget.membershipId,
+        action: action,
+        requestedBy: requestedBy,
+        reason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$label membership request submitted for approval.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to submit membership status change: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      reasonController.dispose();
+    }
+  }
+
+  Future<void> _requestPremiumPaymentEdit(Premium premium) async {
+    try {
+      final receipts = (await MembershipService().getPremiumReceipts(widget.membershipId, premium.id))
+          .where((receipt) => receipt.status.trim().toUpperCase() == 'POSTED')
+          .toList();
+      if (!mounted) return;
+      if (receipts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No posted receipt is available for this premium payment.')),
+        );
+        return;
+      }
+
+      ReceiptResponse? selectedReceipt;
+      if (receipts.length == 1) {
+        selectedReceipt = receipts.first;
+      } else {
+        selectedReceipt = await showDialog<ReceiptResponse>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select payment to edit'),
+            content: SizedBox(
+              width: 500,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: receipts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final receipt = receipts[index];
+                  return ListTile(
+                    leading: const Icon(Icons.edit_note_outlined),
+                    title: Text(receipt.receiptNo),
+                    subtitle: Text('${receipt.paymentMethod} • R ${receipt.totalAmount.toStringAsFixed(2)}'),
+                    onTap: () => Navigator.pop(context, receipt),
+                  );
+                },
+              ),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL'))],
+          ),
+        );
+      }
+      if (selectedReceipt == null) return;
+      if (selectedReceipt.paymentBatchId.trim().isEmpty) {
+        throw StateError('This receipt does not have a payment batch reference.');
+      }
+
+      final premiumAllocations = selectedReceipt.allocations.where((a) =>
+          a.status.trim().toUpperCase() == 'POSTED' &&
+          a.allocationType.trim().toUpperCase() == 'MEMBERSHIP_PREMIUM').toList();
+      final currentPeriod = premiumAllocations.length == 1 && premiumAllocations.first.periodYYYYMM.trim().length == 6
+          ? premiumAllocations.first.periodYYYYMM.trim()
+          : premium.periodYYYYMM.trim();
+      final now = DateTime.now();
+      final currentYear = int.tryParse(currentPeriod.length >= 4 ? currentPeriod.substring(0, 4) : '') ?? now.year;
+      final currentMonth = int.tryParse(currentPeriod.length == 6 ? currentPeriod.substring(4, 6) : '') ?? now.month;
+      final years = <int>{currentYear, for (var y = now.year - 10; y <= now.year + 2; y++) y}.toList()..sort();
+      var selectedYear = currentYear;
+      var selectedMonth = currentMonth.clamp(1, 12).toInt();
+      final amountController = TextEditingController(text: selectedReceipt.totalAmount.toStringAsFixed(2));
+      final reasonController = TextEditingController();
+
+      final edit = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Edit premium payment'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Receipt ${selectedReceipt!.receiptNo}. Changes take effect only after approval.'),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Payment amount *', prefixText: 'R ', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: selectedYear,
+                            decoration: const InputDecoration(labelText: 'Payment year *', border: OutlineInputBorder()),
+                            items: years.map((year) => DropdownMenuItem(value: year, child: Text('$year'))).toList(),
+                            onChanged: (value) => setDialogState(() => selectedYear = value ?? selectedYear),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: selectedMonth,
+                            decoration: const InputDecoration(labelText: 'Payment month *', border: OutlineInputBorder()),
+                            items: List.generate(12, (i) => i + 1).map((month) => DropdownMenuItem(
+                              value: month,
+                              child: Text(DateFormat('MMMM').format(DateTime(2000, month))),
+                            )).toList(),
+                            onChanged: (value) => setDialogState(() => selectedMonth = value ?? selectedMonth),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: reasonController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Reason for correction *', border: OutlineInputBorder()),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+              FilledButton(
+                onPressed: () {
+                  final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+                  final reason = reasonController.text.trim();
+                  if (amount == null || amount <= 0 || reason.isEmpty) return;
+                  Navigator.pop(context, {
+                    'amountCents': (amount * 100).round(),
+                    'periodYYYYMM': '${selectedYear.toString().padLeft(4, '0')}${selectedMonth.toString().padLeft(2, '0')}',
+                    'reason': reason,
+                  });
+                },
+                child: const Text('SUBMIT FOR APPROVAL'),
+              ),
+            ],
+          ),
+        ),
+      );
+      amountController.dispose();
+      reasonController.dispose();
+      if (edit == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final requestedBy = (prefs.getString('userId') ?? '').trim();
+      if (requestedBy.isEmpty) throw StateError('Unable to identify the logged-in user. Please log in again.');
+      await MembershipService().requestPremiumPaymentEdit(
+        paymentBatchId: selectedReceipt.paymentBatchId,
+        receiptId: selectedReceipt.id,
+        amountCents: edit['amountCents'] as int,
+        periodYYYYMM: edit['periodYYYYMM'] as String,
+        requestedBy: requestedBy,
+        reason: edit['reason'] as String,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium payment edit submitted for approval.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to edit premium payment: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _transferPremiumPayment(Premium premium) async {
+    try {
+      final receipts = await MembershipService().getPremiumReceipts(
+        widget.membershipId,
+        premium.id,
+      );
+      if (!mounted) return;
+      final manualReceipts = receipts
+          .where((receipt) =>
+              receipt.status.toUpperCase() == 'POSTED' &&
+              receipt.isManualPremiumReceipt)
+          .toList();
+      if (manualReceipts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Only manually captured premium payments can be transferred.'),
+          ),
+        );
+        return;
+      }
+
+      ReceiptResponse? selectedReceipt;
+      if (manualReceipts.length == 1) {
+        selectedReceipt = manualReceipts.first;
+      } else {
+        selectedReceipt = await showDialog<ReceiptResponse>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select manual payment to transfer'),
+            content: SizedBox(
+              width: 500,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: manualReceipts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final receipt = manualReceipts[index];
+                  final manualNo = receipt.manualReceiptNo.trim();
+                  final legacyManualNo = receipt.externalReceiptNo.trim();
+                  final displayManualNo = manualNo.isNotEmpty
+                      ? manualNo
+                      : legacyManualNo;
+                  return ListTile(
+                    leading: const Icon(Icons.receipt_long_outlined),
+                    title: Text(receipt.receiptNo),
+                    subtitle: Text(
+                      '${displayManualNo.isEmpty ? 'Manual receipt' : 'Manual receipt $displayManualNo'} • R ${receipt.totalAmount.toStringAsFixed(2)}',
+                    ),
+                    onTap: () => Navigator.pop(context, receipt),
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CANCEL'),
+              ),
+            ],
+          ),
+        );
+      }
+      if (selectedReceipt == null) return;
+      final receiptToTransfer = selectedReceipt;
+      if (receiptToTransfer.paymentBatchId.trim().isEmpty) {
+        throw StateError('This receipt does not have a payment batch reference.');
+      }
+
+      final transfer = await showDialog<PremiumPaymentTransferInput>(
+        context: context,
+        builder: (context) => TransferPremiumPaymentDialog(
+          currentMembershipId: widget.membershipId,
+          sourcePeriodYYYYMM: premium.periodYYYYMM,
+          amountCents: receiptToTransfer.totalAmountCents,
+        ),
+      );
+      if (transfer == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final requesterId = (prefs.getString('userId') ?? '').trim();
+      if (requesterId.isEmpty) {
+        throw StateError('The current user could not be identified.');
+      }
+
+      await MembershipService().transferManualPremiumPayment(
+        paymentBatchId: receiptToTransfer.paymentBatchId,
+        targetMembershipId: transfer.targetMembershipId,
+        targetPeriodYYYYMM: transfer.targetPeriodYYYYMM,
+        requestedBy: requesterId,
+        reason: transfer.reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium payment transferred successfully.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage('Unable to transfer premium payment: $error'),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -832,10 +1384,33 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _reprintPremiumReceipt(premium),
-                    icon: const Icon(Icons.print_outlined, size: 18),
-                    label: const Text('REPRINT RECEIPT'),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _reprintPremiumReceipt(premium),
+                        icon: const Icon(Icons.print_outlined, size: 18),
+                        label: const Text('REPRINT RECEIPT'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _requestPremiumPaymentEdit(premium),
+                        icon: const Icon(Icons.edit_note_outlined, size: 18),
+                        label: const Text('EDIT PAYMENT'),
+                      ),
+                      if (_allowPremiumPaymentTransfer)
+                        OutlinedButton.icon(
+                          onPressed: () => _transferPremiumPayment(premium),
+                          icon: const Icon(Icons.swap_horiz, size: 18),
+                          label: const Text('TRANSFER PAYMENT'),
+                        ),
+                      OutlinedButton.icon(
+                        onPressed: () => _requestPremiumPaymentDeletion(premium),
+                        icon: const Icon(Icons.delete_outline, size: 18),
+                        label: const Text('DELETE PAYMENT'),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -967,7 +1542,14 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         String displayName = partner?.fullName ?? dependent.fullName;
         String displayId = partner?.identityNumber ?? dependent.identity?.number ?? 'N/A';
         String displayIdType = partner?.idType ?? dependent.identity?.type.description ?? 'ID';
-        final isDeceased = dependent.membershipStatus == 'DECEASED' || partner?.status == 'DECEASED';
+        final deceasedOnCurrentMembership = dependent.membershipStatus == 'DECEASED';
+        final isDeceased = deceasedOnCurrentMembership || partner?.status == 'DECEASED';
+        final canProcessClaim = canProcessMembershipClaim(
+          currentMembershipId: widget.membershipId,
+          deceasedPartnerId: dependent.dependentPartnerId,
+          claims: _claims,
+          deceasedOnCurrentMembership: deceasedOnCurrentMembership,
+        );
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1016,6 +1598,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                               style: TextButton.styleFrom(foregroundColor: Colors.red),
                               label: const Text('REMOVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
+                          ],
+                          if (canProcessClaim)
                             TextButton(
                               onPressed: () async {
                                 final result = await Navigator.of(context).push(
@@ -1025,7 +1609,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                               },
                               child: const Text('PROCESS CLAIM', style: TextStyle(color: Color(0xFFF20D1A), fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
-                          ],
                           FilledButton.tonal(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: dependent.dependentPartnerId, title: 'Dependent Details', isMemberContext: true)),
@@ -1071,7 +1654,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             },
             leading: CircleAvatar(backgroundColor: statusColor.withOpacity(0.1), child: Icon(Icons.description_outlined, color: statusColor, size: 20)),
             title: Text('Claim #${claim.claimNo}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: Text('${claim.claimType} • ${claim.claimDate}', style: const TextStyle(fontSize: 12)),
+            subtitle: Text('${claim.claimType} • ${AppDateUtils.displayDate(claim.claimDate)}', style: const TextStyle(fontSize: 12)),
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,

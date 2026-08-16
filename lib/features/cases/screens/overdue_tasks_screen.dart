@@ -16,6 +16,7 @@ class _OverdueTasksScreenState extends State<OverdueTasksScreen> {
   final CaseManagementService _caseService = CaseManagementService();
   List<CaseTask> _tasks = [];
   bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -41,8 +42,23 @@ class _OverdueTasksScreenState extends State<OverdueTasksScreen> {
     }
   }
 
+  List<CaseTask> get _visibleTasks {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _tasks;
+    return _tasks.where((task) => [
+      task.title,
+      task.description ?? '',
+      task.assignedTo ?? '',
+      task.priority,
+      task.status,
+      task.caseId,
+      task.dueDate?.toIso8601String() ?? '',
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tasks = _visibleTasks;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -50,16 +66,31 @@ class _OverdueTasksScreenState extends State<OverdueTasksScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(64),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search overdue tasks',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            ),
+          ),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _tasks.isEmpty
+          : tasks.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _tasks.length,
+                  itemCount: tasks.length,
                   itemBuilder: (context, index) {
-                    final task = _tasks[index];
+                    final task = tasks[index];
                     return _buildTaskCard(task);
                   },
                 ),

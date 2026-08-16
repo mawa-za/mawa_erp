@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_package_dto.dart';
+import '../../data/models/funeral_service_configuration_dto.dart';
 import '../widgets/funeral_money_text.dart';
 import '../../../../core/models/product_lookup.dart';
 import '../../../../core/services/product_lookup_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class FuneralPackageSetupPage extends StatefulWidget {
   const FuneralPackageSetupPage({super.key});
@@ -88,12 +91,79 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
     }
   }
 
+  Future<void> _configureFuneralLimits() async {
+    try {
+      final current = await _api.getServiceConfiguration();
+      if (!mounted) return;
+      final controller = TextEditingController(
+        text: current.maxSelectableCovers.toString(),
+      );
+      final value = await showDialog<int>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Funeral Cover Selection Limit'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: 'Maximum covers per funeral',
+              helperText: 'Default is 3. Enter 0 for unlimited.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final parsed = int.tryParse(controller.text.trim());
+                if (parsed == null || parsed < 0 || parsed > 99) return;
+                Navigator.pop(context, parsed);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+      controller.dispose();
+      if (value == null) return;
+      await _api.updateServiceConfiguration(
+        FuneralServiceConfigurationDto(
+          maxSelectableCovers: value,
+          coverSelectionLimitEnabled: value > 0,
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value == 0
+              ? 'Funeral cover selection limit disabled.'
+              : 'Maximum funeral covers set to $value.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage('Failed to update funeral configuration: $e'))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Funeral Package Setup'),
         actions: [
+          IconButton(
+            tooltip: 'Funeral configuration',
+            onPressed: _configureFuneralLimits,
+            icon: const Icon(Icons.tune),
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loadPackages,
@@ -380,7 +450,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                   validator: (value) => value == null || value.trim().isEmpty ? 'Package name is required' : null,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _pricingMode,
                   decoration: const InputDecoration(
                     labelText: 'Package pricing',
@@ -426,7 +496,7 @@ class _FuneralPackageDialogState extends State<_FuneralPackageDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<ProductLookup>(
+                        child: SearchableDropdownFormField<ProductLookup>(
                           value: _componentToAdd,
                           isExpanded: true,
                           decoration: const InputDecoration(

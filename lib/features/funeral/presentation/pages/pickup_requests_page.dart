@@ -13,6 +13,8 @@ import '../../../partners/models/partner.dart';
 import '../widgets/funeral_status_chip.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class PickupRequestsPage extends StatefulWidget {
   const PickupRequestsPage({super.key});
 
@@ -105,7 +107,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                   )
                 : _employees.isEmpty
                     ? const Text('No employees found. Please maintain employee records first.')
-                    : DropdownButtonFormField<String>(
+                    : SearchableDropdownFormField<String>(
                         value: selectedEmployeeId != null &&
                                 _employees.any((employee) => employee.id == selectedEmployeeId)
                             ? selectedEmployeeId
@@ -366,7 +368,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
               children: [
                 Text('Select where ${request.deceasedName} will be stored.'),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: warehouseId,
                   decoration: const InputDecoration(labelText: 'Warehouse', border: OutlineInputBorder()),
                   items: warehouses.map((row) => DropdownMenuItem(
@@ -391,7 +393,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                   },
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: locationId,
                   decoration: const InputDecoration(labelText: 'Storage Location', border: OutlineInputBorder()),
                   items: locations.map((row) => DropdownMenuItem(
@@ -414,7 +416,7 @@ class _PickupRequestsPageState extends State<PickupRequestsPage> {
                   },
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: binId,
                   decoration: const InputDecoration(labelText: 'Storage Bin', border: OutlineInputBorder()),
                   items: bins.map((row) => DropdownMenuItem(

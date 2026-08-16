@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
@@ -379,8 +380,8 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             _buildInfoRow('Payment Method', _detail!.paymentMethod),
             _buildInfoRow('Payment Request Type', _detail!.requestType),
             _buildInfoRow('Bank Integration', _detail!.bankIntegration ?? 'Not routed'),
-            _buildInfoRow('Created Date', _detail!.createdAt),
-            _buildInfoRow('Due Date', _detail!.requestedPaymentDate ?? 'N/A'),
+            _buildInfoRow('Created Date', AppDateUtils.displayDateTime(_detail!.createdAt)),
+            _buildInfoRow('Requested Payment Date', AppDateUtils.displayDate(_detail!.requestedPaymentDate)),
             _buildInfoRow('Status', _detail!.status, isStatus: true),
             if (_detail!.approvalInherited)
               _buildInfoRow('Approval Source', _detail!.approvalSource ?? 'CLAIM_APPROVAL'),
@@ -401,7 +402,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
             const SizedBox(height: 24),
             _buildSectionTitle('Payment Completion'),
             _buildInfoCard([
-              _buildInfoRow('Paid Date', _detail!.paidDate ?? 'N/A'),
+              _buildInfoRow('Paid Date', AppDateUtils.displayDate(_detail!.paidDate)),
               _buildInfoRow('Paid Reference', _detail!.paidReference ?? 'N/A'),
               _buildInfoRow('Paid By', _detail!.paidBy ?? 'N/A'),
             ]),
@@ -452,7 +453,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (h.comment != null) Text(h.comment!, style: const TextStyle(fontStyle: FontStyle.italic)),
-                Text('By ${h.changedBy} on ${h.changedAt}', style: const TextStyle(fontSize: 11)),
+                Text('By ${h.changedBy} on ${AppDateUtils.displayDateTime(h.changedAt)}', style: const TextStyle(fontSize: 11)),
               ],
             ),
           );
@@ -494,7 +495,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                 if (attempt.instructionId?.isNotEmpty ?? false)
                   Text('Instruction: ${attempt.instructionId}'),
                 if (attempt.bankReportAvailable)
-                  Text('Bank report retrieved: ${attempt.bankReportRetrievedAt ?? 'Available'}'),
+                  Text('Bank report retrieved: ${AppDateUtils.displayDateTime(attempt.bankReportRetrievedAt, fallback: 'Available')}'),
                 if (attempt.failureMessage?.isNotEmpty ?? false)
                   Text(attempt.failureMessage!, style: const TextStyle(color: Colors.red)),
               ],

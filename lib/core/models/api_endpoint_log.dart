@@ -1,3 +1,5 @@
+import '../utils/app_date_utils.dart';
+
 class ApiEndpointLog {
   final String id;
   final String? requestId;
@@ -58,7 +60,7 @@ class ApiEndpointLog {
       durationMs: json['durationMs'] is int ? json['durationMs'] : int.tryParse(json['durationMs']?.toString() ?? '0') ?? 0,
       success: json['success'] == true,
       errorMessage: json['errorMessage']?.toString(),
-      createdAt: (json['createdAt'] ?? '').toString(),
+      createdAt: AppDateUtils.normalizeDateTime(json['createdAt']),
     );
   }
 

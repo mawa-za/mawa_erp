@@ -16,6 +16,7 @@ class _UnbilledCasesScreenState extends State<UnbilledCasesScreen> {
   final CaseManagementService _caseService = CaseManagementService();
   List<LegalCase> _cases = [];
   bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -45,8 +46,27 @@ class _UnbilledCasesScreenState extends State<UnbilledCasesScreen> {
     return NumberFormat.currency(symbol: 'R ', locale: 'en_ZA').format(cents / 100);
   }
 
+  List<LegalCase> get _visibleCases {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _cases;
+    return _cases.where((item) => [
+      item.caseNo,
+      item.title,
+      item.clientPartnerId,
+      item.caseType,
+      item.caseCategory ?? '',
+      item.description ?? '',
+      item.status,
+      item.priority,
+      item.assignedTo ?? '',
+      item.courtName ?? '',
+      item.courtCaseNo ?? '',
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cases = _visibleCases;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -54,16 +74,31 @@ class _UnbilledCasesScreenState extends State<UnbilledCasesScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(64),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search unbilled matters',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            ),
+          ),
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _cases.isEmpty
+          : cases.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _cases.length,
+                  itemCount: cases.length,
                   itemBuilder: (context, index) {
-                    final c = _cases[index];
+                    final c = cases[index];
                     return _buildUnbilledCard(c);
                   },
                 ),

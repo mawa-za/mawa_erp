@@ -31,6 +31,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   String? _error;
   String _selectedStatus = 'ALL';
   DateTime? _selectedDate;
+  String _searchQuery = '';
 
   final List<String> _statuses = ['ALL', 'DRAFT', 'AWAITING_APPROVAL', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'REJECTED'];
 
@@ -146,6 +147,18 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       body: Column(
         children: [
           _buildFilterBar(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search invoices',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            ),
+          ),
           Expanded(child: _buildBody(colorScheme)),
         ],
       ),
@@ -230,6 +243,18 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     );
   }
 
+  List<Invoice> get _visibleInvoices {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _invoices;
+    return _invoices.where((invoice) => [
+      invoice.transactionNumber,
+      invoice.customerName,
+      invoice.partnerId,
+      invoice.status,
+      DateFormat('yyyy-MM-dd').format(invoice.date),
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   Widget _buildBody(ColorScheme colorScheme) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -253,7 +278,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       );
     }
 
-    if (_invoices.isEmpty) {
+    final invoices = _visibleInvoices;
+
+    if (invoices.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -296,9 +323,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                   compact ? 8 : 12,
                   16,
                 ),
-                itemCount: _invoices.length,
+                itemCount: invoices.length,
                 itemBuilder: (context, index) {
-                  final invoice = _invoices[index];
+                  final invoice = invoices[index];
                   return _buildInvoiceCard(invoice, colorScheme);
                 },
               ),

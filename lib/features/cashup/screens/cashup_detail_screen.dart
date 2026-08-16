@@ -11,6 +11,8 @@ import '../services/cashup_service.dart';
 import '../../settings/services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CashupDetailScreen extends StatefulWidget {
   final String cashupId;
   const CashupDetailScreen({super.key, required this.cashupId});
@@ -159,7 +161,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: paymentMethod,
                     decoration: const InputDecoration(
                       labelText: 'Payment Method',

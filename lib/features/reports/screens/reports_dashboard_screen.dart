@@ -11,6 +11,8 @@ import '../../home/models/workcenter.dart';
 import '../models/report_dashboard.dart';
 import '../services/reporting_api_client.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ReportsDashboardScreen extends StatefulWidget {
   const ReportsDashboardScreen({super.key, this.reportKey});
 
@@ -415,7 +417,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
 
         final selector = SizedBox(
           width: 190,
-          child: DropdownButtonFormField<int>(
+          child: SearchableDropdownFormField<int>(
             initialValue: _periods,
             decoration: const InputDecoration(
               labelText: 'Reporting periods',

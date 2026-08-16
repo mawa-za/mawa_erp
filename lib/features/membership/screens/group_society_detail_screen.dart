@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/group_society.dart';
@@ -15,6 +16,8 @@ import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class GroupSocietyDetailScreen extends StatefulWidget {
   final String societyId;
@@ -172,7 +175,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     final refController = TextEditingController();
     final notesController = TextEditingController();
     DateTime selectedDate = DateTime.now();
-    String selectedMethod = 'CASH';
+    String? selectedMethod;
     bool submitting = false;
 
     final result = await showDialog<bool>(
@@ -213,13 +216,13 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: selectedMethod,
                     decoration: const InputDecoration(labelText: 'Payment Method', prefixIcon: Icon(Icons.payments_outlined)),
                     items: ['CASH', 'CARD', 'EFT', 'DEBIT_ORDER', 'OTHER']
                         .map((method) => DropdownMenuItem(value: method, child: Text(method.replaceAll('_', ' '))))
                         .toList(),
-                    onChanged: submitting ? null : (value) => setDialogState(() => selectedMethod = value!),
+                    onChanged: submitting ? null : (value) => setDialogState(() => selectedMethod = value),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference Number')),
@@ -252,13 +255,17 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an amount greater than zero.')));
                   return;
                 }
+                if (selectedMethod == null || selectedMethod!.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a payment method.')));
+                  return;
+                }
                 setDialogState(() => submitting = true);
                 try {
                   final prefs = await SharedPreferences.getInstance();
                   final response = await _membershipService.addGroupSocietyPayment(widget.societyId, {
                     'amountCents': (amount * 100).round(),
                     'paymentDate': DateFormat('yyyy-MM-dd').format(selectedDate),
-                    'paymentMethod': selectedMethod,
+                    'paymentMethod': selectedMethod!,
                     'referenceNo': refController.text.trim(),
                     'notes': notesController.text.trim(),
                     'createdBy': prefs.getString('userId') ?? 'unknown',
@@ -322,7 +329,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: direction,
                   decoration: const InputDecoration(labelText: 'Adjustment Direction'),
                   items: const [
@@ -858,7 +865,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Group Society Agreement', style: TextStyle(fontWeight: FontWeight.w800)),
-                Text('Printed ${_society?.agreementPrintCount ?? 0} time(s)${_society?.agreementLastPrintedAt == null ? '' : ' • Last ${_society!.agreementLastPrintedAt}'}'),
+                Text('Printed ${_society?.agreementPrintCount ?? 0} time(s)${_society?.agreementLastPrintedAt == null ? '' : ' • Last ${AppDateUtils.displayDateTime(_society!.agreementLastPrintedAt)}'}'),
               ])),
               FilledButton.icon(onPressed: _printAgreement, icon: const Icon(Icons.print_outlined), label: const Text('Print')),
             ]),
@@ -903,7 +910,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
               child: Icon(isCredit ? Icons.add_rounded : Icons.remove_rounded, color: isCredit ? Colors.green : Colors.red),
             ),
             title: Text('R ${p.amount.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.w900, color: isCredit ? Colors.green : Colors.red)),
-            subtitle: Text('${p.txnType} • ${p.txnDate}', style: const TextStyle(fontSize: 12)),
+            subtitle: Text('${p.txnType} • ${AppDateUtils.displayDate(p.txnDate)}', style: const TextStyle(fontSize: 12)),
             children: [
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -948,7 +955,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextFormField(initialValue: _society!.groupNo, enabled: false, decoration: const InputDecoration(labelText: 'Group Number', helperText: 'The allocated group number cannot be changed.')),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: selectedType,
                 decoration: const InputDecoration(labelText: 'Society Type'),
                 items: ['GROUP', 'SOCIETY', 'BURIAL'].map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),

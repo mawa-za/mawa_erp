@@ -1,716 +1,276 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/widgets/app_dropdown.dart';
-import '../../../core/widgets/partner_search_dropdown.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../models/dependent.dart';
 import '../services/membership_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddDependentScreen extends StatefulWidget {
   final String membershipId;
-
-  const AddDependentScreen({
-    super.key,
-    required this.membershipId,
-  });
+  const AddDependentScreen({super.key, required this.membershipId});
 
   @override
   State<AddDependentScreen> createState() => _AddDependentScreenState();
 }
 
 class _AddDependentScreenState extends State<AddDependentScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _reasonController = TextEditingController();
-  final _identityNumberController = TextEditingController();
-  final _firstNameController = TextEditingController();
-  final _middleNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
+  final _identityFormKey = GlobalKey<FormState>();
+  final _detailsFormKey = GlobalKey<FormState>();
+  final _identityNumber = TextEditingController();
+  final _firstName = TextEditingController();
+  final _middleName = TextEditingController();
+  final _lastName = TextEditingController();
+  final _reason = TextEditingController();
+  String? _identityType;
+  Partner? _partner;
+  bool _notFound = false;
+  bool _withoutIdentity = false;
+  bool _searching = false;
+  bool _saving = false;
+  int _step = 0;
+  DependentType _relationship = DependentType.OTHER;
+  String? _error;
 
-  bool _isLoading = false;
-  bool _showCreatePartner = false;
+  bool get _isSaId => (_identityType ?? '').trim().toUpperCase() == 'SA-ID';
 
-  Partner? _selectedPartner;
-  DependentType _selectedType = DependentType.OTHER;
-  String? _selectedIdentityType;
-  DateTime? _dateOfBirth;
-
-  bool get _isCreatingNewPartner =>
-      _showCreatePartner && _selectedPartner == null;
-  bool get _isSaId =>
-      (_selectedIdentityType ?? '').trim().toUpperCase() == 'SA-ID';
-  bool get _hasIdentityType =>
-      (_selectedIdentityType ?? '').trim().isNotEmpty;
-  bool get _hasIdentityNumber =>
-      _identityNumberController.text.trim().isNotEmpty;
-  bool get _hasIdentityPair => _hasIdentityType && _hasIdentityNumber;
-
-  String _upper(String value) => value.trim().toUpperCase();
-  String _formatDate(DateTime date) => DateFormat('yyyy-MM-dd').format(date);
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      Partner? partner = _selectedPartner;
-
-      if (partner == null && _showCreatePartner) {
-        partner = await _createDependentPartner();
-      }
-
-      if (partner == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Please select an existing person or create a new dependent',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-
-      if (partner.type.toUpperCase() != 'INDIVIDUAL') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('A dependent must be an individual person'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-
-      final change = await MembershipService().addDependent(
-        widget.membershipId,
-        {
-          'dependentPartnerId': partner.id,
-          'dependentType': _selectedType.name,
-          'reason': _reasonController.text.trim(),
-        },
-      );
-
-      if (!mounted) return;
-
-      final pending = change.status == 'PENDING_APPROVAL';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            pending
-                ? 'Dependent addition submitted for approval'
-                : _isCreatingNewPartner
-                    ? 'Dependent created and added successfully'
-                    : 'Dependent added successfully',
-          ),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: pending ? Colors.orange[800] : Colors.green[700],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(friendlyErrorMessage('Error: $e')),
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<Partner> _createDependentPartner() async {
-    final payload = <String, dynamic>{
-      'type': 'INDIVIDUAL',
-      'partnerType': 'INDIVIDUAL',
-      'name1': _upper(_lastNameController.text),
-      'name2': _upper(_firstNameController.text),
-      'name3': _upper(_middleNameController.text),
-      'birthDate': _dateOfBirth?.toIso8601String(),
-      'status': 'ACTIVE',
-    };
-
-    if (_hasIdentityPair) {
-      payload['identityType'] = _selectedIdentityType!.trim();
-      payload['identityNumber'] = _identityNumberController.text.trim();
-    }
-
-    return PartnerService().createPartner(payload);
-  }
-
-  Future<void> _selectDateOfBirth() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dateOfBirth ?? DateTime(1990),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked != null) {
-      setState(() => _dateOfBirth = picked);
-    }
-  }
 
   DateTime? _dateOfBirthFromSaId(String idNumber) {
     final digits = idNumber.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 6) return null;
-
+    if (digits.length != 13) return null;
     final yy = int.tryParse(digits.substring(0, 2));
     final mm = int.tryParse(digits.substring(2, 4));
     final dd = int.tryParse(digits.substring(4, 6));
     if (yy == null || mm == null || dd == null) return null;
-
     final now = DateTime.now();
-    try {
-      var candidate = DateTime(2000 + yy, mm, dd);
-      if (candidate.year != 2000 + yy ||
-          candidate.month != mm ||
-          candidate.day != dd) {
-        return null;
-      }
-      if (candidate.isAfter(now)) {
-        candidate = DateTime(1900 + yy, mm, dd);
-      }
-      if (candidate.month != mm ||
-          candidate.day != dd ||
-          candidate.isAfter(now)) {
-        return null;
-      }
-      return candidate;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  void _onIdentityTypeChanged(String? value) {
-    setState(() {
-      _selectedIdentityType = value;
-      if (_isSaId) {
-        _dateOfBirth =
-            _dateOfBirthFromSaId(_identityNumberController.text.trim());
-      }
-    });
-  }
-
-  void _onIdentityNumberChanged(String value) {
-    if (!_isSaId) return;
-    final derivedDate = _dateOfBirthFromSaId(value);
-    if (derivedDate == _dateOfBirth) return;
-    setState(() => _dateOfBirth = derivedDate);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Add Dependent'),
-        titleTextStyle: TextStyle(
-          color: colorScheme.onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildSectionTitle(
-                '1. PERSON SELECTION',
-                Icons.person_search_outlined,
-              ),
-              const SizedBox(height: 16),
-              _buildPersonSelectionCard(colorScheme),
-              if (_showCreatePartner && _selectedPartner == null) ...[
-                const SizedBox(height: 24),
-                _buildSectionTitle(
-                  'NEW DEPENDENT DETAILS',
-                  Icons.person_add_alt_1_outlined,
-                ),
-                const SizedBox(height: 16),
-                _buildNewPartnerCard(colorScheme),
-              ],
-              const SizedBox(height: 32),
-              _buildSectionTitle(
-                '2. RELATIONSHIP DETAILS',
-                Icons.people_outline,
-              ),
-              const SizedBox(height: 16),
-              _buildRelationshipCard(colorScheme),
-              const SizedBox(height: 48),
-              SizedBox(
-                height: 56,
-                child: FilledButton.icon(
-                  onPressed: _isLoading ? null : _save,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.person_add_outlined),
-                  label: Text(
-                    _isCreatingNewPartner
-                        ? 'CREATE & ADD DEPENDENT'
-                        : 'ADD DEPENDENT',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPersonSelectionCard(ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          PartnerSearchDropdown(
-            key: ValueKey(
-              _showCreatePartner
-                  ? 'dependent-search-create'
-                  : 'dependent-search-select',
-            ),
-            role: '',
-            partnerType: 'INDIVIDUAL',
-            label: 'Search person by name or ID...',
-            onPartnerSelected: (partner) {
-              setState(() {
-                _selectedPartner = partner;
-                if (partner != null) {
-                  _showCreatePartner = false;
-                }
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _selectedPartner = null;
-                _showCreatePartner = !_showCreatePartner;
-              });
-            },
-            icon: Icon(
-              _showCreatePartner
-                  ? Icons.search
-                  : Icons.person_add_alt_1_outlined,
-            ),
-            label: Text(
-              _showCreatePartner
-                  ? 'Search existing person'
-                  : 'Dependent not found? Create new dependent',
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colorScheme.primary,
-              side: BorderSide(
-                color: colorScheme.primary.withOpacity(0.35),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
-          if (_selectedPartner != null) ...[
-            const SizedBox(height: 16),
-            _buildSelectedPartnerSummary(_selectedPartner!, colorScheme),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSelectedPartnerSummary(
-    Partner partner,
-    ColorScheme colorScheme,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.primary.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle_outline, color: colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  partner.fullName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  [
-                    if (partner.number.isNotEmpty) 'No: ${partner.number}',
-                    if (partner.identityNumber.isNotEmpty)
-                      partner.identityNumber,
-                  ].join(' • '),
-                  style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNewPartnerCard(ColorScheme colorScheme) {
-    return _buildCard([
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Capture identity details when available. If no identity is available, Date of Birth is required.',
-          style: TextStyle(color: Colors.grey[700], fontSize: 13),
-        ),
-      ),
-      const SizedBox(height: 16),
-      AppDropdownField(
-        field: 'ID-TYPE',
-        label: 'ID Type',
-        icon: Icons.badge_outlined,
-        value: _selectedIdentityType,
-        onChanged: _onIdentityTypeChanged,
-        validator: (value) {
-          if (!_isCreatingNewPartner) return null;
-          final hasType = (value ?? '').trim().isNotEmpty;
-          if (!hasType && _hasIdentityNumber) {
-            return 'ID Type is required when ID Number is captured';
-          }
-          return null;
-        },
-      ),
-      const SizedBox(height: 16),
-      _buildTextField(
-        _identityNumberController,
-        'ID Number',
-        Icons.confirmation_number_outlined,
-        requiredWhenCreating: false,
-        keyboardType: _isSaId ? TextInputType.number : TextInputType.text,
-        inputFormatters: _isSaId
-            ? [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(13),
-              ]
-            : null,
-        onChanged: _onIdentityNumberChanged,
-        validator: (value) {
-          if (!_isCreatingNewPartner) return null;
-          final idNumber = (value ?? '').trim();
-          if (idNumber.isEmpty && _hasIdentityType) {
-            return 'ID Number is required when ID Type is captured';
-          }
-          if (_isSaId && idNumber.isNotEmpty) {
-            final digits = idNumber.replaceAll(RegExp(r'\D'), '');
-            if (digits.length != 13) {
-              return 'SA-ID must be exactly 13 digits';
-            }
-            if (_dateOfBirthFromSaId(digits) == null) {
-              return 'SA-ID contains an invalid date of birth';
-            }
-          }
-          return null;
-        },
-      ),
-      const SizedBox(height: 16),
-      _buildTextField(
-        _firstNameController,
-        'First Name',
-        Icons.person_outline,
-      ),
-      const SizedBox(height: 16),
-      _buildTextField(
-        _middleNameController,
-        'Middle Name (Optional)',
-        Icons.person_outline,
-        requiredWhenCreating: false,
-      ),
-      const SizedBox(height: 16),
-      _buildTextField(
-        _lastNameController,
-        'Last Name',
-        Icons.person_outline,
-      ),
-      const SizedBox(height: 16),
-      _buildBirthDateField(colorScheme),
-    ]);
-  }
-
-  Widget _buildBirthDateField(ColorScheme colorScheme) {
-    return FormField<DateTime>(
-      validator: (_) {
-        if (!_isCreatingNewPartner) return null;
-        if (!_hasIdentityPair && _dateOfBirth == null) {
-          return 'Date of Birth is required when identity details are not captured';
-        }
-        if (_isSaId && _hasIdentityPair && _dateOfBirth == null) {
-          return 'Enter a valid SA-ID to determine Date of Birth';
-        }
-        return null;
-      },
-      builder: (state) {
-        return InkWell(
-          onTap: _isSaId
-              ? null
-              : () async {
-                  await _selectDateOfBirth();
-                  state.didChange(_dateOfBirth);
-                },
-          borderRadius: BorderRadius.circular(12),
-          child: InputDecorator(
-            decoration: InputDecoration(
-              labelText:
-                  _isSaId ? 'Date of Birth (from SA-ID)' : 'Date of Birth',
-              prefixIcon: Icon(
-                Icons.calendar_today_outlined,
-                color: colorScheme.primary,
-              ),
-              suffixIcon: _isSaId
-                  ? const Icon(Icons.lock_outline, size: 18)
-                  : const Icon(Icons.edit_calendar_outlined, size: 18),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: state.hasError
-                      ? colorScheme.error
-                      : Colors.grey.shade300,
-                ),
-              ),
-              errorText: state.errorText,
-              filled: true,
-              fillColor: Colors.white,
-            ),
-            child: Text(
-              _dateOfBirth == null
-                  ? (_isSaId ? 'Enter SA-ID number' : 'Select date')
-                  : _formatDate(_dateOfBirth!),
-              style: TextStyle(
-                color: _dateOfBirth == null
-                    ? Colors.grey[600]
-                    : Colors.black87,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRelationshipCard(ColorScheme colorScheme) {
-    return _buildCard([
-      DropdownButtonFormField<DependentType>(
-        value: _selectedType,
-        decoration: InputDecoration(
-          labelText: 'Relationship Type',
-          prefixIcon: Icon(Icons.people_outline, color: colorScheme.primary),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.primary, width: 2),
-          ),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-        items: DependentType.values
-            .where(
-              (type) =>
-                  type != DependentType.ANY &&
-                  type != DependentType.MAIN_MEMBER,
-            )
-            .map(
-              (type) => DropdownMenuItem(
-                value: type,
-                child: Text(type.label),
-              ),
-            )
-            .toList(),
-        onChanged: (value) => setState(() => _selectedType = value!),
-      ),
-      const SizedBox(height: 20),
-      TextFormField(
-        controller: _reasonController,
-        maxLines: 3,
-        decoration: InputDecoration(
-          labelText: 'Reason *',
-          helperText:
-              'Changes requested one month or more after membership creation require approval.',
-          prefixIcon: Icon(Icons.notes_outlined, color: colorScheme.primary),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.primary, width: 2),
-          ),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-        validator: (value) => value == null || value.trim().isEmpty
-            ? 'Reason is required'
-            : null,
-      ),
-    ]);
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    IconData icon, {
-    bool requiredWhenCreating = true,
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-    ValueChanged<String>? onChanged,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      textCapitalization: TextCapitalization.characters,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(
-          icon,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.primary,
-            width: 2,
-          ),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-      ),
-      validator: validator ??
-          (value) {
-            if (!_isCreatingNewPartner || !requiredWhenCreating) return null;
-            if (value == null || value.trim().isEmpty) return 'Required';
-            return null;
-          },
-    );
-  }
-
-  Widget _buildSectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 18,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            color: Colors.grey[700],
-            letterSpacing: 1.2,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCard(List<Widget> children) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-        border: Border.all(color: Colors.white),
-      ),
-      child: Column(children: children),
-    );
+    var candidate = DateTime(2000 + yy, mm, dd);
+    if (candidate.year != 2000 + yy || candidate.month != mm || candidate.day != dd) return null;
+    if (candidate.isAfter(now)) candidate = DateTime(1900 + yy, mm, dd);
+    if (candidate.month != mm || candidate.day != dd || candidate.isAfter(now)) return null;
+    return candidate;
   }
 
   @override
   void dispose() {
-    _reasonController.dispose();
-    _identityNumberController.dispose();
-    _firstNameController.dispose();
-    _middleNameController.dispose();
-    _lastNameController.dispose();
+    for (final controller in [_identityNumber, _firstName, _middleName, _lastName, _reason]) {
+      controller.dispose();
+    }
     super.dispose();
   }
+
+  Future<void> _search() async {
+    if (_withoutIdentity) {
+      setState(() {
+        _partner = null;
+        _notFound = true;
+        _step = 1;
+        _error = null;
+      });
+      return;
+    }
+    if (!_identityFormKey.currentState!.validate()) return;
+    setState(() { _searching = true; _error = null; });
+    try {
+      final identity = await PartnerService().getIdentity(_identityType!.trim(), _identityNumber.text.trim());
+      Partner? found;
+      if (identity?.partner != null && identity!.partner!.trim().isNotEmpty) {
+        found = await PartnerService().getPartnerById(identity.partner!.trim());
+      }
+      if (!mounted) return;
+      if (found != null && found.type.toUpperCase() != 'INDIVIDUAL') {
+        throw AppException('The identity belongs to a non-individual partner and cannot be added as a dependent.');
+      }
+      setState(() { _partner = found; _notFound = found == null; _step = 1; });
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<Partner> _createPartner() {
+    final payload = <String, dynamic>{
+      'type': 'INDIVIDUAL',
+      'partnerType': 'INDIVIDUAL',
+      'name1': _lastName.text.trim().toUpperCase(),
+      'name2': _firstName.text.trim().toUpperCase(),
+      'name3': _middleName.text.trim().toUpperCase(),
+      'status': 'ACTIVE',
+    };
+    if (!_withoutIdentity) {
+      payload['identityType'] = _identityType!.trim();
+      payload['identityNumber'] = _identityNumber.text.trim();
+      payload['birthDate'] = _isSaId
+          ? _dateOfBirthFromSaId(_identityNumber.text.trim())?.toIso8601String()
+          : null;
+    }
+    return PartnerService().createPartner(payload);
+  }
+
+  Future<void> _save() async {
+    if (!_detailsFormKey.currentState!.validate()) return;
+    setState(() { _saving = true; _error = null; });
+    try {
+      final partner = _partner ?? await _createPartner();
+      final change = await MembershipService().addDependent(widget.membershipId, {
+        'dependentPartnerId': partner.id,
+        'dependentType': _relationship.name,
+        'reason': _reason.text.trim(),
+      });
+      if (!mounted) return;
+      final pending = change.status == 'PENDING_APPROVAL';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(pending ? 'Dependent addition submitted for approval' : 'Dependent added successfully'),
+        backgroundColor: pending ? Colors.orange[800] : Colors.green[700],
+      ));
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _back() => setState(() { _step = 0; _partner = null; _notFound = false; _error = null; });
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620, maxHeight: 720),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _header(),
+            const Divider(height: 1),
+            Flexible(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: _step == 0 ? _identityStep() : _detailsStep())),
+          ]),
+        ),
+      );
+
+  Widget _header() => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+        child: Row(children: [
+          const CircleAvatar(child: Icon(Icons.person_add_alt_1_outlined)),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Add Dependent', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+            Text('Step ${_step + 1} of 2 • ${_step == 0 ? 'Search identity' : 'Dependent details'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          ])),
+          IconButton(onPressed: _saving ? null : () => Navigator.pop(context), icon: const Icon(Icons.close)),
+        ]),
+      );
+
+  Widget _identityStep() => Form(
+        key: _identityFormKey,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(
+            _withoutIdentity
+                ? 'Capture the dependent details without an identity number.'
+                : 'Search for the partner before continuing.',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _withoutIdentity,
+            title: const Text('Dependent does not have an identity number'),
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: (value) => setState(() {
+              _withoutIdentity = value ?? false;
+              if (_withoutIdentity) {
+                _identityNumber.clear();
+                _error = null;
+              }
+            }),
+          ),
+          const SizedBox(height: 10),
+          IgnorePointer(
+            ignoring: _withoutIdentity,
+            child: Opacity(
+              opacity: _withoutIdentity ? .45 : 1,
+              child: AppDropdownField(
+                field: 'ID-TYPE',
+                label: 'ID Type',
+                icon: Icons.badge_outlined,
+                value: _identityType,
+                onChanged: (v) => setState(() => _identityType = v),
+                validator: (v) => _withoutIdentity || (v ?? '').trim().isNotEmpty ? null : 'ID Type is required',
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _identityNumber,
+            enabled: !_withoutIdentity,
+            keyboardType: _isSaId ? TextInputType.number : TextInputType.text,
+            inputFormatters: _isSaId ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(13)] : null,
+            decoration: const InputDecoration(labelText: 'ID Number', border: OutlineInputBorder(), prefixIcon: Icon(Icons.numbers)),
+            validator: (v) {
+              if (_withoutIdentity) return null;
+              final value = (v ?? '').trim();
+              if (value.isEmpty) return 'ID Number is required';
+              if (_isSaId && (value.length != 13 || _dateOfBirthFromSaId(value) == null)) return 'Enter a valid 13-digit SA ID';
+              return null;
+            },
+          ),
+          if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
+          const SizedBox(height: 24),
+          FilledButton.icon(onPressed: _searching ? null : _search, icon: _searching ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search), label: Text(_withoutIdentity ? 'CONTINUE' : 'SEARCH PARTNER')),
+        ]),
+      );
+
+  Widget _detailsStep() => Form(
+        key: _detailsFormKey,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _identitySummary(),
+          const SizedBox(height: 14),
+          if (_partner != null) _partnerSummary(_partner!) else if (_notFound) _newPartnerFields(),
+          const SizedBox(height: 18),
+          SearchableDropdownFormField<DependentType>(
+            value: _relationship,
+            decoration: const InputDecoration(labelText: 'Relationship Type', border: OutlineInputBorder()),
+            items: DependentType.values.where((v) => v != DependentType.ANY && v != DependentType.MAIN_MEMBER).map((v) => DropdownMenuItem(value: v, child: Text(v.label))).toList(),
+            onChanged: (v) => setState(() => _relationship = v ?? DependentType.OTHER),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(controller: _reason, maxLines: 3, decoration: const InputDecoration(labelText: 'Reason', border: OutlineInputBorder()), validator: _required),
+          if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
+          const SizedBox(height: 24),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(onPressed: _saving ? null : _back, icon: const Icon(Icons.arrow_back), label: const Text('SEARCH AGAIN'))),
+            const SizedBox(width: 12),
+            Expanded(child: FilledButton(onPressed: _saving ? null : _save, child: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(_partner == null ? 'CREATE & ADD' : 'ADD DEPENDENT'))),
+          ]),
+        ]),
+      );
+
+  Widget _identitySummary() => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          _withoutIdentity ? 'No identity number' : '${_identityType ?? 'ID'} • ${_identityNumber.text.trim()}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      );
+
+  Widget _partnerSummary(Partner p) => Card(elevation: 0, child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Partner found', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 6), Text(p.fullName, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)), if (p.number.isNotEmpty) Text('Partner #: ${p.number}')] )));
+
+  Widget _newPartnerFields() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange.withOpacity(.08), borderRadius: BorderRadius.circular(12)), child: const Text('No partner found. Capture the dependent details below.')),
+        const SizedBox(height: 14),
+        TextFormField(controller: _firstName, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'First Name', border: OutlineInputBorder()), validator: _required),
+        const SizedBox(height: 12),
+        TextFormField(controller: _middleName, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Middle Name', border: OutlineInputBorder())),
+        const SizedBox(height: 12),
+        TextFormField(controller: _lastName, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Last Name', border: OutlineInputBorder()), validator: _required),
+      ]);
+
+  String? _required(String? value) => (value ?? '').trim().isEmpty ? 'Required' : null;
 }

@@ -5,6 +5,8 @@ import '../services/case_management_service.dart';
 import '../../../core/models/user.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddTaskDialog extends StatefulWidget {
   final String caseId;
   final List<User> users;
@@ -85,13 +87,13 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                 decoration: const InputDecoration(labelText: 'Description'),
                 maxLines: 2,
               ),
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _priority,
                 decoration: const InputDecoration(labelText: 'Priority'),
                 items: ['LOW', 'NORMAL', 'HIGH', 'URGENT'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                 onChanged: (v) => setState(() => _priority = v!),
               ),
-              DropdownButtonFormField<String?>(
+              SearchableDropdownFormField<String?>(
                 value: _assignedTo,
                 decoration: const InputDecoration(labelText: 'Assign To'),
                 items: [

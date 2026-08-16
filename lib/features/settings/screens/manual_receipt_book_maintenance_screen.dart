@@ -8,6 +8,8 @@ import '../models/manual_receipt_book.dart';
 import '../services/manual_receipt_book_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ManualReceiptBookMaintenanceScreen extends StatefulWidget {
   const ManualReceiptBookMaintenanceScreen({super.key});
 
@@ -20,6 +22,7 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
   List<ManualReceiptBook> _books = const [];
   bool _loading = true;
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -66,8 +69,22 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
     }
   }
 
+  List<ManualReceiptBook> get _visibleBooks {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _books;
+    return _books.where((book) => [
+      book.receiptBookNo,
+      book.description,
+      book.rangeLabel,
+      book.assignedEmployeeName ?? '',
+      book.assignedAreaName ?? '',
+      book.status,
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final books = _visibleBooks;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manual Receipt Book Maintenance'),
@@ -82,14 +99,29 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : _books.isEmpty
-                  ? const Center(child: Text('No manual receipt books have been maintained.'))
-                  : ListView.separated(
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Search receipt books',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (value) => setState(() => _searchQuery = value),
+                      ),
+                    ),
+                    Expanded(
+                      child: books.isEmpty
+                          ? const Center(child: Text('No manual receipt books match your search.'))
+                          : ListView.separated(
                       padding: const EdgeInsets.all(16),
-                      itemCount: _books.length,
+                      itemCount: books.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        final book = _books[index];
+                        final book = books[index];
                         return Card(
                           child: ListTile(
                             leading: CircleAvatar(
@@ -117,6 +149,9 @@ class _ManualReceiptBookMaintenanceScreenState extends State<ManualReceiptBookMa
                         );
                       },
                     ),
+                    ),
+                  ],
+                ),
     );
   }
 }
@@ -272,7 +307,7 @@ class _ManualReceiptBookDialogState extends State<_ManualReceiptBookDialog> {
                         Expanded(child: TextFormField(controller: _to, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Receipt To', border: OutlineInputBorder()), validator: _numberOrBlank)),
                       ]),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _employeeId,
                         decoration: const InputDecoration(labelText: 'Assigned Employee', border: OutlineInputBorder()),
                         items: _employees.map((record) {
@@ -282,14 +317,14 @@ class _ManualReceiptBookDialogState extends State<_ManualReceiptBookDialog> {
                         onChanged: (value) => setState(() => _employeeId = value),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _areaCode,
                         decoration: const InputDecoration(labelText: 'Assigned SALES-AREA', border: OutlineInputBorder()),
                         items: _areas.map((area) => DropdownMenuItem(value: area.code, child: Text(area.description))).toList(),
                         onChanged: (value) => setState(() => _areaCode = value),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownFormField<String>(
                         value: _status,
                         decoration: const InputDecoration(labelText: 'Status *', border: OutlineInputBorder()),
                         items: const ['ACTIVE', 'CLOSED', 'CANCELLED', 'LOST']

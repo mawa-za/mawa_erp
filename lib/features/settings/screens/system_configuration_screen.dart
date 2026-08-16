@@ -30,8 +30,8 @@ import 'membership_lapse_settings_screen.dart';
 import 'membership_policy_configuration_screen.dart';
 import 'number_range_configuration_screen.dart';
 import 'payment_request_invoice_email_configuration_screen.dart';
-import 'pos_printing_settings_screen.dart';
 import 'premium_generation_settings_screen.dart';
+import 'premium_payment_settings_screen.dart';
 import 'purple_configuration_screen.dart';
 import 'role_list_screen.dart';
 import 'signiflow_configuration_screen.dart';
@@ -198,7 +198,7 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
         _ConfigurationItem(
           title: 'Membership Policy',
           description:
-              'Control multiple memberships and approval requirements for additional cover.',
+              'Control multiple memberships, dependant eligibility overrides and approval requirements for additional cover.',
           icon: Icons.policy_outlined,
           category: _ConfigurationCategory.membership,
           onTap: () =>
@@ -227,6 +227,14 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.event_busy_outlined,
           category: _ConfigurationCategory.membership,
           onTap: () => _open(context, const MembershipLapseSettingsScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Premium Payment Settings',
+          description:
+              'Configure payment limits and controlled premium payment deletion and transfer overrides.',
+          icon: Icons.payments_outlined,
+          category: _ConfigurationCategory.membership,
+          onTap: () => _open(context, const PremiumPaymentSettingsScreen()),
         ),
         _ConfigurationItem(
           title: 'Funeral Cover Underwriters',
@@ -317,14 +325,6 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.warehouse_outlined,
           category: _ConfigurationCategory.operations,
           onTap: () => _open(context, const StorageConfigurationScreen()),
-        ),
-        _ConfigurationItem(
-          title: 'POS Printing',
-          description:
-              'Pair payment terminals, Windows print agents and receipt printers.',
-          icon: Icons.point_of_sale_outlined,
-          category: _ConfigurationCategory.operations,
-          onTap: () => _open(context, const PosPrintingSettingsScreen()),
         ),
         _ConfigurationItem(
           title: 'Device Sync Corrections',

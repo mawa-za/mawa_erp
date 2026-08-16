@@ -4,6 +4,8 @@ import '../models/case_disbursement.dart';
 import '../services/case_management_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddDisbursementDialog extends StatefulWidget {
   final String caseId;
 
@@ -55,7 +57,7 @@ class _AddDisbursementDialogState extends State<AddDisbursementDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _disbursementType,
                 decoration: const InputDecoration(labelText: 'Type'),
                 items: _types.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

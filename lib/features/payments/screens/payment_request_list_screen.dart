@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
+
+import '../../../core/utils/app_date_utils.dart';
 import '../models/payment_request.dart';
 import '../services/payment_request_service.dart';
-import 'payment_request_detail_screen.dart';
 import 'payment_request_create_screen.dart';
-import 'package:mawa_erp/core/errors/app_error.dart';
+import 'payment_request_detail_screen.dart';
 
 class PaymentRequestListScreen extends StatefulWidget {
   const PaymentRequestListScreen({super.key});
@@ -14,20 +16,23 @@ class PaymentRequestListScreen extends StatefulWidget {
 
 class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
   final PaymentRequestService _service = PaymentRequestService();
-  bool _isLoading = true;
-  List<PaymentRequestSummary> _payments = [];
-  String? _error;
-  String _selectedStatus = 'ALL';
+  final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _statuses = [
+  static const List<String> _statuses = <String>[
     'ALL',
     'DRAFT',
     'PENDING_APPROVAL',
     'APPROVED',
     'REJECTED',
     'CANCELLED',
-    'PAID'
+    'PAID',
   ];
+
+  bool _isLoading = true;
+  List<PaymentRequestSummary> _payments = <PaymentRequestSummary>[];
+  String? _error;
+  String _selectedStatus = 'ALL';
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -35,9 +40,14 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
     _fetchPayments();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchPayments() async {
     if (!mounted) return;
-    
     setState(() {
       _isLoading = true;
       _error = null;
@@ -47,46 +57,68 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
       final results = await _service.getPaymentRequests(
         status: _selectedStatus == 'ALL' ? null : _selectedStatus,
       );
-      results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      
-      if (mounted) {
-        setState(() {
-          _payments = results;
-          _isLoading = false;
-        });
-      }
+      results.sort(_latestFirst);
+      if (!mounted) return;
+      setState(() {
+        _payments = results;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = friendlyErrorMessage('Failed to load payments: $e');
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _error = friendlyErrorMessage('Failed to load payment requests: $e');
+        _isLoading = false;
+      });
     }
+  }
+
+  int _latestFirst(PaymentRequestSummary a, PaymentRequestSummary b) {
+    final aDate = AppDateUtils.parse(a.createdAt);
+    final bDate = AppDateUtils.parse(b.createdAt);
+    return (bDate ?? DateTime.fromMillisecondsSinceEpoch(0))
+        .compareTo(aDate ?? DateTime.fromMillisecondsSinceEpoch(0));
+  }
+
+  List<PaymentRequestSummary> get _visiblePayments {
+    final query = _searchQuery.toLowerCase();
+    if (query.isEmpty) return _payments;
+    return _payments.where((payment) {
+      final searchable = <String>[
+        payment.requestNo,
+        payment.payeeName,
+        payment.externalReference ?? '',
+        payment.invoiceNo ?? '',
+        payment.paymentReason ?? '',
+        payment.requestType,
+        payment.status,
+        payment.amount.toStringAsFixed(2),
+      ].join(' ').toLowerCase();
+      return searchable.contains(query);
+    }).toList(growable: false);
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final visibleCount = _visiblePayments.length;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
         title: const Text('Payment Requests'),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 20,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
         ),
         elevation: 0,
-        scrolledUnderElevation: 2,
+        scrolledUnderElevation: 1,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, size: 22),
-            onPressed: _fetchPayments,
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _fetchPayments,
             tooltip: 'Refresh',
           ),
           const SizedBox(width: 8),
@@ -94,18 +126,18 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
       ),
       body: Column(
         children: [
-          _buildStatusFilter(),
+          _buildToolbar(visibleCount),
           Expanded(child: _buildBody()),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const PaymentRequestCreateScreen()),
+            MaterialPageRoute(
+              builder: (context) => const PaymentRequestCreateScreen(),
+            ),
           );
-          if (result == true) {
-            _fetchPayments();
-          }
+          if (result == true) _fetchPayments();
         },
         label: const Text('New Request'),
         icon: const Icon(Icons.add),
@@ -113,182 +145,357 @@ class _PaymentRequestListScreenState extends State<PaymentRequestListScreen> {
     );
   }
 
-  Widget _buildStatusFilter() {
-    return Container(
-      height: 50,
+  Widget _buildToolbar(int visibleCount) {
+    return Material(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _statuses.length,
-        itemBuilder: (context, index) {
-          final status = _statuses[index];
-          final isSelected = _selectedStatus == status;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(
-                status.replaceAll('_', ' '), 
-                style: TextStyle(
-                  fontSize: 11, 
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? Colors.white : Colors.black87
-                )
-              ),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedStatus = status);
-                  _fetchPayments();
-                }
-              },
-              selectedColor: Theme.of(context).colorScheme.primary,
-              backgroundColor: Colors.grey[100],
-              side: BorderSide.none,
-              showCheckmark: false,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedStatus == 'ALL'
+                            ? '$visibleCount payment request${visibleCount == 1 ? '' : 's'}'
+                            : '$visibleCount ${_statusLabel(_selectedStatus).toLowerCase()} request${visibleCount == 1 ? '' : 's'}',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    Text(
+                      'Latest first',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _searchQuery = value.trim()),
+                  decoration: InputDecoration(
+                    hintText: 'Search request number, supplier, reference or reason',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          ),
+                    filled: true,
+                    fillColor: const Color(0xFFF7F8FA),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _statuses.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final status = _statuses[index];
+                      final selected = status == _selectedStatus;
+                      return ChoiceChip(
+                        label: Text(_statusLabel(status)),
+                        selected: selected,
+                        showCheckmark: false,
+                        onSelected: (value) {
+                          if (!value || selected) return;
+                          setState(() => _selectedStatus = status);
+                          _fetchPayments();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          );
-        },
       ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 16),
-              ElevatedButton(onPressed: _fetchPayments, child: const Text('Retry')),
-            ],
-          ),
-        ),
+      return _MessageState(
+        icon: Icons.error_outline,
+        title: 'Unable to load payment requests',
+        message: _error!,
+        actionLabel: 'Retry',
+        onAction: _fetchPayments,
       );
     }
 
     if (_payments.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.payments_outlined, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            Text('No payment requests found', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-          ],
-        ),
+      return const _MessageState(
+        icon: Icons.payments_outlined,
+        title: 'No payment requests',
+        message: 'There are no payment requests for the selected status.',
+      );
+    }
+
+    final visible = _visiblePayments;
+    if (visible.isEmpty) {
+      return const _MessageState(
+        icon: Icons.search_off,
+        title: 'No matching requests',
+        message: 'Try a different search term or status filter.',
       );
     }
 
     return RefreshIndicator(
       onRefresh: _fetchPayments,
       child: ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: _payments.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          final payment = _payments[index];
-          return Card(
-            elevation: 0,
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              title: Text(payment.payeeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text('${payment.paymentReason ?? ''} - ${payment.externalReference ?? ''}', 
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 10, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      Text('Due: ${payment.requestedPaymentDate ?? ''}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                    ],
-                  ),
-                ],
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${payment.currency} ${payment.amount.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900, 
-                      fontSize: 15,
-                      color: Theme.of(context).colorScheme.primary
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _buildStatusChip(payment.status),
-                ],
-              ),
-              onTap: () async {
-                final result = await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => PaymentRequestDetailScreen(paymentId: payment.id),
-                  ),
-                );
-                if (result == true) {
-                  _fetchPayments();
-                }
-              },
-            ),
-          );
-        },
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        itemCount: visible.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) => _buildPaymentCard(visible[index]),
       ),
     );
   }
 
+  Widget _buildPaymentCard(PaymentRequestSummary payment) {
+    final theme = Theme.of(context);
+    final reference = (payment.externalReference ?? payment.invoiceNo ?? '').trim();
+    final reason = (payment.paymentReason ?? '').trim();
+    final payee = payment.payeeName.trim().isEmpty ? 'Payee not specified' : payment.payeeName.trim();
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PaymentRequestDetailScreen(paymentId: payment.id),
+            ),
+          );
+          if (result == true) _fetchPayments();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withOpacity(.55),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          payee,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          payment.requestNo.isEmpty ? 'Payment request' : payment.requestNo,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${payment.currency} ${payment.amount.toStringAsFixed(2)}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _buildStatusChip(payment.status),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 20,
+                runSpacing: 10,
+                children: [
+                  _meta(
+                    Icons.category_outlined,
+                    'Type',
+                    _statusLabel(payment.requestType),
+                  ),
+                  _meta(
+                    Icons.event_outlined,
+                    'Requested payment',
+                    AppDateUtils.displayDate(payment.requestedPaymentDate),
+                  ),
+                  if (reference.isNotEmpty)
+                    _meta(Icons.tag_outlined, 'Reference', reference),
+                  if (reason.isNotEmpty)
+                    _meta(Icons.notes_outlined, 'Reason', reason),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _meta(IconData icon, String label, String value) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 180, maxWidth: 330),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: Colors.grey.shade500),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                ),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _statusLabel(String value) {
+    if (value.isEmpty) return 'Not specified';
+    return value
+        .replaceAll('_', ' ')
+        .toLowerCase()
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
   Widget _buildStatusChip(String status) {
-    Color color;
-    switch (status.toUpperCase()) {
-      case 'PAID':
-      case 'APPROVED':
-        color = Colors.green;
-        break;
-      case 'REJECTED':
-      case 'CANCELLED':
-        color = Colors.red;
-        break;
-      case 'PENDING_APPROVAL':
-        color = Colors.orange;
-        break;
-      default:
-        color = Colors.grey;
-    }
+    final color = switch (status.toUpperCase()) {
+      'PAID' || 'APPROVED' => Colors.green,
+      'REJECTED' || 'CANCELLED' || 'FAILED' => Colors.red,
+      'PENDING_APPROVAL' || 'QUEUED_FOR_PAYMENT' => Colors.orange,
+      _ => Colors.blueGrey,
+    };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.5)),
+        color: color.withOpacity(.09),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(.28)),
       ),
       child: Text(
-        status.replaceAll('_', ' '),
-        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+        _statusLabel(status),
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _MessageState extends StatelessWidget {
+  const _MessageState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 52, color: Colors.grey.shade400),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              style: TextStyle(color: Colors.grey.shade600),
+              textAlign: TextAlign.center,
+            ),
+            if (onAction != null && actionLabel != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.tonal(onPressed: onAction, child: Text(actionLabel!)),
+            ],
+          ],
+        ),
       ),
     );
   }

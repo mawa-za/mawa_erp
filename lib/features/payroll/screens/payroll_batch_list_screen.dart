@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../models/payroll_batch.dart';
 import '../services/payroll_service.dart';
 import 'payroll_batch_detail_screen.dart';
@@ -18,6 +19,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   List<PayrollBatchSummary> _allBatches = [];
   List<PayrollBatchSummary> _batches = [];
   String _selectedStatus = 'ALL';
+  String _searchQuery = '';
   final List<String> _statuses = [
     'ALL',
     'NEW',
@@ -69,9 +71,17 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
   }
 
   void _applyStatusFilter() {
-    _batches = _selectedStatus == 'ALL'
-        ? List<PayrollBatchSummary>.from(_allBatches)
-        : _allBatches.where((batch) => batch.status.toUpperCase() == _selectedStatus).toList();
+    final query = _searchQuery.trim().toLowerCase();
+    _batches = _allBatches.where((batch) {
+      final statusMatches = _selectedStatus == 'ALL' ||
+          batch.status.toUpperCase() == _selectedStatus;
+      if (!statusMatches) return false;
+      if (query.isEmpty) return true;
+      return [batch.batchNo, batch.description, batch.payPeriod, batch.paymentDate, batch.status]
+          .join(' ')
+          .toLowerCase()
+          .contains(query);
+    }).toList();
   }
 
   Future<void> _selectPayPeriod() async {
@@ -164,7 +174,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(DateFormat('yyyy-MM-dd').format(paymentDate)),
+                        Text(AppDateUtils.displayDate(paymentDate)),
                         const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
                       ],
                     ),
@@ -269,6 +279,21 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
         children: [
           _buildPeriodIndicator(colorScheme),
           _buildStatusFilter(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search payroll batches',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() {
+                _searchQuery = value;
+                _applyStatusFilter();
+              }),
+            ),
+          ),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -478,7 +503,7 @@ class _PayrollBatchListScreenState extends State<PayrollBatchListScreen> {
                           children: [
                             const Icon(Icons.calendar_today_rounded, size: 12, color: Colors.grey),
                             const SizedBox(width: 4),
-                            Text(batch.paymentDate, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            Text(AppDateUtils.displayDate(batch.paymentDate), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ],

@@ -5,6 +5,8 @@ import '../services/case_trust_service.dart';
 import 'trust_receipt_preview_dialog.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CaseTrustAccountTab extends StatefulWidget {
   final String caseId;
   const CaseTrustAccountTab({super.key, required this.caseId});
@@ -343,7 +345,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) => (double.tryParse(v ?? '') ?? 0) <= 0 ? 'Enter valid amount' : null,
                   ),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: paymentMethod,
                     decoration: const InputDecoration(labelText: 'Payment Method'),
                     items: ['CASH', 'EFT', 'CARD', 'BANK_TRANSFER', 'OTHER'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
@@ -489,7 +491,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                       return null;
                     },
                   ),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: paymentMethod,
                     decoration: const InputDecoration(labelText: 'Payment Method'),
                     items: ['CASH', 'EFT', 'CARD', 'BANK_TRANSFER', 'OTHER'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
@@ -571,7 +573,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                     },
                   ),
                   TextFormField(controller: payeeController, decoration: const InputDecoration(labelText: 'Payee Name'), validator: (v) => v!.isEmpty ? 'Required' : null),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownFormField<String>(
                     value: paymentMethod,
                     decoration: const InputDecoration(labelText: 'Payment Method'),
                     items: ['CASH', 'EFT', 'CARD', 'BANK_TRANSFER', 'OTHER'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
@@ -588,7 +590,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                     contentPadding: EdgeInsets.zero,
                   ),
                   if (createDisbursement) ...[
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: disbursementType,
                       decoration: const InputDecoration(labelText: 'Disbursement Type'),
                       items: ['SHERIFF', 'COURT_FEE', 'TRAVEL', 'PRINTING', 'POSTAGE', 'ADVOCATE', 'EXPERT', 'OTHER'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),

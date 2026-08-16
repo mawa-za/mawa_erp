@@ -1,3 +1,4 @@
+import '../../../core/utils/app_date_utils.dart';
 import 'receipt_response.dart';
 
 class PaymentBatchResponse {
@@ -43,7 +44,7 @@ class PaymentBatchResponse {
       receivedFromPartnerId: json['receivedFromPartnerId']?.toString(),
       paymentMethod: (json['paymentMethod'] ?? '').toString(),
       totalAmountCents: (json['totalAmountCents'] as num?)?.toInt() ?? int.tryParse('${json['totalAmountCents'] ?? 0}') ?? 0,
-      paymentDate: (json['paymentDate'] ?? '').toString(),
+      paymentDate: AppDateUtils.normalizeDateTime(json['paymentDate']),
       status: (json['status'] ?? '').toString(),
       syncStatus: (json['syncStatus'] ?? '').toString(),
       paidUpToPeriod: json['paidUpToPeriod']?.toString(),

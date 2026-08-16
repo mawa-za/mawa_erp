@@ -5,6 +5,8 @@ import '../services/case_management_service.dart';
 import '../../../core/widgets/partner_search_dropdown.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AddPartyDialog extends StatefulWidget {
   final String caseId;
   final CaseParty? party; // If provided, we are editing
@@ -110,7 +112,7 @@ class _AddPartyDialogState extends State<AddPartyDialog> {
                 decoration: const InputDecoration(labelText: 'Party Name*'),
                 validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
-              DropdownButtonFormField<String>(
+              SearchableDropdownFormField<String>(
                 value: _partyType,
                 decoration: const InputDecoration(labelText: 'Party Type'),
                 items: _partyTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

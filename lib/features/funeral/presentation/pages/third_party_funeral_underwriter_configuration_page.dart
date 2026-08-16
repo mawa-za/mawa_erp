@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import '../../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class ThirdPartyFuneralUnderwriterConfigurationPage extends StatefulWidget {
   const ThirdPartyFuneralUnderwriterConfigurationPage({super.key});
 
@@ -189,7 +191,7 @@ class _ThirdPartyFuneralUnderwriterConfigurationPageState
                     const SizedBox(height: 8),
                     _field(code, 'Underwriter code'),
                     _field(name, 'Underwriter name'),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: mode,
                       decoration: const InputDecoration(
                         labelText: 'Integration mode',
@@ -202,7 +204,7 @@ class _ThirdPartyFuneralUnderwriterConfigurationPageState
                       onChanged: (value) => setDialogState(() => mode = value ?? mode),
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownFormField<String>(
                       value: status,
                       decoration: const InputDecoration(
                         labelText: 'Status',

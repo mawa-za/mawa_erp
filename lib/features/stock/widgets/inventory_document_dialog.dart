@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../services/stock_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 enum InventoryDocumentType { quotation, purchaseOrder, goodsReceipt, salesOrder }
 
 Future<bool?> showInventoryDocumentDialog({
@@ -563,7 +565,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
     );
   }
 
-  Widget _warehouseDropdown() => DropdownButtonFormField<String>(
+  Widget _warehouseDropdown() => SearchableDropdownFormField<String>(
         value: _selectedWarehouseId?.isNotEmpty == true ? _selectedWarehouseId : null,
         decoration: const InputDecoration(labelText: 'Warehouse', border: OutlineInputBorder()),
         items: widget.warehouses.map((w) => DropdownMenuItem<String>(
@@ -579,7 +581,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
 
   Widget _locationDropdown({required String label}) {
     final locations = widget.storageLocations.where((loc) => _selectedWarehouseId == null || _text(loc['warehouse_id']) == _selectedWarehouseId).toList();
-    return DropdownButtonFormField<String>(
+    return SearchableDropdownFormField<String>(
       value: locations.any((loc) => _text(loc['id']) == _selectedLocationId) ? _selectedLocationId : null,
       decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
       items: locations.map((loc) => DropdownMenuItem<String>(

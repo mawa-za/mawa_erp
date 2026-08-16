@@ -3,7 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/utils/app_date_utils.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class MessageQueueAdminScreen extends StatefulWidget {
   const MessageQueueAdminScreen({super.key});
@@ -65,8 +68,8 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
             ((data['batchSize'] as num?)?.toInt() ?? 10).toString();
         _retryDelayController.text =
             ((data['retryDelaySeconds'] as num?)?.toInt() ?? 10).toString();
-        _lastRunAt = data['lastRunAt']?.toString();
-        _nextRunAt = data['nextRunAt']?.toString();
+        _lastRunAt = data['lastRunAt'] == null ? null : AppDateUtils.displayDateTime(data['lastRunAt']);
+        _nextRunAt = data['nextRunAt'] == null ? null : AppDateUtils.displayDateTime(data['nextRunAt']);
         _scheduleError = null;
       });
     } catch (e) {
@@ -271,7 +274,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
               children: [
                 SizedBox(
                   width: 220,
-                  child: DropdownButtonFormField<String>(
+                  child: SearchableDropdownFormField<String>(
                     value: _status,
                     decoration: const InputDecoration(
                       labelText: 'Status',
@@ -500,7 +503,7 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
               'Reference: ${item['referenceNo'] ?? item['referenceId'] ?? ''}',
             ),
             Text('Retry count: ${item['retryCount'] ?? 0}'),
-            Text('Next attempt: ${item['nextAttemptAt'] ?? ''}'),
+            Text('Next attempt: ${item['nextAttemptAt'] == null ? '-' : AppDateUtils.displayDateTime(item['nextAttemptAt'])}'),
             const SizedBox(height: 8),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
