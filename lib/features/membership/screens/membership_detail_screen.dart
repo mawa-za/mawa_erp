@@ -336,13 +336,46 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildStatusBanner(MembershipDetail detail, ColorScheme colorScheme) {
+    final normalizedStatus = detail.status.trim().toUpperCase().replaceAll('-', '_');
     Color color;
-    switch (detail.status.toUpperCase()) {
+    switch (normalizedStatus) {
       case 'ACTIVE': color = Colors.green; break;
-      case 'WAITING-PERIOD':
-      case 'UPGRADE-WAITING-PERIOD': color = Colors.orange; break;
-      case 'INACTIVE': color = Colors.red; break;
+      case 'WAITING_PERIOD':
+      case 'UPGRADE_WAITING_PERIOD':
+      case 'SUSPENDED': color = Colors.orange; break;
+      case 'INACTIVE': color = Colors.grey.shade700; break;
+      case 'CANCELLED':
+      case 'CANCELED': color = Colors.red; break;
       default: color = colorScheme.primary;
+    }
+
+    final actions = <MapEntry<String, String>>[];
+    switch (normalizedStatus) {
+      case 'ACTIVE':
+        actions.addAll(const [
+          MapEntry('SUSPEND', 'Suspend'),
+          MapEntry('DEACTIVATE', 'Deactivate'),
+          MapEntry('CANCEL', 'Cancel'),
+        ]);
+        break;
+      case 'SUSPENDED':
+        actions.addAll(const [
+          MapEntry('REACTIVATE', 'Reactivate'),
+          MapEntry('DEACTIVATE', 'Deactivate'),
+          MapEntry('CANCEL', 'Cancel'),
+        ]);
+        break;
+      case 'INACTIVE':
+        actions.addAll(const [
+          MapEntry('REACTIVATE', 'Reactivate'),
+          MapEntry('SUSPEND', 'Suspend'),
+          MapEntry('CANCEL', 'Cancel'),
+        ]);
+        break;
+      case 'CANCELLED':
+      case 'CANCELED':
+        actions.add(const MapEntry('REACTIVATE', 'Reactivate'));
+        break;
     }
 
     return Container(
@@ -353,40 +386,68 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: color.withOpacity(0.2), width: 1.5),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(Icons.shield_outlined, color: color, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  detail.status.replaceAll('-', ' ').toUpperCase(),
-                  style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Joined: ${detail.joinDate ?? detail.startDate ?? '-'}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Text('PREMIUM', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
-              Text(
-                'R ${detail.premium.toStringAsFixed(2)}',
-                style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(Icons.shield_outlined, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      detail.status.replaceAll('-', ' ').toUpperCase(),
+                      style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Joined: ${detail.joinDate ?? detail.startDate ?? '-'}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('PREMIUM', style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text(
+                    'R ${detail.premium.toStringAsFixed(2)}',
+                    style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 20),
+                  ),
+                ],
               ),
             ],
           ),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: actions.map((entry) {
+                final destructive = entry.key == 'CANCEL';
+                return OutlinedButton.icon(
+                  onPressed: () => _requestMembershipStatusChange(entry.key, entry.value),
+                  icon: Icon(
+                    entry.key == 'REACTIVATE' ? Icons.play_circle_outline :
+                    entry.key == 'SUSPEND' ? Icons.pause_circle_outline :
+                    entry.key == 'DEACTIVATE' ? Icons.block_outlined : Icons.cancel_outlined,
+                    size: 18,
+                  ),
+                  label: Text(entry.value.toUpperCase()),
+                  style: destructive ? OutlinedButton.styleFrom(foregroundColor: Colors.red) : null,
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -753,6 +814,236 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
+  Future<void> _requestMembershipStatusChange(String action, String label) async {
+    final reasonController = TextEditingController();
+    try {
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('$label membership'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$label will take effect only after the approval request is approved.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                autofocus: true,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Reason *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: () {
+                final value = reasonController.text.trim();
+                if (value.isNotEmpty) Navigator.pop(context, value);
+              },
+              child: const Text('SUBMIT FOR APPROVAL'),
+            ),
+          ],
+        ),
+      );
+      if (reason == null || reason.trim().isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final requestedBy = (prefs.getString('userId') ?? '').trim();
+      if (requestedBy.isEmpty) throw StateError('Unable to identify the logged-in user. Please log in again.');
+      await MembershipService().requestMembershipStatusChange(
+        membershipId: widget.membershipId,
+        action: action,
+        requestedBy: requestedBy,
+        reason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$label membership request submitted for approval.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to submit membership status change: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      reasonController.dispose();
+    }
+  }
+
+  Future<void> _requestPremiumPaymentEdit(Premium premium) async {
+    try {
+      final receipts = (await MembershipService().getPremiumReceipts(widget.membershipId, premium.id))
+          .where((receipt) => receipt.status.trim().toUpperCase() == 'POSTED')
+          .toList();
+      if (!mounted) return;
+      if (receipts.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No posted receipt is available for this premium payment.')),
+        );
+        return;
+      }
+
+      ReceiptResponse? selectedReceipt;
+      if (receipts.length == 1) {
+        selectedReceipt = receipts.first;
+      } else {
+        selectedReceipt = await showDialog<ReceiptResponse>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select payment to edit'),
+            content: SizedBox(
+              width: 500,
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: receipts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final receipt = receipts[index];
+                  return ListTile(
+                    leading: const Icon(Icons.edit_note_outlined),
+                    title: Text(receipt.receiptNo),
+                    subtitle: Text('${receipt.paymentMethod} • R ${receipt.totalAmount.toStringAsFixed(2)}'),
+                    onTap: () => Navigator.pop(context, receipt),
+                  );
+                },
+              ),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL'))],
+          ),
+        );
+      }
+      if (selectedReceipt == null) return;
+      if (selectedReceipt.paymentBatchId.trim().isEmpty) {
+        throw StateError('This receipt does not have a payment batch reference.');
+      }
+
+      final premiumAllocations = selectedReceipt.allocations.where((a) =>
+          a.status.trim().toUpperCase() == 'POSTED' &&
+          a.allocationType.trim().toUpperCase() == 'MEMBERSHIP_PREMIUM').toList();
+      final currentPeriod = premiumAllocations.length == 1 && premiumAllocations.first.periodYYYYMM.trim().length == 6
+          ? premiumAllocations.first.periodYYYYMM.trim()
+          : premium.periodYYYYMM.trim();
+      final now = DateTime.now();
+      final currentYear = int.tryParse(currentPeriod.length >= 4 ? currentPeriod.substring(0, 4) : '') ?? now.year;
+      final currentMonth = int.tryParse(currentPeriod.length == 6 ? currentPeriod.substring(4, 6) : '') ?? now.month;
+      final years = <int>{currentYear, for (var y = now.year - 10; y <= now.year + 2; y++) y}.toList()..sort();
+      var selectedYear = currentYear;
+      var selectedMonth = currentMonth.clamp(1, 12).toInt();
+      final amountController = TextEditingController(text: selectedReceipt.totalAmount.toStringAsFixed(2));
+      final reasonController = TextEditingController();
+
+      final edit = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Edit premium payment'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Receipt ${selectedReceipt!.receiptNo}. Changes take effect only after approval.'),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Payment amount *', prefixText: 'R ', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: selectedYear,
+                            decoration: const InputDecoration(labelText: 'Payment year *', border: OutlineInputBorder()),
+                            items: years.map((year) => DropdownMenuItem(value: year, child: Text('$year'))).toList(),
+                            onChanged: (value) => setDialogState(() => selectedYear = value ?? selectedYear),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: selectedMonth,
+                            decoration: const InputDecoration(labelText: 'Payment month *', border: OutlineInputBorder()),
+                            items: List.generate(12, (i) => i + 1).map((month) => DropdownMenuItem(
+                              value: month,
+                              child: Text(DateFormat('MMMM').format(DateTime(2000, month))),
+                            )).toList(),
+                            onChanged: (value) => setDialogState(() => selectedMonth = value ?? selectedMonth),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: reasonController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Reason for correction *', border: OutlineInputBorder()),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+              FilledButton(
+                onPressed: () {
+                  final amount = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+                  final reason = reasonController.text.trim();
+                  if (amount == null || amount <= 0 || reason.isEmpty) return;
+                  Navigator.pop(context, {
+                    'amountCents': (amount * 100).round(),
+                    'periodYYYYMM': '${selectedYear.toString().padLeft(4, '0')}${selectedMonth.toString().padLeft(2, '0')}',
+                    'reason': reason,
+                  });
+                },
+                child: const Text('SUBMIT FOR APPROVAL'),
+              ),
+            ],
+          ),
+        ),
+      );
+      amountController.dispose();
+      reasonController.dispose();
+      if (edit == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final requestedBy = (prefs.getString('userId') ?? '').trim();
+      if (requestedBy.isEmpty) throw StateError('Unable to identify the logged-in user. Please log in again.');
+      await MembershipService().requestPremiumPaymentEdit(
+        paymentBatchId: selectedReceipt.paymentBatchId,
+        receiptId: selectedReceipt.id,
+        amountCents: edit['amountCents'] as int,
+        periodYYYYMM: edit['periodYYYYMM'] as String,
+        requestedBy: requestedBy,
+        reason: edit['reason'] as String,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium payment edit submitted for approval.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to edit premium payment: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _transferPremiumPayment(Premium premium) async {
     try {
       final receipts = await MembershipService().getPremiumReceipts(
@@ -1101,6 +1392,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                         onPressed: () => _reprintPremiumReceipt(premium),
                         icon: const Icon(Icons.print_outlined, size: 18),
                         label: const Text('REPRINT RECEIPT'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _requestPremiumPaymentEdit(premium),
+                        icon: const Icon(Icons.edit_note_outlined, size: 18),
+                        label: const Text('EDIT PAYMENT'),
                       ),
                       if (_allowPremiumPaymentTransfer)
                         OutlinedButton.icon(

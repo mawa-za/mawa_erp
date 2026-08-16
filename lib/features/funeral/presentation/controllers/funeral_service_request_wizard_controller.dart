@@ -132,7 +132,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     familyRepresentativeContactDetails = request.familyRepresentativeContactDetails;
     dateOfDeath = request.dateOfDeath;
     funeralDate = request.funeralDate;
-    funeralLocation = request.funeralLocation;
+    funeralLocation = _salesAreaCode(request.funeralLocation);
     deceasedDeliveryDirections = request.deceasedDeliveryDirections;
     deceasedDeliveryDateTime = request.deceasedDeliveryDateTime;
     extras = List.of(request.extras);
@@ -172,6 +172,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     if (currentStep >= 5) {
       await loadInvoicePreview();
     }
+  }
+
+  String _salesAreaCode(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return '';
+    for (final option in salesAreaOptions) {
+      if (option.code.trim().toUpperCase() == normalized.toUpperCase() ||
+          option.description.trim().toUpperCase() == normalized.toUpperCase()) {
+        return option.code;
+      }
+    }
+    return '';
   }
 
   void selectDeceased(MortuaryInventoryDto item) {

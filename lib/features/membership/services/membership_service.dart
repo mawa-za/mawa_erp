@@ -284,6 +284,55 @@ class MembershipService {
         .toList();
   }
 
+  Future<void> requestPremiumPaymentEdit({
+    required String paymentBatchId,
+    required String receiptId,
+    required int amountCents,
+    required String periodYYYYMM,
+    required String requestedBy,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/payment-batches/$paymentBatchId/edit-request',
+      body: {
+        'receiptId': receiptId,
+        'amountCents': amountCents,
+        'periodYYYYMM': periodYYYYMM,
+        'requestedBy': requestedBy,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The premium payment edit request could not be submitted.',
+      );
+    }
+  }
+
+  Future<void> requestMembershipStatusChange({
+    required String membershipId,
+    required String action,
+    required String requestedBy,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/membership/$membershipId/status-actions/${action.toLowerCase()}',
+      body: {
+        'requestedBy': requestedBy,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The membership status change could not be submitted for approval.',
+      );
+    }
+  }
+
   Future<void> requestPremiumPaymentDeletion({
     required String paymentBatchId,
     required String requesterId,
