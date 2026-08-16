@@ -166,7 +166,12 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                         DropdownMenuItem(value: 'LEGACY_CATCH_UP', child: Text('Outstanding legacy receipt')),
                         DropdownMenuItem(value: 'MANUAL_EMERGENCY', child: Text('Post-go-live emergency receipt')),
                       ],
-                      onChanged: (value) => setState(() => _mode = value!),
+                      onChanged: (value) => setState(() {
+                        _mode = value!;
+                        if (_mode == 'LEGACY_CATCH_UP') {
+                          _amount.text = widget.membership.premium.toStringAsFixed(2);
+                        }
+                      }),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -232,9 +237,16 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                       Expanded(
                         child: TextFormField(
                           controller: _amount,
-                          readOnly: true,
+                          readOnly: _mode == 'LEGACY_CATCH_UP',
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'Amount', helperText: 'Amount is fixed to the membership monthly premium.', prefixText: 'R ', border: OutlineInputBorder()),
+                          decoration: InputDecoration(
+                            labelText: 'Amount',
+                            helperText: _mode == 'LEGACY_CATCH_UP'
+                                ? 'Legacy receipt amount is fixed to the membership monthly premium.'
+                                : 'Enter the amount shown on the emergency manual receipt.',
+                            prefixText: 'R ',
+                            border: const OutlineInputBorder(),
+                          ),
                           validator: (value) {
                             final amount = double.tryParse((value ?? '').replaceAll(',', '.'));
                             return amount == null || amount <= 0 ? 'Enter a valid amount' : null;
