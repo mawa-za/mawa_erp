@@ -181,6 +181,17 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       'language': _selectedType == 'INDIVIDUAL' ? _selectedLanguage : null,
     };
 
+    final editPayload = <String, dynamic>{
+      'name1': _name1Controller.text.trim(),
+      'name2': _selectedType == 'INDIVIDUAL' ? _name2Controller.text.trim() : '',
+      'name3': _selectedType == 'INDIVIDUAL' ? _name3Controller.text.trim() : '',
+      'title': _selectedType == 'INDIVIDUAL' ? _selectedTitle : null,
+      'birthDate': _selectedType == 'INDIVIDUAL' ? _birthDate?.toIso8601String() : null,
+      'maritalStatus': _selectedType == 'INDIVIDUAL' ? _selectedMaritalStatus : null,
+      'gender': _selectedType == 'INDIVIDUAL' ? _selectedGender : null,
+      'language': _selectedType == 'INDIVIDUAL' ? _selectedLanguage : null,
+    };
+
     final requestPayload = isNewSupplier
         ? <String, dynamic>{
             'onboardingRequestId': _supplierOnboardingRequestId,
@@ -204,7 +215,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                   : '/v2/partner',
               body: requestPayload,
             )
-          : await ApiClient().put('/v2/partner/${widget.existingPartner!.id}', body: payload);
+          : await ApiClient().put('/v2/partner/${widget.existingPartner!.id}', body: editPayload);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
@@ -238,7 +249,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
           }
         }
       } else {
-        throw AppException('Failed to save partner: ${response.statusCode}');
+        throw AppException(response.body.trim().isEmpty ? 'Failed to save partner: ${response.statusCode}' : 'Failed to save partner: ${response.body}');
       }
     } catch (e) {
       if (mounted) {

@@ -7,6 +7,8 @@ import '../../data/models/funeral_tenant_integration_configuration_dto.dart';
 import '../../data/models/funeral_tenant_option_dto.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class FuneralTenantIntegrationSetupPage extends StatefulWidget {
   const FuneralTenantIntegrationSetupPage({super.key});
 
@@ -195,7 +197,7 @@ class _FuneralTenantIntegrationSetupPageState
                           'Choose whether funeral arrangements use memberships and claims from this tenant, another tenant, or both.',
                         ),
                         const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
+                        SearchableDropdownFormField<String>(
                           value: _sourceMode,
                           decoration: const InputDecoration(
                             labelText: 'Source mode',
@@ -242,7 +244,7 @@ class _FuneralTenantIntegrationSetupPageState
                             ),
                           ),
                           const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
+                          SearchableDropdownFormField<String>(
                             value: _tenants.any(
                               (tenant) => tenant.id == _externalTenantId,
                             )

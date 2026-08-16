@@ -1,46 +1,17 @@
 import 'dart:typed_data';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
-import '../../../core/services/setting_service.dart';
-import '../../../core/api_client.dart';
+import '../../../core/pdf/company_pdf_branding.dart';
 
 class InvoicePdfService {
   Future<Uint8List> generatePdf(InvoiceDetail invoice, Partner? partner) async {
     final doc = pw.Document();
 
-    // Load company info
-    List<dynamic> settings = [];
-    try {
-      settings = await SettingService().getSettings();
-    } catch (e) {
-      print('Error loading settings for PDF: $e');
-    }
-
-    final companyName = _getSetting(settings, 'NAME', 'mawa');
-    final companyAddress1 = _getSetting(settings, 'ADDRESS-LINE-1', '');
-    final companyAddress2 = _getSetting(settings, 'ADDRESS-LINE-2', '');
-    final companyCity = _getSetting(settings, 'CITY', '');
-    final companyPostalCode = _getSetting(settings, 'POSTAL-CODE', '');
-    final companyEmail = _getSetting(settings, 'EMAIL', '');
-    final companyPhone = _getSetting(settings, 'PHONE', '');
-    final companyVat = _getSetting(settings, 'VAT-NUMBER', '');
-    final companyReg = _getSetting(settings, 'REGISTRATION-NUMBER', '');
-
-    // Load Logo if available
-    pw.MemoryImage? logoImage;
-    try {
-      final logoBytes = await _loadLogoBytes();
-      if (logoBytes != null) {
-        logoImage = pw.MemoryImage(logoBytes);
-      }
-    } catch (e) {
-      print('Error loading logo for PDF: $e');
-    }
+    final branding = await CompanyPdfBranding.load();
 
     doc.addPage(
       pw.MultiPage(
@@ -48,7 +19,7 @@ class InvoicePdfService {
         margin: const pw.EdgeInsets.all(32),
         footer: (pw.Context context) => _buildFooter(context),
         build: (pw.Context context) => [
-          _buildHeader(companyName, companyAddress1, companyAddress2, companyCity, companyPostalCode, companyEmail, companyPhone, companyVat, companyReg, logoImage),
+          branding.header(documentTitle: 'INVOICE'),
           pw.SizedBox(height: 20),
           _buildInvoiceInfo(invoice),
           pw.SizedBox(height: 20),
@@ -77,61 +48,6 @@ class InvoicePdfService {
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdfBytes,
       name: 'Invoice_${invoice.number}.pdf',
-    );
-  }
-
-  String _getSetting(List<dynamic> settings, String attribute, String defaultValue) {
-    try {
-      return settings.firstWhere((s) => s.type == 'TENANT' && s.attribute == attribute).value;
-    } catch (_) {
-      return defaultValue;
-    }
-  }
-
-  Future<Uint8List?> _loadLogoBytes() async {
-    try {
-      final response = await ApiClient().get(
-        '/v2/company-logo/content',
-        accept: 'image/*',
-      );
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        return Uint8List.fromList(response.bodyBytes);
-      }
-    } catch (e) {
-      print('Error fetching company logo: $e');
-    }
-    return null;
-  }
-
-  pw.Widget _buildHeader(String name, String a1, String a2, String city, String pc, String email, String phone, String vat, String reg, pw.MemoryImage? logo) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            if (logo != null)
-              pw.Container(height: 60, width: 60, child: pw.Image(logo))
-            else
-              pw.Text(name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-            pw.SizedBox(height: 4),
-            pw.Text(a1, style: const pw.TextStyle(fontSize: 9)),
-            if (a2.isNotEmpty) pw.Text(a2, style: const pw.TextStyle(fontSize: 9)),
-            pw.Text('$city, $pc', style: const pw.TextStyle(fontSize: 9)),
-            pw.Text('Phone: $phone', style: const pw.TextStyle(fontSize: 9)),
-            pw.Text('Email: $email', style: const pw.TextStyle(fontSize: 9)),
-            if (reg.isNotEmpty) pw.Text('Reg No: $reg', style: const pw.TextStyle(fontSize: 9)),
-            if (vat.isNotEmpty) pw.Text('VAT No: $vat', style: const pw.TextStyle(fontSize: 9)),
-          ],
-        ),
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
-          children: [
-            pw.Text('INVOICE', style: pw.TextStyle(fontSize: 30, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
-          ],
-        ),
-      ],
     );
   }
 

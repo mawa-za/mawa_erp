@@ -1,3 +1,5 @@
+import '../../../../core/utils/app_date_utils.dart';
+
 class MortuaryCheckoutRequestDto {
   final String releaseTo;
   final String identityNumber;
@@ -21,7 +23,7 @@ class MortuaryCheckoutRequestDto {
     return MortuaryCheckoutRequestDto(
       releaseTo: json['releaseTo']?.toString() ?? '',
       identityNumber: json['identityNumber']?.toString() ?? '',
-      checkoutDate: DateTime.parse(json['checkoutDate'].toString()),
+      checkoutDate: AppDateUtils.parse(json['checkoutDate']) ?? DateTime.now(),
     );
   }
 }

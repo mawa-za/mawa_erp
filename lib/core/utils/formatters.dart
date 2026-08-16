@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 
+import 'app_date_utils.dart';
+
 class Formatters {
   static String formatCentsAsRand(int? cents) {
     if (cents == null) return 'R 0.00';
@@ -19,6 +21,12 @@ class Formatters {
 
   static String formatFriendlyDate(DateTime? date) {
     if (date == null) return 'N/A';
-    return DateFormat('dd MMM yyyy').format(date);
+    return AppDateUtils.displayDate(date);
   }
+
+  static String formatDisplayDate(dynamic date, {String fallback = 'N/A'}) =>
+      AppDateUtils.displayDate(date, fallback: fallback);
+
+  static String formatDisplayDateTime(dynamic date, {String fallback = 'N/A'}) =>
+      AppDateUtils.displayDateTime(date, fallback: fallback);
 }

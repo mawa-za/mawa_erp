@@ -8,6 +8,8 @@ import '../../settings/services/pos_printing_service.dart';
 import '../models/invoice_detail.dart';
 import '../services/invoice_service.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class CaptureInvoicePaymentDialog extends StatefulWidget {
   final InvoiceDetail invoice;
 
@@ -28,7 +30,7 @@ class _CaptureInvoicePaymentDialogState
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
 
-  String _paymentMethod = 'CASH';
+  String? _paymentMethod;
   DateTime _paymentDate = DateTime.now();
   bool _submitting = false;
 
@@ -72,7 +74,7 @@ class _CaptureInvoicePaymentDialogState
         {
           'amountCents': amountCents,
           'paymentDate': DateFormat('yyyy-MM-dd').format(_paymentDate),
-          'paymentMethod': _paymentMethod,
+          'paymentMethod': _paymentMethod!,
           'reference': _referenceController.text.trim(),
           'notes': _notesController.text.trim(),
           'createdBy': userId,
@@ -187,7 +189,7 @@ class _CaptureInvoicePaymentDialogState
                   },
                 ),
                 const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
+                SearchableDropdownFormField<String>(
                   value: _paymentMethod,
                   decoration: const InputDecoration(
                     labelText: 'Payment method',
@@ -201,7 +203,8 @@ class _CaptureInvoicePaymentDialogState
                   ],
                   onChanged: _submitting
                       ? null
-                      : (value) => setState(() => _paymentMethod = value!),
+                      : (value) => setState(() => _paymentMethod = value),
+                  validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
                 InkWell(

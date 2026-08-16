@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class TombstoneOrder {
   final String id;
   final String orderNo;
@@ -102,7 +104,7 @@ class TombstoneOrder {
       balanceCents: cents('balanceCents'),
       invoiceId: json['invoiceId']?.toString(),
       notes: json['notes']?.toString(),
-      expectedInstallationDate: json['expectedInstallationDate']?.toString(),
+      expectedInstallationDate: json['expectedInstallationDate'] == null ? null : AppDateUtils.normalizeDate(json['expectedInstallationDate']),
       items: list('items'),
       fundingAllocations: list('fundingAllocations'),
       laybyAgreement: layby is Map ? Map<String, dynamic>.from(layby) : null,

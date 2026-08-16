@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/services/setting_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipPolicyConfigurationScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _MembershipPolicyConfigurationScreenState
   bool _saving = false;
   bool _allowMultipleMemberships = false;
   bool _additionalMembershipRequiresApproval = true;
+  bool _allowDeceasedDependentAdd = false;
 
   @override
   void initState() {
@@ -42,6 +44,16 @@ class _MembershipPolicyConfigurationScreenState
       final data = Map<String, dynamic>.from(
         jsonDecode(response.body) as Map,
       );
+      final settings = await SettingService().getSettings();
+      String? deceasedOverride;
+      for (final setting in settings) {
+        if (setting.type.trim().toUpperCase() == 'MEMBERSHIP' &&
+            setting.attribute.trim().toUpperCase() ==
+                'ALLOW_DECEASED_DEPENDENT_ADD') {
+          deceasedOverride = setting.value;
+          break;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _allowMultipleMemberships = _asBoolean(
@@ -52,6 +64,7 @@ class _MembershipPolicyConfigurationScreenState
           data['additional_membership_requires_approval'] ??
               data['additionalMembershipRequiresApproval'],
         );
+        _allowDeceasedDependentAdd = _asBoolean(deceasedOverride);
       });
     } catch (error) {
       if (mounted) {
@@ -76,6 +89,11 @@ class _MembershipPolicyConfigurationScreenState
         },
       );
       if (response.statusCode != 200) throw AppException(response.body);
+      await SettingService().updateSetting(
+        'MEMBERSHIP',
+        'ALLOW_DECEASED_DEPENDENT_ADD',
+        _allowDeceasedDependentAdd ? '1' : '0',
+      );
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -135,6 +153,19 @@ class _MembershipPolicyConfigurationScreenState
                                           value,
                                 )
                             : null,
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        title: const Text(
+                          'Allow adding a deceased partner as a dependant',
+                        ),
+                        subtitle: const Text(
+                          'Overrides the deceased-partner validation when adding a new dependant. Replacement and removal rules are unchanged, and normal approval rules still apply.',
+                        ),
+                        value: _allowDeceasedDependentAdd,
+                        onChanged: (value) => setState(
+                          () => _allowDeceasedDependentAdd = value,
+                        ),
                       ),
                     ],
                   ),

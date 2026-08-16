@@ -21,6 +21,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
   Set<String> _originalAssignedWorkcenterIds = {};
   Map<String, int> _positions = {};
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -101,8 +102,20 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     }
   }
 
+  List<Workcenter> get _visibleWorkcenters {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return _allWorkcenters;
+    return _allWorkcenters.where((workcenter) => [
+      workcenter.id,
+      workcenter.description,
+      workcenter.routeKey,
+      workcenter.routePath ?? '',
+    ].join(' ').toLowerCase().contains(query)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final workcenters = _visibleWorkcenters;
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -140,11 +153,26 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!))
-              : ListView.builder(
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Search workcentres',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (value) => setState(() => _searchQuery = value),
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _allWorkcenters.length,
+                  itemCount: workcenters.length,
                   itemBuilder: (context, index) {
-                    final wc = _allWorkcenters[index];
+                    final wc = workcenters[index];
                     final isSelected = _assignedWorkcenterIds.contains(wc.id);
                     return Card(
                       elevation: 0,
@@ -183,6 +211,9 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
                       ),
                     );
                   },
+                ),
+                    ),
+                  ],
                 ),
     );
   }

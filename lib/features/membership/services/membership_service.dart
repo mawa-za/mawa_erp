@@ -284,6 +284,104 @@ class MembershipService {
         .toList();
   }
 
+  Future<void> requestPremiumPaymentEdit({
+    required String paymentBatchId,
+    required String receiptId,
+    required int amountCents,
+    required String periodYYYYMM,
+    required String requestedBy,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/payment-batches/$paymentBatchId/edit-request',
+      body: {
+        'receiptId': receiptId,
+        'amountCents': amountCents,
+        'periodYYYYMM': periodYYYYMM,
+        'requestedBy': requestedBy,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The premium payment edit request could not be submitted.',
+      );
+    }
+  }
+
+  Future<void> requestMembershipStatusChange({
+    required String membershipId,
+    required String action,
+    required String requestedBy,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/membership/$membershipId/status-actions/${action.toLowerCase()}',
+      body: {
+        'requestedBy': requestedBy,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The membership status change could not be submitted for approval.',
+      );
+    }
+  }
+
+  Future<void> requestPremiumPaymentDeletion({
+    required String paymentBatchId,
+    required String requesterId,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/payment-batches/$paymentBatchId/deletion-request',
+      body: {
+        'requesterId': requesterId,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The premium payment deletion request could not be submitted.',
+      );
+    }
+  }
+
+  Future<PaymentBatchResponse> transferManualPremiumPayment({
+    required String paymentBatchId,
+    required String targetMembershipId,
+    required String targetPeriodYYYYMM,
+    required String requestedBy,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/payment-batches/$paymentBatchId/transfer',
+      body: {
+        'targetMembershipId': targetMembershipId,
+        'targetPeriodYYYYMM': targetPeriodYYYYMM,
+        'requestedBy': requestedBy,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The premium payment could not be transferred.',
+      );
+    }
+    return PaymentBatchResponse.fromJson(
+      Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getUnpaidPremiums(String membershipId) async {
     try {
       final response = await ApiClient().get('/v2/memberships/$membershipId/premiums/unpaid');
@@ -626,6 +724,18 @@ class MembershipService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<Uint8List> downloadMembershipClaimForm(String id) async {
+    final response = await ApiClient().get('/v2/membership-claim/$id/claim-form');
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    }
+    throw AppException.fromHttp(
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      fallback: 'The claim form could not be generated. Please try again.',
+    );
   }
 
   Future<void> submitMembershipClaim(String id) async {
@@ -973,6 +1083,7 @@ class MembershipService {
     required String paymentMethod,
     required int amountCents,
     required String createdBy,
+    String? periodYYYYMM,
     String? deviceId,
     String? terminalId,
     String? location,
@@ -984,6 +1095,7 @@ class MembershipService {
         'membershipId': membershipId,
         'paymentMethod': paymentMethod,
         'amountCents': amountCents,
+        'periodYYYYMM': periodYYYYMM,
         'createdBy': createdBy,
         'deviceId': deviceId,
         'terminalId': terminalId,
@@ -1011,8 +1123,8 @@ class MembershipService {
     required String membershipId,
     required int amountCents,
     required String paymentMethod,
+    required String periodYYYYMM,
     required DateTime originalReceiptDate,
-    required String receiptBookNo,
     required String manualReceiptNo,
     required String captureMode,
     required String createdBy,
@@ -1026,8 +1138,8 @@ class MembershipService {
       'membershipId': membershipId,
       'amountCents': amountCents,
       'paymentMethod': paymentMethod,
+      'periodYYYYMM': periodYYYYMM,
       'originalReceiptDate': originalReceiptDate.toIso8601String().substring(0, 10),
-      'receiptBookNo': receiptBookNo,
       'manualReceiptNo': manualReceiptNo,
       'captureMode': captureMode,
       'createdBy': createdBy,

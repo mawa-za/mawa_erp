@@ -12,6 +12,7 @@ class CashupService {
 
   Future<CashupPage> getCashupPage({
     String status = 'ALL',
+    String search = '',
     int page = 0,
     int size = 50,
   }) async {
@@ -19,6 +20,7 @@ class CashupService {
       '/v2/cashup/page',
       queryParameters: {
         'status': status,
+        if (search.trim().isNotEmpty) 'search': search.trim(),
         'page': page,
         'size': size,
       },

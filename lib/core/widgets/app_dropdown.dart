@@ -4,6 +4,8 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 import '../models/field_option.dart';
 import '../services/field_service.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class AppDropdownField extends StatefulWidget {
   final String field;
   final String? value;
@@ -121,7 +123,7 @@ class _AppDropdownFieldState extends State<AppDropdownField> {
       );
     }
 
-    return DropdownButtonFormField<String>(
+    return SearchableDropdownFormField<String>(
       value: currentValue != null &&
               currentValue.isNotEmpty &&
               options.any((option) => option.code == currentValue)

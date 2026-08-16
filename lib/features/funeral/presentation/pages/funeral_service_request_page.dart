@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/files/download_bytes.dart';
+import '../../../../core/services/field_service.dart';
 import '../../data/funeral_api.dart';
 import '../../data/models/funeral_service_request_dto.dart';
 import '../widgets/funeral_status_chip.dart';
@@ -26,6 +27,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
   final TextEditingController _search = TextEditingController();
   Timer? _debounce;
   List<FuneralServiceRequestDto> _requests = const [];
+  Map<String, String> _salesAreaLabels = const {};
   bool _loading = true;
   String? _error;
   String _status = 'ALL';
@@ -49,10 +51,21 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
       _error = null;
     });
     try {
-      final requests = await _api.getServiceRequests(
+      final requestsFuture = _api.getServiceRequests(
         query: _search.text,
         status: _status == 'ALL' ? null : _status,
       );
+      final salesAreasFuture = _salesAreaLabels.isEmpty
+          ? FieldService().getOptionsByField('SALES-AREA')
+          : null;
+      final requests = await requestsFuture;
+      if (salesAreasFuture != null) {
+        final salesAreas = await salesAreasFuture;
+        _salesAreaLabels = {
+          for (final option in salesAreas) option.code.toUpperCase(): option.description,
+          for (final option in salesAreas) option.description.toUpperCase(): option.description,
+        };
+      }
       requests.sort((a, b) => b.funeralDate.compareTo(a.funeralDate));
       if (mounted) setState(() => _requests = requests);
     } catch (e) {
@@ -60,6 +73,12 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String _salesAreaLabel(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return '-';
+    return _salesAreaLabels[normalized.toUpperCase()] ?? normalized;
   }
 
   Future<void> _newRequest() async {
@@ -248,7 +267,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                     children: [
                       Text('ID: ${request.deceasedIdentityNumber.isEmpty ? '-' : request.deceasedIdentityNumber}'),
                       Text('Funeral: ${Formatters.formatDate(request.funeralDate)}'),
-                      Text('Area: ${request.funeralLocation.isEmpty ? '-' : request.funeralLocation}'),
+                      Text('Area: ${_salesAreaLabel(request.funeralLocation)}'),
                       Text('Total: ${currency.format(request.totalAmountCents / 100)}'),
                     ],
                   ),
@@ -259,6 +278,13 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ],
+                  if (request.deceasedDeliveryDateTime != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Deceased delivery: ${Formatters.formatDate(request.deceasedDeliveryDateTime!)} '
+                      '${TimeOfDay.fromDateTime(request.deceasedDeliveryDateTime!).format(context)}',
                     ),
                   ],
                   const SizedBox(height: 12),

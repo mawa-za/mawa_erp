@@ -3,6 +3,8 @@ import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class TombstoneOrderFormScreen extends StatefulWidget {
   const TombstoneOrderFormScreen({super.key});
 
@@ -415,7 +417,7 @@ class _TombstoneOrderFormScreenState extends State<TombstoneOrderFormScreen> {
           children: [
             SizedBox(
               width: fieldWidth,
-              child: DropdownButtonFormField<String>(
+              child: SearchableDropdownFormField<String>(
                 value: _fundingMethod,
                 decoration: const InputDecoration(
                   labelText: 'Funding Method',

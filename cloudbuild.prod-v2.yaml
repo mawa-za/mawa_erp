@@ -14,7 +14,7 @@ substitutions:
   _CLOUD_SQL_INSTANCE: ''
   _VPC_CONNECTOR: ''
   _VPC_EGRESS: 'private-ranges-only'
-  _MIN_INSTANCES: '0'
+  _MIN_INSTANCES: '1'
   _MAX_INSTANCES: '10'
   _CONCURRENCY: '80'
   _CPU: '1'

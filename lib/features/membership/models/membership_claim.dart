@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class MembershipClaim {
   final String id;
   final String claimNo;
@@ -23,9 +25,18 @@ class MembershipClaim {
   final String claimantPartnerId;
   final int claimAmountCents;
   final int approvedAmountCents;
+  final int? arrearsMonths;
+  final int arrearsFineCents;
   final int combinedClaimAmountCents;
   final String status;
   final String? payoutMethod;
+  final String? bankName;
+  final String? accountHolderName;
+  final String? accountNumber;
+  final String? branchCode;
+  final String? accountType;
+  final int claimFormDownloadCount;
+  final String? claimFormDownloadedAt;
   final String? paymentRequestId;
   final String? tombstoneOrderId;
   final String? settlementMethod;
@@ -67,9 +78,18 @@ class MembershipClaim {
     required this.claimantPartnerId,
     required this.claimAmountCents,
     required this.approvedAmountCents,
+    this.arrearsMonths,
+    required this.arrearsFineCents,
     required this.combinedClaimAmountCents,
     required this.status,
     this.payoutMethod,
+    this.bankName,
+    this.accountHolderName,
+    this.accountNumber,
+    this.branchCode,
+    this.accountType,
+    required this.claimFormDownloadCount,
+    this.claimFormDownloadedAt,
     this.paymentRequestId,
     this.tombstoneOrderId,
     this.settlementMethod,
@@ -88,6 +108,8 @@ class MembershipClaim {
   });
 
   double get claimAmount => claimAmountCents / 100.0;
+  double get approvedAmount => approvedAmountCents / 100.0;
+  double get arrearsFine => arrearsFineCents / 100.0;
   double get combinedClaimAmount => combinedClaimAmountCents / 100.0;
 
   factory MembershipClaim.fromJson(Map<String, dynamic> json) {
@@ -99,26 +121,8 @@ class MembershipClaim {
       return 0;
     }
 
-    String parseDate(dynamic date) {
-      if (date == null) return '';
-      if (date is String) return date;
-      if (date is List && date.length >= 3) {
-        try {
-          final year = date[0].toString();
-          final month = date[1].toString().padLeft(2, '0');
-          final day = date[2].toString().padLeft(2, '0');
-          if (date.length >= 5) {
-            final hour = date[3].toString().padLeft(2, '0');
-            final minute = date[4].toString().padLeft(2, '0');
-            return '$year-$month-$day $hour:$minute';
-          }
-          return '$year-$month-$day';
-        } catch (e) {
-          return date.toString();
-        }
-      }
-      return date.toString();
-    }
+    String parseDate(dynamic date) =>
+        AppDateUtils.normalizeDateTime(date);
 
     return MembershipClaim(
       id: (json['id'] ?? '').toString(),
@@ -135,19 +139,28 @@ class MembershipClaim {
       claimType: (json['claimType'] ?? '').toString(),
       coveragePlanId: (json['coveragePlanId'] ?? '').toString(),
       coveragePlanName: (json['coveragePlanName'] ?? json['coveragePlanId'] ?? '').toString(),
-      coverageEventDate: parseDate(json['coverageEventDate']),
+      coverageEventDate: AppDateUtils.normalizeDate(json['coverageEventDate']),
       deceasedType: (json['deceasedType'] ?? '').toString(),
       deceasedPartnerId: (json['deceasedPartnerId'] ?? '').toString(),
-      dateOfDeath: parseDate(json['dateOfDeath']),
-      claimDate: parseDate(json['claimDate']),
+      dateOfDeath: AppDateUtils.normalizeDate(json['dateOfDeath']),
+      claimDate: AppDateUtils.normalizeDate(json['claimDate']),
       causeOfDeath: json['causeOfDeath']?.toString(),
       deathCertificateNo: json['deathCertificateNo']?.toString(),
       claimantPartnerId: (json['claimantPartnerId'] ?? '').toString(),
       claimAmountCents: toInt(json['claimAmountCents']),
       approvedAmountCents: toInt(json['approvedAmountCents']),
+      arrearsMonths: json['arrearsMonths'] == null ? null : toInt(json['arrearsMonths']),
+      arrearsFineCents: toInt(json['arrearsFineCents']),
       combinedClaimAmountCents: toInt(json['combinedClaimAmountCents']),
       status: (json['status'] ?? '').toString(),
       payoutMethod: json['payoutMethod']?.toString(),
+      bankName: json['bankName']?.toString(),
+      accountHolderName: json['accountHolderName']?.toString(),
+      accountNumber: json['accountNumber']?.toString(),
+      branchCode: json['branchCode']?.toString(),
+      accountType: json['accountType']?.toString(),
+      claimFormDownloadCount: toInt(json['claimFormDownloadCount']),
+      claimFormDownloadedAt: json['claimFormDownloadedAt'] == null ? null : parseDate(json['claimFormDownloadedAt']),
       paymentRequestId: json['paymentRequestId']?.toString(),
       tombstoneOrderId: json['tombstoneOrderId']?.toString(),
       settlementMethod: json['settlementMethod']?.toString(),
@@ -195,9 +208,20 @@ class MembershipClaim {
       'claimantPartnerId': claimantPartnerId,
       'claimAmountCents': claimAmountCents,
       'approvedAmountCents': approvedAmountCents,
+      'arrearsMonths': arrearsMonths,
+      'arrearsFineCents': arrearsFineCents,
       'combinedClaimAmountCents': combinedClaimAmountCents,
       'status': status,
       'payoutMethod': payoutMethod,
+      'claimFormDownloadCount': claimFormDownloadCount,
+      'claimFormDownloadedAt': claimFormDownloadedAt,
+      if (payoutMethod?.toUpperCase() == 'EFT') ...{
+        'bankName': bankName,
+        'accountHolderName': accountHolderName,
+        'accountNumber': accountNumber,
+        'branchCode': branchCode,
+        'accountType': accountType,
+      },
       'paymentRequestId': paymentRequestId,
       'tombstoneOrderId': tombstoneOrderId,
       'settlementMethod': settlementMethod,

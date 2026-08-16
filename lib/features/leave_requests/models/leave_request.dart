@@ -1,3 +1,5 @@
+import '../../../core/utils/app_date_utils.dart';
+
 class LeaveRequest {
   final String id;
   final String requestNumber;
@@ -87,8 +89,8 @@ class LeaveRequest {
       approvalRequestId: json['approvalRequestId']?.toString(),
       status: _fieldCode(json['status'], fallback: 'PENDING'),
       statusReason: json['statusReason']?.toString(),
-      submittedAt: json['submittedAt']?.toString(),
-      createdAt: json['createdAt']?.toString(),
+      submittedAt: json['submittedAt'] == null ? null : AppDateUtils.normalizeDateTime(json['submittedAt']),
+      createdAt: json['createdAt'] == null ? null : AppDateUtils.normalizeDateTime(json['createdAt']),
       history: (json['statusHistory'] is List)
           ? (json['statusHistory'] as List).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
           : const [],
@@ -173,14 +175,7 @@ String _partnerName(Map<String, dynamic> partner) {
   return values.isEmpty ? _text(partner['number'], fallback: 'Unknown employee') : values.join(' ');
 }
 
-String _date(dynamic value) {
-  if (value == null) return '';
-  if (value is List && value.length >= 3) {
-    return '${value[0].toString().padLeft(4, '0')}-${value[1].toString().padLeft(2, '0')}-${value[2].toString().padLeft(2, '0')}';
-  }
-  final text = value.toString();
-  return text.length >= 10 ? text.substring(0, 10) : text;
-}
+String _date(dynamic value) => AppDateUtils.normalizeDate(value);
 
 double _number(dynamic value) {
   if (value is num) return value.toDouble();

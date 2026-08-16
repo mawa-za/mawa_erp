@@ -100,6 +100,7 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
   bool _isLoading = true;
   List<Approval> _approvals = [];
   String? _error;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -154,22 +155,51 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
         ),
       );
     }
-    if (_approvals.isEmpty) {
-      return Center(
-        child: Text(
-          'No ${widget.status.replaceAll('_', ' ').toLowerCase()} approvals',
-        ),
-      );
-    }
+    final query = _searchQuery.trim().toLowerCase();
+    final approvals = query.isEmpty
+        ? _approvals
+        : _approvals.where((approval) {
+            final haystack = [
+              approval.title,
+              approval.description,
+              approval.referenceNo,
+              approval.requesterId,
+              approval.approvalType,
+            ].join(' ').toLowerCase();
+            return haystack.contains(query);
+          }).toList();
 
-    return RefreshIndicator(
-      onRefresh: _fetchApprovals,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _approvals.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final approval = _approvals[index];
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: TextField(
+            decoration: const InputDecoration(
+              hintText: 'Search approvals',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
+        ),
+        Expanded(
+          child: approvals.isEmpty
+              ? Center(
+                  child: Text(
+                    query.isEmpty
+                        ? 'No ${widget.status.replaceAll('_', ' ').toLowerCase()} approvals'
+                        : 'No approvals match your search',
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _fetchApprovals,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: approvals.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final approval = approvals[index];
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             leading: CircleAvatar(
@@ -200,17 +230,26 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
               if (result == true) _fetchApprovals();
             },
           );
-        },
-      ),
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
   IconData _iconForType(String type) {
     switch (type.toUpperCase()) {
       case 'CLAIM':
+      case 'CLAIM_CASH':
+      case 'CLAIM_TOMBSTONE':
+      case 'CLAIM_FUNERAL':
+      case 'CLAIM_COMBINATION':
+      case 'CLAIM_GROCERY':
         return Icons.request_quote_outlined;
       case 'PAYMENT':
       case 'PAYMENT_REQUEST':
+      case 'PREMIUM_PAYMENT_DELETION':
         return Icons.payments_outlined;
       case 'PURCHASE_ORDER':
       case 'SUPPLIER_INVOICE':

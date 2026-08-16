@@ -18,6 +18,7 @@ import 'models/funeral_invoice_preview_line_dto.dart';
 import 'models/generate_funeral_invoices_response_dto.dart';
 import 'models/invoice_payment_request_dto.dart';
 import 'models/funeral_payment_summary_dto.dart';
+import 'models/funeral_service_configuration_dto.dart';
 import 'models/funeral_tenant_integration_configuration_dto.dart';
 import 'models/funeral_tenant_option_dto.dart';
 import 'models/tenant_trust_relationship_dto.dart';
@@ -27,6 +28,31 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 
 class FuneralApi {
   final ApiClient _apiClient = ApiClient();
+
+  Future<FuneralServiceConfigurationDto> getServiceConfiguration() async {
+    final response = await _apiClient.get('/v2/funeral/configuration');
+    if (response.statusCode == 200) {
+      return FuneralServiceConfigurationDto.fromJson(
+        Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+      );
+    }
+    throw AppException('Failed to load funeral configuration: ${response.body}');
+  }
+
+  Future<FuneralServiceConfigurationDto> updateServiceConfiguration(
+    FuneralServiceConfigurationDto request,
+  ) async {
+    final response = await _apiClient.put(
+      '/v2/funeral/configuration',
+      body: request.toJson(),
+    );
+    if (response.statusCode == 200) {
+      return FuneralServiceConfigurationDto.fromJson(
+        Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+      );
+    }
+    throw AppException('Failed to update funeral configuration: ${response.body}');
+  }
 
   // Pickup Requests
 
@@ -306,6 +332,16 @@ class FuneralApi {
       throw AppException('Failed to submit claim: ${response.body}');
     }
   }
+
+  Future<void> submitClaimsForApproval(String serviceRequestId) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceRequestId/claims/submit-for-approval',
+    );
+    if (response.statusCode != 200) {
+      throw AppException('Failed to submit funeral claims: ${response.body}');
+    }
+  }
+
   Future<List<FuneralClaimDto>> getClaims(String serviceRequestId) async {
     final response = await _apiClient.get('/v2/funeral/service-request/$serviceRequestId/claims');
     if (response.statusCode == 200) {

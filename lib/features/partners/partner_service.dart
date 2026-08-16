@@ -138,21 +138,23 @@ class PartnerService {
     }
   }
 
-  // Global search by identity
+  // Global search by identity. A successful empty response means the identity
+  // does not exist; transport/API errors must be surfaced so callers do not
+  // accidentally treat an outage as permission to create a duplicate partner.
   Future<PartnerIdentity?> getIdentity(String idType, String idNumber) async {
-    try {
-      final response = await _apiClient.get('/v2/partner/identity', queryParameters: {
-        'idType': idType,
-        'idNumber': idNumber,
-      });
-      if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
-        return PartnerIdentity.fromJson(decoded as Map<String, dynamic>);
-      }
-      return null;
-    } catch (e) {
+    final response = await _apiClient.get('/v2/partner/identity', queryParameters: {
+      'idType': idType,
+      'idNumber': idNumber,
+    });
+    if (response.statusCode != 200) {
+      throw AppException('Failed to search partner identity: ${response.statusCode}');
+    }
+    if (response.body.trim().isEmpty || response.body.trim() == 'null') {
       return null;
     }
+    final dynamic decoded = jsonDecode(response.body);
+    if (decoded == null) return null;
+    return PartnerIdentity.fromJson(decoded as Map<String, dynamic>);
   }
 
   Future<void> deleteIdentity(String idType, String idNumber) async {
@@ -369,7 +371,12 @@ class PartnerService {
       body: details,
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw AppException('Failed to submit banking details for approval: ${response.body}');
+      dynamic decodedError;
+      try { decodedError = jsonDecode(response.body); } catch (_) {}
+      final message = decodedError is Map && decodedError['message'] != null
+          ? decodedError['message'].toString()
+          : 'Failed to submit banking details for approval';
+      throw AppException(message);
     }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }

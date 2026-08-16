@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+
 class StorageConfigurationScreen extends StatefulWidget {
   const StorageConfigurationScreen({super.key});
 
@@ -171,7 +173,7 @@ class _StorageConfigurationScreenState extends State<StorageConfigurationScreen>
                             : null,
                       ),
                       if (showStorageType)
-                        DropdownButtonFormField<String>(
+                        SearchableDropdownFormField<String>(
                           value: selectedStorageType,
                           isExpanded: true,
                           decoration: const InputDecoration(
