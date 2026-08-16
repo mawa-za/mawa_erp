@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/membership_detail.dart';
 import '../services/membership_service.dart';
-import '../../../core/widgets/app_dropdown.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class EditMembershipScreen extends StatefulWidget {
@@ -83,12 +82,13 @@ class _EditMembershipScreenState extends State<EditMembershipScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AppDropdownField(
-                    field: 'MEMBERSHIP-STATUS',
-                    label: 'Status',
-                    icon: Icons.info_outline,
-                    value: _status,
-                    onChanged: (v) => setState(() => _status = v!),
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Status',
+                      border: OutlineInputBorder(),
+                      helperText: 'Use Reactivate, Deactivate, Suspend or Cancel on Membership Details. Status changes require approval.',
+                    ),
+                    child: Text(_status),
                   ),
                   const SizedBox(height: 16),
                   InputDecorator(

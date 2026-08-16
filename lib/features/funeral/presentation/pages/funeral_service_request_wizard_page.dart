@@ -404,13 +404,13 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               : _controller.funeralLocation,
           isExpanded: true,
           decoration: const InputDecoration(
-            labelText: 'Funeral Location / Area',
+            labelText: 'Funeral Location / Area (SALES-AREA)',
             border: OutlineInputBorder(),
           ),
           items: _controller.salesAreaOptions
               .map(
                 (option) => DropdownMenuItem<String>(
-                  value: option.description,
+                  value: option.code,
                   child: Text(option.description),
                 ),
               )
@@ -1720,7 +1720,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         return;
       }
       if (_controller.funeralLocation.trim().isEmpty) {
-        setState(() => _controller.errorMessage = 'Please select the Funeral Location / Area.');
+        setState(() => _controller.errorMessage = 'Please select the Funeral Location / Area (SALES-AREA).');
         return;
       }
       _controller.errorMessage = null;
