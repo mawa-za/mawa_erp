@@ -802,6 +802,17 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
     );
   }
 
+  bool get _attachmentsCanBeDeleted {
+    final status = _claim?.status.trim().toUpperCase() ?? '';
+    return const {
+      'DRAFT',
+      'PENDING',
+      'PENDING_APPROVAL',
+      'AWAITING_APPROVAL',
+      'SUBMITTED',
+    }.contains(status);
+  }
+
   Widget _buildAttachmentContainer() {
     return Container(
       decoration: BoxDecoration(
@@ -813,6 +824,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       child: AttachmentSection(
         objectId: widget.claimId,
         documentTypeField: 'DOCUMENT-TYPE-CLAIM',
+        allowDelete: _attachmentsCanBeDeleted,
       ),
     );
   }
