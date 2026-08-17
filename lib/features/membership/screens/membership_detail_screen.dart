@@ -47,7 +47,14 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   List<MembershipClaim> _claims = [];
   bool _allowPremiumPaymentTransfer = false;
   bool _allowDeleteWithoutCashupValidation = false;
+  bool _hasPendingMembershipStatusChange = false;
+  String? _pendingMembershipStatusAction;
   String? _error;
+
+  String get _normalizedMembershipStatus =>
+      (_detail?.status ?? '').trim().toUpperCase().replaceAll('-', '_');
+
+  bool get _isLapsedMembership => _normalizedMembershipStatus == 'LAPSED';
 
   @override
   void initState() {
@@ -74,12 +81,16 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         }),
         MembershipService().getMembershipPremiums(widget.membershipId, oldId: detail.oldId).catchError((e) => <Premium>[]),
         MembershipService().getClaimsByMembership(widget.membershipId).catchError((e) => <MembershipClaim>[]),
+        MembershipService().getPendingMembershipStatusChange(widget.membershipId).catchError(
+          (e) => <String, dynamic>{'pending': false},
+        ),
       ]);
 
       final member = results[0] as Partner;
       final plan = results[1] as MembershipPlan;
       final premiums = results[2] as List<Premium>;
       final claims = results[3] as List<MembershipClaim>;
+      final pendingStatusChange = results[4] as Map<String, dynamic>;
 
       var allowPremiumPaymentTransfer = false;
       var allowDeleteWithoutCashupValidation = false;
@@ -128,6 +139,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _claims = claims;
           _allowPremiumPaymentTransfer = allowPremiumPaymentTransfer;
           _allowDeleteWithoutCashupValidation = allowDeleteWithoutCashupValidation;
+          _hasPendingMembershipStatusChange = pendingStatusChange['pending'] == true;
+          _pendingMembershipStatusAction = pendingStatusChange['action']?.toString();
           _isLoading = false;
         });
       }
@@ -244,17 +257,19 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           : _error != null
               ? _buildErrorWidget(colorScheme)
               : _buildContent(colorScheme),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await showDialog<bool>(
-            context: context,
-            builder: (context) => AddDependentScreen(membershipId: widget.membershipId),
-          );
-          if (result == true) _fetchData();
-        },
-        label: const Text('ADD DEPENDENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-        icon: const Icon(Icons.person_add_outlined),
-      ),
+      floatingActionButton: _detail != null && !_isLapsedMembership
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AddDependentScreen(membershipId: widget.membershipId),
+                );
+                if (result == true) _fetchData();
+              },
+              label: const Text('ADD DEPENDENT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              icon: const Icon(Icons.person_add_outlined),
+            )
+          : null,
     );
   }
 
@@ -286,10 +301,15 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildStatusBanner(detail, colorScheme),
-          const SizedBox(height: 16),
-          _buildCapturePaymentButton(colorScheme),
-          const SizedBox(height: 10),
-          _buildCaptureManualReceiptButton(colorScheme),
+          if (_isLapsedMembership) ...[
+            const SizedBox(height: 12),
+            _buildLapsedRestrictionNotice(),
+          ] else ...[
+            const SizedBox(height: 16),
+            _buildCapturePaymentButton(colorScheme),
+            const SizedBox(height: 10),
+            _buildCaptureManualReceiptButton(colorScheme),
+          ],
           const SizedBox(height: 24),
           if (_member != null) _buildMemberCard(_member!, colorScheme),
           const SizedBox(height: 32),
@@ -299,7 +319,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.swap_horiz, 'MEMBERSHIP CHANGES'),
           const SizedBox(height: 12),
-          MembershipChangeSection(membership: detail, onChanged: _fetchData),
+          MembershipChangeSection(membership: detail, onChanged: _fetchData, readOnly: _isLapsedMembership),
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.payments_outlined, 'PAYMENT HISTORY'),
           const SizedBox(height: 12),
@@ -317,6 +337,31 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 12),
           _buildAttachmentSection(detail.id),
           const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLapsedRestrictionNotice() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.withOpacity(0.2)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lock_outline, color: Colors.red),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'This membership is lapsed and is read-only. Reactivate it and wait for the reactivation approval to be completed before any other membership action becomes available.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -346,6 +391,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       case 'INACTIVE': color = Colors.grey.shade700; break;
       case 'CANCELLED':
       case 'CANCELED': color = Colors.red; break;
+      case 'LAPSED': color = Colors.red.shade800; break;
       default: color = colorScheme.primary;
     }
 
@@ -376,6 +422,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       case 'CANCELED':
         actions.add(const MapEntry('REACTIVATE', 'Reactivate'));
         break;
+      case 'LAPSED':
+        actions.add(const MapEntry('REACTIVATE', 'Reactivate'));
+        break;
+    }
+    if (_hasPendingMembershipStatusChange) {
+      actions.clear();
     }
 
     return Container(
@@ -425,6 +477,22 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ),
             ],
           ),
+          if (_hasPendingMembershipStatusChange) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withOpacity(0.25)),
+              ),
+              child: Text(
+                '${(_pendingMembershipStatusAction ?? 'Status change').replaceAll('_', ' ')} request is awaiting approval. Membership access remains restricted until approval is completed.',
+                style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.w600, fontSize: 12),
+              ),
+            ),
+          ],
           if (actions.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Divider(height: 1),
@@ -557,7 +625,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               _buildProfileRow(Icons.wc_outlined, 'Gender', member.gender ?? 'N/A'),
               if (member.email.isNotEmpty) _buildProfileRow(Icons.email_outlined, 'Email', member.email),
               if (member.phone.isNotEmpty) _buildProfileRow(Icons.phone_outlined, 'Phone', member.phone),
-              if (canProcessClaim) ...[
+              if (canProcessClaim && !_isLapsedMembership) ...[
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
@@ -1379,8 +1447,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                     )
                     .toList(),
               ),
-              if (premium.paymentCount > 0 ||
-                  premium.receiptId?.trim().isNotEmpty == true) ...[
+              if (!_isLapsedMembership &&
+                  (premium.paymentCount > 0 || premium.receiptId?.trim().isNotEmpty == true)) ...[
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -1586,7 +1654,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          if (!isDeceased) ...[
+                          if (!isDeceased && !_isLapsedMembership) ...[
                             TextButton.icon(
                               onPressed: () => _replaceDependent(dependent),
                               icon: const Icon(Icons.find_replace_outlined, size: 16),
@@ -1599,7 +1667,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                               label: const Text('REMOVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
                           ],
-                          if (canProcessClaim)
+                          if (canProcessClaim && !_isLapsedMembership)
                             TextButton(
                               onPressed: () async {
                                 final result = await Navigator.of(context).push(
@@ -1648,7 +1716,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
           child: ListTile(
-            onTap: () async {
+            onTap: _isLapsedMembership ? null : () async {
               final result = await Navigator.of(context).push(MaterialPageRoute(builder: (context) => MembershipClaimDetailScreen(claimId: claim.id)));
               if (result == true) _fetchData();
             },
@@ -1673,7 +1741,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade200)),
-      child: AttachmentSection(objectId: membershipId),
+      child: AttachmentSection(objectId: membershipId, readOnly: _isLapsedMembership),
     );
   }
 

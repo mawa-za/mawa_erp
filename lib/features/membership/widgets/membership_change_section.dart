@@ -10,7 +10,13 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 class MembershipChangeSection extends StatefulWidget {
   final MembershipDetail membership;
   final VoidCallback onChanged;
-  const MembershipChangeSection({super.key, required this.membership, required this.onChanged});
+  final bool readOnly;
+  const MembershipChangeSection({
+    super.key,
+    required this.membership,
+    required this.onChanged,
+    this.readOnly = false,
+  });
 
   @override
   State<MembershipChangeSection> createState() => _MembershipChangeSectionState();
@@ -196,11 +202,12 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Wrap(spacing: 12, runSpacing: 12, children: [
-        OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestTransfer, icon: const Icon(Icons.swap_horiz), label: const Text('TRANSFER MEMBERSHIP')),
-        OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestPlanChange, icon: const Icon(Icons.upgrade), label: const Text('CHANGE PLAN')),
-      ]),
-      if (_hasOpenChange) ...[
+      if (!widget.readOnly)
+        Wrap(spacing: 12, runSpacing: 12, children: [
+          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestTransfer, icon: const Icon(Icons.swap_horiz), label: const Text('TRANSFER MEMBERSHIP')),
+          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestPlanChange, icon: const Icon(Icons.upgrade), label: const Text('CHANGE PLAN')),
+        ]),
+      if (!widget.readOnly && _hasOpenChange) ...[
         const SizedBox(height: 8),
         const Text('A pending or scheduled membership change must be completed before another change can be requested.', style: TextStyle(color: Colors.orange)),
       ],
