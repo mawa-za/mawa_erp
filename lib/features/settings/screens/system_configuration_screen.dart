@@ -24,6 +24,7 @@ import 'api_log_list_screen.dart';
 import 'claim_type_configuration_screen.dart';
 import 'company_info_screen.dart';
 import 'field_option_list_screen.dart';
+import 'funeral_claim_payment_configuration_screen.dart';
 import 'manual_receipt_book_maintenance_screen.dart';
 import 'manual_receipt_cutover_settings_screen.dart';
 import 'membership_lapse_settings_screen.dart';
@@ -267,6 +268,17 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           category: _ConfigurationCategory.finance,
           onTap: () =>
               _open(context, const PaymentAccountConfigurationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Funeral Claim Payments',
+          description:
+              'Select the supplier paid for funeral claims and verify the approved banking details used for EFT.',
+          icon: Icons.volunteer_activism_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(
+            context,
+            const FuneralClaimPaymentConfigurationScreen(),
+          ),
         ),
         _ConfigurationItem(
           title: 'FNB Integration',
