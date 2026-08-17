@@ -11,14 +11,23 @@ class LeaveService {
 
   final ApiClient _api = ApiClient();
 
-  Future<List<LeaveRequest>> getLeaveRequests({String? status}) async {
+  Future<List<LeaveRequest>> getLeaveRequests({String? status, String? view}) async {
     final response = await _api.get('/v2/leave-request', queryParameters: {
       if (status != null && status != 'ALL') 'status': status,
+      if (view != null && view.isNotEmpty) 'view': view,
     });
     _ensureSuccess(response.statusCode, response.body, 'load leave requests');
     final decoded = jsonDecode(response.body);
     final values = decoded is List ? decoded : (decoded is Map && decoded['content'] is List ? decoded['content'] as List : const []);
     return values.whereType<Map>().map((item) => LeaveRequest.fromJson(Map<String, dynamic>.from(item))).toList();
+  }
+
+
+  Future<Map<String, dynamic>> getAccess() async {
+    final response = await _api.get('/v2/leave-request/access');
+    _ensureSuccess(response.statusCode, response.body, 'load leave access');
+    final decoded = jsonDecode(response.body);
+    return decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
   }
 
   Future<LeaveRequest> getLeaveRequestById(String id) async {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/widgets/attachment_section.dart';
-import '../../employment/services/employment_service.dart';
 import '../models/leave_request.dart';
 import '../services/leave_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -19,14 +18,12 @@ class LeaveRequestCreateScreen extends StatefulWidget {
 class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
   final _formKey = GlobalKey<FormState>();
   final _leaveService = LeaveService();
-  final _employmentService = EmploymentService();
   final _reason = TextEditingController();
   final _amount = TextEditingController();
   late final String _attachmentObjectId;
 
-  List<Map<String, dynamic>> _employees = const [];
+  Map<String, dynamic> _access = const {};
   List<Map<String, dynamic>> _leaveTypes = const [];
-  Map<String, dynamic>? _employment;
   Map<String, dynamic>? _leaveType;
   DateTime _start = DateTime.now();
   DateTime _end = DateTime.now();
@@ -53,14 +50,14 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
 
   Future<void> _load() async {
     try {
-      final values = await Future.wait([
-        _employmentService.list(status: 'ACTIVE'),
-        _leaveService.getLeaveTypes(),
-      ]);
+      final accessFuture = _leaveService.getAccess();
+      final leaveTypesFuture = _leaveService.getLeaveTypes();
+      final access = await accessFuture;
+      final leaveTypes = await leaveTypesFuture;
       if (!mounted) return;
       setState(() {
-        _employees = values[0];
-        _leaveTypes = values[1];
+        _access = access;
+        _leaveTypes = leaveTypes;
         _loading = false;
       });
     } catch (error) {
@@ -72,8 +69,6 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
   }
 
   Map<String, dynamic> _payload({bool includeAttachments = false}) => {
-        if (_employment != null) 'employmentId': _employment!['id'],
-        if (_employment?['employee'] is Map) 'employee': (_employment!['employee'] as Map)['id'],
         if (_leaveType != null) 'leaveTypeId': _leaveType!['id'],
         if (_leaveType != null) 'type': _leaveType!['code'],
         'startDate': _date(_start),
@@ -85,8 +80,8 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
       };
 
   Future<void> _calculate() async {
-    if (_employment == null || _leaveType == null) {
-      _message('Select an employee and leave type first.');
+    if (_leaveType == null) {
+      _message('Select a leave type first.');
       return;
     }
     if (_end.isBefore(_start)) {
@@ -158,18 +153,23 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
                 _header(),
                 const SizedBox(height: 16),
                 _section('Request details', Icons.event_available_outlined, [
-                  SearchableDropdownFormField<String>(
-                    value: _employment?['id']?.toString(),
-                    decoration: const InputDecoration(labelText: 'Employee'),
-                    items: _employees.map((employment) => DropdownMenuItem(
-                      value: employment['id'].toString(),
-                      child: Text('${_employeeName(employment)} • ${employment['employeeNumber'] ?? '-'}'),
-                    )).toList(),
-                    onChanged: (id) => setState(() {
-                      _employment = _employees.where((item) => item['id'].toString() == id).firstOrNull;
-                      _preview = null;
-                    }),
-                    validator: (value) => value == null ? 'Employee is required' : null,
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Employee',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${_access['employeeName'] ?? 'Current employee'} • ${_access['employeeNumber'] ?? '-'}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   SearchableDropdownFormField<String>(
@@ -314,15 +314,6 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
         icon: const Icon(Icons.event_outlined),
         label: Text('$label: ${_date(value)}'),
       );
-
-  String _employeeName(Map<String, dynamic> employment) {
-    final employee = employment['employee'] is Map ? Map<String, dynamic>.from(employment['employee'] as Map) : <String, dynamic>{};
-    final names = [employee['name2'], employee['name3'], employee['name1']]
-        .map((value) => (value ?? '').toString().trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-    return names.isEmpty ? 'Unknown employee' : names.join(' ');
-  }
 
   void _message(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   static String _date(DateTime value) => DateFormat('yyyy-MM-dd').format(value);
