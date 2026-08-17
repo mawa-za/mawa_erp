@@ -36,6 +36,7 @@ import 'purple_configuration_screen.dart';
 import 'role_list_screen.dart';
 import 'signiflow_configuration_screen.dart';
 import 'storage_configuration_screen.dart';
+import 'system_installation_files_screen.dart';
 import 'user_list_screen.dart';
 import 'xero_integration_screen.dart';
 
@@ -178,6 +179,17 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.today_outlined,
           category: _ConfigurationCategory.organisation,
           onTap: () => _open(context, const LeaveConfigurationScreen(initialTab: 2)),
+        ),
+        _ConfigurationItem(
+          title: 'Installation Files',
+          description:
+              'Upload printer drivers, utilities and installation packages for MawaERP users to download.',
+          icon: Icons.install_desktop_outlined,
+          category: _ConfigurationCategory.organisation,
+          onTap: () => _open(
+            context,
+            const SystemInstallationFilesScreen(allowManage: true),
+          ),
         ),
         _ConfigurationItem(
           title: 'Company Forms',

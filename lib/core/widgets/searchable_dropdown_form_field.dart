@@ -39,6 +39,8 @@ class SearchableDropdownFormField<T> extends FormField<T> {
               errorText: state.errorText,
               enabled: enabled,
               suffixIcon: icon ?? const Icon(Icons.arrow_drop_down),
+              floatingLabelBehavior: decoration.floatingLabelBehavior ??
+                  FloatingLabelBehavior.always,
             );
 
             return InkWell(

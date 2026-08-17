@@ -11,9 +11,9 @@ Future<void> showMembershipChangeSettingsDialog(BuildContext context) async {
     builder: (context) => AlertDialog(
       title: const Text('Membership Change Settings'),
       content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Waiting period before an approved membership plan upgrade or downgrade becomes effective.'),
+        const Text('Waiting period for upgraded plan benefits after final approval. The new premium applies immediately, and downgrades switch benefits immediately.'),
         const SizedBox(height: 16),
-        TextField(controller: controller, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Waiting period (months)', border: OutlineInputBorder())),
+        TextField(controller: controller, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Upgrade benefit waiting period (months)', border: OutlineInputBorder())),
       ])),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
