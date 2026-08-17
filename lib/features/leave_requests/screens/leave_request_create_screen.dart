@@ -50,14 +50,14 @@ class _LeaveRequestCreateScreenState extends State<LeaveRequestCreateScreen> {
 
   Future<void> _load() async {
     try {
-      final values = await Future.wait([
-        _leaveService.getAccess(),
-        _leaveService.getLeaveTypes(),
-      ]);
+      final accessFuture = _leaveService.getAccess();
+      final leaveTypesFuture = _leaveService.getLeaveTypes();
+      final access = await accessFuture;
+      final leaveTypes = await leaveTypesFuture;
       if (!mounted) return;
       setState(() {
-        _access = Map<String, dynamic>.from(values[0]);
-        _leaveTypes = List<Map<String, dynamic>>.from(values[1]);
+        _access = access;
+        _leaveTypes = leaveTypes;
         _loading = false;
       });
     } catch (error) {
