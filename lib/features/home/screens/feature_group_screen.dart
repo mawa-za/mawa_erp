@@ -98,12 +98,18 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
           }
           final matched = _findConfiguredWorkcenter(all, configured.id);
           if (matched == null) continue;
+          final configuredLabel =
+              FeatureGroupRegistry.presentationLabelForWorkcenter(
+            experienceGroup.code,
+            configured.id,
+            configured.displayLabel,
+          );
           allowed.add(
             matched.copyWith(
               position: configured.displayOrder,
-              displayLabel: configured.displayLabel.trim().isEmpty
+              displayLabel: configuredLabel.trim().isEmpty
                   ? null
-                  : configured.displayLabel,
+                  : configuredLabel,
               cardDescription: configured.description.trim().isEmpty
                   ? null
                   : configured.description,
@@ -226,7 +232,12 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       if (!mounted) return;
       setState(() {
         _experienceGroup = experienceGroup;
-        _groupTitle = experienceGroup?.title ?? fallbackGroup?.title ?? 'Workcenter';
+        final configuredTitle =
+            experienceGroup?.title ?? fallbackGroup?.title ?? 'Workcenter';
+        _groupTitle = FeatureGroupRegistry.presentationTitleForGroup(
+          canonicalActiveGroup,
+          configuredTitle,
+        );
         _groupDescription = experienceGroup?.description.trim().isNotEmpty == true
             ? experienceGroup!.description
             : fallbackGroup?.description ?? 'Open a feature to continue.';

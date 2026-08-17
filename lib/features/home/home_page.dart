@@ -495,8 +495,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         }
         if (configuredChildren.isEmpty) continue;
 
+        final groupTitle = FeatureGroupRegistry.presentationTitleForGroup(
+          group.code,
+          group.title,
+        );
         final groupMatches = query.isEmpty ||
-            group.title.toLowerCase().contains(query) ||
+            groupTitle.toLowerCase().contains(query) ||
             group.description.toLowerCase().contains(query);
         final childMatches = query.isEmpty ||
             configuredChildren.any((child) =>
@@ -507,8 +511,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         cards.add(
           Workcenter(
             id: group.code,
-            description: group.title,
-            displayLabel: group.title,
+            description: groupTitle,
+            displayLabel: groupTitle,
             cardDescription: group.description,
             defaultFunction: '',
             path: '/feature-groups/${group.code}',

@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/models/user.dart';
+import '../../../core/services/user_service.dart';
+import '../../employment/services/employment_service.dart';
+import '../../settings/models/role.dart';
+import '../../settings/services/role_service.dart';
 import '../models/approval_workflow.dart';
 import '../services/approval_workflow_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -23,6 +29,9 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   bool _isSaving = false;
   bool _active = true;
   bool _autoApprove = false;
+  List<Role> _roles = const [];
+  List<User> _users = const [];
+  List<Map<String, dynamic>> _employments = const [];
 
   final List<String> _approvalTypes = [
     'ADDITIONAL_MEMBERSHIP',
@@ -74,6 +83,31 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
       _steps = List.from(widget.workflow!.steps);
       _active = widget.workflow!.active;
       _autoApprove = widget.workflow!.autoApprove;
+    }
+    _loadLeaveApproverOptions();
+  }
+
+  Future<void> _loadLeaveApproverOptions() async {
+    try {
+      final values = await Future.wait([
+        RoleService().getRoles(),
+        UserService().getUsers(),
+        EmploymentService().list(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _roles = List<Role>.from(values[0] as List);
+        _users = List<User>.from(values[1] as List);
+        _employments = List<Map<String, dynamic>>.from(values[2] as List)
+            .where(
+              (employment) => const {'ACTIVE', 'SUSPENDED'}.contains(
+                (employment['status'] ?? '').toString().toUpperCase(),
+              ),
+            )
+            .toList();
+      });
+    } catch (_) {
+      // The workflow can still be edited; dropdowns will show no selectable values.
     }
   }
 
@@ -338,83 +372,165 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
             ...approvers.asMap().entries.map((entry) {
               final approverIndex = entry.key;
               final approver = entry.value;
-              final approverType = _approverTypes.contains(approver.approverType)
+              final availableApproverTypes = _selectedApprovalType == 'LEAVE'
+                  ? const ['ROLE', 'USER']
+                  : _approverTypes;
+              final approverType = availableApproverTypes.contains(approver.approverType)
                   ? approver.approverType
-                  : _approverTypes.first;
+                  : availableApproverTypes.first;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      flex: 2,
-                      child: SearchableDropdownFormField<String>(
-                        value: approverType,
-                        decoration: InputDecoration(
-                          labelText: approvers.length > 1 ? 'Approver ${approverIndex + 1} Type' : 'Approver Type',
-                          border: const OutlineInputBorder(),
-                          isDense: true,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: SearchableDropdownFormField<String>(
+                            value: approverType,
+                            decoration: InputDecoration(
+                              labelText: approvers.length > 1
+                                  ? 'Approver ${approverIndex + 1} Type'
+                                  : 'Approver Type',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: availableApproverTypes
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(
+                                      _selectedApprovalType == 'LEAVE'
+                                          ? (t == 'ROLE'
+                                              ? 'Role'
+                                              : 'Specific employee')
+                                          : t,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              if (val == null) return;
+                              final updated =
+                                  List<ApprovalWorkflowStepApprover>.from(
+                                approvers,
+                              );
+                              updated[approverIndex] =
+                                  ApprovalWorkflowStepApprover(
+                                id: approver.id,
+                                approverType: val,
+                                approverValue: _selectedApprovalType == 'LEAVE'
+                                    ? ''
+                                    : approver.approverValue,
+                                approverName: approver.approverName,
+                                assignmentScopeType:
+                                    approver.assignmentScopeType,
+                                assignmentScopeValue:
+                                    approver.assignmentScopeValue,
+                                active: approver.active,
+                              );
+                              updateStep(updatedApprovers: updated);
+                            },
+                          ),
                         ),
-                        items: _approverTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                        onChanged: (val) {
-                          if (val == null) return;
-                          final updated = List<ApprovalWorkflowStepApprover>.from(approvers);
-                          updated[approverIndex] = ApprovalWorkflowStepApprover(
-                            id: approver.id,
-                            approverType: val,
-                            approverValue: approver.approverValue,
-                            approverName: approver.approverName,
-                            active: approver.active,
-                          );
-                          updateStep(updatedApprovers: updated);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: TextFormField(
-                        key: ValueKey('workflow-step-${step.stepNo}-approver-$approverIndex-${approver.id ?? 'new'}'),
-                        initialValue: approver.approverValue,
-                        decoration: InputDecoration(
-                          labelText: approver.approverType == 'ROLE' ? 'Role' : 'Approver Value',
-                          hintText: approver.approverType == 'ROLE' ? 'e.g. DIRECTOR' : null,
-                          border: const OutlineInputBorder(),
-                          isDense: true,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 3,
+                          child: _selectedApprovalType == 'LEAVE'
+                              ? _leaveApproverValueField(
+                                  approver,
+                                  approverType,
+                                  approverIndex,
+                                  approvers,
+                                  step,
+                                  index,
+                                )
+                              : TextFormField(
+                                  key: ValueKey(
+                                    'workflow-step-${step.stepNo}-approver-$approverIndex-${approver.id ?? 'new'}',
+                                  ),
+                                  initialValue: approver.approverValue,
+                                  decoration: InputDecoration(
+                                    labelText: approver.approverType == 'ROLE'
+                                        ? 'Role'
+                                        : 'Approver Value',
+                                    hintText: approver.approverType == 'ROLE'
+                                        ? 'e.g. DIRECTOR'
+                                        : null,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  validator: (value) =>
+                                      value == null || value.trim().isEmpty
+                                          ? 'Required'
+                                          : null,
+                                  onChanged: (val) {
+                                    final updated =
+                                        List<ApprovalWorkflowStepApprover>.from(
+                                      approvers,
+                                    );
+                                    updated[approverIndex] =
+                                        ApprovalWorkflowStepApprover(
+                                      id: approver.id,
+                                      approverType: approver.approverType,
+                                      approverValue: val,
+                                      approverName: approver.approverName,
+                                      assignmentScopeType:
+                                          approver.assignmentScopeType,
+                                      assignmentScopeValue:
+                                          approver.assignmentScopeValue,
+                                      active: approver.active,
+                                    );
+                                    _steps[index] = ApprovalStep(
+                                      id: step.id,
+                                      stepNo: step.stepNo,
+                                      stepName: step.stepName,
+                                      approvalMode: step.approvalMode,
+                                      active: step.active,
+                                      approvers: updated,
+                                      requiredApprovals:
+                                          step.requiredApprovals,
+                                    );
+                                  },
+                                ),
                         ),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
-                        onChanged: (val) {
-                          final updated = List<ApprovalWorkflowStepApprover>.from(approvers);
-                          updated[approverIndex] = ApprovalWorkflowStepApprover(
-                            id: approver.id,
-                            approverType: approver.approverType,
-                            approverValue: val,
-                            approverName: approver.approverName,
-                            active: approver.active,
-                          );
-                          _steps[index] = ApprovalStep(
-                            id: step.id,
-                            stepNo: step.stepNo,
-                            stepName: step.stepName,
-                            approvalMode: step.approvalMode,
-                            active: step.active,
-                            approvers: updated,
-                            requiredApprovals: step.requiredApprovals,
-                          );
-                        },
-                      ),
+                        if (approvers.length > 1) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            tooltip: 'Remove approver',
+                            icon: const Icon(
+                              Icons.remove_circle_outline,
+                              color: Colors.red,
+                            ),
+                            onPressed: () {
+                              final updated =
+                                  List<ApprovalWorkflowStepApprover>.from(
+                                approvers,
+                              )..removeAt(approverIndex);
+                              final required =
+                                  step.requiredApprovals > updated.length
+                                      ? updated.length
+                                      : step.requiredApprovals;
+                              updateStep(
+                                updatedApprovers: updated,
+                                requiredApprovals: required < 1 ? 1 : required,
+                              );
+                            },
+                          ),
+                        ],
+                      ],
                     ),
-                    if (approvers.length > 1) ...[
-                      const SizedBox(width: 4),
-                      IconButton(
-                        tooltip: 'Remove approver',
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                        onPressed: () {
-                          final updated = List<ApprovalWorkflowStepApprover>.from(approvers)..removeAt(approverIndex);
-                          final required = step.requiredApprovals > updated.length ? updated.length : step.requiredApprovals;
-                          updateStep(updatedApprovers: updated, requiredApprovals: required < 1 ? 1 : required);
-                        },
+                    if (_selectedApprovalType == 'LEAVE') ...[
+                      const SizedBox(height: 10),
+                      _leaveScopeFields(
+                        approver,
+                        approverIndex,
+                        approvers,
+                        step,
+                        index,
                       ),
                     ],
                   ],
@@ -423,8 +539,14 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
             }),
             TextButton.icon(
               onPressed: () {
-                final updated = List<ApprovalWorkflowStepApprover>.from(approvers)
-                  ..add(ApprovalWorkflowStepApprover(approverType: 'ROLE', approverValue: ''));
+                final updated =
+                    List<ApprovalWorkflowStepApprover>.from(approvers)
+                      ..add(
+                        ApprovalWorkflowStepApprover(
+                          approverType: 'ROLE',
+                          approverValue: '',
+                        ),
+                      );
                 updateStep(updatedApprovers: updated);
               },
               icon: const Icon(Icons.add),
@@ -463,6 +585,287 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
         ),
       ),
     );
+  }
+
+  Widget _leaveApproverValueField(
+    ApprovalWorkflowStepApprover approver,
+    String approverType,
+    int approverIndex,
+    List<ApprovalWorkflowStepApprover> approvers,
+    ApprovalStep step,
+    int stepIndex,
+  ) {
+    if (approverType == 'ROLE') {
+      return SearchableDropdownFormField<String>(
+        value: _roles.any((role) => role.id == approver.approverValue)
+            ? approver.approverValue
+            : null,
+        decoration: const InputDecoration(
+          labelText: 'Approver role',
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+        items: _roles
+            .map(
+              (role) => DropdownMenuItem(
+                value: role.id,
+                child: Text(role.description.isEmpty
+                    ? role.id
+                    : '${role.description} (${role.id})'),
+              ),
+            )
+            .toList(),
+        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+        onChanged: (value) => _replaceApprover(
+          stepIndex,
+          step,
+          approvers,
+          approverIndex,
+          approver,
+          approverType: approverType,
+          approverValue: value ?? '',
+        ),
+      );
+    }
+
+    final activeEmployeePartnerIds = _employments
+        .where((employment) => employment['employee'] is Map)
+        .map((employment) => (employment['employee'] as Map)['id']?.toString())
+        .whereType<String>()
+        .toSet();
+    final employeeUsers = _users
+        .where(
+          (user) =>
+              user.status.toUpperCase() == 'ACTIVE' &&
+              user.partner != null &&
+              activeEmployeePartnerIds.contains(user.partner!.id),
+        )
+        .toList();
+    return SearchableDropdownFormField<String>(
+      value: employeeUsers.any((user) => user.id == approver.approverValue)
+          ? approver.approverValue
+          : null,
+      decoration: const InputDecoration(
+        labelText: 'Approver employee',
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: employeeUsers
+          .map(
+            (user) => DropdownMenuItem(
+              value: user.id,
+              child: Text(
+                '${user.partner?.fullName ?? user.displayName ?? user.username} • ${user.username}',
+              ),
+            ),
+          )
+          .toList(),
+      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+      onChanged: (value) => _replaceApprover(
+        stepIndex,
+        step,
+        approvers,
+        approverIndex,
+        approver,
+        approverType: approverType,
+        approverValue: value ?? '',
+      ),
+    );
+  }
+
+  Widget _leaveScopeFields(
+    ApprovalWorkflowStepApprover approver,
+    int approverIndex,
+    List<ApprovalWorkflowStepApprover> approvers,
+    ApprovalStep step,
+    int stepIndex,
+  ) {
+    const scopeTypes = ['ALL', 'POSITION', 'EMPLOYEE'];
+    final scopeType = scopeTypes.contains(approver.assignmentScopeType)
+        ? approver.assignmentScopeType
+        : 'ALL';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: SearchableDropdownFormField<String>(
+            value: scopeType,
+            decoration: const InputDecoration(
+              labelText: 'Employee scope',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'ALL', child: Text('All employees')),
+              DropdownMenuItem(value: 'POSITION', child: Text('Position')),
+              DropdownMenuItem(value: 'EMPLOYEE', child: Text('Specific employee')),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              _replaceApprover(
+                stepIndex,
+                step,
+                approvers,
+                approverIndex,
+                approver,
+                assignmentScopeType: value,
+                assignmentScopeValue: null,
+              );
+            },
+          ),
+        ),
+        if (scopeType != 'ALL') ...[
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: scopeType == 'POSITION'
+                ? _positionScopeField(
+                    approver,
+                    approverIndex,
+                    approvers,
+                    step,
+                    stepIndex,
+                  )
+                : _employeeScopeField(
+                    approver,
+                    approverIndex,
+                    approvers,
+                    step,
+                    stepIndex,
+                  ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _positionScopeField(
+    ApprovalWorkflowStepApprover approver,
+    int approverIndex,
+    List<ApprovalWorkflowStepApprover> approvers,
+    ApprovalStep step,
+    int stepIndex,
+  ) {
+    final positions = <String, String>{};
+    for (final employment in _employments) {
+      final code = (employment['position'] ?? '').toString().trim();
+      if (code.isEmpty) continue;
+      final description = (employment['positionDescription'] ?? '').toString().trim();
+      positions[code] = description.isEmpty ? code : '$description ($code)';
+    }
+    return SearchableDropdownFormField<String>(
+      value: positions.containsKey(approver.assignmentScopeValue)
+          ? approver.assignmentScopeValue
+          : null,
+      decoration: const InputDecoration(
+        labelText: 'Position',
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: positions.entries
+          .map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value)))
+          .toList(),
+      validator: (value) => value == null || value.isEmpty ? 'Position is required' : null,
+      onChanged: (value) => _replaceApprover(
+        stepIndex,
+        step,
+        approvers,
+        approverIndex,
+        approver,
+        assignmentScopeValue: value,
+      ),
+    );
+  }
+
+  Widget _employeeScopeField(
+    ApprovalWorkflowStepApprover approver,
+    int approverIndex,
+    List<ApprovalWorkflowStepApprover> approvers,
+    ApprovalStep step,
+    int stepIndex,
+  ) {
+    final employees = _employments.where((employment) {
+      final employee = employment['employee'];
+      return employee is Map && employee['id'] != null;
+    }).toList();
+    return SearchableDropdownFormField<String>(
+      value: employees.any((employment) {
+        final employee = Map<String, dynamic>.from(employment['employee'] as Map);
+        return employee['id']?.toString() == approver.assignmentScopeValue;
+      })
+          ? approver.assignmentScopeValue
+          : null,
+      decoration: const InputDecoration(
+        labelText: 'Employee',
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: employees.map((employment) {
+        final employee = Map<String, dynamic>.from(employment['employee'] as Map);
+        final id = employee['id'].toString();
+        final names = [employee['name2'], employee['name3'], employee['name1']]
+            .map((value) => (value ?? '').toString().trim())
+            .where((value) => value.isNotEmpty)
+            .join(' ');
+        return DropdownMenuItem(
+          value: id,
+          child: Text('${names.isEmpty ? 'Employee' : names} • ${employment['employeeNumber'] ?? '-'}'),
+        );
+      }).toList(),
+      validator: (value) => value == null || value.isEmpty ? 'Employee is required' : null,
+      onChanged: (value) => _replaceApprover(
+        stepIndex,
+        step,
+        approvers,
+        approverIndex,
+        approver,
+        assignmentScopeValue: value,
+      ),
+    );
+  }
+
+  void _replaceApprover(
+    int stepIndex,
+    ApprovalStep step,
+    List<ApprovalWorkflowStepApprover> approvers,
+    int approverIndex,
+    ApprovalWorkflowStepApprover approver, {
+    String? approverType,
+    String? approverValue,
+    String? assignmentScopeType,
+    String? assignmentScopeValue,
+  }) {
+    final updated = List<ApprovalWorkflowStepApprover>.from(approvers);
+    final nextScopeType = assignmentScopeType ?? approver.assignmentScopeType;
+    final scopeTypeChanged = assignmentScopeType != null &&
+        assignmentScopeType != approver.assignmentScopeType;
+    final nextScopeValue = nextScopeType == 'ALL'
+        ? null
+        : scopeTypeChanged
+            ? assignmentScopeValue
+            : (assignmentScopeValue ?? approver.assignmentScopeValue);
+    updated[approverIndex] = ApprovalWorkflowStepApprover(
+      id: approver.id,
+      approverType: approverType ?? approver.approverType,
+      approverValue: approverValue ?? approver.approverValue,
+      approverName: approver.approverName,
+      assignmentScopeType: nextScopeType,
+      assignmentScopeValue: nextScopeValue,
+      active: approver.active,
+    );
+    setState(() {
+      _steps[stepIndex] = ApprovalStep(
+        id: step.id,
+        stepNo: step.stepNo,
+        stepName: step.stepName,
+        approvalMode: step.approvalMode,
+        active: step.active,
+        approvers: updated,
+        requiredApprovals: step.requiredApprovals,
+      );
+    });
   }
 
 }
