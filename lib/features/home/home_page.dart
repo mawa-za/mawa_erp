@@ -26,6 +26,7 @@ import '../auth/role_selection_screen.dart';
 import '../auth/change_password_screen.dart';
 import '../settings/screens/api_log_list_screen.dart';
 import '../settings/screens/pos_printing_settings_screen.dart';
+import '../settings/screens/system_installation_files_screen.dart';
 import '../invoicing/screens/invoice_create_screen.dart';
 import '../membership/screens/membership_claim_list_screen.dart';
 import '../membership/screens/membership_plan_list_screen.dart';
@@ -1741,6 +1742,13 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             MaterialPageRoute(builder: (context) => const PosPrintingSettingsScreen()),
           );
         }
+        if (value == 'installation_files') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const SystemInstallationFilesScreen(),
+            ),
+          );
+        }
         if (value == 'logout') _showLogoutConfirmation();
       },
       itemBuilder: (context) => [
@@ -1785,6 +1793,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           child: ListTile(
             leading: Icon(Icons.print_outlined),
             title: Text('Printer configuration'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'installation_files',
+          child: ListTile(
+            leading: Icon(Icons.install_desktop_outlined),
+            title: Text('Installation files'),
             contentPadding: EdgeInsets.zero,
           ),
         ),

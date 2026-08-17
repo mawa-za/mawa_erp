@@ -68,6 +68,17 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     }
   }
 
+  bool get _attachmentsCanBeDeleted {
+    final status = _detail?.status.trim().toUpperCase() ?? '';
+    return const {
+      'DRAFT',
+      'PENDING',
+      'PENDING_APPROVAL',
+      'AWAITING_APPROVAL',
+      'SUBMITTED',
+    }.contains(status);
+  }
+
   Future<void> _submitForApproval() async {
     if (_detail == null) return;
     setState(() => _isActionLoading = true);
@@ -428,6 +439,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           AttachmentSection(
             objectId: widget.paymentId,
             documentTypeField: 'DOCUMENT-TYPE-PAYMENT-REQUEST',
+            allowDelete: _attachmentsCanBeDeleted,
           ),
           const SizedBox(height: 40),
         ],
