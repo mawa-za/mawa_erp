@@ -311,6 +311,21 @@ class MembershipService {
     }
   }
 
+  Future<Map<String, dynamic>> getPendingMembershipStatusChange(String membershipId) async {
+    final response = await ApiClient().get('/v2/membership/$membershipId/status-actions/pending');
+    if (response.statusCode != 200) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'Pending membership status change could not be loaded.',
+      );
+    }
+    final decoded = jsonDecode(response.body);
+    return decoded is Map<String, dynamic>
+        ? decoded
+        : Map<String, dynamic>.from(decoded as Map);
+  }
+
   Future<void> requestMembershipStatusChange({
     required String membershipId,
     required String action,
