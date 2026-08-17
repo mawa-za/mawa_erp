@@ -196,7 +196,7 @@ class _FuneralClaimPaymentConfigurationScreenState
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Select the supplier that represents this funeral initiator/provider. For cross-tenant covers, MAWA ensures the supplier exists in each cover-owner tenant. The payment request then uses that cover owner's local supplier record and its locally approved banking details; banking is never read directly across tenants.',
+                        "Select the supplier that represents this funeral initiator/provider. For cross-tenant covers, MAWA ensures the supplier exists in each cover-owner tenant. The payment request then uses that cover owner's local supplier record and its locally approved banking details; banking is never read directly across tenants.",
                         style: theme.textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 24),
