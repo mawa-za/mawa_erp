@@ -316,6 +316,27 @@ class FeatureGroupRegistry {
 
   static String canonicalGroupId(String id) => groupById(id)?.id ?? id;
 
+  static String presentationTitleForGroup(String id, String configuredTitle) {
+    final group = groupById(id);
+    if (group != null && normalize(group.id) == normalize('sales-customers')) {
+      return group.title;
+    }
+    return configuredTitle;
+  }
+
+  static String presentationLabelForWorkcenter(
+    String groupId,
+    String workcenterId,
+    String configuredLabel,
+  ) {
+    if (normalize(canonicalGroupId(groupId)) == normalize('sales-customers') &&
+        {'CUSTOMER', 'CUSTOMERS'}.contains(normalize(workcenterId)) &&
+        normalize(configuredLabel).contains('FAMILIES')) {
+      return 'Customers';
+    }
+    return configuredLabel;
+  }
+
   static String? routeForGroup(String id) => groupById(id)?.routePath;
 
   static bool isGroupId(String id) => groupById(id) != null;

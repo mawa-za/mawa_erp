@@ -45,11 +45,17 @@ class LeaveConfigurationService {
   Future<Map<String, dynamic>> assignPosition(Map<String, dynamic> value) =>
       _post('/v2/leave-configuration/position-assignments', value, 'assign position leave profile');
 
-  Future<List<Map<String, dynamic>>> balances({String? employmentId}) =>
-      _getList('/v2/leave-balance', query: {if (employmentId != null && employmentId.isNotEmpty) 'employmentId': employmentId});
+  Future<List<Map<String, dynamic>>> balances({String? employmentId, String? view}) =>
+      _getList('/v2/leave-balance', query: {
+        if (employmentId != null && employmentId.isNotEmpty) 'employmentId': employmentId,
+        if (view != null && view.isNotEmpty) 'view': view,
+      });
 
-  Future<List<Map<String, dynamic>>> ledger(String employmentId) =>
-      _getList('/v2/leave-balance/ledger', query: {'employmentId': employmentId});
+  Future<List<Map<String, dynamic>>> ledger(String employmentId, {String? view}) =>
+      _getList('/v2/leave-balance/ledger', query: {
+        'employmentId': employmentId,
+        if (view != null && view.isNotEmpty) 'view': view,
+      });
 
   Future<List<Map<String, dynamic>>> adjustments() => _getList('/v2/leave-balance/adjustments');
 

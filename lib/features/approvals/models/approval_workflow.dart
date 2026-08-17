@@ -3,6 +3,8 @@ class ApprovalWorkflowStepApprover {
   final String approverType; // USER, ROLE, GROUP, MANAGER
   final String approverValue;
   final String? approverName;
+  final String assignmentScopeType; // ALL, POSITION, EMPLOYEE
+  final String? assignmentScopeValue;
   final bool active;
 
   ApprovalWorkflowStepApprover({
@@ -10,6 +12,8 @@ class ApprovalWorkflowStepApprover {
     required this.approverType,
     required this.approverValue,
     this.approverName,
+    this.assignmentScopeType = 'ALL',
+    this.assignmentScopeValue,
     this.active = true,
   });
 
@@ -19,6 +23,8 @@ class ApprovalWorkflowStepApprover {
       approverType: json['approverType']?.toString() ?? '',
       approverValue: json['approverValue']?.toString() ?? '',
       approverName: json['approverName']?.toString(),
+      assignmentScopeType: (json['assignmentScopeType'] ?? 'ALL').toString().toUpperCase(),
+      assignmentScopeValue: json['assignmentScopeValue']?.toString(),
       active: json['active'] == true,
     );
   }
@@ -29,6 +35,8 @@ class ApprovalWorkflowStepApprover {
       'approverType': approverType,
       'approverValue': approverValue,
       if (approverName != null) 'approverName': approverName,
+      'assignmentScopeType': assignmentScopeType,
+      if (assignmentScopeValue != null) 'assignmentScopeValue': assignmentScopeValue,
       'active': active,
     };
   }
