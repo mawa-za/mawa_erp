@@ -890,6 +890,30 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     );
   }
 
+  Future<void> _reprintGroupSocietyReceipt(GroupSocietyPayment payment) async {
+    final receiptId = payment.receiptId?.trim() ?? '';
+    if (receiptId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No receipt is linked to this transaction.')),
+      );
+      return;
+    }
+
+    try {
+      await PosPrintingService().queueReceipt(receiptId, reprint: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Receipt reprint queued successfully.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage('Unable to reprint receipt: $error'))),
+      );
+    }
+  }
+
   Widget _buildHistoryTab(ColorScheme colorScheme) {
     if (_payments.isEmpty) return _buildEmptyWidget(Icons.history, 'No transactions found');
     return ListView.builder(
@@ -919,6 +943,17 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     _buildInfoRow('Reference', p.referenceNo ?? 'N/A'),
                     const SizedBox(height: 8),
                     _buildInfoRow('Balance After', 'R ${p.balanceAfter.toStringAsFixed(2)}'),
+                    if ((p.receiptId?.trim() ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _reprintGroupSocietyReceipt(p),
+                          icon: const Icon(Icons.print_outlined),
+                          label: const Text('Reprint receipt'),
+                        ),
+                      ),
+                    ],
                     if (p.notes != null && p.notes!.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
