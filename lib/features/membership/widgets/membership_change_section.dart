@@ -147,7 +147,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
               onChanged: (plan) => setDialogState(() => selected = plan),
             ),
             const SizedBox(height: 12),
-            Text('Approved changes take effect after ${_configuration.planChangeWaitingPeriodMonths} month(s). Claims use the plan valid on the date of death.'),
+            Text('On final approval the new premium applies immediately. Downgrades also switch benefits immediately. Upgrades keep the existing benefits for ${_configuration.planChangeWaitingPeriodMonths} month(s), then the upgraded benefits start. Claims use the benefits effective on the date of death.'),
             const SizedBox(height: 12),
             TextField(controller: reason, maxLines: 3, onChanged: (_) => setDialogState(() {}), decoration: const InputDecoration(labelText: 'Reason *', border: OutlineInputBorder())),
           ])),
