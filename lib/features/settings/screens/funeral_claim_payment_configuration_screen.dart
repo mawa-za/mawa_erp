@@ -15,7 +15,7 @@ class FuneralClaimPaymentConfigurationScreen extends StatefulWidget {
 
 class _FuneralClaimPaymentConfigurationScreenState
     extends State<FuneralClaimPaymentConfigurationScreen> {
-  static const _settingType = 'FUNERAL_CLAIM_PAYMENT';
+  static const _settingType = 'FUNERAL_CLAIM_PAY';
   static const _supplierAttribute = 'SUPPLIER_PARTNER_ID';
 
   bool _loading = true;
