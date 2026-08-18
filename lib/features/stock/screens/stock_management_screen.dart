@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../../home/models/workcenter.dart';
 import '../../invoicing/screens/invoice_detail_screen.dart';
+import '../../laybys/services/layby_service.dart';
 import '../services/stock_service.dart';
 import '../widgets/inventory_document_dialog.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -519,6 +520,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
           _rowAction('Accept', (row) => _service.updateQuotationStatus(_id(row), 'ACCEPTED')),
           _rowAction('Create / View Invoice', _createInvoiceFromQuotation),
           _rowAction('Create Sales Order', (row) => _service.convertQuotationToSalesOrder(_id(row))),
+          _rowAction('Create Layby', _createLaybyFromQuotation),
         ],
       );
 
@@ -1510,6 +1512,193 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => InvoiceDetailScreen(invoiceId: invoiceId)),
+    );
+  }
+
+  Future<void> _createLaybyFromQuotation(Map<String, dynamic> row) async {
+    final quotation = await _service.quotation(_id(row));
+    final status = _text(quotation['status']).trim().toUpperCase();
+    if (status != 'ACCEPTED') {
+      throw AppException('Only an accepted quotation can be converted to a layby.');
+    }
+
+    final laybyService = LaybyService();
+    final values = await Future.wait<dynamic>([
+      laybyService.configuration(),
+      laybyService.warehouses(),
+    ]);
+    final config = Map<String, dynamic>.from(values[0] as Map);
+    final warehouses = List<Map<String, dynamic>>.from(values[1] as List);
+    var frequency = _text(config['default_payment_frequency']).trim().toUpperCase();
+    if (frequency.isEmpty) frequency = 'MONTHLY';
+    String? warehouseId = warehouses.length == 1 ? _text(warehouses.first['id']) : null;
+    final installments = TextEditingController();
+    final deposit = TextEditingController();
+    var termsAccepted = false;
+    final depositRequired = config['deposit_required'] == true ||
+        _text(config['deposit_required']) == '1';
+    final minimumDepositPercent = double.tryParse(
+          _text(config['minimum_deposit_percent']).replaceAll(',', '.'),
+        ) ??
+        0;
+    final cancellationPenaltyPercent = double.tryParse(
+          _text(config['cancellation_penalty_percent']).replaceAll(',', '.'),
+        ) ??
+        1;
+    final graceBusinessDays = int.tryParse(
+          _text(config['default_grace_business_days']),
+        ) ??
+        60;
+
+    if (!mounted) return;
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create Layby from Quotation'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${_text(quotation['quotation_no'])} • ${_text(quotation['customer_name'])}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Quotation total: ${_text(quotation['currency']).isEmpty ? 'ZAR' : _text(quotation['currency'])} ${_text(quotation['total_amount'])}'),
+                  const SizedBox(height: 16),
+                  if (warehouses.isNotEmpty)
+                    DropdownButtonFormField<String?>(
+                      value: warehouseId,
+                      decoration: const InputDecoration(
+                        labelText: 'Warehouse for stock reservation',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('No warehouse selected'),
+                        ),
+                        ...warehouses.map(
+                          (warehouse) => DropdownMenuItem<String?>(
+                            value: _text(warehouse['id']),
+                            child: Text(
+                              '${_text(warehouse['warehouse_code'])} - ${_text(warehouse['name'])}',
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          setDialogState(() => warehouseId = value),
+                    ),
+                  if (warehouses.isNotEmpty) const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: frequency,
+                    decoration: const InputDecoration(
+                      labelText: 'Payment frequency',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const ['WEEKLY', 'FORTNIGHTLY', 'MONTHLY', 'ONCE']
+                        .map(
+                          (value) => DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => setDialogState(
+                      () => frequency = value ?? 'MONTHLY',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: installments,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Number of instalments',
+                      border: const OutlineInputBorder(),
+                      helperText:
+                          'Leave blank to use the configured ${_text(config['default_duration_months'])}-month duration.',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: deposit,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Agreed deposit',
+                      prefixText: 'R ',
+                      border: const OutlineInputBorder(),
+                      helperText: depositRequired
+                          ? 'Minimum $minimumDepositPercent% (blank = configured minimum)'
+                          : 'Optional; blank = no deposit',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Cancellation penalty: $cancellationPenaltyPercent% (maximum 1%). Default grace period: $graceBusinessDays business days after anticipated completion. Death or hospitalisation cancellations carry no cancellation penalty.',
+                  ),
+                  const SizedBox(height: 12),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: termsAccepted,
+                    onChanged: (value) => setDialogState(
+                      () => termsAccepted = value == true,
+                    ),
+                    title: const Text(
+                      'Customer has reviewed and accepted the layby terms',
+                    ),
+                    subtitle: const Text(
+                      'The quotation will be converted to a Sales Order and the layby will start in DRAFT status.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: termsAccepted
+                  ? () => Navigator.pop(context, true)
+                  : null,
+              child: const Text('Create Layby'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (accepted != true) return;
+    final installmentCount = int.tryParse(installments.text.trim());
+    final depositAmount = double.tryParse(
+      deposit.text.trim().replaceAll(',', '.'),
+    );
+    final created = await laybyService.createFromQuotation(_id(row), {
+      if (warehouseId != null && warehouseId!.isNotEmpty)
+        'warehouseId': warehouseId,
+      'paymentFrequency': frequency,
+      if (installmentCount != null) 'installmentCount': installmentCount,
+      if (depositAmount != null)
+        'depositCents': (depositAmount * 100).round(),
+      'termsAccepted': true,
+      'notes': 'Created from quotation ${_text(quotation['quotation_no'])}',
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Layby ${_text(created['layby_no'])} created from quotation.',
+        ),
+      ),
     );
   }
 
