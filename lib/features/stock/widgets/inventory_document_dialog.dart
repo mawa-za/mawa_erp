@@ -4,6 +4,8 @@ import '../services/stock_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import 'package:mawa_erp/features/partners/models/partner.dart';
+import 'package:mawa_erp/features/partners/screens/partner_create_screen.dart';
 
 enum InventoryDocumentType { quotation, purchaseOrder, goodsReceipt, salesOrder }
 
@@ -514,7 +516,9 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
       searchController: _partnerSearchController,
       builder: (context, controller) => SearchBar(
         controller: controller,
-        hintText: 'Search $_partnerLabel',
+        hintText: _isQuotation
+            ? 'Search customer by name, mobile or email'
+            : 'Search $_partnerLabel',
         leading: const Icon(Icons.search),
         elevation: const WidgetStatePropertyAll(0),
         side: WidgetStatePropertyAll(BorderSide(color: Colors.grey.shade400)),
@@ -525,8 +529,19 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         final query = controller.text.trim();
         if (query.length < 2) return [ListTile(title: Text('Type at least 2 characters to search $_partnerLabel'))];
         final partners = await widget.service.searchPartners(query, role: _isCustomerDocument ? 'CUSTOMER' : 'SUPPLIER');
-        if (partners.isEmpty) return [const ListTile(title: Text('No partners found'))];
-        return partners.take(20).map((partner) => ListTile(
+        final suggestions = <Widget>[];
+        if (partners.isEmpty) {
+          suggestions.add(
+            ListTile(
+              leading: const Icon(Icons.search_off_rounded),
+              title: Text('No matching ${_partnerLabel.toLowerCase()}s found'),
+              subtitle: _isQuotation
+                  ? const Text('You can create a customer after completing this search.')
+                  : null,
+            ),
+          );
+        } else {
+          suggestions.addAll(partners.take(20).map((partner) => ListTile(
               leading: CircleAvatar(child: Icon(_isCustomerDocument ? Icons.person_outline : Icons.local_shipping_outlined)),
               title: Text(_partnerName(partner), maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text('No: ${_text(partner['partnerNo'] ?? partner['number'] ?? partner['no'])}'),
@@ -536,9 +551,56 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
                   controller.closeView(_partnerName(partner));
                 });
               },
-            ));
+            )));
+        }
+        if (_isQuotation) {
+          suggestions.add(
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.person_add_alt_1_rounded)),
+              title: const Text(
+                'Create new customer',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text('Individual, organisation or group'),
+              onTap: () => _createCustomerFromSearch(controller, query),
+            ),
+          );
+        }
+        return suggestions;
       },
     );
+  }
+
+  Future<void> _createCustomerFromSearch(
+    SearchController controller,
+    String searchedValue,
+  ) async {
+    controller.closeView(searchedValue);
+    final created = await Navigator.of(context).push<Partner>(
+      MaterialPageRoute(
+        builder: (_) => const PartnerCreateScreen(
+          initialRole: 'CUSTOMER',
+          lockInitialRole: true,
+          returnCreatedPartner: true,
+        ),
+      ),
+    );
+    if (created == null || !mounted) return;
+
+    final partner = <String, dynamic>{
+      'id': created.id,
+      'partnerId': created.id,
+      'partnerNo': created.number,
+      'number': created.number,
+      'partnerType': created.type,
+      'name1': created.name1,
+      'name2': created.name2,
+      'name3': created.name3,
+    };
+    setState(() {
+      _selectedPartner = partner;
+      _partnerSearchController.text = created.fullName;
+    });
   }
 
   Widget _buildDateField(String label, DateTime? date, ValueChanged<DateTime> onPicked, {bool nullable = false}) {
