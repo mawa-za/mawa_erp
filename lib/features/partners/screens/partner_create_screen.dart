@@ -17,12 +17,14 @@ class PartnerCreateScreen extends StatefulWidget {
   final bool isMemberContext;
   final String? initialRole;
   final bool lockInitialRole;
+  final bool returnCreatedPartner;
   const PartnerCreateScreen({
     super.key,
     this.existingPartner,
     this.isMemberContext = false,
     this.initialRole,
     this.lockInitialRole = false,
+    this.returnCreatedPartner = false,
   });
 
   @override
@@ -223,10 +225,46 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
         final bool existingPartner = responseData['existingPartner'] == true;
 
         if (mounted) {
+          if (widget.returnCreatedPartner && widget.existingPartner == null && createdId != null) {
+            try {
+              final createdResponse = await ApiClient().get('/v2/partner/$createdId');
+              if (createdResponse.statusCode == 200 && mounted) {
+                Navigator.of(context).pop(
+                  Partner.fromJson(jsonDecode(createdResponse.body) as Map<String, dynamic>),
+                );
+                return;
+              }
+            } catch (e) {
+              debugPrint('Unable to reload newly-created partner $createdId: $e');
+            }
+            if (mounted) {
+              Navigator.of(context).pop(
+                Partner(
+                  id: createdId,
+                  number: (responseData['partnerNo'] ?? '').toString(),
+                  type: _selectedType,
+                  name1: _name1Controller.text.trim(),
+                  name2: _selectedType == 'INDIVIDUAL' ? _name2Controller.text.trim() : '',
+                  name3: _selectedType == 'INDIVIDUAL' ? _name3Controller.text.trim() : '',
+                  name4: _name4Controller.text.trim(),
+                  identityNumber: _identityController.text.trim(),
+                  idType: _selectedType == 'INDIVIDUAL' ? 'ID' : 'REGISTRATION',
+                  status: 'ACTIVE',
+                  email: _emailController.text.trim(),
+                  phone: _phoneController.text.trim(),
+                  roles: const ['CUSTOMER'],
+                ),
+              );
+              return;
+            }
+          }
+
           final entityName = widget.isMemberContext
               ? 'Member'
               : isNewSupplier
                   ? 'Supplier'
+                  : (widget.initialRole ?? '').toUpperCase() == 'CUSTOMER'
+                      ? 'Customer'
                   : 'Partner';
           final message = isNewSupplier
               ? 'Supplier submitted for approval. Banking approval will be created only after supplier approval.'
@@ -278,10 +316,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isSupplierContext = (widget.initialRole ?? '').toUpperCase() == 'SUPPLIER';
+    final isCustomerContext = (widget.initialRole ?? '').toUpperCase() == 'CUSTOMER';
     final entityName = widget.isMemberContext
         ? 'Member'
         : isSupplierContext
             ? 'Supplier'
+            : isCustomerContext
+                ? 'Customer'
             : 'Partner';
     final isEditingMember = widget.existingPartner != null && widget.isMemberContext;
 
@@ -507,6 +548,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   }
 
   Widget _buildBasicDetailsFields(bool isEditingMember) {
+    final isCustomerContext = (widget.initialRole ?? '').toUpperCase() == 'CUSTOMER';
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -537,7 +579,9 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
             const SizedBox(height: 16),
             _buildTextField(
               _identityController, 
-              _selectedType == 'INDIVIDUAL' ? 'Identity Number' : 'Registration Number', 
+              _selectedType == 'INDIVIDUAL'
+                  ? 'Identity Number${isCustomerContext ? ' (Optional)' : ''}'
+                  : 'Registration Number${isCustomerContext ? ' (Optional)' : ''}',
               Icons.badge_outlined,
               enabled: !isEditingMember,
             ),
@@ -684,6 +728,13 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   }
 
   Widget _buildRolesFields() {
+    final lockedRole = widget.lockInitialRole
+        ? (widget.initialRole ?? '').trim().toUpperCase()
+        : '';
+    final visibleRoles = lockedRole.isEmpty
+        ? _roleOptions
+        : _roleOptions.where((role) => role.code.toUpperCase() == lockedRole).toList();
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -696,15 +747,20 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
                 padding: EdgeInsets.all(8.0),
                 child: CircularProgressIndicator(strokeWidth: 2),
               ))
-            : Wrap(
+            : visibleRoles.isEmpty && lockedRole.isNotEmpty
+                ? Text(
+                    '$lockedRole role will be assigned automatically.',
+                    style: const TextStyle(fontSize: 12),
+                  )
+                : Wrap(
                 spacing: 8,
                 runSpacing: 0,
-                children: _roleOptions.map((role) {
+                children: visibleRoles.map((role) {
                   final isSelected = _selectedRoles.contains(role.code);
                   return FilterChip(
                     label: Text(role.description, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.black87)),
                     selected: isSelected,
-                    onSelected: (bool selected) {
+                    onSelected: widget.lockInitialRole ? null : (bool selected) {
                       setState(() {
                         if (selected) {
                           _selectedRoles.add(role.code);
