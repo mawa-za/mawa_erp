@@ -6,6 +6,7 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 
 import '../../../core/api_client.dart';
 import '../../partners/models/partner.dart';
+import '../../partners/screens/partner_create_screen.dart';
 import '../models/invoice_detail.dart';
 import '../services/invoice_service.dart';
 import 'invoice_detail_screen.dart';
@@ -211,8 +212,13 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Future<List<Partner>> _searchPartners(String query) async {
     if (query.trim().length < 2) return [];
     try {
-      final response =
-          await ApiClient().get('/v2/partner?query=${Uri.encodeQueryComponent(query.trim())}');
+      final response = await ApiClient().get(
+        '/v2/partner',
+        queryParameters: {
+          'query': query.trim(),
+          'role': 'CUSTOMER',
+        },
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;
         return data
@@ -224,6 +230,25 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
       debugPrint('Error searching customers: $e');
     }
     return [];
+  }
+
+  Future<void> _createCustomerFromSearch(
+    SearchController controller,
+    String searchedValue,
+  ) async {
+    controller.closeView(searchedValue);
+    final created = await Navigator.of(context).push<Partner>(
+      MaterialPageRoute(
+        builder: (_) => const PartnerCreateScreen(
+          initialRole: 'CUSTOMER',
+          lockInitialRole: true,
+          returnCreatedPartner: true,
+        ),
+      ),
+    );
+    if (created != null && mounted) {
+      setState(() => _selectedPartner = created);
+    }
   }
 
   void _addItem() {
@@ -739,14 +764,14 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Widget _buildCustomerSearch() {
     final colorScheme = Theme.of(context).colorScheme;
     return SearchAnchor(
-      viewHintText: 'Search by customer name or number',
+      viewHintText: 'Search by name, contact number or email',
       builder: (context, controller) {
         return SearchBar(
           controller: controller,
           onTap: controller.openView,
           onChanged: (_) => controller.openView(),
           leading: Icon(Icons.search_rounded, color: colorScheme.primary),
-          hintText: 'Search for a customer',
+          hintText: 'Search customer by name, mobile or email',
           elevation: const WidgetStatePropertyAll(0),
           side: WidgetStatePropertyAll(
             BorderSide(color: colorScheme.outlineVariant),
@@ -773,16 +798,17 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
         }
 
         final partners = await _searchPartners(query);
+        final suggestions = <Widget>[];
         if (partners.isEmpty) {
-          return const [
-            ListTile(
+          suggestions.add(
+            const ListTile(
               leading: Icon(Icons.search_off_rounded),
-              title: Text('No customers found.'),
+              title: Text('No matching customers found.'),
+              subtitle: Text('You can create a customer after completing this search.'),
             ),
-          ];
-        }
-
-        return partners.map((partner) {
+          );
+        } else {
+          suggestions.addAll(partners.map((partner) {
           return ListTile(
             leading: const CircleAvatar(
               child: Icon(Icons.person_outline_rounded),
@@ -801,7 +827,23 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
               controller.closeView(partner.fullName);
             },
           );
-        }).toList();
+          }));
+        }
+
+        suggestions.add(
+          ListTile(
+            leading: const CircleAvatar(
+              child: Icon(Icons.person_add_alt_1_rounded),
+            ),
+            title: const Text(
+              'Create new customer',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: const Text('Individual, organisation or group'),
+            onTap: () => _createCustomerFromSearch(controller, query),
+          ),
+        );
+        return suggestions;
       },
     );
   }
