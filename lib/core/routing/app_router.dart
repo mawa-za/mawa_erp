@@ -39,6 +39,7 @@ import '../../features/membership/screens/membership_claim_list_screen.dart';
 import '../../features/membership/screens/membership_plan_list_screen.dart';
 import '../../features/membership/screens/group_society_list_screen.dart';
 import '../../features/stock/screens/stock_management_screen.dart';
+import '../../features/laybys/screens/layby_management_screen.dart';
 import '../../features/tombstones/screens/tombstone_management_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_detail_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_form_screen.dart';
@@ -388,6 +389,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.inventorySalesOrders,
         builder: (context, state) => const InventoryManagementScreen(initialSection: 'sales-orders'),
+      ),
+      GoRoute(
+        path: AppRoutes.laybys,
+        builder: (context, state) => const LaybyManagementScreen(),
       ),
       GoRoute(
         path: AppRoutes.inventoryAudit,

@@ -136,7 +136,7 @@ class FeatureGroupRegistry {
       displayOrder: 60,
       childWorkcenterIds: [
         'customer', 'customers', 'quotation', 'quotations',
-        'sales-order', 'sales-orders', 'prospect', 'prospects',
+        'sales-order', 'sales-orders', 'layby', 'laybys', 'prospect', 'prospects',
       ],
       aliases: ['sales-management', 'customer-management'],
     ),
@@ -347,7 +347,7 @@ class FeatureGroupRegistry {
   /// same workcenter in more than one group.
   static String? canonicalOwnerForWorkcenter(String workcenterId) {
     final id = normalize(workcenterId);
-    if ({'QUOTATION', 'QUOTATIONS', 'QUOTE', 'QUOTES', 'SALES_ORDER', 'SALES_ORDERS'}
+    if ({'QUOTATION', 'QUOTATIONS', 'QUOTE', 'QUOTES', 'SALES_ORDER', 'SALES_ORDERS', 'LAYBY', 'LAYBYS'}
         .contains(id)) {
       return 'sales-customers';
     }

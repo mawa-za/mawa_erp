@@ -52,6 +52,7 @@ class AppRoutes {
   static const String inventoryPutaways = '/inventory/putaways';
   static const String inventoryMovements = '/inventory/stock-movements';
   static const String inventorySalesOrders = '/inventory/sales-orders';
+  static const String laybys = '/laybys';
   static const String inventoryAudit = '/inventory/audit';
   static const String inventorySetup = '/inventory/setup';
 
