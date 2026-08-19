@@ -423,6 +423,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         return '/partners/CUSTOMER';
       }
       if (identity.contains('QUOT')) return AppRoutes.inventoryQuotations;
+      if (identity.contains('LAYBY')) return AppRoutes.laybys;
       if (identity.contains('SALES') && identity.contains('ORDER')) {
         return AppRoutes.inventorySalesOrders;
       }
