@@ -57,6 +57,8 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'JOURNAL',
     'LEAVE',
     'LEAVE_BALANCE_ADJUSTMENT',
+    'LAYBY_CANCELLATION',
+    'LAYBY_REFUND',
     'MEMBERSHIP_DEPENDENT_CHANGE',
     'MEMBERSHIP_PLAN_CHANGE',
     'MEMBERSHIP_TRANSFER',
