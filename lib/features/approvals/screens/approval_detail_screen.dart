@@ -6,15 +6,8 @@ import '../../../core/api_client.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/widgets/attachment_section.dart';
-import '../../invoicing/screens/invoice_detail_screen.dart';
-import '../../laybys/screens/layby_management_screen.dart';
-import '../../membership/screens/membership_claim_detail_screen.dart';
-import '../../membership/screens/membership_detail_screen.dart';
-import '../../payments/screens/payment_request_detail_screen.dart';
-import '../../cashup/screens/cashup_detail_screen.dart';
-import '../../leave_requests/screens/leave_request_detail_screen.dart';
-import '../../payroll/screens/payroll_batch_detail_screen.dart';
 import '../models/approval.dart';
+import '../navigation/approval_item_navigator.dart';
 import '../services/approval_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -129,99 +122,13 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     }
   }
 
-  void _viewOriginalTransaction() {
-    final id = _approval.referenceId;
-    final type = _approval.approvalType.toUpperCase();
-
-    Widget? screen;
-    switch (type) {
-      case 'INVOICE':
-        screen = InvoiceDetailScreen(invoiceId: id);
-        break;
-      case 'CLAIM':
-      case 'CLAIM_CASH':
-      case 'CLAIM_TOMBSTONE':
-      case 'CLAIM_FUNERAL':
-      case 'CLAIM_COMBINATION':
-      case 'CLAIM_GROCERY':
-        screen = MembershipClaimDetailScreen(claimId: id);
-        break;
-      case 'PAYMENT':
-        screen = PayrollBatchDetailScreen(batchId: id);
-        break;
-      case 'PAYMENT_REQUEST':
-        screen = PaymentRequestDetailScreen(paymentId: id);
-        break;
-      case 'CASHUP':
-        screen = CashupDetailScreen(cashupId: id);
-        break;
-      case 'MEMBERSHIP_TRANSFER':
-      case 'MEMBERSHIP_PLAN_CHANGE':
-      case 'MEMBERSHIP_DEPENDENT_CHANGE':
-      case 'PREMIUM_PAYMENT_DELETION':
-        final membershipId = _membershipIdFromPayload();
-        if (membershipId != null) {
-          screen = MembershipDetailScreen(membershipId: membershipId);
-        }
-        break;
-      case 'LAYBY_CANCELLATION':
-      case 'LAYBY_REFUND':
-        final laybyId = _laybyIdFromPayload();
-        if (laybyId != null) {
-          screen = LaybyManagementScreen(initialLaybyId: laybyId);
-        }
-        break;
-      case 'LEAVE':
-        screen = LeaveRequestDetailScreen(requestId: id);
-        break;
-    }
-
-    if (screen != null) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => screen!));
-    } else {
+  Future<void> _viewOriginalTransaction() async {
+    final opened = await ApprovalItemNavigator.openOriginal(context, _approval);
+    if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Detail screen for this type is not yet implemented')),
       );
     }
-  }
-
-  String? _membershipIdFromPayload() {
-    final payload = _approval.payloadJson;
-    if (payload == null || payload.trim().isEmpty) return null;
-    try {
-      return _findStringField(jsonDecode(payload), 'membershipId');
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? _laybyIdFromPayload() {
-    final payload = _approval.payloadJson;
-    if (payload == null || payload.trim().isEmpty) return null;
-    try {
-      return _findStringField(jsonDecode(payload), 'laybyId');
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? _findStringField(dynamic value, String fieldName) {
-    if (value is Map) {
-      final direct = value[fieldName];
-      if (direct != null && direct.toString().trim().isNotEmpty) {
-        return direct.toString().trim();
-      }
-      for (final nested in value.values) {
-        final found = _findStringField(nested, fieldName);
-        if (found != null) return found;
-      }
-    } else if (value is List) {
-      for (final nested in value) {
-        final found = _findStringField(nested, fieldName);
-        if (found != null) return found;
-      }
-    }
-    return null;
   }
 
   Future<int?> _selectClaimArrearsMonths() async {
