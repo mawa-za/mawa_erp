@@ -18,6 +18,22 @@ class InboxService {
     return UserInbox.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
   }
 
+
+  Future<List<InboxNotification>> getUnreadNotifications({int limit = 20}) async {
+    final response = await _apiClient.get(
+      '/v2/inbox/notifications',
+      queryParameters: {'limit': limit, 'unreadOnly': true},
+    );
+    if (response.statusCode != 200) {
+      throw AppException(_message(response.body, 'Unable to load inbox notifications.'));
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
+    return decoded
+        .map((item) => InboxNotification.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
   Future<InboxCounts> getCounts() async {
     final response = await _apiClient.get('/v2/inbox/counts');
     if (response.statusCode != 200) {
