@@ -640,6 +640,7 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
     final salesOrder = _layby?['salesOrder'] is Map ? Map<String, dynamic>.from(_layby!['salesOrder'] as Map) : <String, dynamic>{};
     final lines = _maps(salesOrder['lines']);
     final refund = _layby?['refund'] is Map ? Map<String, dynamic>.from(_layby!['refund'] as Map) : <String, dynamic>{};
+    final paymentRequestId = _text(refund['payment_request_id']);
 
     return DefaultTabController(
       length: 5,
