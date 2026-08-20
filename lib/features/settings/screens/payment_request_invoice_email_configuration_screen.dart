@@ -26,6 +26,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
   bool _loading = true;
   bool _saving = false;
   Map<String, dynamic> _deliverySummary = {};
+  List<Map<String, dynamic>> _recentFailures = const [];
   List<FieldOption> _documentTypeOptions = const [];
   Set<String> _selectedDocumentTypes = {'SUPPLIER-INVOICE'};
 
@@ -71,6 +72,12 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
         _deliverySummary = data['deliverySummary'] is Map
             ? Map<String, dynamic>.from(data['deliverySummary'] as Map)
             : {};
+        _recentFailures = data['recentFailures'] is List
+            ? (data['recentFailures'] as List)
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList()
+            : const [];
       });
     } catch (error) {
       if (mounted) {
@@ -230,11 +237,35 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Backfill completed'),
-            content: Text(
-              'Processed: ${result['processed'] ?? 0}\n'
-              'Sent: ${result['sent'] ?? 0}\n'
-              'Skipped: ${result['skipped'] ?? 0}\n'
-              'Failed: ${result['failed'] ?? 0}',
+            content: Builder(
+              builder: (_) {
+                final results = result['results'] is List
+                    ? (result['results'] as List)
+                        .whereType<Map>()
+                        .map((item) => Map<String, dynamic>.from(item))
+                        .toList()
+                    : const <Map<String, dynamic>>[];
+                final failures = results
+                    .where((item) =>
+                        item['status']?.toString().toUpperCase() == 'FAILED')
+                    .toList();
+                final buffer = StringBuffer()
+                  ..writeln('Processed: ${result['processed'] ?? 0}')
+                  ..writeln('Sent: ${result['sent'] ?? 0}')
+                  ..writeln('Skipped: ${result['skipped'] ?? 0}')
+                  ..write('Failed: ${result['failed'] ?? 0}');
+                for (final failure in failures) {
+                  buffer
+                    ..writeln()
+                    ..writeln()
+                    ..writeln('Request: ${failure['paymentRequestId'] ?? '-'}')
+                    ..write('Error: ${failure['message'] ?? 'Unknown delivery error'}');
+                }
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 620),
+                  child: SingleChildScrollView(child: SelectableText(buffer.toString())),
+                );
+              },
             ),
             actions: [
               FilledButton(
@@ -388,6 +419,34 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                           )
                           .toList(),
                     ),
+                  ],
+                  if (_recentFailures.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Recent failed deliveries',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    ..._recentFailures.map((failure) {
+                      final requestNo = failure['requestNo']?.toString();
+                      final paymentRequestId =
+                          failure['paymentRequestId']?.toString() ?? '-';
+                      final error = failure['errorMessage']?.toString();
+                      final attempts = failure['attemptCount']?.toString() ?? '0';
+                      return Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.error_outline),
+                          title: Text(
+                            requestNo == null || requestNo.isEmpty
+                                ? paymentRequestId
+                                : '$requestNo  ·  $paymentRequestId',
+                          ),
+                          subtitle: SelectableText(
+                            'Attempts: $attempts\n${error == null || error.isEmpty ? 'No error detail was recorded.' : error}',
+                          ),
+                        ),
+                      );
+                    }),
                   ],
                 ],
               ),
