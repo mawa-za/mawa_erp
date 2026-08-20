@@ -429,7 +429,9 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
           const SizedBox(height: 16),
           _buildPaymentsSection(cashup, colorScheme),
           const SizedBox(height: 16),
-          _buildDepositsSection(cashup, colorScheme),
+          cashup.depositRequired
+              ? _buildDepositsSection(cashup, colorScheme)
+              : _buildDepositNotRequiredSection(cashup, colorScheme),
           const SizedBox(height: 16),
           AttachmentSection(
             objectId: widget.cashupId,
@@ -535,6 +537,48 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         Text('$label: ', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
         Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
       ],
+    );
+  }
+
+  Widget _buildDepositNotRequiredSection(Cashup cashup, ColorScheme colorScheme) {
+    final method = cashup.payments.isEmpty ? 'Electronic' : cashup.payments.first.paymentMethod.toUpperCase();
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.verified_outlined, color: colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'DEPOSIT NOT REQUIRED',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$method payments use an individual cashup and are submitted directly for approval after payment processing.',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
