@@ -177,7 +177,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'This sends configured documents for previously approved Supplier Invoice payment requests. Requests previously skipped because email was not configured or the attachment was missing are reconsidered automatically. Already-sent requests are skipped.',
+                  'This sends configured documents for previously approved Supplier Invoice payment requests. Already-sent requests are skipped.',
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -192,7 +192,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   value: retryFailed,
-                  title: const Text('Retry failed email deliveries'),
+                  title: const Text('Retry previously failed deliveries'),
                   onChanged: (value) =>
                       setDialogState(() => retryFailed = value ?? false),
                 ),
@@ -234,8 +234,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
               'Processed: ${result['processed'] ?? 0}\n'
               'Sent: ${result['sent'] ?? 0}\n'
               'Skipped: ${result['skipped'] ?? 0}\n'
-              'Failed: ${result['failed'] ?? 0}'
-              '${(result['processed'] ?? 0) == 0 ? '\n\nNo eligible approved Supplier Invoice payment requests were found. Already-sent requests are excluded; enable Retry failed email deliveries only for genuine FAILED attempts.' : ''}',
+              'Failed: ${result['failed'] ?? 0}',
             ),
             actions: [
               FilledButton(
