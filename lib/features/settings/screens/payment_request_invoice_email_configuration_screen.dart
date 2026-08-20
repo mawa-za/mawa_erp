@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
 
 import '../../../core/api_client.dart';
-import 'package:mawa_erp/core/errors/app_error.dart';
+import '../../../core/models/field_option.dart';
+import '../../../core/services/field_service.dart';
 
 class PaymentRequestInvoiceEmailConfigurationScreen extends StatefulWidget {
   const PaymentRequestInvoiceEmailConfigurationScreen({super.key});
@@ -24,6 +26,8 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
   bool _loading = true;
   bool _saving = false;
   Map<String, dynamic> _deliverySummary = {};
+  List<FieldOption> _documentTypeOptions = const [];
+  Set<String> _selectedDocumentTypes = {'SUPPLIER-INVOICE'};
 
   @override
   void initState() {
@@ -42,9 +46,18 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final response = await _api.get('/v2/payment-request/invoice-email/configuration');
+      final results = await Future.wait<dynamic>([
+        _api.get('/v2/payment-request/invoice-email/configuration'),
+        FieldService().getOptionsByField('DOCUMENT-TYPE-PAYMENT-REQUEST'),
+      ]);
+      final response = results[0];
       if (response.statusCode != 200) throw AppException(response.body);
       final data = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+      final options = (results[1] as List<FieldOption>)
+          .where((option) => option.code.trim().isNotEmpty)
+          .toList()
+        ..sort((a, b) => a.description.compareTo(b.description));
+      final selected = _readDocumentTypes(data);
       if (!mounted) return;
       setState(() {
         _enabled = data['enabled'] == true || data['enabled'] == 1;
@@ -52,6 +65,9 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
         _subject.text = data['subject_template']?.toString() ??
             'Approved supplier invoice payment request {{requestNo}}';
         _body.text = data['body_message']?.toString() ?? '';
+        _documentTypeOptions = options;
+        _selectedDocumentTypes =
+            selected.isEmpty ? {'SUPPLIER-INVOICE'} : selected;
         _deliverySummary = data['deliverySummary'] is Map
             ? Map<String, dynamic>.from(data['deliverySummary'] as Map)
             : {};
@@ -59,7 +75,13 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyErrorMessage('Failed to load invoice email settings: $error'))),
+          SnackBar(
+            content: Text(
+              friendlyErrorMessage(
+                'Failed to load invoice email settings: $error',
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -67,10 +89,48 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     }
   }
 
+  Set<String> _readDocumentTypes(Map<String, dynamic> data) {
+    final result = <String>{};
+    final dynamic listValue = data['documentTypes'];
+    if (listValue is List) {
+      for (final value in listValue) {
+        final code = value?.toString().trim().toUpperCase() ?? '';
+        if (code.isNotEmpty) result.add(code);
+      }
+    } else {
+      final raw = data['document_types']?.toString() ?? '';
+      for (final value in raw.split(RegExp(r'[,;\n\r]+'))) {
+        final code = value.trim().toUpperCase();
+        if (code.isNotEmpty) result.add(code);
+      }
+    }
+    return result;
+  }
+
+  String _documentTypeLabel(String code) {
+    for (final option in _documentTypeOptions) {
+      if (option.code.toUpperCase() == code.toUpperCase()) {
+        return option.description.trim().isEmpty
+            ? option.code
+            : option.description;
+      }
+    }
+    return code;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_enabled && _selectedDocumentTypes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select at least one document type to email.'),
+        ),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
+      final documentTypes = _selectedDocumentTypes.toList()..sort();
       final response = await _api.put(
         '/v2/payment-request/invoice-email/configuration',
         body: {
@@ -78,6 +138,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
           'recipientEmails': _recipients.text.trim(),
           'subjectTemplate': _subject.text.trim(),
           'bodyMessage': _body.text.trim(),
+          'documentTypes': documentTypes,
         },
       );
       if (response.statusCode != 200) throw AppException(response.body);
@@ -90,7 +151,11 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyErrorMessage('Unable to save configuration: $error'))),
+          SnackBar(
+            content: Text(
+              friendlyErrorMessage('Unable to save configuration: $error'),
+            ),
+          ),
         );
       }
     } finally {
@@ -112,7 +177,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'This sends invoice attachments for previously approved Supplier Invoice payment requests. Already-sent requests are skipped.',
+                  'This sends configured documents for previously approved Supplier Invoice payment requests. Already-sent requests are skipped.',
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -183,7 +248,9 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyErrorMessage('Backfill failed: $error'))),
+          SnackBar(
+            content: Text(friendlyErrorMessage('Backfill failed: $error')),
+          ),
         );
       }
     }
@@ -206,7 +273,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                       onChanged: (value) => setState(() => _enabled = value),
                       title: const Text('Email approved supplier invoices'),
                       subtitle: const Text(
-                        'After approval, the attached supplier invoice is emailed to the configured recipients. Payment approval is not rolled back if email delivery fails.',
+                        'After approval, all attachments matching the selected document types are emailed to the configured recipients. Payment approval is not rolled back if email delivery fails.',
                       ),
                     ),
                   ),
@@ -215,7 +282,8 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                     controller: _recipients,
                     decoration: const InputDecoration(
                       labelText: 'Recipient email addresses',
-                      helperText: 'Separate multiple addresses with commas or semicolons.',
+                      helperText:
+                          'Separate multiple addresses with commas or semicolons.',
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
@@ -226,11 +294,45 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                     },
                   ),
                   const SizedBox(height: 12),
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Document types to include',
+                      helperText:
+                          'All attachments matching the selected payment-request document types will be emailed.',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: _documentTypeOptions.isEmpty
+                        ? const Text(
+                            'No payment request document types are configured.',
+                          )
+                        : Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _documentTypeOptions.map((option) {
+                              final code = option.code.trim().toUpperCase();
+                              return FilterChip(
+                                label: Text(_documentTypeLabel(code)),
+                                selected: _selectedDocumentTypes.contains(code),
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _selectedDocumentTypes.add(code);
+                                    } else {
+                                      _selectedDocumentTypes.remove(code);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                  ),
+                  const SizedBox(height: 12),
                   TextFormField(
                     controller: _subject,
                     decoration: const InputDecoration(
                       labelText: 'Email subject',
-                      helperText: 'Available fields: {{requestNo}}, {{invoiceNo}}, {{supplierName}}',
+                      helperText:
+                          'Available fields: {{requestNo}}, {{invoiceNo}}, {{supplierName}}',
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
@@ -271,13 +373,19 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                   ),
                   if (_deliverySummary.isNotEmpty) ...[
                     const SizedBox(height: 24),
-                    Text('Delivery summary', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Delivery summary',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: _deliverySummary.entries
-                          .map((entry) => Chip(label: Text('${entry.key}: ${entry.value}')))
+                          .map(
+                            (entry) =>
+                                Chip(label: Text('${entry.key}: ${entry.value}')),
+                          )
                           .toList(),
                     ),
                   ],
