@@ -78,7 +78,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
           SnackBar(
             content: Text(
               friendlyErrorMessage(
-                'Failed to load invoice email settings: $error',
+                'Failed to load payment request document email settings: $error',
               ),
             ),
           ),
@@ -145,7 +145,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice email configuration saved.')),
+          const SnackBar(content: Text('Payment request document email configuration saved.')),
         );
       }
     } catch (error) {
@@ -170,14 +170,14 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
-          title: const Text('Run approved invoice email backfill'),
+          title: const Text('Run approved document email backfill'),
           content: SizedBox(
             width: 520,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'This sends configured documents for previously approved Supplier Invoice payment requests. Already-sent requests are skipped.',
+                  'This sends configured documents for previously approved payment requests that contain one of the selected document types. Already-sent requests are skipped.',
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -259,7 +259,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Payment Request Invoice Email')),
+      appBar: AppBar(title: const Text('Payment Request Document Email')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Form(
@@ -271,9 +271,9 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                     child: SwitchListTile(
                       value: _enabled,
                       onChanged: (value) => setState(() => _enabled = value),
-                      title: const Text('Email approved supplier invoices'),
+                      title: const Text('Email approved payment request documents'),
                       subtitle: const Text(
-                        'After approval, all attachments matching the selected document types are emailed to the configured recipients. Payment approval is not rolled back if email delivery fails.',
+                        'After approval, all attachments matching the selected document types are emailed to the configured recipients. Payment request type is not used; the configured document types determine whether the rule applies. Payment approval is not rolled back if email delivery fails.',
                       ),
                     ),
                   ),
@@ -332,7 +332,7 @@ class _PaymentRequestInvoiceEmailConfigurationScreenState
                     decoration: const InputDecoration(
                       labelText: 'Email subject',
                       helperText:
-                          'Available fields: {{requestNo}}, {{invoiceNo}}, {{supplierName}}',
+                          'Available fields: {{requestNo}}, {{documentTypes}}, {{invoiceNo}}, {{payeeName}}, {{supplierName}}',
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
