@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/membership_change.dart';
 import '../models/dependent.dart';
 import '../models/membership_detail.dart';
+import '../models/membership.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import '../widgets/membership_plan_dropdown.dart';
@@ -180,6 +181,73 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
     } finally { reason.dispose(); }
   }
 
+  Future<void> _requestMerge() async {
+    final search = TextEditingController();
+    final reason = TextEditingController();
+    Membership? source;
+    List<Membership> results = const [];
+    bool searching = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Merge Membership'),
+        content: SizedBox(width: 620, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Primary membership: ${widget.membership.membershipNo}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: search,
+            decoration: InputDecoration(
+              labelText: 'Find source membership',
+              hintText: 'Membership number, member name or identity number',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: searching ? null : () async {
+                if (search.text.trim().isEmpty) return;
+                setDialogState(() => searching = true);
+                try {
+                  final page = await MembershipService().getMemberships(query: search.text.trim(), size: 20);
+                  setDialogState(() => results = page.content.where((m) => m.id != widget.membership.id && m.status.toUpperCase() != 'MERGED').toList());
+                } finally { setDialogState(() => searching = false); }
+              }),
+            ),
+          ),
+          if (searching) const LinearProgressIndicator(),
+          if (results.isNotEmpty) SizedBox(height: 180, child: ListView.builder(
+            itemCount: results.length,
+            itemBuilder: (_, index) {
+              final item = results[index];
+              return RadioListTile<Membership>(
+                value: item, groupValue: source,
+                onChanged: (value) => setDialogState(() => source = value),
+                title: Text(item.membershipNo),
+                subtitle: Text([item.memberName, item.memberIdentityNumber, item.status].where((e) => e.isNotEmpty).join(' • ')),
+              );
+            },
+          )),
+          if (source != null) Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text('${source!.membershipNo} will become read-only. Its payments, claims and dependants will be consolidated into ${widget.membership.membershipNo} after approval.'),
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: reason, maxLines: 3, onChanged: (_) => setDialogState(() {}), decoration: const InputDecoration(labelText: 'Reason *', border: OutlineInputBorder())),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          FilledButton(onPressed: source == null || reason.text.trim().isEmpty ? null : () => Navigator.pop(context, true), child: const Text('SUBMIT FOR APPROVAL')),
+        ],
+      )),
+    );
+    if (confirmed != true || source == null) { search.dispose(); reason.dispose(); return; }
+    try {
+      await MembershipService().requestMembershipMerge(widget.membership.id, source!.id, reason.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Membership merge submitted for approval')));
+      await _load();
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('$e')), backgroundColor: Colors.red));
+    } finally { search.dispose(); reason.dispose(); }
+  }
+
 
   IconData _changeIcon(String changeType) {
     switch (changeType) {
@@ -193,6 +261,8 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         return Icons.person_remove_outlined;
       case 'REPLACE_DEPENDENT':
         return Icons.find_replace_outlined;
+      case 'MERGE':
+        return Icons.merge_outlined;
       default:
         return Icons.edit_note_outlined;
     }
@@ -206,6 +276,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         Wrap(spacing: 12, runSpacing: 12, children: [
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestTransfer, icon: const Icon(Icons.swap_horiz), label: const Text('TRANSFER MEMBERSHIP')),
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestPlanChange, icon: const Icon(Icons.upgrade), label: const Text('CHANGE PLAN')),
+          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestMerge, icon: const Icon(Icons.merge_outlined), label: const Text('MERGE MEMBERSHIP')),
         ]),
       if (!widget.readOnly && _hasOpenChange) ...[
         const SizedBox(height: 8),

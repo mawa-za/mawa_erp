@@ -1,6 +1,7 @@
 class MembershipChange {
   final String id;
   final String membershipId;
+  final String sourceMembershipId;
   final String changeType;
   final String status;
   final String oldMemberId;
@@ -32,6 +33,7 @@ class MembershipChange {
   const MembershipChange({
     required this.id,
     required this.membershipId,
+    required this.sourceMembershipId,
     required this.changeType,
     required this.status,
     required this.oldMemberId,
@@ -64,6 +66,7 @@ class MembershipChange {
   factory MembershipChange.fromJson(Map<String, dynamic> json) => MembershipChange(
     id: '${json['id'] ?? ''}',
     membershipId: '${json['membershipId'] ?? ''}',
+    sourceMembershipId: '${json['sourceMembershipId'] ?? ''}',
     changeType: '${json['changeType'] ?? ''}',
     status: '${json['status'] ?? ''}',
     oldMemberId: '${json['oldMemberId'] ?? ''}',
@@ -107,6 +110,7 @@ class MembershipChange {
       case 'ADD_DEPENDENT': return 'Add Dependent';
       case 'REMOVE_DEPENDENT': return 'Remove Dependent';
       case 'REPLACE_DEPENDENT': return 'Replace Dependent';
+      case 'MERGE': return 'Membership Merge';
       default: return changeType.replaceAll('_', ' ');
     }
   }
@@ -118,6 +122,7 @@ class MembershipChange {
       case 'ADD_DEPENDENT': return '$newDependentName (${newDependentType.replaceAll('_', ' ')})';
       case 'REMOVE_DEPENDENT': return oldDependentName;
       case 'REPLACE_DEPENDENT': return '$oldDependentName → $newDependentName';
+      case 'MERGE': return '$sourceMembershipId → $membershipId';
       default: return '';
     }
   }
