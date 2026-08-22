@@ -4,8 +4,8 @@ import '../services/stock_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import 'package:mawa_erp/core/widgets/quick_customer_create_dialog.dart';
 import 'package:mawa_erp/features/partners/models/partner.dart';
-import 'package:mawa_erp/features/partners/screens/partner_create_screen.dart';
 
 enum InventoryDocumentType { quotation, purchaseOrder, goodsReceipt, salesOrder }
 
@@ -558,10 +558,10 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
             ListTile(
               leading: const CircleAvatar(child: Icon(Icons.person_add_alt_1_rounded)),
               title: const Text(
-                'Create new customer',
+                'Quick Create Customer',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle: const Text('Individual, organisation or group'),
+              subtitle: const Text('Names plus contact number and/or email'),
               onTap: () => _createCustomerFromSearch(controller, query),
             ),
           );
@@ -576,15 +576,7 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
     String searchedValue,
   ) async {
     controller.closeView(searchedValue);
-    final created = await Navigator.of(context).push<Partner>(
-      MaterialPageRoute(
-        builder: (_) => const PartnerCreateScreen(
-          initialRole: 'CUSTOMER',
-          lockInitialRole: true,
-          returnCreatedPartner: true,
-        ),
-      ),
-    );
+    final created = await showQuickCustomerCreateDialog(context);
     if (created == null || !mounted) return;
 
     final partner = <String, dynamic>{

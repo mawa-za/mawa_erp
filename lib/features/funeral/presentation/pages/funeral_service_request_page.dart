@@ -319,49 +319,51 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                       '${TimeOfDay.fromDateTime(request.deceasedDeliveryDateTime!).format(context)}',
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (!completed && !cancelled)
-                        FilledButton.tonalIcon(
+                  if (!cancelled) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (!completed)
+                          FilledButton.tonalIcon(
                           onPressed: id.isEmpty ? null : () async {
                             await context.push('/funeral/service-request/$id/resume');
                             await _load();
                           },
                           icon: const Icon(Icons.play_arrow_outlined),
                           label: Text(request.wizardStep > 0 ? 'Resume Arrangement' : 'Continue Arrangement'),
-                        ),
-                      OutlinedButton.icon(
+                          ),
+                        OutlinedButton.icon(
                         onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/claims'),
                         icon: const Icon(Icons.request_quote_outlined),
                         label: const Text('Claims'),
-                      ),
-                      OutlinedButton.icon(
+                        ),
+                        OutlinedButton.icon(
                         onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/invoice-preview'),
                         icon: const Icon(Icons.receipt_long_outlined),
                         label: const Text('Invoice Preview'),
-                      ),
-                      OutlinedButton.icon(
+                        ),
+                        OutlinedButton.icon(
                         onPressed: id.isEmpty ? null : () => _downloadConfirmationLetter(request),
                         icon: const Icon(Icons.description_outlined),
                         label: const Text('Confirmation Letter'),
-                      ),
-                      OutlinedButton.icon(
+                        ),
+                        OutlinedButton.icon(
                         onPressed: id.isEmpty ? null : () => _downloadServiceRequestForm(request),
                         icon: const Icon(Icons.assignment_outlined),
                         label: const Text('Service Request Form'),
-                      ),
-                      if (!completed && !cancelled)
-                        OutlinedButton.icon(
+                        ),
+                        if (!completed)
+                          OutlinedButton.icon(
                           onPressed: id.isEmpty ? null : () => _cancelRequest(request),
                           icon: const Icon(Icons.cancel_outlined),
                           label: const Text('Cancel Request'),
                           style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                        ),
-                    ],
-                  ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
               ),
