@@ -65,6 +65,8 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SearchAnchor(
+              isFullScreen: false,
+              viewConstraints: const BoxConstraints(maxHeight: 420),
               searchController: _searchController,
               builder: (context, controller) {
                 return SearchBar(
