@@ -291,14 +291,21 @@ class _AppointmentCalendarScreenState extends State<AppointmentCalendarScreen> {
         final calendar = _buildMonthCalendar(colorScheme);
         final agenda = _buildDayAgenda(colorScheme);
         if (wide) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 7, child: calendar),
+                Expanded(
+                  flex: 7,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(width: constraints.maxWidth * 0.62, child: calendar),
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Expanded(flex: 4, child: agenda),
+                Expanded(flex: 4, child: SingleChildScrollView(child: agenda)),
               ],
             ),
           );

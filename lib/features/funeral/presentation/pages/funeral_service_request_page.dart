@@ -86,6 +86,37 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
     await _load();
   }
 
+  Future<void> _cancelRequest(FuneralServiceRequestDto request) async {
+    final id = request.id;
+    if (id == null || id.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Funeral Service Request'),
+        content: Text('Cancel ${request.serviceRequestNo ?? 'this funeral service request'}? This arrangement cannot be resumed afterwards.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('KEEP REQUEST')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('CANCEL REQUEST')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _api.cancelServiceRequest(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Funeral service request cancelled.'), backgroundColor: Colors.green),
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _downloadConfirmationLetter(FuneralServiceRequestDto request) async {
     final id = request.id;
     if (id == null || id.isEmpty) return;
@@ -163,7 +194,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               scrollDirection: Axis.horizontal,
-              children: ['ALL', 'COVER_IDENTIFIED', 'ARRANGEMENT_CREATED', 'CLAIMS_INITIATED', 'CLAIMS_RESOLVED', 'INVOICED']
+              children: ['ALL', 'COVER_IDENTIFIED', 'ARRANGEMENT_CREATED', 'CLAIMS_INITIATED', 'CLAIMS_RESOLVED', 'INVOICED', 'CANCELLED']
                   .map((status) => Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
@@ -228,6 +259,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
           final request = _requests[index];
           final id = request.id ?? '';
           final completed = request.status?.toUpperCase() == 'INVOICED';
+          final cancelled = request.status?.toUpperCase() == 'CANCELLED';
           return Card(
             clipBehavior: Clip.antiAlias,
             elevation: 0,
@@ -236,7 +268,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
               side: BorderSide(color: Colors.grey.shade200),
             ),
             child: InkWell(
-              onTap: id.isEmpty || completed ? null : () async {
+              onTap: id.isEmpty || completed || cancelled ? null : () async {
                 await context.push('/funeral/service-request/$id/resume');
                 await _load();
               },
@@ -292,7 +324,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      if (!completed)
+                      if (!completed && !cancelled)
                         FilledButton.tonalIcon(
                           onPressed: id.isEmpty ? null : () async {
                             await context.push('/funeral/service-request/$id/resume');
@@ -321,6 +353,13 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                         icon: const Icon(Icons.assignment_outlined),
                         label: const Text('Service Request Form'),
                       ),
+                      if (!completed && !cancelled)
+                        OutlinedButton.icon(
+                          onPressed: id.isEmpty ? null : () => _cancelRequest(request),
+                          icon: const Icon(Icons.cancel_outlined),
+                          label: const Text('Cancel Request'),
+                          style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                        ),
                     ],
                   ),
                 ],
