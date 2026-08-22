@@ -7,6 +7,7 @@ class PartnerSearchDropdown extends StatefulWidget {
   final String role;
   final String label;
   final String? initialPartnerId;
+  final Partner? initialPartner;
   final String? partnerType;
   final ValueChanged<Partner?> onPartnerSelected;
   final String? Function(Partner?)? validator;
@@ -16,6 +17,7 @@ class PartnerSearchDropdown extends StatefulWidget {
     required this.role,
     required this.label,
     this.initialPartnerId,
+    this.initialPartner,
     this.partnerType,
     required this.onPartnerSelected,
     this.validator,
@@ -37,7 +39,10 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialPartnerId != null) {
+    _selectedPartner = widget.initialPartner;
+    if (_selectedPartner != null) {
+      _searchController.text = _selectedPartner!.fullName;
+    } else if (widget.initialPartnerId != null) {
       _loadInitialPartner();
     }
   }
@@ -60,6 +65,8 @@ class _PartnerSearchDropdownState extends State<PartnerSearchDropdown> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SearchAnchor(
+              isFullScreen: false,
+              viewConstraints: const BoxConstraints(maxHeight: 420),
               searchController: _searchController,
               builder: (context, controller) {
                 return SearchBar(

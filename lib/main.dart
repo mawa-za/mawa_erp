@@ -5,6 +5,7 @@ import 'core/services/session_service.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
 import 'core/theme/app_theme.dart';
+import 'features/inbox/widgets/inbox_notification_host.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -69,10 +70,12 @@ class _MyAppState extends State<MyApp> {
         return Listener(
           onPointerDown: (_) => SessionService().userActivityDetected(),
           onPointerMove: (_) => SessionService().userActivityDetected(),
-          child: ColoredBox(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            child: SizedBox.expand(
-              child: child ?? const SizedBox.shrink(),
+          child: InboxNotificationHost(
+            child: ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: SizedBox.expand(
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         );

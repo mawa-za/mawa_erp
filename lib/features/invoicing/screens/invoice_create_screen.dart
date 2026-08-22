@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/widgets/quick_customer_create_dialog.dart';
 import '../../partners/models/partner.dart';
-import '../../partners/screens/partner_create_screen.dart';
 import '../models/invoice_detail.dart';
 import '../services/invoice_service.dart';
 import 'invoice_detail_screen.dart';
@@ -237,15 +237,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
     String searchedValue,
   ) async {
     controller.closeView(searchedValue);
-    final created = await Navigator.of(context).push<Partner>(
-      MaterialPageRoute(
-        builder: (_) => const PartnerCreateScreen(
-          initialRole: 'CUSTOMER',
-          lockInitialRole: true,
-          returnCreatedPartner: true,
-        ),
-      ),
-    );
+    final created = await showQuickCustomerCreateDialog(context);
     if (created != null && mounted) {
       setState(() => _selectedPartner = created);
     }
@@ -764,6 +756,8 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Widget _buildCustomerSearch() {
     final colorScheme = Theme.of(context).colorScheme;
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       viewHintText: 'Search by name, contact number or email',
       builder: (context, controller) {
         return SearchBar(
@@ -836,10 +830,10 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
               child: Icon(Icons.person_add_alt_1_rounded),
             ),
             title: const Text(
-              'Create new customer',
+              'Quick Create Customer',
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
-            subtitle: const Text('Individual, organisation or group'),
+            subtitle: const Text('Names plus contact number and/or email'),
             onTap: () => _createCustomerFromSearch(controller, query),
           ),
         );
@@ -1201,6 +1195,8 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Widget _buildProductSearch(InvoiceItemDraft item) {
     final colorScheme = Theme.of(context).colorScheme;
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       viewHintText: 'Search products and services',
       builder: (context, controller) {
         final selectedLabel = item.productController.text.trim();

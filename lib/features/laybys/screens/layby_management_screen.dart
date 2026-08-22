@@ -1,8 +1,11 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/files/download_bytes.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../../invoicing/screens/invoice_detail_screen.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/screens/partner_create_screen.dart';
@@ -46,6 +49,14 @@ class _LaybyManagementScreenState extends State<LaybyManagementScreen> {
     });
     try {
       final rows = await _service.list(status: _status, query: _search.text);
+      rows.sort((a, b) {
+        final aDate = AppDateUtils.parse(a['created_at']);
+        final bDate = AppDateUtils.parse(b['created_at']);
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return bDate.compareTo(aDate);
+      });
       if (!mounted) return;
       setState(() {
         _rows = rows;
@@ -154,42 +165,47 @@ class _LaybyManagementScreenState extends State<LaybyManagementScreen> {
                       ? const Center(child: Text('No laybys found.'))
                       : Card(
                           clipBehavior: Clip.antiAlias,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: SingleChildScrollView(
-                              child: DataTable(
-                                showCheckboxColumn: false,
-                                columns: const [
-                                  DataColumn(label: Text('Layby')),
-                                  DataColumn(label: Text('Customer')),
-                                  DataColumn(label: Text('Sales Order')),
-                                  DataColumn(label: Text('Status')),
-                                  DataColumn(label: Text('Total'), numeric: true),
-                                  DataColumn(label: Text('Paid'), numeric: true),
-                                  DataColumn(label: Text('Outstanding'), numeric: true),
-                                  DataColumn(label: Text('Next Due')),
-                                  DataColumn(label: Text('Attention')),
-                                  DataColumn(label: Text('Created')),
-                                ],
-                                rows: _rows.map((row) => DataRow(
-                                  onSelectChanged: (_) => _open(row),
-                                  cells: [
-                                    DataCell(Text(_text(row['layby_no']), style: const TextStyle(fontWeight: FontWeight.w700))),
-                                    DataCell(Text(_text(row['customer_name']))),
-                                    DataCell(Text(_text(row['sales_order_no']))),
-                                    DataCell(_StatusChip(_text(row['status']))),
-                                    DataCell(Text(_money(row['total_cents']))),
-                                    DataCell(Text(_money(row['paid_cents']))),
-                                    DataCell(Text(_money(row['balance_cents']))),
-                                    DataCell(Text(_date(row['next_due_date']))),
-                                    DataCell(Text(
-                                      _bool(row['default_eligible'])
-                                          ? 'Default eligible'
-                                          : (_int(row['overdue_cents'], 0) > 0 ? 'Payment overdue' : ''),
-                                    )),
-                                    DataCell(Text(_date(row['created_at']))),
-                                  ],
-                                )).toList(),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) => SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                                child: SingleChildScrollView(
+                                  child: DataTable(
+                                    showCheckboxColumn: false,
+                                    columns: const [
+                                      DataColumn(label: Text('Layby')),
+                                      DataColumn(label: Text('Customer')),
+                                      DataColumn(label: Text('Sales Order')),
+                                      DataColumn(label: Text('Status')),
+                                      DataColumn(label: Text('Total'), numeric: true),
+                                      DataColumn(label: Text('Paid'), numeric: true),
+                                      DataColumn(label: Text('Outstanding'), numeric: true),
+                                      DataColumn(label: Text('Next Due')),
+                                      DataColumn(label: Text('Attention')),
+                                      DataColumn(label: Text('Created')),
+                                    ],
+                                    rows: _rows.map((row) => DataRow(
+                                      onSelectChanged: (_) => _open(row),
+                                      cells: [
+                                        DataCell(Text(_text(row['layby_no']), style: const TextStyle(fontWeight: FontWeight.w700))),
+                                        DataCell(Text(_text(row['customer_name']))),
+                                        DataCell(Text(_text(row['sales_order_no']))),
+                                        DataCell(_StatusChip(_text(row['status']))),
+                                        DataCell(Text(_money(row['total_cents']))),
+                                        DataCell(Text(_money(row['paid_cents']))),
+                                        DataCell(Text(_money(row['balance_cents']))),
+                                        DataCell(Text(_date(row['next_due_date']))),
+                                        DataCell(Text(
+                                          _bool(row['default_eligible'])
+                                              ? 'Default eligible'
+                                              : (_int(row['overdue_cents'], 0) > 0 ? 'Payment overdue' : ''),
+                                        )),
+                                        DataCell(Text(_date(row['created_at']))),
+                                      ],
+                                    )).toList(),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -312,11 +328,13 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
   Future<void> _cancel() async {
     final reason = TextEditingController();
     String code = 'OTHER';
+    String refundMethod = '';
+    String? dialogError;
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
         title: const Text('Cancel Layby'),
-        content: SizedBox(width: 460, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: SizedBox(width: 500, child: Column(mainAxisSize: MainAxisSize.min, children: [
           DropdownButtonFormField<String>(
             value: code,
             decoration: const InputDecoration(labelText: 'Reason category', border: OutlineInputBorder()),
@@ -328,20 +346,97 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
             onChanged: (v) => setDialogState(() => code = v ?? 'OTHER'),
           ),
           const SizedBox(height: 12),
-          TextField(controller: reason, maxLines: 3, decoration: const InputDecoration(labelText: 'Cancellation reason', border: OutlineInputBorder())),
+          DropdownButtonFormField<String>(
+            value: refundMethod,
+            decoration: const InputDecoration(
+              labelText: 'Refund method',
+              helperText: "EFT uses the customer's active approved banking details.",
+              border: OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(value: '', child: Text('Select refund method')),
+              DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+              DropdownMenuItem(value: 'EFT', child: Text('EFT')),
+            ],
+            onChanged: (v) => setDialogState(() {
+              refundMethod = v ?? '';
+              dialogError = null;
+            }),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: reason,
+            maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Cancellation reason', border: OutlineInputBorder()),
+            onChanged: (_) => setDialogState(() => dialogError = null),
+          ),
+          if (dialogError != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(dialogError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ),
+          ],
         ])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep Layby')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Request Cancellation')),
+          FilledButton(
+            onPressed: () {
+              if (refundMethod.isEmpty) {
+                setDialogState(() => dialogError = 'Select Cash or EFT as the refund method.');
+                return;
+              }
+              if (reason.text.trim().isEmpty) {
+                setDialogState(() => dialogError = 'Cancellation reason is required.');
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Request Cancellation'),
+          ),
         ],
       )),
     );
-    if (accepted != true || reason.text.trim().isEmpty) return;
-    await _run(() async => widget.service.cancel(widget.laybyId, {'reasonCode': code, 'reason': reason.text.trim()}));
+    if (accepted != true) return;
+    await _run(() async => widget.service.cancel(widget.laybyId, {
+      'reasonCode': code,
+      'reason': reason.text.trim(),
+      'refundMethod': refundMethod,
+    }));
   }
 
-  Future<void> _requestRefundApproval() async {
-    await _run(() async => widget.service.requestRefundApproval(widget.laybyId));
+  Future<void> _cancellationForm() async {
+    try {
+      final bytes = await widget.service.cancellationFormPdf(widget.laybyId);
+      await downloadBytes(
+        bytes: bytes,
+        fileName: '${_text(_layby?['layby_no'])}-cancellation-form.pdf',
+        mimeType: 'application/pdf',
+      );
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
+    }
+  }
+
+  Future<void> _uploadSignedCancellationForm() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) return;
+    final file = picked.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (mounted) setState(() => _error = 'Unable to read the selected cancellation form.');
+      return;
+    }
+    final extension = (file.extension ?? 'pdf').trim().toLowerCase();
+    await _run(() async => widget.service.attachSignedCancellationForm(
+      widget.laybyId,
+      fileBase64: base64Encode(bytes),
+      extension: extension,
+    ));
   }
 
   Future<void> _refundPaid() async {
@@ -349,20 +444,34 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Mark Refund Paid'),
-        content: TextField(controller: reference, decoration: const InputDecoration(labelText: 'Payment reference', border: OutlineInputBorder())),
+        title: const Text('Complete Cash Refund'),
+        content: SizedBox(
+          width: 440,
+          child: TextField(
+            controller: reference,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Cash refund reference',
+              helperText: 'This updates the linked customer refund payment request in the background.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Mark Paid')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Mark Refund Paid')),
         ],
       ),
     );
     if (accepted != true) return;
     if (reference.text.trim().isEmpty) {
-      if (mounted) setState(() => _error = 'Payment reference is required when marking a refund paid.');
+      if (mounted) setState(() => _error = 'Cash refund reference is required.');
       return;
     }
-    await _run(() async => widget.service.markRefundPaid(widget.laybyId, paymentReference: reference.text));
+    await _run(() async => widget.service.markRefundPaid(
+      widget.laybyId,
+      paymentReference: reference.text.trim(),
+    ));
   }
 
   Future<void> _fulfil() async {
@@ -412,6 +521,10 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
     final status = _text(_layby?['status']).toUpperCase();
     final refund = _layby?['refund'] is Map ? Map<String, dynamic>.from(_layby!['refund'] as Map) : <String, dynamic>{};
     final refundStatus = _text(refund['status']).toUpperCase();
+    final refundAmount = _int(refund['refund_amount_cents'], 0);
+    final paymentRequestId = _text(refund['payment_request_id']);
+    final paymentRequestStatus = _text(refund['payment_request_status']).toUpperCase();
+    final signedCancellationFormId = _text(refund['signed_cancellation_attachment_id']);
     return Dialog(
       child: SizedBox(
         width: 1120,
@@ -448,6 +561,61 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
                           avatar: Icon(Icons.approval_outlined, size: 18),
                           label: Text('Cancellation awaiting Approval Inbox'),
                         ),
+                      if (refund.isNotEmpty && ['CANCELLATION_PENDING', 'CANCELLED'].contains(status))
+                        OutlinedButton.icon(
+                          onPressed: _working ? null : _cancellationForm,
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: const Text('Cancellation Form'),
+                        ),
+                      if (refund.isNotEmpty &&
+                          signedCancellationFormId.isEmpty &&
+                          ['CANCELLATION_PENDING', 'CANCELLED'].contains(status))
+                        FilledButton.tonalIcon(
+                          onPressed: _working ? null : _uploadSignedCancellationForm,
+                          icon: const Icon(Icons.upload_file_outlined),
+                          label: const Text('Upload Signed Form'),
+                        ),
+                      if (signedCancellationFormId.isNotEmpty)
+                        const Chip(
+                          avatar: Icon(Icons.verified_outlined, size: 18),
+                          label: Text('Signed cancellation form attached'),
+                        ),
+                      if (refundStatus == 'PENDING_SIGNATURE')
+                        const Chip(
+                          avatar: Icon(Icons.draw_outlined, size: 18),
+                          label: Text('Refund waiting for signed form'),
+                        ),
+                      if (refundStatus == 'READY_FOR_APPROVAL' && status == 'CANCELLATION_PENDING')
+                        const Chip(
+                          avatar: Icon(Icons.schedule_outlined, size: 18),
+                          label: Text('Refund ready after cancellation approval'),
+                        ),
+                      if (refundStatus == 'PENDING_APPROVAL' || paymentRequestStatus == 'PENDING_APPROVAL')
+                        const Chip(
+                          avatar: Icon(Icons.approval_outlined, size: 18),
+                          label: Text('Refund payment request awaiting Approval Inbox'),
+                        ),
+                      if (paymentRequestStatus == 'APPROVED' || paymentRequestStatus == 'QUEUED_FOR_PAYMENT')
+                        Chip(
+                          avatar: const Icon(Icons.check_circle_outline, size: 18),
+                          label: Text('Refund payment request ${paymentRequestStatus.replaceAll('_', ' ').toLowerCase()}'),
+                        ),
+                      if (_text(refund['refund_method']).toUpperCase() == 'CASH' && paymentRequestStatus == 'APPROVED')
+                        FilledButton.tonalIcon(
+                          onPressed: _working ? null : _refundPaid,
+                          icon: const Icon(Icons.paid_outlined),
+                          label: const Text('Complete Cash Refund'),
+                        ),
+                      if (paymentRequestStatus == 'REJECTED')
+                        const Chip(
+                          avatar: Icon(Icons.cancel_outlined, size: 18),
+                          label: Text('Refund payment request rejected'),
+                        ),
+                      if (paymentRequestStatus == 'PAID')
+                        const Chip(
+                          avatar: Icon(Icons.paid_outlined, size: 18),
+                          label: Text('Refund paid'),
+                        ),
                       if (status == 'PAID_UP') FilledButton.icon(onPressed: _working ? null : _fulfil, icon: const Icon(Icons.local_shipping_outlined), label: const Text('Release Goods / Complete')),
                       if (_text(_layby?['final_invoice_id']).isNotEmpty)
                         OutlinedButton.icon(
@@ -455,18 +623,6 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
                           icon: const Icon(Icons.description_outlined),
                           label: const Text('View Final Invoice'),
                         ),
-                      if (refundStatus == 'PENDING_APPROVAL')
-                        const Chip(
-                          avatar: Icon(Icons.approval_outlined, size: 18),
-                          label: Text('Refund awaiting Approval Inbox'),
-                        ),
-                      if (refundStatus == 'REJECTED')
-                        OutlinedButton.icon(
-                          onPressed: _working ? null : _requestRefundApproval,
-                          icon: const Icon(Icons.refresh_outlined),
-                          label: const Text('Resubmit Refund Approval'),
-                        ),
-                      if (refundStatus == 'APPROVED') FilledButton.tonal(onPressed: _working ? null : _refundPaid, child: const Text('Mark Refund Paid')),
                     ]),
                   ),
                   const Divider(height: 1),
@@ -484,6 +640,7 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
     final salesOrder = _layby?['salesOrder'] is Map ? Map<String, dynamic>.from(_layby!['salesOrder'] as Map) : <String, dynamic>{};
     final lines = _maps(salesOrder['lines']);
     final refund = _layby?['refund'] is Map ? Map<String, dynamic>.from(_layby!['refund'] as Map) : <String, dynamic>{};
+    final paymentRequestId = _text(refund['payment_request_id']);
 
     return DefaultTabController(
       length: 5,
@@ -518,10 +675,21 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
               Text('Refund', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               _info('Status', _text(refund['status'])),
+              _info('Refund method', _text(refund['refund_method'])),
               _info('Gross paid', _money(refund['gross_paid_cents'])),
               _info('Cancellation penalty', _money(refund['penalty_cents'])),
               _info('Refund amount', _money(refund['refund_amount_cents'])),
-              if (_text(refund['approval_request_id']).isNotEmpty) _info('Approval request', _text(refund['approval_request_id'])),
+              if (_text(refund['payment_request_no']).isNotEmpty) _info('Payment request', _text(refund['payment_request_no'])),
+              if (_text(refund['payment_request_status']).isNotEmpty) _info('Payment request status', _text(refund['payment_request_status'])),
+              if (_text(refund['payment_request_approval_id']).isNotEmpty) _info('Payment request approval', _text(refund['payment_request_approval_id'])),
+              if (_text(refund['signed_cancellation_attachment_id']).isNotEmpty)
+                _info(
+                  'Signed cancellation form',
+                  paymentRequestId.isNotEmpty ? 'Attached to Layby and Payment Request' : 'Attached to Layby',
+                )
+              else
+                _info('Signed cancellation form', 'Required on the Layby cancellation record'),
+              if (_text(refund['approval_request_id']).isNotEmpty) _info('Legacy refund approval request', _text(refund['approval_request_id'])),
               _info('Payment reference', _text(refund['payment_reference'])),
               const Divider(height: 28),
             ],
@@ -763,6 +931,8 @@ class _LaybyCreateDialogState extends State<_LaybyCreateDialog> {
     const Text('Search for the customer before creating a new one. Search supports customer name, contact details and partner number.'),
     const SizedBox(height: 16),
     SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       searchController: _customerSearch,
       builder: (context, controller) => SearchBar(
         controller: controller,
@@ -831,6 +1001,8 @@ class _LaybyCreateDialogState extends State<_LaybyCreateDialog> {
   }
 
   Widget _productSearch(_LaybyLineDraft line) => SearchAnchor(
+    isFullScreen: false,
+    viewConstraints: const BoxConstraints(maxHeight: 420),
     searchController: line.productSearch,
     builder: (context, controller) => SearchBar(controller: controller, hintText: line.productCode.isEmpty ? 'Search product or service' : line.productCode, leading: const Icon(Icons.inventory_2_outlined), onTap: () => controller.openView(), onChanged: (_) => controller.openView()),
     suggestionsBuilder: (context, controller) async {
@@ -1007,13 +1179,5 @@ double _double(dynamic value) => double.tryParse(_text(value).replaceAll(',', '.
 int _int(dynamic value, int fallback) => int.tryParse(_text(value)) ?? fallback;
 bool _bool(dynamic value) => value == true || value == 1 || _text(value).toLowerCase() == 'true' || _text(value) == '1';
 String _money(dynamic cents) => 'R ${((double.tryParse(_text(cents)) ?? 0) / 100.0).toStringAsFixed(2)}';
-String _date(dynamic value) {
-  if (value == null || _text(value).isEmpty) return '-';
-  final parsed = DateTime.tryParse(_text(value));
-  return parsed == null ? _text(value) : DateFormat('dd MMM yyyy').format(parsed);
-}
-String _dateTime(dynamic value) {
-  if (value == null || _text(value).isEmpty) return '-';
-  final parsed = DateTime.tryParse(_text(value));
-  return parsed == null ? _text(value) : DateFormat('dd MMM yyyy HH:mm').format(parsed);
-}
+String _date(dynamic value) => AppDateUtils.displayDate(value, fallback: '-');
+String _dateTime(dynamic value) => AppDateUtils.displayDateTime(value, fallback: '-');

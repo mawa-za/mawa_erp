@@ -23,6 +23,7 @@ class _LaybyConfigurationScreenState extends State<LaybyConfigurationScreen> {
   bool _depositRequired = false;
   bool _cancellationApproval = true;
   bool _refundApproval = true;
+  bool _createRefundPaymentRequest = true;
   bool _reserveStock = true;
   bool _allowShortStock = false;
   String _frequency = 'MONTHLY';
@@ -57,6 +58,7 @@ class _LaybyConfigurationScreenState extends State<LaybyConfigurationScreen> {
         _graceDays.text = _text(c['default_grace_business_days']);
         _cancellationApproval = _bool(c['require_cancellation_approval']);
         _refundApproval = _bool(c['require_refund_approval']);
+        _createRefundPaymentRequest = _boolDefaultTrue(c['create_refund_payment_request_on_cancellation']);
         _reserveStock = _bool(c['automatically_reserve_stock']);
         _allowShortStock = _bool(c['allow_stock_short_layby']);
         _loading = false;
@@ -85,6 +87,7 @@ class _LaybyConfigurationScreenState extends State<LaybyConfigurationScreen> {
         'defaultGraceBusinessDays': int.tryParse(_graceDays.text) ?? 60,
         'requireCancellationApproval': _cancellationApproval,
         'requireRefundApproval': _refundApproval,
+        'createRefundPaymentRequestOnCancellation': _createRefundPaymentRequest,
         'automaticallyReserveStock': _reserveStock,
         'allowStockShortLayby': _allowShortStock,
       });
@@ -121,7 +124,24 @@ class _LaybyConfigurationScreenState extends State<LaybyConfigurationScreen> {
           SizedBox(width: 280, child: TextField(controller: _penaltyPercent, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Cancellation penalty %', border: OutlineInputBorder(), helperText: 'Maximum 1%'))),
           const SizedBox(height: 10),
           SwitchListTile(title: const Text('Require cancellation approval'), value: _cancellationApproval, onChanged: (v) => setState(() => _cancellationApproval = v)),
-          SwitchListTile(title: const Text('Require refund approval'), value: _refundApproval, onChanged: (v) => setState(() => _refundApproval = v)),
+          SwitchListTile(
+            title: const Text('Create customer refund Payment Request on cancellation'),
+            subtitle: const Text(
+              'When enabled, MAWA creates a Customer Refund Payment Request in the background. The signed cancellation form is kept on the Layby and also attached to the Payment Request before submission for approval.',
+            ),
+            value: _createRefundPaymentRequest,
+            onChanged: (v) => setState(() => _createRefundPaymentRequest = v),
+          ),
+          SwitchListTile(
+            title: const Text('Require refund approval'),
+            subtitle: Text(
+              _createRefundPaymentRequest
+                  ? 'The standard Payment Request approval workflow applies while automatic Payment Request creation is enabled.'
+                  : 'Used for the Layby refund approval when no Payment Request is created.',
+            ),
+            value: _refundApproval,
+            onChanged: _createRefundPaymentRequest ? null : (v) => setState(() => _refundApproval = v),
+          ),
           const Divider(),
           SwitchListTile(title: const Text('Automatically reserve stock on activation'), value: _reserveStock, onChanged: (v) => setState(() => _reserveStock = v)),
           SwitchListTile(title: const Text('Allow activation when stock cannot be fully reserved'), subtitle: const Text('Recommended off. When disabled, activation fails unless all items can be reserved.'), value: _allowShortStock, onChanged: (v) => setState(() => _allowShortStock = v)),
@@ -136,3 +156,4 @@ class _LaybyConfigurationScreenState extends State<LaybyConfigurationScreen> {
 
 String _text(dynamic value) => value == null ? '' : value.toString();
 bool _bool(dynamic value) => value == true || value == 1 || _text(value).toLowerCase() == 'true' || _text(value) == '1';
+bool _boolDefaultTrue(dynamic value) => value == null ? true : _bool(value);
