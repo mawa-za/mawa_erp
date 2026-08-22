@@ -541,7 +541,6 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
   }
 
   Widget _buildDepositNotRequiredSection(Cashup cashup, ColorScheme colorScheme) {
-    final method = cashup.payments.isEmpty ? 'Electronic' : cashup.payments.first.paymentMethod.toUpperCase();
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -570,7 +569,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '$method payments use an individual cashup and are submitted directly for approval after payment processing.',
+                    'EFT payments use an individual cashup and are submitted directly for approval after payment processing.',
                     style: TextStyle(color: Colors.grey.shade700),
                   ),
                 ],

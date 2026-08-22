@@ -55,6 +55,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       (_detail?.status ?? '').trim().toUpperCase().replaceAll('-', '_');
 
   bool get _isLapsedMembership => _normalizedMembershipStatus == 'LAPSED';
+  bool get _isMergedMembership => _normalizedMembershipStatus == 'MERGED';
 
   @override
   void initState() {
@@ -257,7 +258,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           : _error != null
               ? _buildErrorWidget(colorScheme)
               : _buildContent(colorScheme),
-      floatingActionButton: _detail != null && !_isLapsedMembership
+      floatingActionButton: _detail != null && !_isLapsedMembership && !_isMergedMembership
           ? FloatingActionButton.extended(
               onPressed: () async {
                 final result = await showDialog<bool>(
@@ -301,10 +302,27 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildStatusBanner(detail, colorScheme),
+          if (_isMergedMembership) ...[
+            const SizedBox(height: 12),
+            Card(
+              color: Colors.blue.shade50,
+              child: ListTile(
+                leading: const Icon(Icons.merge_outlined, color: Colors.blue),
+                title: const Text('This membership has been merged and is read-only.'),
+                subtitle: Text('Its surviving membership contains the consolidated operational history.${detail.mergedAt == null ? '' : ' Merged ${detail.mergedAt}.'}'),
+                trailing: detail.mergedIntoMembershipId == null ? null : FilledButton(
+                  onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(
+                    builder: (_) => MembershipDetailScreen(membershipId: detail.mergedIntoMembershipId!),
+                  )),
+                  child: const Text('OPEN PRIMARY'),
+                ),
+              ),
+            ),
+          ],
           if (_isLapsedMembership) ...[
             const SizedBox(height: 12),
             _buildLapsedRestrictionNotice(),
-          ] else ...[
+          ] else if (!_isMergedMembership) ...[
             const SizedBox(height: 16),
             _buildCapturePaymentButton(colorScheme),
             const SizedBox(height: 10),
@@ -319,7 +337,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.swap_horiz, 'MEMBERSHIP CHANGES'),
           const SizedBox(height: 12),
-          MembershipChangeSection(membership: detail, onChanged: _fetchData, readOnly: _isLapsedMembership),
+          MembershipChangeSection(membership: detail, onChanged: _fetchData, readOnly: _isLapsedMembership || _isMergedMembership),
           const SizedBox(height: 32),
           _buildSectionHeader(Icons.payments_outlined, 'PAYMENT HISTORY'),
           const SizedBox(height: 12),
