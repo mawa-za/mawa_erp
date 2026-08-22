@@ -931,6 +931,8 @@ class _LaybyCreateDialogState extends State<_LaybyCreateDialog> {
     const Text('Search for the customer before creating a new one. Search supports customer name, contact details and partner number.'),
     const SizedBox(height: 16),
     SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       searchController: _customerSearch,
       builder: (context, controller) => SearchBar(
         controller: controller,
@@ -999,6 +1001,8 @@ class _LaybyCreateDialogState extends State<_LaybyCreateDialog> {
   }
 
   Widget _productSearch(_LaybyLineDraft line) => SearchAnchor(
+    isFullScreen: false,
+    viewConstraints: const BoxConstraints(maxHeight: 420),
     searchController: line.productSearch,
     builder: (context, controller) => SearchBar(controller: controller, hintText: line.productCode.isEmpty ? 'Search product or service' : line.productCode, leading: const Icon(Icons.inventory_2_outlined), onTap: () => controller.openView(), onChanged: (_) => controller.openView()),
     suggestionsBuilder: (context, controller) async {

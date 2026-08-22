@@ -513,6 +513,8 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
 
   Widget _buildPartnerSearch() {
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       searchController: _partnerSearchController,
       builder: (context, controller) => SearchBar(
         controller: controller,
@@ -853,6 +855,8 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   Widget _productSearch(_InventoryLineDraft line) {
     final colorScheme = Theme.of(context).colorScheme;
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       searchController: line.productSearchController,
       builder: (context, controller) => SearchBar(
         controller: controller,

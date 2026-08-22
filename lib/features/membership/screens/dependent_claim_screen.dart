@@ -208,6 +208,8 @@ class _DependentClaimScreenState extends State<DependentClaimScreen> {
         child: Column(
           children: [
             SearchAnchor(
+              isFullScreen: false,
+              viewConstraints: const BoxConstraints(maxHeight: 420),
               builder: (context, controller) => SearchBar(
                 controller: controller,
                 onTap: () => controller.openView(),

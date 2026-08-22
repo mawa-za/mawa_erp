@@ -756,6 +756,8 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Widget _buildCustomerSearch() {
     final colorScheme = Theme.of(context).colorScheme;
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       viewHintText: 'Search by name, contact number or email',
       builder: (context, controller) {
         return SearchBar(
@@ -1193,6 +1195,8 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   Widget _buildProductSearch(InvoiceItemDraft item) {
     final colorScheme = Theme.of(context).colorScheme;
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       viewHintText: 'Search products and services',
       builder: (context, controller) {
         final selectedLabel = item.productController.text.trim();
