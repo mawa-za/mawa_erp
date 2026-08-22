@@ -607,6 +607,8 @@ class _PayrollBatchCreateScreenState extends State<PayrollBatchCreateScreen> {
     final controller = TextEditingController(text: item['partner']?.fullName ?? '');
     
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       builder: (context, controller) {
         return TextField(
           controller: controller,

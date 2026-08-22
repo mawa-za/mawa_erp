@@ -86,7 +86,10 @@ class GoRouterRefreshStream extends ChangeNotifier {
 }
 
 class AppRouter {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   static final router = GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: AppRoutes.home,
     refreshListenable: GoRouterRefreshStream(ApiClient().logoutStream),
     redirect: (context, state) async {

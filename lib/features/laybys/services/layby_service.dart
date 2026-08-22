@@ -109,6 +109,24 @@ class LaybyService {
     throw AppException('Failed to download layby statement: ${response.statusCode} ${response.body}');
   }
 
+  Future<Uint8List> cancellationFormPdf(String id) async {
+    final response = await _api.get('/v2/laybys/$id/cancellation-form-pdf');
+    if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
+    throw AppException('Failed to download layby cancellation form: ${response.statusCode} ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> attachSignedCancellationForm(
+    String id, {
+    required String fileBase64,
+    required String extension,
+  }) async {
+    final response = await _api.post('/v2/laybys/$id/cancellation-form', body: {
+      'file': fileBase64,
+      'extension': extension,
+    });
+    return _map(response.statusCode, response.body, 'signed layby cancellation form');
+  }
+
   Map<String, dynamic> _map(int status, String body, String label) {
     if (status < 200 || status >= 300) throw AppException('Failed to process $label: $status $body');
     if (body.trim().isEmpty) return <String, dynamic>{};

@@ -327,6 +327,8 @@ class _PaymentRequestCreateScreenState extends State<PaymentRequestCreateScreen>
 
   Widget _buildRecipientSearch() {
     return SearchAnchor(
+      isFullScreen: false,
+      viewConstraints: const BoxConstraints(maxHeight: 420),
       builder: (context, controller) {
         return SearchBar(
           controller: controller,

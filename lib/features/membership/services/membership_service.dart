@@ -1315,6 +1315,17 @@ class MembershipService {
     throw AppException(_extractMessage(response.body, 'Failed to submit membership transfer'));
   }
 
+  Future<MembershipChange> requestMembershipMerge(String primaryMembershipId, String sourceMembershipId, String reason) async {
+    final response = await ApiClient().post('/v2/membership-changes/$primaryMembershipId/merge', body: {
+      'sourceMembershipId': sourceMembershipId,
+      'reason': reason,
+    });
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw AppException(_errorMessage(response.body, 'Failed to submit membership merge: ${response.statusCode}'));
+  }
+
   Future<MembershipChange> requestMembershipPlanChange(String membershipId, String newPlanId, String reason) async {
     final response = await ApiClient().post('/v2/membership-changes/$membershipId/plan', body: {
       'newPlanId': newPlanId,

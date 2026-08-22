@@ -241,6 +241,16 @@ class CashupService {
     }
   }
 
+  Future<void> closeCashup(String cashupId, {String? actionBy}) async {
+    final response = await ApiClient().post(
+      '/v2/cashup/$cashupId/close',
+      body: {if (actionBy != null && actionBy.isNotEmpty) 'actionBy': actionBy},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AppException(_extractErrorMessage(response.body, 'Failed to close cashup: ${response.statusCode}'));
+    }
+  }
+
   List<Cashup> _decodeCashupList(String body) {
     final dynamic decoded = body.isEmpty ? [] : jsonDecode(body);
     final List<dynamic> data;
