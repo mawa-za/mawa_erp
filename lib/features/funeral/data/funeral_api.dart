@@ -264,6 +264,14 @@ class FuneralApi {
     throw AppException('Failed to load funeral service request: ${response.body}');
   }
 
+  Future<FuneralServiceRequestDto> cancelServiceRequest(String id) async {
+    final response = await _apiClient.post('/v2/funeral/service-request/$id/cancel');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AppException('Unable to cancel funeral service request: ${response.body}');
+    }
+    return FuneralServiceRequestDto.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   Future<FuneralServiceRequestDto> createServiceRequest(FuneralServiceRequestDto request) async {
     final response = await _apiClient.post('/v2/funeral/service-request', body: request.toJson());
     if (response.statusCode == 200 || response.statusCode == 201) {

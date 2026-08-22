@@ -58,6 +58,12 @@ class Cashup {
   int get depositBalanceCents => totalCents - depositTotalCents;
   double get depositBalanceAmount => depositBalanceCents / 100;
   bool get isManualReceiptBook => source.toUpperCase() == 'MANUAL_RECEIPT_BOOK';
+  bool get isIndividualEftCashup {
+    final normalizedSource = source.toUpperCase();
+    return normalizedSource == 'ERP_ONLINE_EFT' ||
+        normalizedSource == 'MAWA_PAY_EFT';
+  }
+  bool get depositRequired => !isIndividualEftCashup;
   String get cashierDisplayName => cashierName.trim().isNotEmpty ? cashierName : 'Unknown cashier';
 
   factory Cashup.fromJson(Map<String, dynamic> json) {

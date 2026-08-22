@@ -26,6 +26,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
   Cashup? _cashup;
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isClosing = false;
   String? _error;
 
   @override
@@ -116,13 +117,51 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
     }
   }
 
+  Future<void> _closeCashup() async {
+    if (_cashup == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cashup / Close Cashup'),
+        content: const Text('Close this cashup and move it to Awaiting Deposits? No more receipts can be added after it is closed.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('CLOSE CASHUP')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _isClosing = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _cashupService.closeCashup(_cashup!.id, actionBy: prefs.getString('userId'));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cashup closed and moved to Awaiting Deposits.'), backgroundColor: Colors.green),
+      );
+      await _fetchDetails();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isClosing = false);
+    }
+  }
+
+  bool _canCloseCashup(Cashup cashup) => cashup.status.toUpperCase() == 'OPEN' && cashup.depositRequired;
+
+  bool _canSubmitCashup(Cashup cashup) {
+    final status = cashup.status.toUpperCase();
+    if (!cashup.depositRequired) return status == 'OPEN' || status == 'AWAITING_DEPOSITS';
+    return (status == 'AWAITING_DEPOSITS' || status == 'COMPLETED') && cashup.deposits.isNotEmpty;
+  }
+
   bool _canEditCashup(Cashup cashup) {
     final status = cashup.status.toUpperCase();
-    return status == 'OPEN' ||
-        status == 'NEW' ||
-        status == 'DRAFT' ||
-        status == 'AWAITING_DEPOSITS' ||
-        status == 'COMPLETED';
+    return status == 'AWAITING_DEPOSITS' || status == 'COMPLETED';
   }
 
   Future<void> _showDepositDialog() async {
@@ -368,7 +407,18 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
       appBar: AppBar(
         title: Text(_cashup != null ? 'Cashup #${_cashup!.cashupNo}' : 'Cashup Details'),
         actions: [
-          if (_cashup != null && _canEditCashup(_cashup!))
+          if (_cashup != null && _canCloseCashup(_cashup!))
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton.icon(
+                onPressed: _isClosing ? null : _closeCashup,
+                icon: _isClosing
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.point_of_sale_outlined, size: 18),
+                label: const Text('CASHUP / CLOSE'),
+              ),
+            ),
+          if (_cashup != null && _canSubmitCashup(_cashup!))
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: TextButton.icon(
@@ -429,7 +479,9 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
           const SizedBox(height: 16),
           _buildPaymentsSection(cashup, colorScheme),
           const SizedBox(height: 16),
-          _buildDepositsSection(cashup, colorScheme),
+          cashup.depositRequired
+              ? _buildDepositsSection(cashup, colorScheme)
+              : _buildDepositNotRequiredSection(cashup, colorScheme),
           const SizedBox(height: 16),
           AttachmentSection(
             objectId: widget.cashupId,
@@ -535,6 +587,47 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         Text('$label: ', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
         Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
       ],
+    );
+  }
+
+  Widget _buildDepositNotRequiredSection(Cashup cashup, ColorScheme colorScheme) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.verified_outlined, color: colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'DEPOSIT NOT REQUIRED',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'EFT payments use an individual cashup and are submitted directly for approval after payment processing.',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

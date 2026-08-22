@@ -14,6 +14,9 @@ class MembershipDetail {
   final String? updatedAt;
   final String? updatedBy;
   final String? oldId;
+  final String? mergedIntoMembershipId;
+  final String? mergedAt;
+  final String? mergedBy;
 
   MembershipDetail({
     required this.id,
@@ -31,6 +34,9 @@ class MembershipDetail {
     this.updatedAt,
     this.updatedBy,
     this.oldId,
+    this.mergedIntoMembershipId,
+    this.mergedAt,
+    this.mergedBy,
   });
 
   double get premium => premiumCents / 100.0;
@@ -87,6 +93,9 @@ class MembershipDetail {
       updatedAt: parseDateValue(json['updatedAt']),
       updatedBy: (json['updatedBy'] ?? '').toString(),
       oldId: parseOldId(json['oldId'] ?? json['old_id']),
+      mergedIntoMembershipId: parseOldId(json['mergedIntoMembershipId']),
+      mergedAt: parseDateValue(json['mergedAt']),
+      mergedBy: parseOldId(json['mergedBy']),
     );
   }
 
@@ -107,6 +116,9 @@ class MembershipDetail {
       'updatedAt': updatedAt,
       'updatedBy': updatedBy,
       'oldId': oldId,
+      'mergedIntoMembershipId': mergedIntoMembershipId,
+      'mergedAt': mergedAt,
+      'mergedBy': mergedBy,
     };
   }
 }
