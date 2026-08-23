@@ -230,8 +230,9 @@ class FeatureGroupRegistry {
       iconKey: 'work',
       displayOrder: 50,
       childWorkcenterIds: [
-        'calendar', 'appointment', 'appointments', 'employee-engagement',
-        'internal-communications', 'company-forms', 'forms', 'tasks', 'diary',
+        'service-management', 'services', 'calendar', 'appointment',
+        'appointments', 'employee-engagement', 'internal-communications',
+        'company-forms', 'forms', 'tasks', 'diary',
       ],
       aliases: ['scheduling', 'communications', 'engagement'],
     ),
