@@ -46,6 +46,20 @@ class FeatureGroupDefinition {
 class FeatureGroupRegistry {
   static const List<FeatureGroupDefinition> groups = [
     FeatureGroupDefinition(
+      id: 'service-management',
+      title: 'Service Management',
+      description:
+          'Manage service requests, contracts, recurring services, service orders, scheduling, appointments and operational resources.',
+      routePath: '/feature-groups/service-management',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'service',
+      displayOrder: 5,
+      childWorkcenterIds: [
+        'service-management',
+      ],
+      aliases: ['services', 'service-operations'],
+    ),
+    FeatureGroupDefinition(
       id: 'membership-cover',
       title: 'Membership & Cover',
       description:
@@ -230,9 +244,8 @@ class FeatureGroupRegistry {
       iconKey: 'work',
       displayOrder: 50,
       childWorkcenterIds: [
-        'service-management', 'services', 'calendar', 'appointment',
-        'appointments', 'employee-engagement', 'internal-communications',
-        'company-forms', 'forms', 'tasks', 'diary',
+        'calendar', 'appointment', 'appointments', 'employee-engagement',
+        'internal-communications', 'company-forms', 'forms', 'tasks', 'diary',
       ],
       aliases: ['scheduling', 'communications', 'engagement'],
     ),
@@ -348,6 +361,9 @@ class FeatureGroupRegistry {
   /// same workcenter in more than one group.
   static String? canonicalOwnerForWorkcenter(String workcenterId) {
     final id = normalize(workcenterId);
+    if ({'SERVICE_MANAGEMENT', 'SERVICES', 'SERVICE_OPERATIONS'}.contains(id)) {
+      return 'service-management';
+    }
     if ({'QUOTATION', 'QUOTATIONS', 'QUOTE', 'QUOTES', 'SALES_ORDER', 'SALES_ORDERS', 'LAYBY', 'LAYBYS'}
         .contains(id)) {
       return 'sales-customers';
