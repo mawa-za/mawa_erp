@@ -57,6 +57,9 @@ class WorkcenterRouteRegistry {
     'APPOINTMENT': AppRoutes.appointments,
     'APPOINTMENTS': AppRoutes.appointments,
     'APPOINTMENT_BOOKING': AppRoutes.appointments,
+    'SERVICE_MANAGEMENT': AppRoutes.serviceManagement,
+    'SERVICE-MANAGEMENT': AppRoutes.serviceManagement,
+    'SERVICES': AppRoutes.serviceManagement,
     'CASHUP': AppRoutes.cashups,
     'CASHUPS': AppRoutes.cashups,
     'PAYMENT_REQUEST': AppRoutes.paymentRequests,
@@ -261,6 +264,9 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('LAYBY')) {
       return AppRoutes.laybys;
+    }
+    if (normalized.contains('SERVICE') && normalized.contains('MANAGEMENT')) {
+      return AppRoutes.serviceManagement;
     }
     if (normalized.contains('SERVICE') && normalized.contains('ORDER')) {
       return AppRoutes.serviceOrders;
