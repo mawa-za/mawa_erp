@@ -214,9 +214,36 @@ class AppRouter {
         path: AppRoutes.serviceOrders,
         builder: (context, state) => const ServiceOrderListScreen(),
       ),
+      // Legacy Service Management deep link retained for compatibility.
       GoRoute(
         path: AppRoutes.serviceManagement,
         builder: (context, state) => const ServiceManagementScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceRequests,
+        builder: (context, state) => const ServiceManagementScreen(
+          view: ServiceManagementView.requests,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceContracts,
+        builder: (context, state) => const ServiceManagementScreen(
+          view: ServiceManagementView.contracts,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceAppointments,
+        builder: (context, state) => const AppointmentCalendarScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceCatalogue,
+        builder: (context, state) => const ProductMaintenanceScreen(initialTypeFilter: 'SERVICE'),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceResources,
+        builder: (context, state) => const ServiceManagementScreen(
+          view: ServiceManagementView.resources,
+        ),
       ),
       GoRoute(
         path: AppRoutes.cases,

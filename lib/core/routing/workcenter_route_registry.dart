@@ -57,9 +57,21 @@ class WorkcenterRouteRegistry {
     'APPOINTMENT': AppRoutes.appointments,
     'APPOINTMENTS': AppRoutes.appointments,
     'APPOINTMENT_BOOKING': AppRoutes.appointments,
-    'SERVICE_MANAGEMENT': AppRoutes.serviceManagement,
-    'SERVICE-MANAGEMENT': AppRoutes.serviceManagement,
-    'SERVICES': AppRoutes.serviceManagement,
+    // Service Management business objects stand on their own. The
+    // Service Management feature group is navigation-only and never grants
+    // access to these routes.
+    'SERVICE_REQUEST': AppRoutes.serviceRequests,
+    'SERVICE_REQUESTS': AppRoutes.serviceRequests,
+    'SERVICE_ORDER': AppRoutes.serviceOrders,
+    'SERVICE_ORDERS': AppRoutes.serviceOrders,
+    'SERVICE_CONTRACT': AppRoutes.serviceContracts,
+    'SERVICE_CONTRACTS': AppRoutes.serviceContracts,
+    'SERVICE_APPOINTMENT': AppRoutes.serviceAppointments,
+    'SERVICE_APPOINTMENTS': AppRoutes.serviceAppointments,
+    'SERVICE_CATALOGUE': AppRoutes.serviceCatalogue,
+    'SERVICE_CATALOG': AppRoutes.serviceCatalogue,
+    'SERVICE_RESOURCE': AppRoutes.serviceResources,
+    'SERVICE_RESOURCES': AppRoutes.serviceResources,
     'CASHUP': AppRoutes.cashups,
     'CASHUPS': AppRoutes.cashups,
     'PAYMENT_REQUEST': AppRoutes.paymentRequests,
@@ -266,7 +278,7 @@ class WorkcenterRouteRegistry {
       return AppRoutes.laybys;
     }
     if (normalized.contains('SERVICE') && normalized.contains('MANAGEMENT')) {
-      return AppRoutes.serviceManagement;
+      return AppRoutes.serviceManagement; // legacy deep link
     }
     if (normalized.contains('SERVICE') && normalized.contains('ORDER')) {
       return AppRoutes.serviceOrders;
