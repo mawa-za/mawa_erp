@@ -478,6 +478,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
 
   IconData _iconFor(String id, [String? iconKey]) {
     final lower = '${iconKey ?? ''} $id'.toLowerCase();
+    if (lower.contains('service')) return Icons.design_services_outlined;
     if (lower.contains('receipt')) return Icons.call_received_outlined;
     if (lower.contains('putaway')) return Icons.compare_arrows_outlined;
     if (lower.contains('stock')) return Icons.inventory_2_outlined;

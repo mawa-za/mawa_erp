@@ -269,6 +269,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id, [String? iconKey]) {
     final lowerId = '${iconKey ?? ''} $id'.toLowerCase();
+    if (lowerId.contains('service')) return Icons.design_services_rounded;
     if (lowerId.contains('employment')) return Icons.work_history_rounded;
     if (lowerId.contains('leave')) return Icons.event_available_rounded;
     if (lowerId.contains('asset')) return Icons.precision_manufacturing_rounded;
@@ -421,7 +422,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     final result = <_HomeWorkcenterSection>[];
     final centralApprovalWorkcenter =
         _findCentralApprovalWorkcenter(roleWorkcenters);
+    final serviceManagementWorkcenter =
+        _findRoleWorkcenter(roleWorkcenters, 'service-management');
     var centralApprovalsConfigured = false;
+    var serviceManagementConfigured = false;
 
     for (final section in sections) {
       final cards = <Workcenter>[];
@@ -433,7 +437,10 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             FeatureGroupRegistry.normalize('approvals');
         final isReportsAnalyticsGroup = FeatureGroupRegistry.normalize(group.code) ==
             FeatureGroupRegistry.normalize('reports-analytics');
+        final isServiceManagementGroup = FeatureGroupRegistry.normalize(group.code) ==
+            FeatureGroupRegistry.normalize('service-management');
         if (isCentralApprovalsGroup) centralApprovalsConfigured = true;
+        if (isServiceManagementGroup) serviceManagementConfigured = true;
         final configuredChildren = <Workcenter>[];
         for (final item in group.workcenters) {
           if (!item.active) continue;
@@ -546,6 +553,15 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       );
     }
 
+    if (serviceManagementWorkcenter != null && !serviceManagementConfigured) {
+      usedIds.add(FeatureGroupRegistry.normalize(serviceManagementWorkcenter.id));
+      _addServiceManagementCard(
+        sections: result,
+        query: query,
+        serviceManagementWorkcenter: serviceManagementWorkcenter,
+      );
+    }
+
     final allowUnassignedWorkcenters = experience == null ||
         experience.primaryIndustryCode.trim().toUpperCase() == 'GENERAL_CUSTOM';
     if (allowUnassignedWorkcenters) {
@@ -578,6 +594,59 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
     result.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     return result;
+  }
+
+  void _addServiceManagementCard({
+    required List<_HomeWorkcenterSection> sections,
+    required String query,
+    required Workcenter serviceManagementWorkcenter,
+  }) {
+    final definition = FeatureGroupRegistry.groupById('service-management');
+    if (definition == null) return;
+
+    final searchable = <String>[
+      definition.title,
+      definition.description,
+      serviceManagementWorkcenter.description,
+      serviceManagementWorkcenter.id,
+    ].join(' ').toLowerCase();
+    if (query.isNotEmpty && !searchable.contains(query)) return;
+
+    final card = Workcenter(
+      id: definition.id,
+      description: definition.title,
+      displayLabel: definition.title,
+      cardDescription: definition.description,
+      defaultFunction: '',
+      path: definition.routePath,
+      position: definition.displayOrder,
+      routeKey: definition.id,
+      routePath: definition.routePath,
+      iconKey: definition.iconKey,
+    );
+
+    final yourBusinessIndex = sections.indexWhere(
+      (section) => FeatureGroupRegistry.normalize(section.code) == 'YOUR_BUSINESS',
+    );
+    if (yourBusinessIndex >= 0) {
+      final items = sections[yourBusinessIndex].items;
+      if (!items.any((item) =>
+          FeatureGroupRegistry.normalize(item.id) == 'SERVICE_MANAGEMENT')) {
+        items.add(card);
+        items.sort((left, right) => left.position.compareTo(right.position));
+      }
+      return;
+    }
+
+    sections.add(
+      _HomeWorkcenterSection(
+        code: 'YOUR_BUSINESS',
+        title: 'Your Business',
+        description: 'Core solutions configured for this organisation.',
+        displayOrder: 10,
+        items: [card],
+      ),
+    );
   }
 
   Workcenter? _findCentralApprovalWorkcenter(
