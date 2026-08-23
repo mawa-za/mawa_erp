@@ -9,7 +9,12 @@ class AppRoutes {
   static const String membershipDetail = '/memberships/:id';
   static const String invoices = '/invoices';
   static const String serviceOrders = '/service-orders';
-  static const String serviceManagement = '/service-management';
+  static const String serviceManagement = '/service-management'; // legacy deep link
+  static const String serviceRequests = '/service-requests';
+  static const String serviceContracts = '/service-contracts';
+  static const String serviceAppointments = '/service-appointments';
+  static const String serviceCatalogue = '/service-catalogue';
+  static const String serviceResources = '/service-resources';
   static const String invoicePreview = '/invoices/:id/preview';
   static const String cases = '/cases';
   static const String createCase = '/cases/new';

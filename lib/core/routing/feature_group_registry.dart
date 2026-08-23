@@ -46,20 +46,6 @@ class FeatureGroupDefinition {
 class FeatureGroupRegistry {
   static const List<FeatureGroupDefinition> groups = [
     FeatureGroupDefinition(
-      id: 'service-management',
-      title: 'Service Management',
-      description:
-          'Manage service requests, contracts, recurring services, service orders, scheduling, appointments and operational resources.',
-      routePath: '/feature-groups/service-management',
-      sectionCode: 'YOUR_BUSINESS',
-      iconKey: 'service',
-      displayOrder: 5,
-      childWorkcenterIds: [
-        'service-management',
-      ],
-      aliases: ['services', 'service-operations'],
-    ),
-    FeatureGroupDefinition(
       id: 'membership-cover',
       title: 'Membership & Cover',
       description:
@@ -153,6 +139,24 @@ class FeatureGroupRegistry {
         'sales-order', 'sales-orders', 'layby', 'laybys', 'prospect', 'prospects',
       ],
       aliases: ['sales-management', 'customer-management'],
+    ),
+    FeatureGroupDefinition(
+      id: 'service-management',
+      title: 'Service Management',
+      description:
+          'Manage customer service demand, contracts, work orders, appointments, services and operational resources.',
+      routePath: '/feature-groups/service-management',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'service',
+      displayOrder: 70,
+      childWorkcenterIds: [
+        'service-request', 'service-requests',
+        'service-order', 'service-orders',
+        'service-contract', 'service-contracts',
+        'service-appointment', 'service-appointments',
+        'service-catalogue', 'service-catalog',
+        'service-resource', 'service-resources',
+      ],
     ),
     FeatureGroupDefinition(
       id: 'procurement-suppliers',
@@ -361,9 +365,6 @@ class FeatureGroupRegistry {
   /// same workcenter in more than one group.
   static String? canonicalOwnerForWorkcenter(String workcenterId) {
     final id = normalize(workcenterId);
-    if ({'SERVICE_MANAGEMENT', 'SERVICES', 'SERVICE_OPERATIONS'}.contains(id)) {
-      return 'service-management';
-    }
     if ({'QUOTATION', 'QUOTATIONS', 'QUOTE', 'QUOTES', 'SALES_ORDER', 'SALES_ORDERS', 'LAYBY', 'LAYBYS'}
         .contains(id)) {
       return 'sales-customers';

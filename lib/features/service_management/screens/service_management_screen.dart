@@ -8,8 +8,15 @@ import '../../../core/widgets/quick_customer_create_dialog.dart';
 import '../../partners/models/partner.dart';
 import '../services/service_management_service.dart';
 
+enum ServiceManagementView { overview, requests, contracts, resources }
+
 class ServiceManagementScreen extends StatefulWidget {
-  const ServiceManagementScreen({super.key});
+  final ServiceManagementView view;
+
+  const ServiceManagementScreen({
+    super.key,
+    this.view = ServiceManagementView.overview,
+  });
 
   @override
   State<ServiceManagementScreen> createState() => _ServiceManagementScreenState();
@@ -28,7 +35,16 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: switch (widget.view) {
+        ServiceManagementView.requests => 1,
+        ServiceManagementView.contracts => 2,
+        ServiceManagementView.resources => 3,
+        ServiceManagementView.overview => 0,
+      },
+    );
     _load();
   }
 
@@ -41,21 +57,40 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
     try {
-      final values = await Future.wait([
-        _service.dashboard(),
-        _service.requests(),
-        _service.contracts(),
-        _service.resources(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _dashboard = values[0] as Map<String, dynamic>;
-        _requests = values[1] as List<Map<String, dynamic>>;
-        _contracts = values[2] as List<Map<String, dynamic>>;
-        _resources = values[3] as List<Map<String, dynamic>>;
-      });
+      switch (widget.view) {
+        case ServiceManagementView.requests:
+          final requests = await _service.requests();
+          if (!mounted) return;
+          setState(() => _requests = requests);
+          break;
+        case ServiceManagementView.contracts:
+          final contracts = await _service.contracts();
+          if (!mounted) return;
+          setState(() => _contracts = contracts);
+          break;
+        case ServiceManagementView.resources:
+          final resources = await _service.resources();
+          if (!mounted) return;
+          setState(() => _resources = resources);
+          break;
+        case ServiceManagementView.overview:
+          final values = await Future.wait([
+            _service.dashboard(),
+            _service.requests(),
+            _service.contracts(),
+            _service.resources(),
+          ]);
+          if (!mounted) return;
+          setState(() {
+            _dashboard = values[0] as Map<String, dynamic>;
+            _requests = values[1] as List<Map<String, dynamic>>;
+            _contracts = values[2] as List<Map<String, dynamic>>;
+            _resources = values[3] as List<Map<String, dynamic>>;
+          });
+          break;
+      }
     } catch (error) {
-      _message(friendlyErrorMessage(error, fallback: 'Unable to load Service Management.'));
+      _message(friendlyErrorMessage(error, fallback: 'Unable to load $_pageTitle.'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -65,66 +100,99 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Service Management'),
+        title: Text(_pageTitle),
         actions: [
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
-          PopupMenuButton<String>(
-            onSelected: _handleAction,
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'contract', child: Text('New service contract')),
-              PopupMenuItem(value: 'resource', child: Text('New service resource')),
-              PopupMenuItem(value: 'requirement', child: Text('Configure service resource requirement')),
-              PopupMenuItem(value: 'generate', child: Text('Generate recurring visits')),
-            ],
-          ),
+          if (widget.view == ServiceManagementView.overview)
+            PopupMenuButton<String>(
+              onSelected: _handleAction,
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'contract', child: Text('New service contract')),
+                PopupMenuItem(value: 'resource', child: Text('New service resource')),
+                PopupMenuItem(value: 'requirement', child: Text('Configure service resource requirement')),
+                PopupMenuItem(value: 'generate', child: Text('Generate recurring visits')),
+              ],
+            ),
         ],
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(text: 'Overview'),
-            Tab(text: 'Requests'),
-            Tab(text: 'Contracts'),
-            Tab(text: 'Resources'),
-          ],
-        ),
+        bottom: widget.view == ServiceManagementView.overview
+            ? TabBar(
+                controller: _tabs,
+                tabs: const [
+                  Tab(text: 'Overview'),
+                  Tab(text: 'Requests'),
+                  Tab(text: 'Contracts'),
+                  Tab(text: 'Resources'),
+                ],
+              )
+            : null,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabs,
-              children: [
-                _overview(),
-                _requestsTab(),
-                _contractsTab(),
-                _resourcesTab(),
-              ],
-            ),
-      floatingActionButton: ListenableBuilder(
-        listenable: _tabs,
-        builder: (_, __) {
-          if (_tabs.index == 2) {
-            return FloatingActionButton.extended(
+          : widget.view == ServiceManagementView.overview
+              ? TabBarView(
+                  controller: _tabs,
+                  children: [
+                    _overview(),
+                    _requestsTab(),
+                    _contractsTab(),
+                    _resourcesTab(),
+                  ],
+                )
+              : _standaloneBody,
+      floatingActionButton: widget.view == ServiceManagementView.contracts
+          ? FloatingActionButton.extended(
               onPressed: _newContract,
               icon: const Icon(Icons.add),
               label: const Text('Contract'),
-            );
-          }
-          if (_tabs.index == 3) {
-            return FloatingActionButton.extended(
-              onPressed: _newResource,
-              icon: const Icon(Icons.add),
-              label: const Text('Resource'),
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
+            )
+          : widget.view == ServiceManagementView.resources
+              ? FloatingActionButton.extended(
+                  onPressed: _newResource,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Resource'),
+                )
+              : widget.view == ServiceManagementView.overview
+                  ? ListenableBuilder(
+                      listenable: _tabs,
+                      builder: (_, __) {
+                        if (_tabs.index == 2) {
+                          return FloatingActionButton.extended(
+                            onPressed: _newContract,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Contract'),
+                          );
+                        }
+                        if (_tabs.index == 3) {
+                          return FloatingActionButton.extended(
+                            onPressed: _newResource,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Resource'),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    )
+                  : null,
     );
   }
+
+  String get _pageTitle => switch (widget.view) {
+        ServiceManagementView.requests => 'Service Requests',
+        ServiceManagementView.contracts => 'Service Contracts',
+        ServiceManagementView.resources => 'Service Resources',
+        ServiceManagementView.overview => 'Service Management',
+      };
+
+  Widget get _standaloneBody => switch (widget.view) {
+        ServiceManagementView.requests => _requestsTab(),
+        ServiceManagementView.contracts => _contractsTab(),
+        ServiceManagementView.resources => _resourcesTab(),
+        ServiceManagementView.overview => _overview(),
+      };
 
   Widget _overview() {
     final cards = <_Metric>[
