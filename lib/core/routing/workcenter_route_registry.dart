@@ -147,8 +147,6 @@ class WorkcenterRouteRegistry {
     'SALES_ORDERS': AppRoutes.inventorySalesOrders,
     'LAYBY': AppRoutes.laybys,
     'LAYBYS': AppRoutes.laybys,
-    'SERVICE_ORDER': AppRoutes.serviceOrders,
-    'SERVICE_ORDERS': AppRoutes.serviceOrders,
     'INVENTORY_AUDIT': AppRoutes.inventoryAudit,
     'STOCK_AUDIT': AppRoutes.inventoryAudit,
     'INVENTORY_SETUP': AppRoutes.systemConfiguration,
