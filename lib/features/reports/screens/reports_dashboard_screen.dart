@@ -472,26 +472,135 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
   }
 
   Widget _financialToolbar(_ReportDefinition report) => Wrap(
-    spacing:12,runSpacing:12,crossAxisAlignment:WrapCrossAlignment.end,children:[
-      OutlinedButton.icon(icon:const Icon(Icons.date_range),label:Text('From ${DateFormat('dd MMM yyyy').format(_from)}'),onPressed:() async {final v=await showDatePicker(context:context,initialDate:_from,firstDate:DateTime(2000),lastDate:DateTime.now());if(v!=null)setState(()=>_from=v);}),
-      OutlinedButton.icon(icon:const Icon(Icons.event),label:Text('To ${DateFormat('dd MMM yyyy').format(_to)}'),onPressed:() async {final v=await showDatePicker(context:context,initialDate:_to,firstDate:DateTime(2000),lastDate:DateTime.now());if(v!=null)setState(()=>_to=v);}),
-      if(report.usesCashier) SizedBox(width:240,child:TextField(controller:_cashierController,decoration:const InputDecoration(labelText:'Cashier (optional)',border:OutlineInputBorder(),prefixIcon:Icon(Icons.person_search)))),
-      FilledButton.icon(onPressed:_loading?null:_loadReport,icon:const Icon(Icons.filter_alt),label:const Text('Apply filters')),
-    ]);
+        spacing: 12,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.date_range),
+            label: Text('From ${DateFormat('dd MMM yyyy').format(_from)}'),
+            onPressed: () async {
+              final value = await showDatePicker(
+                context: context,
+                initialDate: _from,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (value != null) setState(() => _from = value);
+            },
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.event),
+            label: Text('To ${DateFormat('dd MMM yyyy').format(_to)}'),
+            onPressed: () async {
+              final value = await showDatePicker(
+                context: context,
+                initialDate: _to,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (value != null) setState(() => _to = value);
+            },
+          ),
+          if (report.usesCashier)
+            SizedBox(
+              width: 240,
+              child: TextField(
+                controller: _cashierController,
+                decoration: const InputDecoration(
+                  labelText: 'Cashier (optional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person_search),
+                ),
+              ),
+            ),
+          FilledButton.icon(
+            onPressed: _loading ? null : _loadReport,
+            icon: const Icon(Icons.filter_alt),
+            label: const Text('Apply filters'),
+          ),
+        ],
+      );
 
   Widget _financialContent(_ReportDefinition report,FinancialReport data) {
-    final summary=data.summary.entries.where((e)=>e.value!=0).toList();
-    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      _sectionTitle(report.title,report.description),const SizedBox(height:12),
-      if(summary.isNotEmpty) Wrap(spacing:12,runSpacing:12,children:summary.map((e)=>SizedBox(width:220,child:Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(_title(e.key)),const SizedBox(height:5),Text(e.key.endsWith('_cents')?_money(e.value,data.currency):_number.format(e.value),style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.bold))])))).toList()),
-      const SizedBox(height:18),
-      if(data.rows.isEmpty) const Card(child:Padding(padding:EdgeInsets.all(28),child:Center(child:Text('No records found for the selected filters.')))) else _dynamicTable(data.rows,data.currency),
-    ]);
+    final summary = data.summary.entries.where((entry) => entry.value != 0).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(report.title, report.description),
+        const SizedBox(height: 12),
+        if (summary.isNotEmpty)
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: summary.map((entry) {
+              final value = entry.key.endsWith('_cents')
+                  ? _money(entry.value, data.currency)
+                  : _number.format(entry.value);
+              return SizedBox(
+                width: 220,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_title(entry.key)),
+                        const SizedBox(height: 5),
+                        Text(
+                          value,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        const SizedBox(height: 18),
+        if (data.rows.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(28),
+              child: Center(
+                child: Text('No records found for the selected filters.'),
+              ),
+            ),
+          )
+        else
+          _dynamicTable(data.rows, data.currency),
+      ],
+    );
   }
 
   Widget _dynamicTable(List<Map<String,dynamic>> rows,String currency) {
-    final columns=rows.expand((r)=>r.keys).toSet().toList();
-    return _tableCard(DataTable(columns:columns.map((c)=>DataColumn(numeric:c.endsWith('_cents')||c.endsWith('_count'),label:Text(_title(c)))).toList(),rows:rows.map((r)=>DataRow(cells:columns.map((c){final value=r[c];final text=c.endsWith('_cents')?_money((value as num?)?.toInt()??0,currency):c.endsWith('_count')?_number.format(value??0):'${value??''}';return DataCell(Text(text));}).toList())).toList()));
+    final columns = rows.expand((row) => row.keys).toSet().toList();
+    return _tableCard(
+      DataTable(
+        columns: columns
+            .map((column) => DataColumn(
+                  numeric: column.endsWith('_cents') || column.endsWith('_count'),
+                  label: Text(_title(column)),
+                ))
+            .toList(),
+        rows: rows.map((row) {
+          return DataRow(
+            cells: columns.map((column) {
+              final value = row[column];
+              final text = column.endsWith('_cents')
+                  ? _money((value as num?)?.toInt() ?? 0, currency)
+                  : column.endsWith('_count')
+                      ? _number.format(value ?? 0)
+                      : '${value ?? ''}';
+              return DataCell(Text(text));
+            }).toList(),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   Widget _reportContent(_ReportDefinition report, ReportDashboard data) {
