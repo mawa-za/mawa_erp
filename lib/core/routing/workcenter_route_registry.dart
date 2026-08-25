@@ -30,6 +30,14 @@ class WorkcenterRouteRegistry {
         '/reports?report=premium-performance',
     'OPERATIONAL_CLAIMS_ACTIVITY_REPORT':
         '/reports?report=claims-activity',
+    'OPERATIONAL_CUSTOMER_MONEY_RECEIVED_REPORT': '/reports?report=customer-money-received',
+    'OPERATIONAL_CASHIER_COLLECTIONS_REPORT': '/reports?report=cashier-collections',
+    'OPERATIONAL_DEPOSITS_SUMMARY_REPORT': '/reports?report=deposits-summary',
+    'OPERATIONAL_UNDEPOSITED_COLLECTIONS_REPORT': '/reports?report=undeposited-collections',
+    'MANAGEMENT_COLLECTIONS_DEPOSITS_RECONCILIATION_REPORT': '/reports?report=collections-deposits-reconciliation',
+    'MANAGEMENT_SUPPLIER_PAYMENTS_SUMMARY_REPORT': '/reports?report=supplier-payments-summary',
+    'MANAGEMENT_PAYMENTS_BY_SERVICE_REPORT': '/reports?report=payments-by-service',
+    'OPERATIONAL_SUPPLIER_PAYMENT_DETAIL_REPORT': '/reports?report=supplier-payment-detail',
     'COMPANY_FORMS': AppRoutes.companyForms,
     'COMPANY_FORM': AppRoutes.companyForms,
     'SETTINGS': AppRoutes.settings,
@@ -57,6 +65,21 @@ class WorkcenterRouteRegistry {
     'APPOINTMENT': AppRoutes.appointments,
     'APPOINTMENTS': AppRoutes.appointments,
     'APPOINTMENT_BOOKING': AppRoutes.appointments,
+    // Service Management business objects stand on their own. The
+    // Service Management feature group is navigation-only and never grants
+    // access to these routes.
+    'SERVICE_REQUEST': AppRoutes.serviceRequests,
+    'SERVICE_REQUESTS': AppRoutes.serviceRequests,
+    'SERVICE_ORDER': AppRoutes.serviceOrders,
+    'SERVICE_ORDERS': AppRoutes.serviceOrders,
+    'SERVICE_CONTRACT': AppRoutes.serviceContracts,
+    'SERVICE_CONTRACTS': AppRoutes.serviceContracts,
+    'SERVICE_APPOINTMENT': AppRoutes.serviceAppointments,
+    'SERVICE_APPOINTMENTS': AppRoutes.serviceAppointments,
+    'SERVICE_CATALOGUE': AppRoutes.serviceCatalogue,
+    'SERVICE_CATALOG': AppRoutes.serviceCatalogue,
+    'SERVICE_RESOURCE': AppRoutes.serviceResources,
+    'SERVICE_RESOURCES': AppRoutes.serviceResources,
     'CASHUP': AppRoutes.cashups,
     'CASHUPS': AppRoutes.cashups,
     'PAYMENT_REQUEST': AppRoutes.paymentRequests,
@@ -132,8 +155,6 @@ class WorkcenterRouteRegistry {
     'SALES_ORDERS': AppRoutes.inventorySalesOrders,
     'LAYBY': AppRoutes.laybys,
     'LAYBYS': AppRoutes.laybys,
-    'SERVICE_ORDER': AppRoutes.serviceOrders,
-    'SERVICE_ORDERS': AppRoutes.serviceOrders,
     'INVENTORY_AUDIT': AppRoutes.inventoryAudit,
     'STOCK_AUDIT': AppRoutes.inventoryAudit,
     'INVENTORY_SETUP': AppRoutes.systemConfiguration,
@@ -261,6 +282,9 @@ class WorkcenterRouteRegistry {
     }
     if (normalized.contains('LAYBY')) {
       return AppRoutes.laybys;
+    }
+    if (normalized.contains('SERVICE') && normalized.contains('MANAGEMENT')) {
+      return AppRoutes.serviceManagement; // legacy deep link
     }
     if (normalized.contains('SERVICE') && normalized.contains('ORDER')) {
       return AppRoutes.serviceOrders;

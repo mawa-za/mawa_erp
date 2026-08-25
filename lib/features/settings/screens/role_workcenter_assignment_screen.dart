@@ -3,6 +3,7 @@ import '../../home/models/workcenter.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+import 'package:mawa_erp/core/routing/feature_group_registry.dart';
 
 class RoleWorkcenterAssignmentScreen extends StatefulWidget {
   final Role role;
@@ -41,8 +42,12 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
       if (mounted) {
         setState(() {
           _allWorkcenters = all;
-          _assignedWorkcenterIds = assigned.map((w) => w.id).toSet();
-          _originalAssignedWorkcenterIds = Set<String>.from(_assignedWorkcenterIds);
+          _originalAssignedWorkcenterIds = assigned.map((w) => w.id).toSet();
+          _assignedWorkcenterIds = assigned
+              .where((workcenter) =>
+                  !FeatureGroupRegistry.isGroupId(workcenter.id))
+              .map((workcenter) => workcenter.id)
+              .toSet();
           _positions = {for (var w in assigned) w.id: w.position};
           // Initialize positions for unassigned ones to their current index or something
           for (var i = 0; i < _allWorkcenters.length; i++) {
@@ -104,10 +109,16 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
 
   List<Workcenter> get _visibleWorkcenters {
     final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return _allWorkcenters;
-    return _allWorkcenters.where((workcenter) => [
+    final assignable = _allWorkcenters
+        .where((workcenter) => !FeatureGroupRegistry.isGroupId(workcenter.id));
+    if (query.isEmpty) return assignable.toList();
+    return assignable.where((workcenter) => [
       workcenter.id,
       workcenter.description,
+      FeatureGroupRegistry.configurationGroupForWorkcenter(
+            workcenter.id,
+            workcenter.description,
+          )?.title ?? 'General & Navigation',
       workcenter.routeKey,
       workcenter.routePath ?? '',
     ].join(' ').toLowerCase().contains(query)).toList();
@@ -116,6 +127,15 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
   @override
   Widget build(BuildContext context) {
     final workcenters = _visibleWorkcenters;
+    final grouped = <String, List<Workcenter>>{};
+    for (final workcenter in workcenters) {
+      final group = FeatureGroupRegistry.configurationGroupForWorkcenter(
+        workcenter.id,
+        workcenter.description,
+      );
+      grouped.putIfAbsent(group?.title ?? 'General & Navigation', () => []).add(workcenter);
+    }
+    final groupNames = grouped.keys.toList()..sort();
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -170,10 +190,15 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
                     Expanded(
                       child: ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: workcenters.length,
+                  itemCount: groupNames.length,
                   itemBuilder: (context, index) {
-                    final wc = workcenters[index];
-                    final isSelected = _assignedWorkcenterIds.contains(wc.id);
+                    final groupName = groupNames[index];
+                    final children = grouped[groupName]!..sort(
+                      (left, right) => left.description.compareTo(right.description),
+                    );
+                    final selectedCount = children
+                        .where((item) => _assignedWorkcenterIds.contains(item.id))
+                        .length;
                     return Card(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -181,33 +206,37 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
                         side: BorderSide(color: Colors.grey.shade200),
                       ),
                       margin: const EdgeInsets.only(bottom: 8),
-                      child: CheckboxListTile(
-                        value: isSelected,
-                        title: Text(wc.description, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('ID: ${wc.id}'),
-                        secondary: isSelected 
-                          ? SizedBox(
-                              width: 60,
-                              child: TextFormField(
-                                initialValue: _positions[wc.id]?.toString() ?? (index + 1).toString(),
-                                decoration: const InputDecoration(labelText: 'Pos', isDense: true),
-                                keyboardType: TextInputType.number,
-                                onChanged: (val) {
-                                  final pos = int.tryParse(val) ?? 1;
-                                  _positions[wc.id] = pos;
-                                },
-                              ),
-                            )
-                          : null,
-                        onChanged: (val) {
-                          setState(() {
-                            if (val == true) {
-                              _assignedWorkcenterIds.add(wc.id);
-                            } else {
-                              _assignedWorkcenterIds.remove(wc.id);
-                            }
-                          });
-                        },
+                      child: ExpansionTile(
+                        initiallyExpanded: _searchQuery.trim().isNotEmpty || selectedCount > 0,
+                        leading: const Icon(Icons.folder_outlined),
+                        title: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('$selectedCount of ${children.length} workcentres selected'),
+                        children: children.map((wc) {
+                          final isSelected = _assignedWorkcenterIds.contains(wc.id);
+                          return CheckboxListTile(
+                            value: isSelected,
+                            title: Text(wc.description),
+                            subtitle: Text('ID: ${wc.id}'),
+                            secondary: isSelected
+                                ? SizedBox(
+                                    width: 60,
+                                    child: TextFormField(
+                                      initialValue: _positions[wc.id]?.toString() ?? '1',
+                                      decoration: const InputDecoration(labelText: 'Pos', isDense: true),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (value) => _positions[wc.id] = int.tryParse(value) ?? 1,
+                                    ),
+                                  )
+                                : null,
+                            onChanged: (value) => setState(() {
+                              if (value == true) {
+                                _assignedWorkcenterIds.add(wc.id);
+                              } else {
+                                _assignedWorkcenterIds.remove(wc.id);
+                              }
+                            }),
+                          );
+                        }).toList(),
                       ),
                     );
                   },
