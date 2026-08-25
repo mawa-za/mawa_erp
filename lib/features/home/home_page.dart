@@ -466,8 +466,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           if (FeatureGroupRegistry.isLegacyInventoryUmbrella(candidate.id)) {
             continue;
           }
-          final owner =
-              FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id);
+          final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id) ??
+              FeatureGroupRegistry.configurationGroupForWorkcenter(
+                candidate.id,
+                candidate.description,
+              )?.id;
           if (owner == null ||
               FeatureGroupRegistry.normalize(owner) !=
                   FeatureGroupRegistry.normalize(
@@ -545,6 +548,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         approvalWorkcenter: centralApprovalWorkcenter,
       );
     }
+
+    // Service Management is a navigation-only group. It is surfaced when,
+    // and only when, this role has at least one independently assigned service
+    // business object. This also keeps the group visible for tenants whose
+    // compiled tenant-experience JSON predates Service Management.
+    _addRoleDrivenServiceManagementCard(
+      sections: result,
+      query: query,
+      roleWorkcenters: roleWorkcenters,
+    );
 
     final allowUnassignedWorkcenters = experience == null ||
         experience.primaryIndustryCode.trim().toUpperCase() == 'GENERAL_CUSTOM';
@@ -666,6 +679,75 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         items: [card],
       ),
     );
+  }
+
+  void _addRoleDrivenServiceManagementCard({
+    required List<_HomeWorkcenterSection> sections,
+    required String query,
+    required List<Workcenter> roleWorkcenters,
+  }) {
+    final definition = FeatureGroupRegistry.groupById('service-management');
+    if (definition == null) return;
+
+    final hasAssignedChild = roleWorkcenters.any((workcenter) {
+      final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id);
+      return owner != null &&
+          FeatureGroupRegistry.normalize(owner) ==
+              FeatureGroupRegistry.normalize(definition.id);
+    });
+    if (!hasAssignedChild) return;
+
+    final searchable = <String>[definition.title, definition.description]
+        .join(' ')
+        .toLowerCase();
+    if (query.isNotEmpty && !searchable.contains(query)) {
+      final childMatch = roleWorkcenters.any((workcenter) {
+        final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id);
+        return owner != null &&
+            FeatureGroupRegistry.normalize(owner) ==
+                FeatureGroupRegistry.normalize(definition.id) &&
+            ('${workcenter.description} ${workcenter.id}')
+                .toLowerCase()
+                .contains(query);
+      });
+      if (!childMatch) return;
+    }
+
+    final alreadyPresent = sections.any((section) => section.items.any((item) =>
+        FeatureGroupRegistry.normalize(item.id) ==
+        FeatureGroupRegistry.normalize(definition.id)));
+    if (alreadyPresent) return;
+
+    final card = Workcenter(
+      id: definition.id,
+      description: definition.title,
+      displayLabel: definition.title,
+      cardDescription: definition.description,
+      defaultFunction: '',
+      path: definition.routePath,
+      position: definition.displayOrder,
+      routeKey: definition.id,
+      routePath: definition.routePath,
+      iconKey: definition.iconKey,
+    );
+
+    final yourBusinessIndex = sections.indexWhere((section) =>
+        FeatureGroupRegistry.normalize(section.code) == 'YOUR_BUSINESS');
+    if (yourBusinessIndex >= 0) {
+      sections[yourBusinessIndex].items.add(card);
+      sections[yourBusinessIndex]
+          .items
+          .sort((left, right) => left.position.compareTo(right.position));
+      return;
+    }
+
+    sections.add(_HomeWorkcenterSection(
+      code: 'YOUR_BUSINESS',
+      title: 'Your Business',
+      description: 'Core solutions configured for this organisation.',
+      displayOrder: 10,
+      items: [card],
+    ));
   }
 
   Workcenter? _findRoleWorkcenter(

@@ -141,6 +141,24 @@ class FeatureGroupRegistry {
       aliases: ['sales-management', 'customer-management'],
     ),
     FeatureGroupDefinition(
+      id: 'service-management',
+      title: 'Service Management',
+      description:
+          'Manage customer service demand, contracts, work orders, appointments, services and operational resources.',
+      routePath: '/feature-groups/service-management',
+      sectionCode: 'YOUR_BUSINESS',
+      iconKey: 'service',
+      displayOrder: 70,
+      childWorkcenterIds: [
+        'service-request', 'service-requests',
+        'service-order', 'service-orders',
+        'service-contract', 'service-contracts',
+        'service-appointment', 'service-appointments',
+        'service-catalogue', 'service-catalog',
+        'service-resource', 'service-resources',
+      ],
+    ),
+    FeatureGroupDefinition(
       id: 'procurement-suppliers',
       title: 'Procurement & Suppliers',
       description:
@@ -185,7 +203,6 @@ class FeatureGroupRegistry {
       childWorkcenterIds: [
         'invoice', 'invoices', 'receipt', 'receipts', 'payment-request',
         'payment-requests', 'cashup', 'cashups', 'deposit', 'deposits',
-        'payroll-batch', 'payroll-batches',
       ],
       aliases: ['finance-management', 'finance'],
     ),
@@ -203,6 +220,7 @@ class FeatureGroupRegistry {
         'employee-request', 'employee-requests', 'leave-request',
         'leave-requests', 'leave-management', 'asset', 'assets',
         'asset-register', 'asset-management',
+        'payroll-batch', 'payroll-batches',
       ],
       aliases: ['partner-management', 'human-resources', 'hr'],
     ),
@@ -249,6 +267,14 @@ class FeatureGroupRegistry {
         'management-memberships-by-plan-report',
         'operational-premium-performance-report',
         'operational-claims-activity-report',
+        'operational-customer-money-received-report',
+        'operational-cashier-collections-report',
+        'operational-deposits-summary-report',
+        'operational-undeposited-collections-report',
+        'management-collections-deposits-reconciliation-report',
+        'management-supplier-payments-summary-report',
+        'management-payments-by-service-report',
+        'operational-supplier-payment-detail-report',
         'tombstone-reports',
       ],
       aliases: ['reports-and-analytics'],
@@ -354,6 +380,12 @@ class FeatureGroupRegistry {
     if ({'PURCHASE_ORDER', 'PURCHASE_ORDERS'}.contains(id)) {
       return 'procurement-suppliers';
     }
+    if (id.contains('PAYROLL') || id.contains('EMPLOYEE') ||
+        id.contains('EMPLOYMENT') || id.contains('LEAVE') ||
+        id.contains('ASSET')) {
+      return 'people-workplace';
+    }
+    if (id.contains('REPORT')) return 'reports-analytics';
     if ({
       'PRODUCT',
       'PRODUCTS',
@@ -375,6 +407,34 @@ class FeatureGroupRegistry {
     }.contains(id)) {
       return 'products-inventory';
     }
+    return null;
+  }
+
+  /// Single grouping source used by Role Maintenance and navigation. Groups
+  /// are presentation-only and are never permissions themselves.
+  static FeatureGroupDefinition? configurationGroupForWorkcenter(
+      String workcenterId, [String? description]) {
+    final owner = canonicalOwnerForWorkcenter(workcenterId);
+    if (owner != null) return groupById(owner);
+    final direct = groupForWorkcenter(workcenterId, description);
+    if (direct != null) return direct;
+    final id = normalize('$workcenterId ${description ?? ''}');
+    if (id.contains('APPROVAL') && !id.contains('WORKFLOW')) return groupById('approvals');
+    if (id.contains('INVOICE') || id.contains('PAYMENT') || id.contains('CASHUP') ||
+        id.contains('RECEIPT') || id.contains('PREMIUM')) return groupById('finance-payments');
+    if (id.contains('WAREHOUSE') || id.contains('STOCK') || id.contains('PRODUCT') ||
+        id.contains('PUTAWAY') || id.contains('GOODS_RECEIPT')) return groupById('products-inventory');
+    if (id.contains('SUPPLIER') || id.contains('PURCHASE')) return groupById('procurement-suppliers');
+    if (id.contains('MEMBER') || id.contains('COVER') || id.contains('GROUP_SOCIETY')) return groupById('membership-cover');
+    if (id.contains('FUNERAL') || id.contains('MORTUARY') || id.contains('CORPSE') || id.contains('PICKUP')) return groupById('funeral-operations');
+    if (id.contains('CUSTOMER') || id.contains('PROSPECT') || id.contains('QUOTATION') ||
+        id.contains('SALES') || id.contains('LAYBY') || id.contains('COMPLAINT') ||
+        id.contains('INTERACTION')) return groupById('sales-customers');
+    if (id.contains('PARTNER') || id.contains('CLIENT')) return groupById('clients-relationships');
+    if (id.contains('CALENDAR') || id.contains('APPOINTMENT') || id.contains('FORM') ||
+        id.contains('ENGAGEMENT') || id.contains('TIME_TRACKER')) return groupById('work-management');
+    if (id.contains('CONFIG') || id.contains('ADMIN') || id.contains('API_LOG') ||
+        id.contains('COMPANY')) return groupById('administration-integrations');
     return null;
   }
 

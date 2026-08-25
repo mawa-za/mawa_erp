@@ -9,6 +9,7 @@ import '../../../core/api_client.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../home/models/workcenter.dart';
 import '../models/report_dashboard.dart';
+import '../models/financial_report.dart';
 import '../services/reporting_api_client.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
@@ -58,6 +59,14 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
       icon: Icons.request_quote_outlined,
       usesPeriods: true,
     ),
+    _ReportDefinition(key:'customer-money-received',workcenterId:'operational-customer-money-received-report',title:'Customer Money Received',description:'Posted customer receipts by cashier, method and source.',category:_ReportCategory.operational,icon:Icons.point_of_sale,usesDates:true,usesCashier:true),
+    _ReportDefinition(key:'cashier-collections',workcenterId:'operational-cashier-collections-report',title:'Cashier Collections',description:'Collection totals and receipt volumes for each cashier.',category:_ReportCategory.operational,icon:Icons.badge_outlined,usesDates:true,usesCashier:true),
+    _ReportDefinition(key:'deposits-summary',workcenterId:'operational-deposits-summary-report',title:'Deposits Summary',description:'Captured bank deposits and their cashup variances.',category:_ReportCategory.operational,icon:Icons.account_balance_outlined,usesDates:true,usesCashier:true),
+    _ReportDefinition(key:'undeposited-collections',workcenterId:'operational-undeposited-collections-report',title:'Undeposited Collections',description:'Cash and Card collections still awaiting deposit.',category:_ReportCategory.operational,icon:Icons.pending_actions,usesDates:true,usesCashier:true),
+    _ReportDefinition(key:'collections-deposits-reconciliation',workcenterId:'management-collections-deposits-reconciliation-report',title:'Collections & Deposits Reconciliation',description:'Reconcile deposit-required collections, direct EFTs and bank deposits.',category:_ReportCategory.management,icon:Icons.balance,usesDates:true,usesCashier:true),
+    _ReportDefinition(key:'supplier-payments-summary',workcenterId:'management-supplier-payments-summary-report',title:'Supplier Payments Summary',description:'Amounts actually paid to suppliers and service providers.',category:_ReportCategory.management,icon:Icons.payments_outlined,usesDates:true),
+    _ReportDefinition(key:'payments-by-service',workcenterId:'management-payments-by-service-report',title:'Payments by Service',description:'Paid expenditure grouped by service or expense category.',category:_ReportCategory.management,icon:Icons.category_outlined,usesDates:true),
+    _ReportDefinition(key:'supplier-payment-detail',workcenterId:'operational-supplier-payment-detail-report',title:'Supplier Payment Detail',description:'Auditable detail of completed supplier payments.',category:_ReportCategory.operational,icon:Icons.receipt_long_outlined,usesDates:true),
   ];
 
   final _number = NumberFormat.decimalPattern();
@@ -65,10 +74,14 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
   final Set<String> _allowedWorkcenters = <String>{};
 
   ReportDashboard? _dashboard;
+  FinancialReport? _financial;
   Object? _error;
   bool _accessLoading = true;
   bool _loading = false;
   int _periods = 6;
+  DateTime _from=DateTime(DateTime.now().year,DateTime.now().month,1);
+  DateTime _to=DateTime.now();
+  final _cashierController=TextEditingController();
 
   _ReportDefinition? get _selectedReport {
     final key = widget.reportKey?.trim();
@@ -102,6 +115,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
       _loading = false;
       _error = null;
       _dashboard = null;
+      _financial = null;
       _allowedWorkcenters.clear();
     });
 
@@ -160,11 +174,13 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
       _error = null;
     });
     try {
-      final value = await ReportingApiClient().dashboard(
-        periods: _periods,
-        months: _periods,
-      );
-      if (mounted) setState(() => _dashboard = value);
+      if(selected.usesDates) {
+        final value=await ReportingApiClient().financial(selected.key,from:_from,to:_to,cashier:selected.usesCashier?_cashierController.text:null);
+        if(mounted) setState(()=>_financial=value);
+      } else {
+        final value = await ReportingApiClient().dashboard(periods: _periods,months: _periods);
+        if (mounted) setState(() => _dashboard = value);
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -218,20 +234,20 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
       return _AccessDeniedState(reportTitle: selected.title);
     }
 
-    if (_loading && _dashboard == null) {
+    if (_loading && _dashboard == null && _financial == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null && _dashboard == null) {
+    if (_error != null && _dashboard == null && _financial == null) {
       return _ErrorState(message: '$_error', onRetry: _loadReport);
     }
 
-    final data = _dashboard!;
+    final data = _dashboard;
     return RefreshIndicator(
       onRefresh: _loadReport,
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _toolbar(data, selected),
+          selected.usesDates ? _financialToolbar(selected) : _toolbar(data!, selected),
           if (_error != null) ...[
             const SizedBox(height: 12),
             MaterialBanner(
@@ -242,7 +258,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          _reportContent(selected, data),
+          selected.usesDates ? _financialContent(selected,_financial!) : _reportContent(selected, data!),
           const SizedBox(height: 36),
         ],
       ),
@@ -452,6 +468,138 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
           children: [details, selector],
         );
       },
+    );
+  }
+
+  Widget _financialToolbar(_ReportDefinition report) => Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.date_range),
+            label: Text('From ${DateFormat('dd MMM yyyy').format(_from)}'),
+            onPressed: () async {
+              final value = await showDatePicker(
+                context: context,
+                initialDate: _from,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (value != null) setState(() => _from = value);
+            },
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.event),
+            label: Text('To ${DateFormat('dd MMM yyyy').format(_to)}'),
+            onPressed: () async {
+              final value = await showDatePicker(
+                context: context,
+                initialDate: _to,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (value != null) setState(() => _to = value);
+            },
+          ),
+          if (report.usesCashier)
+            SizedBox(
+              width: 240,
+              child: TextField(
+                controller: _cashierController,
+                decoration: const InputDecoration(
+                  labelText: 'Cashier (optional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person_search),
+                ),
+              ),
+            ),
+          FilledButton.icon(
+            onPressed: _loading ? null : _loadReport,
+            icon: const Icon(Icons.filter_alt),
+            label: const Text('Apply filters'),
+          ),
+        ],
+      );
+
+  Widget _financialContent(_ReportDefinition report,FinancialReport data) {
+    final summary = data.summary.entries.where((entry) => entry.value != 0).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(report.title, report.description),
+        const SizedBox(height: 12),
+        if (summary.isNotEmpty)
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: summary.map((entry) {
+              final value = entry.key.endsWith('_cents')
+                  ? _money(entry.value, data.currency)
+                  : _number.format(entry.value);
+              return SizedBox(
+                width: 220,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_title(entry.key)),
+                        const SizedBox(height: 5),
+                        Text(
+                          value,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        const SizedBox(height: 18),
+        if (data.rows.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(28),
+              child: Center(
+                child: Text('No records found for the selected filters.'),
+              ),
+            ),
+          )
+        else
+          _dynamicTable(data.rows, data.currency),
+      ],
+    );
+  }
+
+  Widget _dynamicTable(List<Map<String,dynamic>> rows,String currency) {
+    final columns = rows.expand((row) => row.keys).toSet().toList();
+    return _tableCard(
+      DataTable(
+        columns: columns
+            .map((column) => DataColumn(
+                  numeric: column.endsWith('_cents') || column.endsWith('_count'),
+                  label: Text(_title(column)),
+                ))
+            .toList(),
+        rows: rows.map((row) {
+          return DataRow(
+            cells: columns.map((column) {
+              final value = row[column];
+              final text = column.endsWith('_cents')
+                  ? _money((value as num?)?.toInt() ?? 0, currency)
+                  : column.endsWith('_count')
+                      ? _number.format(value ?? 0)
+                      : '${value ?? ''}';
+              return DataCell(Text(text));
+            }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -809,6 +957,8 @@ class _ReportDefinition {
   final _ReportCategory category;
   final IconData icon;
   final bool usesPeriods;
+  final bool usesDates;
+  final bool usesCashier;
 
   const _ReportDefinition({
     required this.key,
@@ -818,6 +968,8 @@ class _ReportDefinition {
     required this.category,
     required this.icon,
     this.usesPeriods = false,
+    this.usesDates = false,
+    this.usesCashier = false,
   });
 }
 
