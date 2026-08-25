@@ -466,8 +466,11 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           if (FeatureGroupRegistry.isLegacyInventoryUmbrella(candidate.id)) {
             continue;
           }
-          final owner =
-              FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id);
+          final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id) ??
+              FeatureGroupRegistry.configurationGroupForWorkcenter(
+                candidate.id,
+                candidate.description,
+              )?.id;
           if (owner == null ||
               FeatureGroupRegistry.normalize(owner) !=
                   FeatureGroupRegistry.normalize(
