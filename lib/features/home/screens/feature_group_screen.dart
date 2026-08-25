@@ -139,7 +139,11 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       // place it in more than one group. Role access remains authoritative, so
       // add canonically-owned workcenters to their single correct workspace.
       for (final workcenter in all) {
-        final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id);
+        final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id) ??
+            FeatureGroupRegistry.configurationGroupForWorkcenter(
+              workcenter.id,
+              workcenter.description,
+            )?.id;
         if (owner == null ||
             FeatureGroupRegistry.normalize(owner) !=
                 FeatureGroupRegistry.normalize(canonicalActiveGroup)) {

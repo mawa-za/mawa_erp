@@ -203,7 +203,6 @@ class FeatureGroupRegistry {
       childWorkcenterIds: [
         'invoice', 'invoices', 'receipt', 'receipts', 'payment-request',
         'payment-requests', 'cashup', 'cashups', 'deposit', 'deposits',
-        'payroll-batch', 'payroll-batches',
       ],
       aliases: ['finance-management', 'finance'],
     ),
@@ -221,6 +220,7 @@ class FeatureGroupRegistry {
         'employee-request', 'employee-requests', 'leave-request',
         'leave-requests', 'leave-management', 'asset', 'assets',
         'asset-register', 'asset-management',
+        'payroll-batch', 'payroll-batches',
       ],
       aliases: ['partner-management', 'human-resources', 'hr'],
     ),
@@ -380,6 +380,12 @@ class FeatureGroupRegistry {
     if ({'PURCHASE_ORDER', 'PURCHASE_ORDERS'}.contains(id)) {
       return 'procurement-suppliers';
     }
+    if (id.contains('PAYROLL') || id.contains('EMPLOYEE') ||
+        id.contains('EMPLOYMENT') || id.contains('LEAVE') ||
+        id.contains('ASSET')) {
+      return 'people-workplace';
+    }
+    if (id.contains('REPORT')) return 'reports-analytics';
     if ({
       'PRODUCT',
       'PRODUCTS',
@@ -401,6 +407,34 @@ class FeatureGroupRegistry {
     }.contains(id)) {
       return 'products-inventory';
     }
+    return null;
+  }
+
+  /// Single grouping source used by Role Maintenance and navigation. Groups
+  /// are presentation-only and are never permissions themselves.
+  static FeatureGroupDefinition? configurationGroupForWorkcenter(
+      String workcenterId, [String? description]) {
+    final owner = canonicalOwnerForWorkcenter(workcenterId);
+    if (owner != null) return groupById(owner);
+    final direct = groupForWorkcenter(workcenterId, description);
+    if (direct != null) return direct;
+    final id = normalize('$workcenterId ${description ?? ''}');
+    if (id.contains('APPROVAL') && !id.contains('WORKFLOW')) return groupById('approvals');
+    if (id.contains('INVOICE') || id.contains('PAYMENT') || id.contains('CASHUP') ||
+        id.contains('RECEIPT') || id.contains('PREMIUM')) return groupById('finance-payments');
+    if (id.contains('WAREHOUSE') || id.contains('STOCK') || id.contains('PRODUCT') ||
+        id.contains('PUTAWAY') || id.contains('GOODS_RECEIPT')) return groupById('products-inventory');
+    if (id.contains('SUPPLIER') || id.contains('PURCHASE')) return groupById('procurement-suppliers');
+    if (id.contains('MEMBER') || id.contains('COVER') || id.contains('GROUP_SOCIETY')) return groupById('membership-cover');
+    if (id.contains('FUNERAL') || id.contains('MORTUARY') || id.contains('CORPSE') || id.contains('PICKUP')) return groupById('funeral-operations');
+    if (id.contains('CUSTOMER') || id.contains('PROSPECT') || id.contains('QUOTATION') ||
+        id.contains('SALES') || id.contains('LAYBY') || id.contains('COMPLAINT') ||
+        id.contains('INTERACTION')) return groupById('sales-customers');
+    if (id.contains('PARTNER') || id.contains('CLIENT')) return groupById('clients-relationships');
+    if (id.contains('CALENDAR') || id.contains('APPOINTMENT') || id.contains('FORM') ||
+        id.contains('ENGAGEMENT') || id.contains('TIME_TRACKER')) return groupById('work-management');
+    if (id.contains('CONFIG') || id.contains('ADMIN') || id.contains('API_LOG') ||
+        id.contains('COMPANY')) return groupById('administration-integrations');
     return null;
   }
 
