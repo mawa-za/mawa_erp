@@ -13,7 +13,12 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class ProductMaintenanceScreen extends StatefulWidget {
-  const ProductMaintenanceScreen({super.key});
+  final String? initialTypeFilter;
+
+  const ProductMaintenanceScreen({
+    super.key,
+    this.initialTypeFilter,
+  });
 
   @override
   State<ProductMaintenanceScreen> createState() => _ProductMaintenanceScreenState();
@@ -38,6 +43,7 @@ class _ProductMaintenanceScreenState extends State<ProductMaintenanceScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedTypeFilter = widget.initialTypeFilter;
     _loadInitialData();
   }
 

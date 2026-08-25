@@ -6,6 +6,7 @@ import '../../../core/api_client.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../core/config.dart';
 import '../models/report_dashboard.dart';
+import '../models/financial_report.dart';
 
 class ReportingApiException implements Exception {
   final String message;
@@ -32,6 +33,13 @@ class ReportingApiClient {
       throw ReportingApiException(_message(response), statusCode: response.statusCode);
     }
     return ReportDashboard.fromJson(Map<String, dynamic>.from(jsonDecode(response.body) as Map));
+  }
+
+  Future<FinancialReport> financial(String report,{required DateTime from,required DateTime to,String? cashier}) async {
+    String date(DateTime value)=>'${value.year.toString().padLeft(4,'0')}-${value.month.toString().padLeft(2,'0')}-${value.day.toString().padLeft(2,'0')}';
+    final response=await _get('/v2/reports/financial/$report',{'from':date(from),'to':date(to),if(cashier?.trim().isNotEmpty==true)'cashier':cashier!.trim()});
+    if(response.statusCode!=200) throw ReportingApiException(_message(response),statusCode:response.statusCode);
+    return FinancialReport.fromJson(Map<String,dynamic>.from(jsonDecode(response.body) as Map));
   }
 
   Future<http.Response> _get(String path, Map<String, dynamic> query) async {

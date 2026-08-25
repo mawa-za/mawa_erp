@@ -14,6 +14,7 @@ import '../../features/membership/screens/member_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
 import '../../features/service_orders/screens/service_order_list_screen.dart';
+import '../../features/service_management/screens/service_management_screen.dart';
 import '../../features/cases/screens/case_list_screen.dart';
 import '../../features/cases/screens/create_case_screen.dart';
 import '../../features/cases/screens/case_detail_screen.dart';
@@ -212,6 +213,37 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.serviceOrders,
         builder: (context, state) => const ServiceOrderListScreen(),
+      ),
+      // Legacy Service Management deep link retained for compatibility.
+      GoRoute(
+        path: AppRoutes.serviceManagement,
+        builder: (context, state) => const ServiceManagementScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceRequests,
+        builder: (context, state) => const ServiceManagementScreen(
+          view: ServiceManagementView.requests,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceContracts,
+        builder: (context, state) => const ServiceManagementScreen(
+          view: ServiceManagementView.contracts,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceAppointments,
+        builder: (context, state) => const AppointmentCalendarScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceCatalogue,
+        builder: (context, state) => const ProductMaintenanceScreen(initialTypeFilter: 'SERVICE'),
+      ),
+      GoRoute(
+        path: AppRoutes.serviceResources,
+        builder: (context, state) => const ServiceManagementScreen(
+          view: ServiceManagementView.resources,
+        ),
       ),
       GoRoute(
         path: AppRoutes.cases,

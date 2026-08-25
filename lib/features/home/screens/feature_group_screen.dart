@@ -139,7 +139,11 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       // place it in more than one group. Role access remains authoritative, so
       // add canonically-owned workcenters to their single correct workspace.
       for (final workcenter in all) {
-        final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id);
+        final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id) ??
+            FeatureGroupRegistry.configurationGroupForWorkcenter(
+              workcenter.id,
+              workcenter.description,
+            )?.id;
         if (owner == null ||
             FeatureGroupRegistry.normalize(owner) !=
                 FeatureGroupRegistry.normalize(canonicalActiveGroup)) {
@@ -478,6 +482,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
 
   IconData _iconFor(String id, [String? iconKey]) {
     final lower = '${iconKey ?? ''} $id'.toLowerCase();
+    if (lower.contains('service')) return Icons.design_services_outlined;
     if (lower.contains('receipt')) return Icons.call_received_outlined;
     if (lower.contains('putaway')) return Icons.compare_arrows_outlined;
     if (lower.contains('stock')) return Icons.inventory_2_outlined;
