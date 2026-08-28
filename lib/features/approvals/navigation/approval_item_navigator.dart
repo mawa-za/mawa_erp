@@ -44,6 +44,7 @@ class ApprovalItemNavigator {
         return CashupDetailScreen(cashupId: id);
       case 'MEMBERSHIP_TRANSFER':
       case 'MEMBERSHIP_PLAN_CHANGE':
+      case 'MEMBERSHIP_PREMIUM_AMOUNT_CHANGE':
       case 'MEMBERSHIP_DEPENDENT_CHANGE':
       case 'PREMIUM_PAYMENT_DELETION':
         final membershipId = _payloadField(approval.payloadJson, 'membershipId');
