@@ -12,6 +12,8 @@ class MembershipChange {
   final String oldPlanName;
   final String newPlanId;
   final String newPlanName;
+  final int oldPremiumCents;
+  final int newPremiumCents;
   final String oldDependentId;
   final String oldDependentPartnerId;
   final String oldDependentName;
@@ -44,6 +46,8 @@ class MembershipChange {
     required this.oldPlanName,
     required this.newPlanId,
     required this.newPlanName,
+    required this.oldPremiumCents,
+    required this.newPremiumCents,
     required this.oldDependentId,
     required this.oldDependentPartnerId,
     required this.oldDependentName,
@@ -77,6 +81,8 @@ class MembershipChange {
     oldPlanName: '${json['oldPlanName'] ?? json['oldPlanId'] ?? ''}',
     newPlanId: '${json['newPlanId'] ?? ''}',
     newPlanName: '${json['newPlanName'] ?? json['newPlanId'] ?? ''}',
+    oldPremiumCents: _asInt(json['oldPremiumCents']),
+    newPremiumCents: _asInt(json['newPremiumCents']),
     oldDependentId: '${json['oldDependentId'] ?? ''}',
     oldDependentPartnerId: '${json['oldDependentPartnerId'] ?? ''}',
     oldDependentName: '${json['oldDependentName'] ?? json['oldDependentPartnerId'] ?? ''}',
@@ -107,6 +113,7 @@ class MembershipChange {
     switch (changeType) {
       case 'TRANSFER': return 'Membership Transfer';
       case 'PLAN_CHANGE': return 'Plan Change';
+      case 'PREMIUM_AMOUNT_CHANGE': return 'Premium Amount Change';
       case 'ADD_DEPENDENT': return 'Add Dependent';
       case 'REMOVE_DEPENDENT': return 'Remove Dependent';
       case 'REPLACE_DEPENDENT': return 'Replace Dependent';
@@ -119,6 +126,8 @@ class MembershipChange {
     switch (changeType) {
       case 'TRANSFER': return '$oldMemberName → $newMemberName';
       case 'PLAN_CHANGE': return '$oldPlanName → $newPlanName';
+      case 'PREMIUM_AMOUNT_CHANGE':
+        return 'R ${(oldPremiumCents / 100).toStringAsFixed(2)} → R ${(newPremiumCents / 100).toStringAsFixed(2)}';
       case 'ADD_DEPENDENT': return '$newDependentName (${newDependentType.replaceAll('_', ' ')})';
       case 'REMOVE_DEPENDENT': return oldDependentName;
       case 'REPLACE_DEPENDENT': return '$oldDependentName → $newDependentName';

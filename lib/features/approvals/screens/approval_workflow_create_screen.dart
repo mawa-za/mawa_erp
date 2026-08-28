@@ -61,6 +61,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'LAYBY_REFUND',
     'MEMBERSHIP_DEPENDENT_CHANGE',
     'MEMBERSHIP_PLAN_CHANGE',
+    'MEMBERSHIP_PREMIUM_AMOUNT_CHANGE',
     'MEMBERSHIP_TRANSFER',
     'PAYMENT',
     'PAYMENT_REQUEST',
