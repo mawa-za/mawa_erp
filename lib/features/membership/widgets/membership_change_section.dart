@@ -181,6 +181,65 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
     } finally { reason.dispose(); }
   }
 
+  Future<void> _requestPremiumAmountChange() async {
+    final amount = TextEditingController(text: widget.membership.premium.toStringAsFixed(2));
+    final reason = TextEditingController();
+    final request = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Membership Premium Amount'),
+          content: SizedBox(width: 480, child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Current recurring premium: R ${widget.membership.premium.toStringAsFixed(2)}'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setDialogState(() {}),
+              decoration: const InputDecoration(labelText: 'New premium amount *', prefixText: 'R ', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reason,
+              maxLines: 3,
+              onChanged: (_) => setDialogState(() {}),
+              decoration: const InputDecoration(labelText: 'Reason *', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            const Text('The recurring premium changes only after final approval.'),
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: () {
+                final value = double.tryParse(amount.text.trim().replaceAll(',', '.'));
+                final cents = value == null ? 0 : (value * 100).round();
+                if (cents <= 0 || cents == widget.membership.premiumCents || reason.text.trim().isEmpty) return;
+                Navigator.pop(context, {'premiumCents': cents, 'reason': reason.text.trim()});
+              },
+              child: const Text('SUBMIT FOR APPROVAL'),
+            ),
+          ],
+        ),
+      ),
+    );
+    amount.dispose();
+    reason.dispose();
+    if (request == null || !mounted) return;
+    try {
+      await MembershipService().requestMembershipPremiumAmountChange(
+          widget.membership.id, request['premiumCents'] as int, request['reason'] as String);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Membership premium amount change submitted for approval')));
+      await _load();
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyErrorMessage('$e')), backgroundColor: Colors.red));
+    }
+  }
+
   Future<void> _requestMerge() async {
     final search = TextEditingController();
     final reason = TextEditingController();
@@ -255,6 +314,8 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         return Icons.swap_horiz;
       case 'PLAN_CHANGE':
         return Icons.upgrade;
+      case 'PREMIUM_AMOUNT_CHANGE':
+        return Icons.price_change_outlined;
       case 'ADD_DEPENDENT':
         return Icons.person_add_outlined;
       case 'REMOVE_DEPENDENT':
@@ -276,6 +337,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         Wrap(spacing: 12, runSpacing: 12, children: [
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestTransfer, icon: const Icon(Icons.swap_horiz), label: const Text('TRANSFER MEMBERSHIP')),
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestPlanChange, icon: const Icon(Icons.upgrade), label: const Text('CHANGE PLAN')),
+          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestPremiumAmountChange, icon: const Icon(Icons.price_change_outlined), label: const Text('EDIT PREMIUM AMOUNT')),
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestMerge, icon: const Icon(Icons.merge_outlined), label: const Text('MERGE MEMBERSHIP')),
         ]),
       if (!widget.readOnly && _hasOpenChange) ...[
