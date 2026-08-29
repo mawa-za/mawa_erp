@@ -260,6 +260,8 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
         return Icons.account_balance_outlined;
       case 'MEMBERSHIP_DEPENDENT_CHANGE':
         return Icons.family_restroom_outlined;
+      case 'MEMBERSHIP_PARTNER_IDENTITY_CORRECTION':
+        return Icons.badge_outlined;
       case 'LEAVE':
         return Icons.event_available_outlined;
       default:

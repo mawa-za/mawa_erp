@@ -167,6 +167,23 @@ class MembershipService {
     }
   }
 
+  Future<void> requestPartnerIdentityCorrection(String membershipId, {
+    required String subjectType,
+    String? dependentId,
+    required String identityNumber,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post('/v2/membership/$membershipId/identity-corrections', body: {
+      'subjectType': subjectType,
+      if (dependentId != null) 'dependentId': dependentId,
+      'identityNumber': identityNumber,
+      'reason': reason,
+    });
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException(_errorMessage(response.body, 'Failed to submit identity correction: ${response.statusCode}'));
+    }
+  }
+
   Future<MembershipChange> addDependent(String membershipId, Map<String, dynamic> payload) async {
     final response = await ApiClient().post('/v2/membership/$membershipId/dependents', body: payload);
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -1252,19 +1269,6 @@ class MembershipService {
         return PaymentBatchResponse.fromJson(jsonDecode(response.body));
       }
       throw AppException(_extractErrorMessage(response.body, 'Failed to sync membership premium payment: ${response.statusCode}'));
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  Future<dynamic> migrateMemberships() async {
-    try {
-      final response = await ApiClient().get('/v2/membership/migrate');
-      if (response.statusCode == 200) {
-        if (response.body.isEmpty) return null;
-        return jsonDecode(response.body);
-      }
-      throw AppException(_extractErrorMessage(response.body, 'Failed to migrate memberships: ${response.statusCode}'));
     } catch (e) {
       rethrow;
     }
