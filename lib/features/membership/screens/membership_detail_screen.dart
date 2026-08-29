@@ -1130,6 +1130,94 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
+  Future<void> _requestGeneratedPremiumEdit(Premium premium) async {
+    final amountController = TextEditingController(text: premium.amount.toStringAsFixed(2));
+    final reasonController = TextEditingController();
+    final edit = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Edit generated premium ${_formatPeriod(premium.periodYYYYMM)}'),
+          content: SizedBox(
+            width: 500,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Current amount: R ${premium.amount.toStringAsFixed(2)}'),
+                if (premium.paidAmount > 0)
+                  Text('Already paid: R ${premium.paidAmount.toStringAsFixed(2)}'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setDialogState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Correct premium amount *',
+                    prefixText: 'R ',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 3,
+                  onChanged: (_) => setDialogState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Reason for correction *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Only this generated premium period will change after final approval.'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            FilledButton(
+              onPressed: () {
+                final value = double.tryParse(amountController.text.trim().replaceAll(',', '.'));
+                final cents = value == null ? 0 : (value * 100).round();
+                if (cents <= 0 || cents == premium.amountCents ||
+                    cents < premium.paidAmountCents || reasonController.text.trim().isEmpty) return;
+                Navigator.pop(context, {
+                  'amountCents': cents,
+                  'reason': reasonController.text.trim(),
+                });
+              },
+              child: const Text('SUBMIT FOR APPROVAL'),
+            ),
+          ],
+        ),
+      ),
+    );
+    amountController.dispose();
+    reasonController.dispose();
+    if (edit == null || !mounted) return;
+    try {
+      await MembershipService().requestGeneratedPremiumEdit(
+        membershipId: widget.membershipId,
+        premiumId: premium.id,
+        amountCents: edit['amountCents'] as int,
+        reason: edit['reason'] as String,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Premium ${_formatPeriod(premium.periodYYYYMM)} edit submitted for approval.')),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage('Unable to edit generated premium: $error')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _transferPremiumPayment(Premium premium) async {
     try {
       final receipts = await MembershipService().getPremiumReceipts(
@@ -1465,6 +1553,19 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                     )
                     .toList(),
               ),
+              if (!_isMergedMembership &&
+                  premium.status.toUpperCase() != 'CANCELLED' &&
+                  premium.status.toUpperCase() != 'REVERSED') ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _requestGeneratedPremiumEdit(premium),
+                    icon: const Icon(Icons.price_change_outlined, size: 18),
+                    label: const Text('EDIT PREMIUM'),
+                  ),
+                ),
+              ],
               if (!_isLapsedMembership &&
                   (premium.paymentCount > 0 || premium.receiptId?.trim().isNotEmpty == true)) ...[
                 const SizedBox(height: 10),

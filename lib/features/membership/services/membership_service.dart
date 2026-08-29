@@ -311,6 +311,27 @@ class MembershipService {
     }
   }
 
+  Future<void> requestGeneratedPremiumEdit({
+    required String membershipId,
+    required String premiumId,
+    required int amountCents,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/memberships/$membershipId/premiums/$premiumId/edit-request',
+      body: {
+        'amountCents': amountCents,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException(_errorMessage(
+        response.body,
+        'The generated premium edit request could not be submitted.',
+      ));
+    }
+  }
+
   Future<Map<String, dynamic>> getPendingMembershipStatusChange(String membershipId) async {
     final response = await ApiClient().get('/v2/membership/$membershipId/status-actions/pending');
     if (response.statusCode != 200) {
@@ -1337,17 +1358,6 @@ class MembershipService {
     throw AppException(_extractMessage(response.body, 'Failed to submit membership plan change'));
   }
 
-  Future<MembershipChange> requestMembershipPremiumAmountChange(
-      String membershipId, int premiumCents, String reason) async {
-    final response = await ApiClient().post('/v2/membership-changes/$membershipId/premium-amount', body: {
-      'premiumCents': premiumCents,
-      'reason': reason,
-    });
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
-    }
-    throw AppException(_extractMessage(response.body, 'Failed to submit membership premium amount change'));
-  }
 
   String _extractMessage(String body, String fallback) {
     try {
