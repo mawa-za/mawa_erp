@@ -167,6 +167,23 @@ class MembershipService {
     }
   }
 
+  Future<void> requestPartnerIdentityCorrection(String membershipId, {
+    required String subjectType,
+    String? dependentId,
+    required String identityNumber,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post('/v2/membership/$membershipId/identity-corrections', body: {
+      'subjectType': subjectType,
+      if (dependentId != null) 'dependentId': dependentId,
+      'identityNumber': identityNumber,
+      'reason': reason,
+    });
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException(_errorMessage(response.body, 'Failed to submit identity correction: ${response.statusCode}'));
+    }
+  }
+
   Future<MembershipChange> addDependent(String membershipId, Map<String, dynamic> payload) async {
     final response = await ApiClient().post('/v2/membership/$membershipId/dependents', body: payload);
     if (response.statusCode == 200 || response.statusCode == 201) {
