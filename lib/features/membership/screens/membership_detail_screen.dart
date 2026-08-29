@@ -50,6 +50,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   bool _hasPendingMembershipStatusChange = false;
   String? _pendingMembershipStatusAction;
   String? _error;
+  String _dependentSearch = '';
 
   String get _normalizedMembershipStatus =>
       (_detail?.status ?? '').trim().toUpperCase().replaceAll('-', '_');
@@ -233,6 +234,77 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       }
     } finally {
       reasonController.dispose();
+    }
+  }
+
+  Future<void> _resolveSaId({Dependent? dependent}) async {
+    final idController = TextEditingController();
+    final reasonController = TextEditingController();
+    final input = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(dependent == null ? 'Resolve member SA-ID' : 'Resolve dependent SA-ID'),
+        content: SizedBox(width: 480, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: idController, keyboardType: TextInputType.number, maxLength: 13,
+            decoration: const InputDecoration(labelText: 'SA-ID number *', border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(controller: reasonController, maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Correction reason *', border: OutlineInputBorder())),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          FilledButton(onPressed: () {
+            final id = idController.text.replaceAll(RegExp(r'\D'), '');
+            final reason = reasonController.text.trim();
+            if (id.length == 13 && reason.isNotEmpty) Navigator.pop(context, {'id': id, 'reason': reason});
+          }, child: const Text('CHECK SA-ID')),
+        ],
+      ),
+    );
+    idController.dispose(); reasonController.dispose();
+    if (input == null || !mounted) return;
+    try {
+      final identity = await PartnerService().getIdentity('SA-ID', input['id']!);
+      Partner? existing;
+      List<String> existingMemberships = const [];
+      if (identity?.partner?.trim().isNotEmpty == true) {
+        existing = await PartnerService().getPartnerById(identity!.partner!.trim());
+        final memberships = await MembershipService().getMemberships(memberIds: [existing.id], size: 50);
+        existingMemberships = memberships.content.map((membership) => membership.membershipNo).toList();
+      }
+      if (!mounted) return;
+      final current = dependent == null ? _member : _dependentPartners[dependent.dependentPartnerId];
+      final relink = existing != null && existing.id != current?.id;
+      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: Text(relink ? 'Existing partner found' : 'Assign SA-ID'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(relink
+            ? 'This SA-ID belongs to an existing partner. The membership relationship will be changed to that partner after approval; no partner records will be merged.'
+            : 'This SA-ID is not assigned to another partner and will be added to the current partner after approval.'),
+          const SizedBox(height: 16),
+          if (relink && existing != null) ...[
+            Text('Existing partner: ${existing.fullName}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('Partner number: ${existing.number}'),
+            Text('SA-ID: ${input['id']}'),
+            if (existing.birthDate?.isNotEmpty == true) Text('Birth date: ${existing.birthDate}'),
+            Text('Status: ${existing.status}'),
+            if (existing.phone.isNotEmpty) Text('Phone: ${existing.phone}'),
+            if (existing.email.isNotEmpty) Text('Email: ${existing.email}'),
+            Text("Memberships: ${existingMemberships.isEmpty ? 'None found' : existingMemberships.join(', ')}"),
+          ],
+        ]),
+        actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('SUBMIT FOR APPROVAL'))],
+      ));
+      if (confirmed != true) return;
+      await MembershipService().requestPartnerIdentityCorrection(widget.membershipId,
+        subjectType: dependent == null ? 'MEMBER' : 'DEPENDENT', dependentId: dependent?.id,
+        identityNumber: input['id']!, reason: input['reason']!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Identity correction submitted for approval.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Unable to resolve SA-ID: $error')), backgroundColor: Colors.red));
     }
   }
 
@@ -639,6 +711,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               const Divider(),
               const SizedBox(height: 16),
               _buildProfileRow(Icons.badge_outlined, 'Identity', '${member.idType ?? 'ID'}: ${member.identityNumber}'),
+              if ((member.idType ?? '').trim().toUpperCase() != 'SA-ID' || member.identityNumber.trim().isEmpty)
+                Align(alignment: Alignment.centerRight, child: TextButton.icon(
+                  onPressed: () => _resolveSaId(), icon: const Icon(Icons.badge_outlined), label: const Text('ADD / RESOLVE SA-ID'))),
               _buildProfileRow(Icons.cake_outlined, 'Birth Date', member.birthDate ?? 'N/A'),
               _buildProfileRow(Icons.wc_outlined, 'Gender', member.gender ?? 'N/A'),
               if (member.email.isNotEmpty) _buildProfileRow(Icons.email_outlined, 'Email', member.email),
@@ -1723,12 +1798,27 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       return _buildEmptyStateCard(Icons.people_outline, 'No dependents linked to this policy');
     }
 
+    final query = _dependentSearch.trim().toLowerCase();
+    final visibleDependents = _dependents.where((dependent) {
+      final partner = _dependentPartners[dependent.dependentPartnerId];
+      final partnerIdentity = partner?.identityNumber.trim() ?? '';
+      final identity = partnerIdentity.isNotEmpty ? partnerIdentity : (dependent.identity?.number ?? '');
+      return query.isEmpty || [partner?.fullName ?? dependent.fullName, identity, dependent.number,
+        dependent.dependentType, dependent.membershipStatus].join(' ').toLowerCase().contains(query);
+    }).toList();
     return Column(
-      children: _dependents.map((dependent) {
+      children: [
+        TextField(onChanged: (value) => setState(() => _dependentSearch = value),
+          decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search dependents by name, ID number, partner number or relationship', border: OutlineInputBorder())),
+        const SizedBox(height: 12),
+        if (visibleDependents.isEmpty) const Padding(padding: EdgeInsets.all(20), child: Text('No dependents match your search.')),
+        ...visibleDependents.map((dependent) {
         final partner = _dependentPartners[dependent.dependentPartnerId];
         String displayName = partner?.fullName ?? dependent.fullName;
-        String displayId = partner?.identityNumber ?? dependent.identity?.number ?? 'N/A';
-        String displayIdType = partner?.idType ?? dependent.identity?.type.description ?? 'ID';
+        final partnerIdentity = partner?.identityNumber.trim() ?? '';
+        String displayId = partnerIdentity.isNotEmpty ? partnerIdentity : (dependent.identity?.number.trim().isNotEmpty == true ? dependent.identity!.number : 'N/A');
+        String displayIdType = partnerIdentity.isNotEmpty ? (partner?.idType ?? 'ID') : (dependent.identity?.type.description ?? 'ID');
+        final hasSaId = displayIdType.trim().toUpperCase() == 'SA-ID' && displayId != 'N/A';
         final deceasedOnCurrentMembership = dependent.membershipStatus == 'DECEASED';
         final isDeceased = deceasedOnCurrentMembership || partner?.status == 'DECEASED';
         final canProcessClaim = canProcessMembershipClaim(
@@ -1749,7 +1839,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 child: Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
                   style: TextStyle(color: isDeceased ? Colors.purple : colorScheme.onSecondaryContainer, fontSize: 14, fontWeight: FontWeight.bold)),
               ),
-              title: Text(displayName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: isDeceased ? TextDecoration.lineThrough : null)),
+              title: Text("$displayName (${displayId == 'N/A' || displayId.trim().isEmpty ? 'No SA-ID' : displayId})", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: isDeceased ? TextDecoration.lineThrough : null)),
               subtitle: Text(DependentType.fromString(dependent.dependentType).label, style: const TextStyle(fontSize: 12)),
               trailing: _buildStatusChip(isDeceased ? 'DECEASED' : dependent.membershipStatus, isCompact: true),
               children: [
@@ -1774,6 +1864,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                         runSpacing: 8,
                         children: [
                           if (!isDeceased && !_isLapsedMembership) ...[
+                            if (!hasSaId)
+                              TextButton.icon(onPressed: () => _resolveSaId(dependent: dependent), icon: const Icon(Icons.badge_outlined, size: 16), label: const Text('ADD / RESOLVE SA-ID')),
                             TextButton.icon(
                               onPressed: () => _replaceDependent(dependent),
                               icon: const Icon(Icons.find_replace_outlined, size: 16),
@@ -1812,7 +1904,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             ),
           ),
         );
-      }).toList(),
+        }),
+      ],
     );
   }
 
