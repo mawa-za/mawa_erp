@@ -1257,19 +1257,6 @@ class MembershipService {
     }
   }
 
-  Future<dynamic> migrateMemberships() async {
-    try {
-      final response = await ApiClient().get('/v2/membership/migrate');
-      if (response.statusCode == 200) {
-        if (response.body.isEmpty) return null;
-        return jsonDecode(response.body);
-      }
-      throw AppException(_extractErrorMessage(response.body, 'Failed to migrate memberships: ${response.statusCode}'));
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   List<dynamic> _decodeList(String body) {
     final dynamic decoded = body.isEmpty ? [] : jsonDecode(body);
     if (decoded is List) return decoded;
