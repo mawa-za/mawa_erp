@@ -68,22 +68,31 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
       }
       return null;
     }
-    return showDialog<Dependent>(
+    final search = TextEditingController();
+    final selected = await showDialog<Dependent>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
         title: const Text('Select Dependent'),
         content: SizedBox(
           width: 520,
-          child: ListView.separated(
+          height: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: search, onChanged: (_) => setDialogState(() {}), decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search), hintText: 'Search name, ID number, partner number or relationship', border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          Expanded(child: ListView.separated(
             shrinkWrap: true,
-            itemCount: activeDependents.length,
+            itemCount: activeDependents.where((d) => [d.fullName, d.identity?.number ?? '', d.number, d.dependentType]
+              .join(' ').toLowerCase().contains(search.text.trim().toLowerCase())).length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (_, index) {
-              final dependent = activeDependents[index];
+              final filtered = activeDependents.where((d) => [d.fullName, d.identity?.number ?? '', d.number, d.dependentType]
+                .join(' ').toLowerCase().contains(search.text.trim().toLowerCase())).toList();
+              final dependent = filtered[index];
               final identity = dependent.identity?.number ?? '';
               return ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                title: Text(dependent.fullName),
+                title: Text('${dependent.fullName} (${identity.isEmpty ? 'No SA-ID' : identity})'),
                 subtitle: Text([
                   dependent.dependentType.replaceAll('_', ' '),
                   if (dependent.number.isNotEmpty) dependent.number,
@@ -92,11 +101,13 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
                 onTap: () => Navigator.pop(context, dependent),
               );
             },
-          ),
+          )),]),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL'))],
-      ),
+      )),
     );
+    search.dispose();
+    return selected;
   }
 
   Future<void> _requestTransfer() async {
