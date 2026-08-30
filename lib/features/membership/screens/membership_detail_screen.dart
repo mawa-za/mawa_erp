@@ -1803,7 +1803,10 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       final partner = _dependentPartners[dependent.dependentPartnerId];
       final partnerIdentity = partner?.identityNumber.trim() ?? '';
       final identity = partnerIdentity.isNotEmpty ? partnerIdentity : (dependent.identity?.number ?? '');
-      return query.isEmpty || [partner?.fullName ?? dependent.fullName, identity, dependent.number,
+      final identityType = partnerIdentity.isNotEmpty
+          ? (partner?.idType ?? 'ID')
+          : (dependent.identity?.type.description ?? 'ID');
+      return query.isEmpty || [partner?.fullName ?? dependent.fullName, identityType, identity, dependent.number,
         dependent.dependentType, dependent.membershipStatus].join(' ').toLowerCase().contains(query);
     }).toList();
     return Column(
@@ -1839,7 +1842,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 child: Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
                   style: TextStyle(color: isDeceased ? Colors.purple : colorScheme.onSecondaryContainer, fontSize: 14, fontWeight: FontWeight.bold)),
               ),
-              title: Text("$displayName (${displayId == 'N/A' || displayId.trim().isEmpty ? 'No SA-ID' : displayId})", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: isDeceased ? TextDecoration.lineThrough : null)),
+              title: Text("$displayName (${displayId == 'N/A' || displayId.trim().isEmpty ? 'No SA-ID' : '$displayIdType: $displayId'})", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, decoration: isDeceased ? TextDecoration.lineThrough : null)),
               subtitle: Text(DependentType.fromString(dependent.dependentType).label, style: const TextStyle(fontSize: 12)),
               trailing: _buildStatusChip(isDeceased ? 'DECEASED' : dependent.membershipStatus, isCompact: true),
               children: [
