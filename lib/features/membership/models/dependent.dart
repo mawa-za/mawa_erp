@@ -134,12 +134,13 @@ class Dependent {
       final idNum = json['identityNumber'] ?? json['identityNo'] ?? json['idNumber'] ?? json['id_number'] ?? json['identity_no'] ?? json['id_no'] ??
                     depPartnerMap?['identityNumber'] ?? depPartnerMap?['identityNo'] ?? depPartnerMap?['idNumber'] ?? depPartnerMap?['id_number'] ?? depPartnerMap?['identity_no'] ?? depPartnerMap?['id_no'];
       if (idNum != null && idNum.toString().isNotEmpty) {
+        final idType = (json['identityType'] ?? depPartnerMap?['identityType'] ?? 'ID').toString();
         identity = DependentIdentity(
           type: FieldOption(
             field: 'IDENTITY-TYPE',
-            code: 'ID', 
-            type: 'ID',
-            description: 'ID',
+            code: idType,
+            type: idType,
+            description: idType,
             validFrom: '',
             validTo: '',
           ),

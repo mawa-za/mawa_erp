@@ -6,6 +6,8 @@ import '../models/membership.dart';
 import '../models/membership_plan.dart';
 import '../services/membership_service.dart';
 import '../widgets/membership_plan_dropdown.dart';
+import '../../partners/models/partner.dart';
+import '../../partners/partner_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipChangeSection extends StatefulWidget {
@@ -28,6 +30,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
   List<MembershipChange> _changes = const [];
   List<MembershipChangeAudit> _audit = const [];
   List<Dependent> _dependents = const [];
+  Map<String, Partner> _dependentPartners = const {};
   MembershipChangeConfiguration _configuration = const MembershipChangeConfiguration(3);
 
   @override
@@ -41,12 +44,28 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         MembershipService().getMembershipChangeConfiguration(),
         MembershipService().getMembershipDependents(widget.membership.id),
       ]);
+      final dependents = results[3] as List<Dependent>;
+      final partnerEntries = await Future.wait(
+        dependents
+            .where((dependent) => dependent.dependentPartnerId.trim().isNotEmpty)
+            .map((dependent) async {
+          try {
+            final partner = await PartnerService().getPartnerById(dependent.dependentPartnerId);
+            return MapEntry(dependent.dependentPartnerId, partner);
+          } catch (_) {
+            // The enriched dependent response remains a valid fallback if a
+            // partner cannot be loaded independently.
+            return null;
+          }
+        }),
+      );
       if (!mounted) return;
       setState(() {
         _changes = results[0] as List<MembershipChange>;
         _audit = results[1] as List<MembershipChangeAudit>;
         _configuration = results[2] as MembershipChangeConfiguration;
-        _dependents = results[3] as List<Dependent>;
+        _dependents = dependents;
+        _dependentPartners = Map.fromEntries(partnerEntries.whereType<MapEntry<String, Partner>>());
         _loading = false;
       });
     } catch (_) {
@@ -55,6 +74,50 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
   }
 
   bool get _hasOpenChange => _changes.any((item) => item.isOpen);
+
+  String _dependentName(Dependent dependent) {
+    final partnerName = _dependentPartners[dependent.dependentPartnerId]?.fullName.trim() ?? '';
+    return partnerName.isNotEmpty && partnerName != 'Unnamed Partner'
+        ? partnerName
+        : dependent.fullName;
+  }
+
+  String _dependentIdentity(Dependent dependent) {
+    final partner = _dependentPartners[dependent.dependentPartnerId];
+    final primaryIdentity = partner?.identityNumber.trim() ?? '';
+    if (primaryIdentity.isNotEmpty) return primaryIdentity;
+    if (partner != null) {
+      for (final identity in partner.identities) {
+        if (identity.type.toUpperCase() == 'SA-ID' && identity.number.trim().isNotEmpty) {
+          return identity.number.trim();
+        }
+      }
+    }
+    return dependent.identity?.number.trim() ?? '';
+  }
+
+  String _dependentIdentityType(Dependent dependent) {
+    final partner = _dependentPartners[dependent.dependentPartnerId];
+    final primaryIdentity = partner?.identityNumber.trim() ?? '';
+    if (primaryIdentity.isNotEmpty) {
+      final type = partner?.idType?.trim() ?? '';
+      return type.isNotEmpty ? type : 'ID';
+    }
+    if (partner != null) {
+      for (final identity in partner.identities) {
+        if (identity.type.toUpperCase() == 'SA-ID' && identity.number.trim().isNotEmpty) {
+          return identity.type.trim().isNotEmpty ? identity.type.trim() : 'SA-ID';
+        }
+      }
+    }
+    final type = dependent.identity?.type.description.trim() ?? '';
+    return type.isNotEmpty ? type : 'ID';
+  }
+
+  String _dependentNumber(Dependent dependent) {
+    final partnerNumber = _dependentPartners[dependent.dependentPartnerId]?.number.trim() ?? '';
+    return partnerNumber.isNotEmpty ? partnerNumber : dependent.number;
+  }
 
   Future<Dependent?> _selectDependent() async {
     final activeDependents = _dependents
@@ -68,35 +131,48 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
       }
       return null;
     }
-    return showDialog<Dependent>(
+    final search = TextEditingController();
+    final selected = await showDialog<Dependent>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
         title: const Text('Select Dependent'),
         content: SizedBox(
           width: 520,
-          child: ListView.separated(
+          height: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: search, onChanged: (_) => setDialogState(() {}), decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search), hintText: 'Search name, ID number, partner number or relationship', border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          Expanded(child: ListView.separated(
             shrinkWrap: true,
-            itemCount: activeDependents.length,
+            itemCount: activeDependents.where((d) => [_dependentName(d), _dependentIdentityType(d), _dependentIdentity(d), _dependentNumber(d), d.dependentType]
+              .join(' ').toLowerCase().contains(search.text.trim().toLowerCase())).length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (_, index) {
-              final dependent = activeDependents[index];
-              final identity = dependent.identity?.number ?? '';
+              final filtered = activeDependents.where((d) => [_dependentName(d), _dependentIdentityType(d), _dependentIdentity(d), _dependentNumber(d), d.dependentType]
+                .join(' ').toLowerCase().contains(search.text.trim().toLowerCase())).toList();
+              final dependent = filtered[index];
+              final identity = _dependentIdentity(dependent);
+              final identityType = _dependentIdentityType(dependent);
+              final dependentNumber = _dependentNumber(dependent);
               return ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                title: Text(dependent.fullName),
+                title: Text('${_dependentName(dependent)} (${identity.isEmpty ? 'No SA-ID' : '$identityType: $identity'})'),
                 subtitle: Text([
                   dependent.dependentType.replaceAll('_', ' '),
-                  if (dependent.number.isNotEmpty) dependent.number,
-                  if (identity.isNotEmpty) identity,
+                  if (dependentNumber.isNotEmpty) dependentNumber,
+                  if (identity.isNotEmpty) '$identityType: $identity',
                 ].join(' • ')),
                 onTap: () => Navigator.pop(context, dependent),
               );
             },
-          ),
+          )),]),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL'))],
-      ),
+      )),
     );
+    search.dispose();
+    return selected;
   }
 
   Future<void> _requestTransfer() async {
@@ -109,7 +185,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Transfer Membership'),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Transfer ${widget.membership.membershipNo} to ${dependent.fullName}?'),
+            Text('Transfer ${widget.membership.membershipNo} to ${_dependentName(dependent)}?'),
             const SizedBox(height: 16),
             TextField(
               controller: reason,

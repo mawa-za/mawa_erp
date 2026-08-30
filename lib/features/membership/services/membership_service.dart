@@ -167,6 +167,23 @@ class MembershipService {
     }
   }
 
+  Future<void> requestPartnerIdentityCorrection(String membershipId, {
+    required String subjectType,
+    String? dependentId,
+    required String identityNumber,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post('/v2/membership/$membershipId/identity-corrections', body: {
+      'subjectType': subjectType,
+      if (dependentId != null) 'dependentId': dependentId,
+      'identityNumber': identityNumber,
+      'reason': reason,
+    });
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException(_errorMessage(response.body, 'Failed to submit identity correction: ${response.statusCode}'));
+    }
+  }
+
   Future<MembershipChange> addDependent(String membershipId, Map<String, dynamic> payload) async {
     final response = await ApiClient().post('/v2/membership/$membershipId/dependents', body: payload);
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -308,6 +325,27 @@ class MembershipService {
         responseBody: response.body,
         fallback: 'The premium payment edit request could not be submitted.',
       );
+    }
+  }
+
+  Future<void> requestGeneratedPremiumEdit({
+    required String membershipId,
+    required String premiumId,
+    required int amountCents,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/memberships/$membershipId/premiums/$premiumId/edit-request',
+      body: {
+        'amountCents': amountCents,
+        'reason': reason,
+      },
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException(_errorMessage(
+        response.body,
+        'The generated premium edit request could not be submitted.',
+      ));
     }
   }
 
@@ -1236,19 +1274,6 @@ class MembershipService {
     }
   }
 
-  Future<dynamic> migrateMemberships() async {
-    try {
-      final response = await ApiClient().get('/v2/membership/migrate');
-      if (response.statusCode == 200) {
-        if (response.body.isEmpty) return null;
-        return jsonDecode(response.body);
-      }
-      throw AppException(_extractErrorMessage(response.body, 'Failed to migrate memberships: ${response.statusCode}'));
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   List<dynamic> _decodeList(String body) {
     final dynamic decoded = body.isEmpty ? [] : jsonDecode(body);
     if (decoded is List) return decoded;
@@ -1336,6 +1361,7 @@ class MembershipService {
     }
     throw AppException(_extractMessage(response.body, 'Failed to submit membership plan change'));
   }
+
 
   String _extractMessage(String body, String fallback) {
     try {
