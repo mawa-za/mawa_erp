@@ -96,6 +96,24 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
     return dependent.identity?.number.trim() ?? '';
   }
 
+  String _dependentIdentityType(Dependent dependent) {
+    final partner = _dependentPartners[dependent.dependentPartnerId];
+    final primaryIdentity = partner?.identityNumber.trim() ?? '';
+    if (primaryIdentity.isNotEmpty) {
+      final type = partner?.idType?.trim() ?? '';
+      return type.isNotEmpty ? type : 'ID';
+    }
+    if (partner != null) {
+      for (final identity in partner.identities) {
+        if (identity.type.toUpperCase() == 'SA-ID' && identity.number.trim().isNotEmpty) {
+          return identity.type.trim().isNotEmpty ? identity.type.trim() : 'SA-ID';
+        }
+      }
+    }
+    final type = dependent.identity?.type.description.trim() ?? '';
+    return type.isNotEmpty ? type : 'ID';
+  }
+
   String _dependentNumber(Dependent dependent) {
     final partnerNumber = _dependentPartners[dependent.dependentPartnerId]?.number.trim() ?? '';
     return partnerNumber.isNotEmpty ? partnerNumber : dependent.number;
@@ -127,22 +145,23 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
           const SizedBox(height: 12),
           Expanded(child: ListView.separated(
             shrinkWrap: true,
-            itemCount: activeDependents.where((d) => [_dependentName(d), _dependentIdentity(d), _dependentNumber(d), d.dependentType]
+            itemCount: activeDependents.where((d) => [_dependentName(d), _dependentIdentityType(d), _dependentIdentity(d), _dependentNumber(d), d.dependentType]
               .join(' ').toLowerCase().contains(search.text.trim().toLowerCase())).length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (_, index) {
-              final filtered = activeDependents.where((d) => [_dependentName(d), _dependentIdentity(d), _dependentNumber(d), d.dependentType]
+              final filtered = activeDependents.where((d) => [_dependentName(d), _dependentIdentityType(d), _dependentIdentity(d), _dependentNumber(d), d.dependentType]
                 .join(' ').toLowerCase().contains(search.text.trim().toLowerCase())).toList();
               final dependent = filtered[index];
               final identity = _dependentIdentity(dependent);
+              final identityType = _dependentIdentityType(dependent);
               final dependentNumber = _dependentNumber(dependent);
               return ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                title: Text('${_dependentName(dependent)} (${identity.isEmpty ? 'No SA-ID' : identity})'),
+                title: Text('${_dependentName(dependent)} (${identity.isEmpty ? 'No SA-ID' : '$identityType: $identity'})'),
                 subtitle: Text([
                   dependent.dependentType.replaceAll('_', ' '),
                   if (dependentNumber.isNotEmpty) dependentNumber,
-                  if (identity.isNotEmpty) identity,
+                  if (identity.isNotEmpty) '$identityType: $identity',
                 ].join(' • ')),
                 onTap: () => Navigator.pop(context, dependent),
               );
