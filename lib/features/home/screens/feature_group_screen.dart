@@ -13,7 +13,6 @@ import '../../../core/services/module_usage_service.dart';
 import '../../../core/services/tenant_experience_service.dart';
 import '../../../core/theme/mawa_design.dart';
 import '../../../core/widgets/mawa_ui.dart';
-import '../../approvals/services/approval_workflow_service.dart';
 import '../models/workcenter.dart';
 import '../models/tenant_experience.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -29,7 +28,6 @@ class FeatureGroupScreen extends StatefulWidget {
 
 class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
   final ModuleUsageService _moduleUsageService = ModuleUsageService();
-  final ApprovalWorkflowService _approvalWorkflowService = ApprovalWorkflowService();
   final TenantExperienceService _tenantExperienceService = TenantExperienceService();
   bool _loading = true;
   String? _error;
@@ -194,45 +192,6 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       }
       allowed.sort((a, b) => a.position.compareTo(b.position));
 
-      // Active approval workflows are first-class cards, but they are all
-      // surfaced together in the dedicated Approvals workspace.
-      if (isCentralApprovalsGroup) {
-        try {
-          final workflows = await _approvalWorkflowService.getActiveWorkflows();
-          var nextPosition = allowed.isEmpty
-              ? 900
-              : allowed
-                      .map((item) => item.position)
-                      .reduce((a, b) => a > b ? a : b) +
-                  1;
-          for (final workflow in workflows) {
-            final type = FeatureGroupRegistry.normalize(workflow.approvalType);
-            if (allowed.any((item) =>
-                FeatureGroupRegistry.normalize(item.id) ==
-                'APPROVAL_$type')) {
-              continue;
-            }
-            final label = FeatureGroupRegistry.approvalLabel(type);
-            allowed.add(Workcenter(
-              id: 'approval-$type',
-              description: '$label Approvals',
-              defaultFunction: 'APPROVALS',
-              path: AppRoutes.approvals,
-              position: nextPosition++,
-              routeKey: 'APPROVAL_$type',
-              routePath:
-                  '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
-              iconKey: 'APPROVAL',
-              cardDescription:
-                  'Review and process $label approval requests assigned to your role.',
-            ));
-          }
-        } catch (_) {
-          // The generic Approval Inbox remains available when workflow
-          // discovery is temporarily unavailable.
-        }
-      }
-
       if (!mounted) return;
       setState(() {
         _experienceGroup = experienceGroup;
@@ -312,9 +271,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       workcenterId: wc.id,
     );
 
-    if (FeatureGroupRegistry.normalize(wc.id).startsWith('APPROVAL_') &&
-        wc.routePath != null) {
-      context.push(wc.routePath!);
+    final normalizedId = FeatureGroupRegistry.normalize(wc.id);
+    if (normalizedId.startsWith('APPROVAL_') &&
+        normalizedId != 'APPROVAL_WORKFLOW') {
+      final type = normalizedId.substring('APPROVAL_'.length);
+      final label = FeatureGroupRegistry.approvalLabel(type);
+      context.push(
+        '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
+      );
       return;
     }
 
