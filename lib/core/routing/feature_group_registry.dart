@@ -240,7 +240,7 @@ class FeatureGroupRegistry {
     ),
     FeatureGroupDefinition(
       id: 'work-management',
-      title: 'Work Management',
+      title: 'Workplace Collaboration',
       description:
           'Coordinate tasks, appointments, calendars, forms and internal communication.',
       routePath: '/feature-groups/work-management',
@@ -373,6 +373,35 @@ class FeatureGroupRegistry {
   /// same workcenter in more than one group.
   static String? canonicalOwnerForWorkcenter(String workcenterId) {
     final id = normalize(workcenterId);
+    if (id.startsWith('APPROVAL_') && id != 'APPROVAL_WORKFLOW') {
+      return 'approvals';
+    }
+    if ({
+      'MEMBER', 'MEMBERS', 'MEMBERSHIP', 'MEMBERSHIPS',
+      'MEMBERSHIP_PLAN', 'MEMBERSHIP_PLANS', 'MEMBERSHIP_CLAIM',
+      'MEMBERSHIP_CLAIMS', 'GROUP_SOCIETY', 'GROUP_SOCIETIES',
+      'FUNERAL_COVER_UNDERWRITING', 'COVER_UNDERWRITING',
+      'THIRD_PARTY_COVER_UNDERWRITING',
+    }.contains(id)) {
+      return 'membership-cover';
+    }
+    if ({'PAYMENT_REQUEST', 'PAYMENT_REQUESTS', 'INVOICE', 'INVOICES',
+      'CASHUP', 'CASHUPS', 'DEPOSIT', 'DEPOSITS', 'RECEIPT', 'RECEIPTS'}
+        .contains(id)) {
+      return 'finance-payments';
+    }
+    if ({'BUSINESS_PARTNER', 'BUSINESS_PARTNERS'}.contains(id)) {
+      return 'sales-customers';
+    }
+    if ({
+      'SERVICE_REQUEST', 'SERVICE_REQUESTS', 'SERVICE_ORDER', 'SERVICE_ORDERS',
+      'SERVICE_CONTRACT', 'SERVICE_CONTRACTS',
+      'SERVICE_APPOINTMENT', 'SERVICE_APPOINTMENTS',
+      'SERVICE_CATALOGUE', 'SERVICE_CATALOG',
+      'SERVICE_RESOURCE', 'SERVICE_RESOURCES',
+    }.contains(id)) {
+      return 'service-management';
+    }
     if ({'QUOTATION', 'QUOTATIONS', 'QUOTE', 'QUOTES', 'SALES_ORDER', 'SALES_ORDERS', 'LAYBY', 'LAYBYS'}
         .contains(id)) {
       return 'sales-customers';
