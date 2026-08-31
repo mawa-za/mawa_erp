@@ -48,6 +48,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   bool _allowPremiumPaymentTransfer = false;
   bool _allowDeleteWithoutCashupValidation = false;
   bool _hasPendingMembershipStatusChange = false;
+  bool _isRecalculatingPremiums = false;
   String? _pendingMembershipStatusAction;
   String? _error;
   String _dependentSearch = '';
@@ -411,7 +412,22 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 12),
           MembershipChangeSection(membership: detail, onChanged: _fetchData, readOnly: _isLapsedMembership || _isMergedMembership),
           const SizedBox(height: 32),
-          _buildSectionHeader(Icons.payments_outlined, 'PAYMENT HISTORY'),
+          Row(
+            children: [
+              Expanded(child: _buildSectionHeader(Icons.payments_outlined, 'PAYMENT HISTORY')),
+              OutlinedButton.icon(
+                onPressed: _isRecalculatingPremiums ? null : _recalculatePremiums,
+                icon: _isRecalculatingPremiums
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync, size: 18),
+                label: const Text('RECALCULATE PREMIUMS'),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           _buildPremiumSection(colorScheme),
           const SizedBox(height: 32),
@@ -430,6 +446,37 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _recalculatePremiums() async {
+    setState(() => _isRecalculatingPremiums = true);
+    try {
+      final result = await MembershipService()
+          .recalculateMembershipPremiums(widget.membershipId);
+      if (!mounted) return;
+      final checked = result['premiumsChecked'] ?? 0;
+      final corrected = result['premiumsCorrected'] ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Premium recalculation completed. $checked premiums checked and $corrected corrected.',
+          ),
+        ),
+      );
+      await _fetchData();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage(
+            'Unable to recalculate membership premiums: $error',
+          )),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isRecalculatingPremiums = false);
+    }
   }
 
   Widget _buildLapsedRestrictionNotice() {
