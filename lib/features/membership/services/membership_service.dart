@@ -301,6 +301,25 @@ class MembershipService {
         .toList();
   }
 
+  Future<Map<String, dynamic>> recalculateMembershipPremiums(
+    String membershipId,
+  ) async {
+    final response = await ApiClient().post(
+      '/v2/memberships/$membershipId/premiums/recalculate',
+    );
+    if (response.statusCode != 200) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'Unable to recalculate membership premiums.',
+      );
+    }
+    final decoded = jsonDecode(response.body);
+    return decoded is Map<String, dynamic>
+        ? decoded
+        : Map<String, dynamic>.from(decoded as Map);
+  }
+
   Future<void> requestPremiumPaymentEdit({
     required String paymentBatchId,
     required String receiptId,
