@@ -172,12 +172,14 @@ class MembershipService {
     String? dependentId,
     required String identityNumber,
     required String reason,
+    bool overrideExistingOwner = false,
   }) async {
     final response = await ApiClient().post('/v2/membership/$membershipId/identity-corrections', body: {
       'subjectType': subjectType,
       if (dependentId != null) 'dependentId': dependentId,
       'identityNumber': identityNumber,
       'reason': reason,
+      'overrideExistingOwner': overrideExistingOwner,
     });
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw AppException(_errorMessage(response.body, 'Failed to submit identity correction: ${response.statusCode}'));
