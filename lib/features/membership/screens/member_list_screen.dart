@@ -33,7 +33,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
   Map<String, MembershipPlan> _plans = {};
   String? _error;
   List<String>? _currentMemberIds;
-  String _selectedStatus = 'ALL';
+  String _selectedStatus = 'ACTIVE';
   static const List<String> _statuses = [
     'ALL',
     'ACTIVE',
@@ -103,7 +103,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         MembershipService().getMemberships(
           page: _currentPage, 
           size: _pageSize, 
-          sort: ['createdAt,desc'],
+          sort: ['membershipNo,desc'],
           query: query,
           memberIds: _currentMemberIds,
           status: _selectedStatus,
@@ -141,7 +141,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
       final response = await MembershipService().getMemberships(
         page: nextPage, 
         size: _pageSize, 
-        sort: ['createdAt,desc'],
+        sort: ['membershipNo,desc'],
         query: _searchController.text.trim(),
         memberIds: _currentMemberIds,
         status: _selectedStatus,
