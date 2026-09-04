@@ -276,11 +276,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       if (!mounted) return;
       final current = dependent == null ? _member : _dependentPartners[dependent.dependentPartnerId];
       final relink = existing != null && existing.id != current?.id;
-      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      final override = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
         title: Text(relink ? 'Existing partner found' : 'Assign SA-ID'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(relink
-            ? 'This SA-ID belongs to an existing partner. The membership relationship will be changed to that partner after approval; no partner records will be merged.'
+            ? 'This SA-ID belongs to an existing partner. You can link this membership relationship to that partner, or override the assignment and move the SA-ID to the current partner. Both actions require approval.'
             : 'This SA-ID is not assigned to another partner and will be added to the current partner after approval.'),
           const SizedBox(height: 16),
           if (relink && existing != null) ...[
@@ -294,13 +294,14 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             Text("Memberships: ${existingMemberships.isEmpty ? 'None found' : existingMemberships.join(', ')}"),
           ],
         ]),
-        actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('SUBMIT FOR APPROVAL'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          if (relink) OutlinedButton(onPressed: () => Navigator.pop(context, false), child: const Text('LINK EXISTING PARTNER')),
+          FilledButton(onPressed: () => Navigator.pop(context, relink), child: Text(relink ? 'OVERRIDE SA-ID' : 'SUBMIT FOR APPROVAL'))],
       ));
-      if (confirmed != true) return;
+      if (override == null) return;
       await MembershipService().requestPartnerIdentityCorrection(widget.membershipId,
         subjectType: dependent == null ? 'MEMBER' : 'DEPENDENT', dependentId: dependent?.id,
-        identityNumber: input['id']!, reason: input['reason']!);
+        identityNumber: input['id']!, reason: input['reason']!, overrideExistingOwner: override);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Identity correction submitted for approval.')));
     } catch (error) {
