@@ -58,6 +58,23 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
   bool get _isLapsedMembership => _normalizedMembershipStatus == 'LAPSED';
   bool get _isMergedMembership => _normalizedMembershipStatus == 'MERGED';
+  int get _dependentsCountedTowardCapacity => _dependents.where((dependent) {
+        if (dependent.membershipStatus == 'ACTIVE') return true;
+        if (dependent.membershipStatus != 'DECEASED') return false;
+        return _claims.any((claim) {
+          final finalised = const {
+            'APPROVED', 'PAYMENT_PENDING', 'PAYMENT_PROCESSING',
+            'PAYMENT_FAILED', 'PAID'
+          }.contains(claim.status.trim().toUpperCase());
+          return finalised && claim.deceasedPartnerId == dependent.dependentPartnerId;
+        });
+      }).length;
+  int get _remainingDependentCapacity =>
+      (_plan?.maxDependents ?? 0) <= 0
+          ? -1
+          : (_plan!.maxDependents - _dependentsCountedTowardCapacity)
+              .clamp(0, _plan!.maxDependents)
+              .toInt();
 
   @override
   void initState() {
@@ -333,6 +350,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ? _buildErrorWidget(colorScheme)
               : _buildContent(colorScheme),
       floatingActionButton: _detail != null && !_isLapsedMembership && !_isMergedMembership
+              && _remainingDependentCapacity != 0
           ? FloatingActionButton.extended(
               onPressed: () async {
                 final result = await showDialog<bool>(
@@ -1842,10 +1860,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildDependentsSection(ColorScheme colorScheme) {
-    if (_dependents.isEmpty) {
-      return _buildEmptyStateCard(Icons.people_outline, 'No dependents linked to this policy');
-    }
-
     final query = _dependentSearch.trim().toLowerCase();
     final visibleDependents = _dependents.where((dependent) {
       final partner = _dependentPartners[dependent.dependentPartnerId];
@@ -1859,10 +1873,29 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }).toList();
     return Column(
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            _remainingDependentCapacity < 0
+                ? 'Dependent capacity: unlimited'
+                : 'Dependents that can still be added: $_remainingDependentCapacity of ${_plan?.maxDependents ?? 0}',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: _remainingDependentCapacity == 0 ? colorScheme.error : colorScheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         TextField(onChanged: (value) => setState(() => _dependentSearch = value),
           decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search dependents by name, ID number, partner number or relationship', border: OutlineInputBorder())),
         const SizedBox(height: 12),
-        if (visibleDependents.isEmpty) const Padding(padding: EdgeInsets.all(20), child: Text('No dependents match your search.')),
+        if (visibleDependents.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(_dependents.isEmpty
+                ? 'No dependents linked to this policy.'
+                : 'No dependents match your search.'),
+          ),
         ...visibleDependents.map((dependent) {
         final partner = _dependentPartners[dependent.dependentPartnerId];
         String displayName = partner?.fullName ?? dependent.fullName;
