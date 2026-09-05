@@ -927,7 +927,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
-  Future<void> _requestPremiumPaymentDeletion(Premium premium) async {
+  Future<void> _requestPremiumPaymentCancellation(Premium premium) async {
     try {
       final receipts = await MembershipService().getPremiumReceipts(
         widget.membershipId,
@@ -948,7 +948,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         selectedReceipt = await showDialog<ReceiptResponse>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Select payment to delete'),
+            title: const Text('Select receipt to cancel'),
             content: SizedBox(
               width: 480,
               child: ListView.separated(
@@ -981,15 +981,15 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       final reason = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Request premium payment deletion'),
+          title: const Text('Request receipt cancellation'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _allowDeleteWithoutCashupValidation
-                    ? 'The full payment batch will be reversed only after approval. Cash-up OPEN-status validation is disabled by configuration.'
-                    : 'The full payment batch will be reversed only after approval. This is allowed only while its linked cash-up remains OPEN.',
+                    ? 'The receipt will be cancelled only after approval and will remain visible in its cash-up. Cash-up OPEN-status validation is disabled by configuration.'
+                    : 'The receipt will be cancelled only after approval and will remain visible in its cash-up. This is allowed only while its linked cash-up remains OPEN.',
               ),
               const SizedBox(height: 16),
               TextField(
@@ -997,7 +997,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 autofocus: true,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Reason for deletion *',
+                  labelText: 'Reason for cancellation *',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1020,21 +1020,21 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       final requesterId = prefs.getString('userId') ?? '';
-      await MembershipService().requestPremiumPaymentDeletion(
+      await MembershipService().requestPremiumPaymentCancellation(
         paymentBatchId: selectedReceipt.paymentBatchId,
         requesterId: requesterId,
         reason: reason,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Premium payment deletion submitted for approval.')),
+        const SnackBar(content: Text('Receipt cancellation submitted for approval.')),
       );
       await _fetchData();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(friendlyErrorMessage('Unable to request premium payment deletion: $error')),
+          content: Text(friendlyErrorMessage('Unable to request receipt cancellation: $error')),
           backgroundColor: Colors.red,
         ),
       );
@@ -1696,7 +1696,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ),
               if (!_isMergedMembership &&
                   premium.status.toUpperCase() != 'CANCELLED' &&
-                  premium.status.toUpperCase() != 'REVERSED') ...[
+                  !const {'REVERSED', 'CANCELLED'}.contains(premium.status.toUpperCase())) ...[
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -1733,9 +1733,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                           label: const Text('TRANSFER PAYMENT'),
                         ),
                       OutlinedButton.icon(
-                        onPressed: () => _requestPremiumPaymentDeletion(premium),
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('DELETE PAYMENT'),
+                        onPressed: () => _requestPremiumPaymentCancellation(premium),
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('CANCEL RECEIPT'),
                         style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                       ),
                     ],
@@ -1849,6 +1849,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       case 'UNPAID': return Colors.red;
       case 'CANCELLED': return Colors.grey;
       case 'REVERSED': return Colors.purple;
+      case 'CANCELLED': return Colors.red;
       default: return Colors.blue;
     }
   }
