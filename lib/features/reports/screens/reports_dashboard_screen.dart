@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/routing/app_routes.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../../home/models/workcenter.dart';
 import '../models/report_dashboard.dart';
 import '../models/financial_report.dart';
@@ -76,7 +77,6 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
   ];
 
   final _number = NumberFormat.decimalPattern();
-  final _dateTime = DateFormat('dd MMM yyyy HH:mm');
   final Set<String> _allowedWorkcenters = <String>{};
 
   ReportDashboard? _dashboard;
@@ -426,7 +426,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Generated ${_dateTime.format(data.generatedAt.toLocal())}',
+              'Generated ${AppDateUtils.displayDateTimePattern(data.generatedAt, 'dd MMM yyyy HH:mm')}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(

@@ -1839,7 +1839,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     if (value == null || value.trim().isEmpty) return 'N/A';
     final parsed = DateTime.tryParse(value.replaceFirst(' ', 'T'));
     if (parsed == null) return value;
-    return DateFormat('dd MMM yyyy • HH:mm').format(parsed.toLocal());
+    return AppDateUtils.displayDateTimePattern(parsed, 'dd MMM yyyy • HH:mm');
   }
 
   Color _getPremiumStatusColor(String status) {

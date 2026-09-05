@@ -16,7 +16,7 @@ class Formatters {
 
   static String formatDateTime(DateTime? date) {
     if (date == null) return 'N/A';
-    return DateFormat('yyyy-MM-dd HH:mm').format(date);
+    return AppDateUtils.displayDateTimePattern(date, 'yyyy-MM-dd HH:mm');
   }
 
   static String formatFriendlyDate(DateTime? date) {

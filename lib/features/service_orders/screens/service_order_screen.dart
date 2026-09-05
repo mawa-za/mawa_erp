@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../../../core/models/product_lookup.dart';
 import '../../../core/services/product_lookup_service.dart';
 import '../../invoicing/screens/invoice_pdf_preview_screen.dart';
@@ -428,8 +429,7 @@ class _ServiceOrderScreenState
                             child: Text(
                               scheduledStartAt == null
                                   ? 'Not specified'
-                                  : DateFormat('dd MMM yyyy HH:mm')
-                                      .format(scheduledStartAt!),
+                                  : AppDateUtils.displayDateTimePattern(scheduledStartAt, 'dd MMM yyyy HH:mm'),
                             ),
                           ),
                         ),
@@ -454,8 +454,7 @@ class _ServiceOrderScreenState
                             child: Text(
                               scheduledEndAt == null
                                   ? 'Not specified'
-                                  : DateFormat('dd MMM yyyy HH:mm')
-                                      .format(scheduledEndAt!),
+                                  : AppDateUtils.displayDateTimePattern(scheduledEndAt, 'dd MMM yyyy HH:mm'),
                             ),
                           ),
                         ),
@@ -1074,8 +1073,7 @@ class _ServiceOrderScreenState
                             if (line.scheduledStartAt != null)
                               _serviceLineFact(
                                 'Scheduled',
-                                DateFormat('dd MMM yyyy HH:mm')
-                                    .format(line.scheduledStartAt!),
+                                AppDateUtils.displayDateTimePattern(line.scheduledStartAt, 'dd MMM yyyy HH:mm'),
                                 colorScheme,
                               ),
                           ],

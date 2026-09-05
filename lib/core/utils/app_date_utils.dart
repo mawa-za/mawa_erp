@@ -119,5 +119,10 @@ class AppDateUtils {
     return parsed == null ? fallback : _displayDateTime.format(inSelectedTimeZone(parsed));
   }
 
+  static String displayDateTimePattern(dynamic value, String pattern, {String fallback = 'N/A'}) {
+    final parsed = parse(value);
+    return parsed == null ? fallback : DateFormat(pattern).format(inSelectedTimeZone(parsed));
+  }
+
   static String apiDate(DateTime value) => _apiDate.format(value);
 }
