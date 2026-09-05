@@ -31,6 +31,7 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
   bool _mfaRequired = false;
   bool _loading = false;
   bool _obscure = true;
+  String _timeZone = 'Africa/Harare';
   List<Role> _roles = [];
   final Set<String> _selectedRoles = {};
 
@@ -59,6 +60,7 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
         accessScope: _selectedRoleGrantsProtection ? 'TENANT_ALL' : 'STANDARD', environmentScope: _environmentScope.text.trim(),
         externalTransactionsBlocked: _blocked, expiresAt: expiresAt,
         protectedReason: _protectedReason.text.trim(), mfaRequired: _mfaRequired,
+        timeZone: _timeZone,
       );
       if (_selectedRoles.isNotEmpty) {
         await UserService().updateUserRoles(user.id, _selectedRoles.toList());
@@ -89,6 +91,19 @@ class _UserCreateScreenState extends State<UserCreateScreen> {
           validator: (value) => RegExp(r'^\d{10}$').hasMatch(value?.trim() ?? '')
               ? null
               : 'Contact Number must be 10 numeric digits',
+        ),
+        const SizedBox(height: 12),
+        SearchableDropdownFormField<String>(
+          value: _timeZone,
+          decoration: const InputDecoration(labelText: 'Display time zone'),
+          items: const {
+            'Africa/Harare': 'CAT (UTC+02:00)',
+            'Africa/Johannesburg': 'South Africa (UTC+02:00)',
+            'Africa/Gaborone': 'Botswana (UTC+02:00)',
+            'Africa/Maputo': 'Mozambique (UTC+02:00)',
+            'UTC': 'UTC',
+          }.entries.map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value))).toList(),
+          onChanged: (value) => setState(() => _timeZone = value ?? 'Africa/Harare'),
         ),
         const SizedBox(height: 12),
         PartnerSearchDropdown(role: 'EMPLOYEE', label: 'Business Partner (Employee)', onPartnerSelected: (p) => setState(() => _partnerId = p?.id), validator: (p) => p == null ? 'Required' : null),

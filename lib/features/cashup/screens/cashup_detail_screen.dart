@@ -135,9 +135,20 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await _cashupService.closeCashup(_cashup!.id, actionBy: prefs.getString('userId'));
+      String? printWarning;
+      try {
+        await PosPrintingService().queueCashup(_cashup!.id);
+      } catch (printError) {
+        printWarning = friendlyErrorMessage(printError);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cashup closed and moved to Awaiting Deposits.'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text(printWarning == null
+              ? 'Cashup closed and cashup slip queued for printing.'
+              : 'Cashup closed, but the cashup slip could not be queued: $printWarning'),
+          backgroundColor: printWarning == null ? Colors.green : Colors.orange,
+        ),
       );
       await _fetchDetails();
     } catch (e) {

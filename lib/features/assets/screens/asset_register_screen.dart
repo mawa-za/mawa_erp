@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
@@ -629,7 +630,7 @@ class _HireReservationsDialogState extends State<_HireReservationsDialog> {
                                   title: Text('${row['asset_no'] ?? ''} · ${row['asset_name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
                                   subtitle: Text([
                                     '${row['service_product_code'] ?? ''} - ${row['service_product_description'] ?? ''}',
-                                    if (start != null && end != null) '${DateFormat('dd MMM yyyy HH:mm').format(start)} → ${DateFormat('dd MMM yyyy HH:mm').format(end)}',
+                                    if (start != null && end != null) '${AppDateUtils.displayDateTimePattern(start, 'dd MMM yyyy HH:mm')} → ${AppDateUtils.displayDateTimePattern(end, 'dd MMM yyyy HH:mm')}',
                                     'Qty: ${row['reserved_quantity'] ?? 1}',
                                     if ((row['source_reference'] ?? '').toString().isNotEmpty) 'Ref: ${row['source_reference']}',
                                   ].join(' • ')),
