@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 import '../models/number_range_configuration.dart';
 import '../services/number_range_configuration_service.dart';
@@ -883,7 +884,7 @@ class _NumberRangeConfigurationScreenState extends State<NumberRangeConfiguratio
   String? _required(String? value) => value == null || value.trim().isEmpty ? 'This field is required' : null;
   String _number(int value) => NumberFormat.decimalPattern('en_ZA').format(value);
   String _date(DateTime? value) => value == null ? '-' : DateFormat('dd MMM yyyy').format(value);
-  String _dateTime(DateTime? value) => value == null ? '-' : DateFormat('dd MMM yyyy HH:mm').format(value.toLocal());
+  String _dateTime(DateTime? value) => AppDateUtils.displayDateTimePattern(value, 'dd MMM yyyy HH:mm', fallback: '-');
   String _pad10(int value) => value.toString().padLeft(10, '0');
 
   String? _trailingDigits(String? value) {

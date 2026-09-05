@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api_client.dart';
 import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../models/approval.dart';
 import '../navigation/approval_item_navigator.dart';
@@ -1000,10 +1001,9 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     }
     if (RegExp(r'^\d{4}-\d{2}-\d{2}(T.*)?$').hasMatch(text)) {
       try {
-        final date = DateTime.parse(text);
         return text.contains('T')
-            ? DateFormat('dd MMM yyyy, HH:mm').format(date)
-            : DateFormat('dd MMM yyyy').format(date);
+            ? AppDateUtils.displayDateTimePattern(text, 'dd MMM yyyy, HH:mm')
+            : AppDateUtils.displayDate(text);
       } catch (_) {}
     }
     return text.replaceAll('_', ' ');
@@ -1207,8 +1207,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
   String _formatShortDate(String dateStr) {
     try {
-      final dt = DateTime.parse(dateStr);
-      return DateFormat('MMM d, HH:mm').format(dt);
+      return AppDateUtils.displayDateTimePattern(dateStr, 'MMM d, HH:mm');
     } catch (_) {
       return dateStr.split('T')[0];
     }
@@ -1216,8 +1215,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
   String _formatFullDate(String dateStr) {
     try {
-      final dt = DateTime.parse(dateStr);
-      return DateFormat('EEEE, d MMMM yyyy').format(dt);
+      return AppDateUtils.displayDateTimePattern(dateStr, 'EEEE, d MMMM yyyy');
     } catch (_) {
       return dateStr.split('T')[0];
     }
