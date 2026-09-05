@@ -300,7 +300,7 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
         _ConfigurationItem(
           title: 'Xero Integration',
           description:
-              'Connect Xero and select the organisation used for invoice synchronisation.',
+              'Connect Xero and synchronise customers, products and invoices.',
           icon: Icons.sync_alt_rounded,
           category: _ConfigurationCategory.finance,
           onTap: () => _open(context, const XeroIntegrationScreen()),
