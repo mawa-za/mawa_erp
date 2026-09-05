@@ -9,6 +9,7 @@ import '../../core/config.dart';
 import '../../core/services/field_service.dart';
 import '../../core/services/access_profile_service.dart';
 import '../../core/theme/mawa_design.dart';
+import '../../core/utils/app_date_utils.dart';
 import '../../core/widgets/app_feedback.dart';
 import '../settings/models/role.dart';
 import 'forgot_password_screen.dart';
@@ -123,6 +124,19 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('displayName', displayName);
         await prefs.setString('accessToken', accessToken);
         await prefs.setString('refreshToken', refreshToken);
+        try {
+          final profileResponse = await ApiClient().get('/v2/user/$userId');
+          if (profileResponse.statusCode == 200) {
+            final profile = jsonDecode(profileResponse.body) as Map<String, dynamic>;
+            final timeZone = (profile['timeZone'] ?? 'Africa/Harare').toString();
+            await prefs.setString('timeZone', timeZone);
+            AppDateUtils.configureTimeZone(timeZone);
+          }
+        } catch (e) {
+          debugPrint('Unable to load user time zone; CAT will be used: $e');
+          await prefs.setString('timeZone', 'Africa/Harare');
+          AppDateUtils.configureTimeZone('Africa/Harare');
+        }
         await AccessProfileService().persistAuthentication(
           Map<String, dynamic>.from(data as Map),
         );
