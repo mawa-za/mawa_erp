@@ -14,6 +14,7 @@ import '../../core/routing/feature_group_registry.dart';
 import '../../core/routing/workcenter_card_descriptions.dart';
 import '../../core/routing/app_routes.dart';
 import '../../core/theme/mawa_design.dart';
+import '../../core/utils/app_date_utils.dart';
 import '../../core/widgets/mawa_ui.dart';
 import '../../core/models/access_profile.dart';
 import '../../core/services/access_profile_service.dart';
@@ -1746,7 +1747,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
                 const SizedBox(height: 3),
                 Text(detail),
                 if (profile.expiresAt != null)
-                  Text('Access expires: ${profile.expiresAt!.toLocal()}'),
+                  Text('Access expires: ${AppDateUtils.displayDateTime(profile.expiresAt)}'),
                 if (profile.ticketReference.isNotEmpty)
                   Text('Reference: ${profile.ticketReference}'),
               ],

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/case_event.dart';
 import '../services/case_management_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 class UpcomingEventsScreen extends StatefulWidget {
   const UpcomingEventsScreen({super.key});
@@ -140,7 +141,7 @@ class _UpcomingEventsScreenState extends State<UpcomingEventsScreen> {
                 const Icon(Icons.access_time_rounded, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
                 Text(
-                  DateFormat('yyyy-MM-dd HH:mm').format(event.startAt),
+                  AppDateUtils.displayDateTimePattern(event.startAt, 'yyyy-MM-dd HH:mm'),
                   style: const TextStyle(fontSize: 12),
                 ),
                 if (event.location != null) ...[

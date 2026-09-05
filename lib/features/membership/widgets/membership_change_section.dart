@@ -344,6 +344,37 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
     }
   }
 
+  Future<void> _showHistory({required bool audit}) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(audit ? 'Membership Audit Trail' : 'Membership Change History'),
+      content: SizedBox(
+        width: 720,
+        child: audit
+            ? (_audit.isEmpty
+                ? const ListTile(leading: Icon(Icons.history), title: Text('No audit entries recorded'))
+                : ListView(shrinkWrap: true, children: _audit.map((item) => ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.fact_check_outlined, size: 18),
+                    title: Text(item.eventType.replaceAll('_', ' ')),
+                    subtitle: Text('${item.details}\n${item.performedAt ?? ''} • ${item.performedBy}'),
+                  )).toList()))
+            : (_changes.isEmpty
+                ? const ListTile(leading: Icon(Icons.history), title: Text('No membership changes recorded'))
+                : ListView(shrinkWrap: true, children: _changes.map((item) => Card(
+                    elevation: 0,
+                    child: ListTile(
+                      leading: Icon(_changeIcon(item.changeType)),
+                      title: Text(item.displayTitle),
+                      subtitle: Text('${item.displayChange}\n${item.status.replaceAll('_', ' ')}${item.effectiveDate == null ? '' : ' • Effective ${item.effectiveDate}'}\n${item.reason}'),
+                      trailing: item.approvalRequestId.isEmpty ? null : const Icon(Icons.approval_outlined),
+                    ),
+                  )).toList())),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE'))],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
@@ -359,31 +390,10 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         const Text('A pending or scheduled membership change must be completed before another change can be requested.', style: TextStyle(color: Colors.orange)),
       ],
       const SizedBox(height: 16),
-      if (_changes.isEmpty)
-        const ListTile(leading: Icon(Icons.history), title: Text('No membership changes recorded'))
-      else
-        ..._changes.map((item) => Card(
-          elevation: 0,
-          child: ListTile(
-            leading: Icon(_changeIcon(item.changeType)),
-            title: Text(item.displayTitle),
-            subtitle: Text(
-              '${item.displayChange}\n'
-              '${item.status.replaceAll('_', ' ')}${item.effectiveDate == null ? '' : ' • Effective ${item.effectiveDate}'}\n'
-              '${item.reason}',
-            ),
-            trailing: item.approvalRequestId.isEmpty ? null : const Icon(Icons.approval_outlined),
-          ),
-        )),
-      if (_audit.isNotEmpty) ExpansionTile(
-        title: const Text('Audit Trail'),
-        children: _audit.map((item) => ListTile(
-          dense: true,
-          leading: const Icon(Icons.history, size: 18),
-          title: Text(item.eventType.replaceAll('_', ' ')),
-          subtitle: Text('${item.details}\n${item.performedAt ?? ''} • ${item.performedBy}'),
-        )).toList(),
-      ),
+      Wrap(spacing: 12, runSpacing: 12, children: [
+        OutlinedButton.icon(onPressed: () => _showHistory(audit: false), icon: const Icon(Icons.history), label: Text('CHANGE HISTORY (${_changes.length})')),
+        OutlinedButton.icon(onPressed: () => _showHistory(audit: true), icon: const Icon(Icons.fact_check_outlined), label: Text('AUDIT TRAIL (${_audit.length})')),
+      ]),
     ]);
   }
 }

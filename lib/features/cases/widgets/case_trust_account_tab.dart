@@ -4,6 +4,7 @@ import '../models/case_trust.dart';
 import '../services/case_trust_service.dart';
 import 'trust_receipt_preview_dialog.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
@@ -243,7 +244,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
               child: Column(
                 children: [
                   const Divider(),
-                  _buildDetailRow('Date', tx.transactionDate != null ? DateFormat('yyyy-MM-dd HH:mm').format(tx.transactionDate!) : '-'),
+                  _buildDetailRow('Date', AppDateUtils.displayDateTimePattern(tx.transactionDate, 'yyyy-MM-dd HH:mm', fallback: '-')),
                   _buildDetailRow('Method', tx.paymentMethod ?? '-'),
                   _buildDetailRow('Ref No', tx.referenceNo ?? '-'),
                   if (tx.payeeName != null) _buildDetailRow('Payee', tx.payeeName!),
@@ -280,7 +281,7 @@ class _CaseTrustAccountTabState extends State<CaseTrustAccountTab> {
                         children: [
                           const Text('Reversal Info', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12)),
                           Text('Reason: ${tx.reversalReason ?? 'N/A'}', style: const TextStyle(fontSize: 12)),
-                          Text('By: ${tx.reversedBy ?? 'N/A'} at ${tx.reversedAt != null ? DateFormat('yyyy-MM-dd HH:mm').format(tx.reversedAt!) : 'N/A'}', style: const TextStyle(fontSize: 12)),
+                          Text('By: ${tx.reversedBy ?? 'N/A'} at ${AppDateUtils.displayDateTimePattern(tx.reversedAt, 'yyyy-MM-dd HH:mm')}', style: const TextStyle(fontSize: 12)),
                         ],
                       ),
                     ),

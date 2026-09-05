@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../models/service_order.dart';
 import '../services/service_order_service.dart';
 import 'service_order_screen.dart';
@@ -294,7 +295,7 @@ class _ServiceOrderListScreenState extends State<ServiceOrderListScreen> {
             if (order.scheduledStartAt != null)
               _metadata(
                 Icons.schedule_outlined,
-                DateFormat('dd MMM HH:mm').format(order.scheduledStartAt!),
+                AppDateUtils.displayDateTimePattern(order.scheduledStartAt, 'dd MMM HH:mm'),
                 colorScheme,
               ),
             _statusChip(order.status),
@@ -328,8 +329,7 @@ class _ServiceOrderListScreenState extends State<ServiceOrderListScreen> {
                 const SizedBox(height: 4),
                 _metadata(
                   Icons.schedule_outlined,
-                  DateFormat('dd MMM yyyy HH:mm')
-                      .format(order.scheduledStartAt!),
+                  AppDateUtils.displayDateTimePattern(order.scheduledStartAt, 'dd MMM yyyy HH:mm'),
                   colorScheme,
                 ),
               ],
