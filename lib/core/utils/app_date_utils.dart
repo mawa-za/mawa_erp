@@ -12,6 +12,29 @@ class AppDateUtils {
   static final DateFormat _displayDate = DateFormat('dd MMM yyyy');
   static final DateFormat _displayDateTime = DateFormat('dd MMM yyyy HH:mm');
   static final DateFormat _apiDate = DateFormat('yyyy-MM-dd');
+  static String _timeZone = 'Africa/Harare';
+
+  static String get timeZone => _timeZone;
+
+  static void configureTimeZone(String? value) {
+    _timeZone = (value == null || value.trim().isEmpty) ? 'Africa/Harare' : value.trim();
+  }
+
+  static DateTime inSelectedTimeZone(DateTime value) {
+    final utc = value.isUtc ? value : value.toUtc();
+    final hours = _offsetHours[_timeZone] ?? 2;
+    return utc.add(Duration(hours: hours));
+  }
+
+  static DateTime nowInSelectedTimeZone() => inSelectedTimeZone(DateTime.now().toUtc());
+
+  static const Map<String, int> _offsetHours = {
+    'UTC': 0,
+    'Africa/Harare': 2,
+    'Africa/Johannesburg': 2,
+    'Africa/Gaborone': 2,
+    'Africa/Maputo': 2,
+  };
 
   static DateTime? parse(dynamic value) {
     if (value == null) return null;
@@ -28,7 +51,7 @@ class AppDateUtils {
       try {
         final fraction = part(6);
         final millisecond = fraction > 999 ? fraction ~/ 1000000 : fraction;
-        return DateTime(
+        return DateTime.utc(
           part(0),
           part(1, 1),
           part(2, 1),
@@ -54,7 +77,7 @@ class AppDateUtils {
       final day = number('day') ?? number('dayOfMonth');
       if (year != null && month != null && day != null) {
         try {
-          return DateTime(
+          return DateTime.utc(
             year,
             month,
             day,
@@ -71,7 +94,9 @@ class AppDateUtils {
 
     final text = value.toString().trim();
     if (text.isEmpty || text.toLowerCase() == 'null') return null;
-    return DateTime.tryParse(text.replaceFirst(' ', 'T'));
+    final iso = text.replaceFirst(' ', 'T');
+    final hasZone = RegExp(r'(Z|[+-]\d\d:\d\d)$').hasMatch(iso);
+    return DateTime.tryParse(hasZone ? iso : '${iso}Z');
   }
 
   static String normalizeDate(dynamic value, {String fallback = ''}) {
@@ -91,7 +116,7 @@ class AppDateUtils {
 
   static String displayDateTime(dynamic value, {String fallback = 'N/A'}) {
     final parsed = parse(value);
-    return parsed == null ? fallback : _displayDateTime.format(parsed.toLocal());
+    return parsed == null ? fallback : _displayDateTime.format(inSelectedTimeZone(parsed));
   }
 
   static String apiDate(DateTime value) => _apiDate.format(value);
