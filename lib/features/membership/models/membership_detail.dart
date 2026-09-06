@@ -9,6 +9,7 @@ class MembershipDetail {
   final String status;
   final String? paidUpToPeriod;
   final String? joinDate;
+  final String? effectiveDate;
   final String? createdAt;
   final String createdBy;
   final String? updatedAt;
@@ -29,6 +30,7 @@ class MembershipDetail {
     required this.status,
     this.paidUpToPeriod,
     this.joinDate,
+    this.effectiveDate,
     this.createdAt,
     required this.createdBy,
     this.updatedAt,
@@ -88,6 +90,7 @@ class MembershipDetail {
       status: (json['status'] ?? '').toString(),
       paidUpToPeriod: json['paidUpToPeriod']?.toString(),
       joinDate: parseDateValue(json['joinDate']),
+      effectiveDate: parseDateValue(json['effectiveDate'] ?? json['benefitEligibleFrom']),
       createdAt: parseDateValue(json['createdAt']),
       createdBy: (json['createdBy'] ?? '').toString(),
       updatedAt: parseDateValue(json['updatedAt']),
@@ -111,6 +114,7 @@ class MembershipDetail {
       'status': status,
       'paidUpToPeriod': paidUpToPeriod,
       'joinDate': joinDate,
+      'effectiveDate': effectiveDate,
       'createdAt': createdAt,
       'createdBy': createdBy,
       'updatedAt': updatedAt,
