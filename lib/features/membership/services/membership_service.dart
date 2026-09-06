@@ -1383,6 +1383,23 @@ class MembershipService {
     throw AppException(_extractMessage(response.body, 'Failed to submit membership plan change'));
   }
 
+  Future<MembershipChange> requestMembershipDateChange({
+    required String membershipId,
+    required String startDate,
+    required String effectiveDate,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post('/v2/membership-changes/$membershipId/dates', body: {
+      'startDate': startDate,
+      'effectiveDate': effectiveDate,
+      'reason': reason,
+    });
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw AppException(_extractMessage(response.body, 'Failed to submit membership date change'));
+  }
+
 
   String _extractMessage(String body, String fallback) {
     try {

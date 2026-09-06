@@ -21,6 +21,10 @@ class MembershipChange {
   final String newDependentType;
   final int waitingPeriodMonths;
   final String? effectiveDate;
+  final String? oldStartDate;
+  final String? newStartDate;
+  final String? oldMembershipEffectiveDate;
+  final String? newMembershipEffectiveDate;
   final String reason;
   final String approvalRequestId;
   final String? requestedAt;
@@ -53,6 +57,10 @@ class MembershipChange {
     required this.newDependentType,
     required this.waitingPeriodMonths,
     required this.effectiveDate,
+    required this.oldStartDate,
+    required this.newStartDate,
+    required this.oldMembershipEffectiveDate,
+    required this.newMembershipEffectiveDate,
     required this.reason,
     required this.approvalRequestId,
     required this.requestedAt,
@@ -86,6 +94,10 @@ class MembershipChange {
     newDependentType: '${json['newDependentType'] ?? ''}',
     waitingPeriodMonths: _asInt(json['waitingPeriodMonths']),
     effectiveDate: _date(json['effectiveDate']),
+    oldStartDate: _date(json['oldStartDate']),
+    newStartDate: _date(json['newStartDate']),
+    oldMembershipEffectiveDate: _date(json['oldMembershipEffectiveDate']),
+    newMembershipEffectiveDate: _date(json['newMembershipEffectiveDate']),
     reason: '${json['reason'] ?? ''}',
     approvalRequestId: '${json['approvalRequestId'] ?? ''}',
     requestedAt: _date(json['requestedAt']),
@@ -111,6 +123,7 @@ class MembershipChange {
       case 'REMOVE_DEPENDENT': return 'Remove Dependent';
       case 'REPLACE_DEPENDENT': return 'Replace Dependent';
       case 'MERGE': return 'Membership Merge';
+      case 'DATE_CHANGE': return 'Membership Date Change';
       default: return changeType.replaceAll('_', ' ');
     }
   }
@@ -123,6 +136,7 @@ class MembershipChange {
       case 'REMOVE_DEPENDENT': return oldDependentName;
       case 'REPLACE_DEPENDENT': return '$oldDependentName → $newDependentName';
       case 'MERGE': return '$sourceMembershipId → $membershipId';
+      case 'DATE_CHANGE': return 'Start ${oldStartDate ?? '-'} → ${newStartDate ?? '-'}; effective ${oldMembershipEffectiveDate ?? '-'} → ${newMembershipEffectiveDate ?? '-'}';
       default: return '';
     }
   }

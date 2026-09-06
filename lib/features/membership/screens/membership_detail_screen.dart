@@ -12,6 +12,7 @@ import '../models/membership_plan.dart' hide DependentType;
 import '../models/membership_claim.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
+import '../services/receipt_cancellation_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../../settings/services/pos_printing_service.dart';
@@ -475,10 +476,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       if (!mounted) return;
       final checked = result['premiumsChecked'] ?? 0;
       final corrected = result['premiumsCorrected'] ?? 0;
+      final removed = result['premiumsRemoved'] ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Premium recalculation completed. $checked premiums checked and $corrected corrected.',
+            'Premium recalculation completed. $checked premiums checked, $corrected corrected and $removed invalid pre-start premiums removed.',
           ),
         ),
       );
@@ -849,6 +851,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildInfoRow(Icons.account_balance_wallet_outlined, 'Membership Premium', 'R ${detail.premium.toStringAsFixed(2)}'),
           const Divider(height: 24),
           _buildInfoRow(Icons.event_available, 'Start Date', detail.startDate ?? 'N/A'),
+          _buildInfoRow(Icons.verified_outlined, 'Effective Date', detail.effectiveDate ?? 'N/A'),
           const Divider(height: 24),
           _buildInfoRow(Icons.event_busy, 'End Date', displayEndDate),
           const Divider(height: 24),
@@ -1020,7 +1023,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       final requesterId = prefs.getString('userId') ?? '';
-      await MembershipService().requestPremiumPaymentCancellation(
+      await ReceiptCancellationService().requestCancellation(
         paymentBatchId: selectedReceipt.paymentBatchId,
         requesterId: requesterId,
         reason: reason,
