@@ -407,13 +407,13 @@ class MembershipService {
     }
   }
 
-  Future<void> requestPremiumPaymentDeletion({
+  Future<void> requestPremiumPaymentCancellation({
     required String paymentBatchId,
     required String requesterId,
     required String reason,
   }) async {
     final response = await ApiClient().post(
-      '/v2/payment-batches/$paymentBatchId/deletion-request',
+      '/v2/payment-batches/$paymentBatchId/cancellation-request',
       body: {
         'requesterId': requesterId,
         'reason': reason,
@@ -423,7 +423,7 @@ class MembershipService {
       throw AppException.fromHttp(
         statusCode: response.statusCode,
         responseBody: response.body,
-        fallback: 'The premium payment deletion request could not be submitted.',
+        fallback: 'The premium payment cancellation request could not be submitted.',
       );
     }
   }
