@@ -216,6 +216,72 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
     } finally { reason.dispose(); }
   }
 
+  Future<void> _requestDateChange() async {
+    DateTime startDate = DateTime.tryParse(widget.membership.startDate ?? '') ?? DateTime.now();
+    DateTime effectiveDate = DateTime.tryParse(widget.membership.effectiveDate ?? '') ?? startDate;
+    final reason = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Change Membership Dates'),
+        content: SizedBox(width: 480, child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Membership start date'),
+            subtitle: Text(startDate.toIso8601String().split('T').first),
+            trailing: const Icon(Icons.calendar_month_outlined),
+            onTap: () async {
+              final value = await showDatePicker(context: context, initialDate: startDate,
+                  firstDate: DateTime(1900), lastDate: DateTime(2200));
+              if (value != null) setDialogState(() => startDate = value);
+            },
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Membership effective date'),
+            subtitle: Text(effectiveDate.toIso8601String().split('T').first),
+            trailing: const Icon(Icons.event_available_outlined),
+            onTap: () async {
+              final value = await showDatePicker(context: context, initialDate: effectiveDate,
+                  firstDate: DateTime(1900), lastDate: DateTime(2200));
+              if (value != null) setDialogState(() => effectiveDate = value);
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: reason, maxLines: 3, onChanged: (_) => setDialogState(() {}), decoration: const InputDecoration(
+            labelText: 'Reason *', border: OutlineInputBorder())),
+          const SizedBox(height: 8),
+          const Text('Changes take effect only after approval. Outstanding premiums before the new start month will be removed.'),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          FilledButton(
+            onPressed: effectiveDate.isBefore(startDate) || reason.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(context, true),
+            child: const Text('SUBMIT FOR APPROVAL'),
+          ),
+        ],
+      )),
+    );
+    if (confirmed != true) { reason.dispose(); return; }
+    try {
+      await MembershipService().requestMembershipDateChange(
+        membershipId: widget.membership.id,
+        startDate: startDate.toIso8601String().split('T').first,
+        effectiveDate: effectiveDate.toIso8601String().split('T').first,
+        reason: reason.text.trim(),
+      );
+      await _load();
+      widget.onChanged();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Membership date change submitted for approval.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage('$e')), backgroundColor: Colors.red));
+    } finally { reason.dispose(); }
+  }
+
   Future<void> _requestPlanChange() async {
     MembershipPlan? selected;
     final reason = TextEditingController();
@@ -339,10 +405,43 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         return Icons.find_replace_outlined;
       case 'MERGE':
         return Icons.merge_outlined;
+      case 'DATE_CHANGE':
+        return Icons.date_range_outlined;
       default:
         return Icons.edit_note_outlined;
     }
   }
+
+  Future<void> _showHistory({required bool audit}) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(audit ? 'Membership Audit Trail' : 'Membership Change History'),
+      content: SizedBox(
+        width: 720,
+        child: audit
+            ? (_audit.isEmpty
+                ? const ListTile(leading: Icon(Icons.history), title: Text('No audit entries recorded'))
+                : ListView(shrinkWrap: true, children: _audit.map((item) => ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.fact_check_outlined, size: 18),
+                    title: Text(item.eventType.replaceAll('_', ' ')),
+                    subtitle: Text('${item.details}\n${item.performedAt ?? ''} • ${item.performedBy}'),
+                  )).toList()))
+            : (_changes.isEmpty
+                ? const ListTile(leading: Icon(Icons.history), title: Text('No membership changes recorded'))
+                : ListView(shrinkWrap: true, children: _changes.map((item) => Card(
+                    elevation: 0,
+                    child: ListTile(
+                      leading: Icon(_changeIcon(item.changeType)),
+                      title: Text(item.displayTitle),
+                      subtitle: Text('${item.displayChange}\n${item.status.replaceAll('_', ' ')}${item.effectiveDate == null ? '' : ' • Effective ${item.effectiveDate}'}\n${item.reason}'),
+                      trailing: item.approvalRequestId.isEmpty ? null : const Icon(Icons.approval_outlined),
+                    ),
+                  )).toList())),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE'))],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -352,6 +451,7 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         Wrap(spacing: 12, runSpacing: 12, children: [
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestTransfer, icon: const Icon(Icons.swap_horiz), label: const Text('TRANSFER MEMBERSHIP')),
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestPlanChange, icon: const Icon(Icons.upgrade), label: const Text('CHANGE PLAN')),
+          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestDateChange, icon: const Icon(Icons.date_range_outlined), label: const Text('CHANGE DATES')),
           OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestMerge, icon: const Icon(Icons.merge_outlined), label: const Text('MERGE MEMBERSHIP')),
         ]),
       if (!widget.readOnly && _hasOpenChange) ...[
@@ -359,31 +459,10 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         const Text('A pending or scheduled membership change must be completed before another change can be requested.', style: TextStyle(color: Colors.orange)),
       ],
       const SizedBox(height: 16),
-      if (_changes.isEmpty)
-        const ListTile(leading: Icon(Icons.history), title: Text('No membership changes recorded'))
-      else
-        ..._changes.map((item) => Card(
-          elevation: 0,
-          child: ListTile(
-            leading: Icon(_changeIcon(item.changeType)),
-            title: Text(item.displayTitle),
-            subtitle: Text(
-              '${item.displayChange}\n'
-              '${item.status.replaceAll('_', ' ')}${item.effectiveDate == null ? '' : ' • Effective ${item.effectiveDate}'}\n'
-              '${item.reason}',
-            ),
-            trailing: item.approvalRequestId.isEmpty ? null : const Icon(Icons.approval_outlined),
-          ),
-        )),
-      if (_audit.isNotEmpty) ExpansionTile(
-        title: const Text('Audit Trail'),
-        children: _audit.map((item) => ListTile(
-          dense: true,
-          leading: const Icon(Icons.history, size: 18),
-          title: Text(item.eventType.replaceAll('_', ' ')),
-          subtitle: Text('${item.details}\n${item.performedAt ?? ''} • ${item.performedBy}'),
-        )).toList(),
-      ),
+      Wrap(spacing: 12, runSpacing: 12, children: [
+        OutlinedButton.icon(onPressed: () => _showHistory(audit: false), icon: const Icon(Icons.history), label: Text('CHANGE HISTORY (${_changes.length})')),
+        OutlinedButton.icon(onPressed: () => _showHistory(audit: true), icon: const Icon(Icons.fact_check_outlined), label: Text('AUDIT TRAIL (${_audit.length})')),
+      ]),
     ]);
   }
 }

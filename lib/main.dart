@@ -6,12 +6,16 @@ import 'core/routing/app_router.dart';
 import 'core/routing/route_guards.dart';
 import 'core/theme/app_theme.dart';
 import 'features/inbox/widgets/inbox_notification_host.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/utils/app_date_utils.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final preferences = await SharedPreferences.getInstance();
+  AppDateUtils.configureTimeZone(preferences.getString('timeZone'));
   runApp(const MyApp());
 }
 

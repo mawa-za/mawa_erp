@@ -8,6 +8,7 @@ import '../../core/api_client.dart';
 import '../../core/routing/app_routes.dart';
 import '../../core/services/session_service.dart';
 import '../../core/services/access_profile_service.dart';
+import '../../core/utils/app_date_utils.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class AdminHandoffScreen extends StatefulWidget {
@@ -106,6 +107,8 @@ class _AdminHandoffScreenState extends State<AdminHandoffScreen> {
       await prefs.setString('selectedRole', roleId);
       await prefs.setString('selectedRoleDescription', roleDescription);
       await prefs.setBool('adminHandoffSession', true);
+      await prefs.setString('timeZone', 'Africa/Harare');
+      AppDateUtils.configureTimeZone('Africa/Harare');
       await AccessProfileService().persistAuthentication(tokenContainer);
       try {
         await AccessProfileService().getProfile();

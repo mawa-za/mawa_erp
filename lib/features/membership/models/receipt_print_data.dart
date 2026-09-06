@@ -26,7 +26,7 @@ class ReceiptPrintData {
     final parsed = DateTime.tryParse(receiptDate);
     return parsed == null
         ? receiptDate
-        : DateFormat('yyyy-MM-dd HH:mm').format(parsed.toLocal());
+        : AppDateUtils.displayDateTimePattern(parsed, 'yyyy-MM-dd HH:mm');
   }
 
   String get periodDescription {

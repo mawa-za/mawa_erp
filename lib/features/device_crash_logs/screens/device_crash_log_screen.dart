@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../models/device_crash_log.dart';
@@ -50,7 +51,7 @@ class _DeviceCrashLogScreenState extends State<DeviceCrashLogScreen> {
 
   String _date(DateTime? value) => value == null
       ? '—'
-      : DateFormat('dd MMM yyyy HH:mm:ss').format(value.toLocal());
+      : AppDateUtils.displayDateTimePattern(value, 'dd MMM yyyy HH:mm:ss');
 
   String _pretty(dynamic value) {
     if (value == null) return '—';

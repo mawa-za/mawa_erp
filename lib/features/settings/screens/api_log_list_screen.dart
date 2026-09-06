@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/models/api_endpoint_log.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../services/log_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -204,14 +205,11 @@ class _ApiLogListScreenState extends State<ApiLogListScreen> {
 
   Widget _buildLogCard(ApiEndpointLog log) {
     final statusColor = _getStatusColor(log.statusCode);
-    final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
-    
-    // Parse createdAt if it's a string, or format if it's already a date-like string
-    String formattedDate = log.createdAt;
-    try {
-      final dt = DateTime.parse(log.createdAt);
-      formattedDate = dateFormat.format(dt);
-    } catch (_) {}
+    final formattedDate = AppDateUtils.displayDateTimePattern(
+      log.createdAt,
+      'yyyy-MM-dd HH:mm:ss',
+      fallback: log.createdAt,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:printing/printing.dart';
 import '../../../core/api_client.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../models/invoice_detail.dart';
 import '../../partners/models/partner.dart';
 import '../services/invoice_service.dart';
@@ -1601,7 +1602,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${DateFormat('dd MMM yyyy, HH:mm').format(payment.paymentDate)}${payment.referenceNo.isEmpty ? '' : '  •  ${payment.referenceNo}'}',
+                  '${AppDateUtils.displayDateTimePattern(payment.paymentDate, 'dd MMM yyyy, HH:mm')}${payment.referenceNo.isEmpty ? '' : '  •  ${payment.referenceNo}'}',
                   style: TextStyle(
                     fontSize: 11,
                     color: colorScheme.onSurfaceVariant,

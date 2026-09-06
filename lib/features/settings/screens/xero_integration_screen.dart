@@ -261,10 +261,10 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Xero invoice integration', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        Text('Xero accounting integration', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         Text(
-                          _statusMessage ?? 'Save the Xero application credentials, authorise access, then select the organisation to use for invoice synchronisation.',
+                          _statusMessage ?? 'Save the Xero application credentials, authorise access, then select the organisation used to synchronise customers, products and invoices.',
                           style: theme.textTheme.bodyMedium,
                         ),
                       ],
@@ -348,7 +348,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       value: _invoiceIntegrationEnabled,
                       onChanged: (value) => setState(() => _invoiceIntegrationEnabled = value),
                       title: const Text('Enable invoice integration'),
-                      subtitle: const Text('Allow approved MAWA invoices to be synchronised to the selected Xero organisation.'),
+                      subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Existing master data is queued after activation.'),
                     ),
                     const SizedBox(height: 12),
                     Wrap(

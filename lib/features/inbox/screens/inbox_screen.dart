@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/theme/mawa_design.dart';
+import '../../../core/utils/app_date_utils.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/screens/approval_detail_screen.dart';
 import '../../approvals/services/approval_service.dart';
@@ -513,8 +514,8 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
 
   String _formatDate(DateTime? value) {
     if (value == null) return '';
-    final local = value.toLocal();
-    final now = DateTime.now();
+    final local = AppDateUtils.inSelectedTimeZone(value);
+    final now = AppDateUtils.nowInSelectedTimeZone();
     if (now.difference(local).inHours < 24 && now.day == local.day) {
       return DateFormat('HH:mm').format(local);
     }

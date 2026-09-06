@@ -18,6 +18,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
   late TextEditingController _descriptionController;
   late TextEditingController _premiumController;
   late TextEditingController _maxDependentsController;
+  late TextEditingController _waitingPeriodController;
   late TextEditingController _currencyController;
   late bool _active;
   bool _isSubmitting = false;
@@ -32,6 +33,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
     _descriptionController = TextEditingController(text: widget.plan?.description ?? '');
     _premiumController = TextEditingController(text: widget.plan != null ? (widget.plan!.premiumCents / 100.0).toString() : '');
     _maxDependentsController = TextEditingController(text: widget.plan?.maxDependents.toString() ?? '');
+    _waitingPeriodController = TextEditingController(text: widget.plan?.waitingPeriodMonths.toString() ?? '3');
     _currencyController = TextEditingController(text: widget.plan?.currency ?? 'ZAR');
     _active = widget.plan?.active ?? true;
   }
@@ -50,6 +52,7 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
         'premiumCents': (premiumDouble * 100).round(),
         'currency': _currencyController.text,
         'maxDependents': int.tryParse(_maxDependentsController.text) ?? 0,
+        'waitingPeriodMonths': int.tryParse(_waitingPeriodController.text) ?? 3,
         'active': _active,
       };
 
@@ -180,6 +183,21 @@ class _MembershipPlanCreateScreenState extends State<MembershipPlanCreateScreen>
                   icon: Icons.group_outlined,
                   keyboardType: TextInputType.number,
                   helperText: 'Base number of dependents allowed.',
+                ),
+                const SizedBox(height: 20),
+                _buildTextField(
+                  _waitingPeriodController,
+                  'Waiting Period (Months)',
+                  '3',
+                  icon: Icons.hourglass_bottom_rounded,
+                  keyboardType: TextInputType.number,
+                  helperText: 'Claim eligibility delay for new memberships and newly added dependents.',
+                  validator: (value) {
+                    final months = int.tryParse(value ?? '');
+                    return months == null || months < 0 || months > 120
+                        ? 'Enter a value from 0 to 120'
+                        : null;
+                  },
                 ),
                 const SizedBox(height: 12),
                 const Divider(),

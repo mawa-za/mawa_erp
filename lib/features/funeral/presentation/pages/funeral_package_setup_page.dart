@@ -98,21 +98,32 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
       final controller = TextEditingController(
         text: current.maxSelectableCovers.toString(),
       );
-      final value = await showDialog<int>(
+      var automaticCheckout = current.automaticMortuaryCheckoutEnabled;
+      final value = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
           title: const Text('Funeral Cover Selection Limit'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              labelText: 'Maximum covers per funeral',
-              helperText: 'Default is 3. Enter 0 for unlimited.',
-              border: OutlineInputBorder(),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Maximum covers per funeral',
+                helperText: 'Default is 3. Enter 0 for unlimited.',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Automatic mortuary checkout'),
+              subtitle: const Text('Check out deceased records after the funeral service date has passed.'),
+              value: automaticCheckout,
+              onChanged: (value) => setDialogState(() => automaticCheckout = value),
+            ),
+          ]),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -122,27 +133,29 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
               onPressed: () {
                 final parsed = int.tryParse(controller.text.trim());
                 if (parsed == null || parsed < 0 || parsed > 99) return;
-                Navigator.pop(context, parsed);
+                Navigator.pop(context, {'maximum': parsed, 'automaticCheckout': automaticCheckout});
               },
               child: const Text('Save'),
             ),
           ],
-        ),
+        )),
       );
       controller.dispose();
       if (value == null) return;
+      final maximum = value['maximum'] as int;
       await _api.updateServiceConfiguration(
         FuneralServiceConfigurationDto(
-          maxSelectableCovers: value,
-          coverSelectionLimitEnabled: value > 0,
+          maxSelectableCovers: maximum,
+          coverSelectionLimitEnabled: maximum > 0,
+          automaticMortuaryCheckoutEnabled: value['automaticCheckout'] == true,
         ),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(value == 0
+          content: Text(maximum == 0
               ? 'Funeral cover selection limit disabled.'
-              : 'Maximum funeral covers set to $value.'),
+              : 'Maximum funeral covers set to $maximum.'),
         ),
       );
     } catch (e) {

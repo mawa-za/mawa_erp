@@ -43,6 +43,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
   final _identityController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _alternativePhoneController = TextEditingController();
   final _bankAccountHolderController = TextEditingController();
   final _bankNameController = TextEditingController();
   final _bankAccountNumberController = TextEditingController();
@@ -176,6 +177,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
       'name4': _name4Controller.text.trim(),
       'email': _emailController.text.trim(),
       'contactNumber': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      'alternativeContactNumber': _alternativePhoneController.text.trim().isEmpty ? null : _alternativePhoneController.text.trim(),
       'title': _selectedType == 'INDIVIDUAL' ? _selectedTitle : null,
       'birthDate': _selectedType == 'INDIVIDUAL' ? _birthDate?.toIso8601String() : null,
       'maritalStatus': _selectedType == 'INDIVIDUAL' ? _selectedMaritalStatus : null,
@@ -585,6 +587,21 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
               Icons.badge_outlined,
               enabled: !isEditingMember,
             ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              _alternativePhoneController,
+              'Alternative Contact Number (Optional)',
+              Icons.phone_in_talk_outlined,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+              validator: (value) {
+                final contact = value?.trim() ?? '';
+                if (contact.isEmpty) return null;
+                return RegExp(r'^\d{10}$').hasMatch(contact)
+                    ? null
+                    : 'Alternative Contact Number must be 10 numeric digits';
+              },
+            ),
           ],
         ),
       ),
@@ -915,6 +932,7 @@ class _PartnerCreateScreenState extends State<PartnerCreateScreen> {
     _identityController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _alternativePhoneController.dispose();
     _bankAccountHolderController.dispose();
     _bankNameController.dispose();
     _bankAccountNumberController.dispose();

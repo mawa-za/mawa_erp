@@ -118,7 +118,7 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
       FeatureGroupRegistry.configurationGroupForWorkcenter(
             workcenter.id,
             workcenter.description,
-          )?.title ?? 'General & Navigation',
+          )?.title ?? 'Other Workcentres',
       workcenter.routeKey,
       workcenter.routePath ?? '',
     ].join(' ').toLowerCase().contains(query)).toList();
@@ -133,9 +133,16 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
         workcenter.id,
         workcenter.description,
       );
-      grouped.putIfAbsent(group?.title ?? 'General & Navigation', () => []).add(workcenter);
+      grouped.putIfAbsent(group?.title ?? 'Other Workcentres', () => []).add(workcenter);
     }
-    final groupNames = grouped.keys.toList()..sort();
+    final groupNames = grouped.keys.toList()
+      ..sort((left, right) {
+        if (left == 'Other Workcentres') return 1;
+        if (right == 'Other Workcentres') return -1;
+        final leftOrder = FeatureGroupRegistry.configurationOrder(left);
+        final rightOrder = FeatureGroupRegistry.configurationOrder(right);
+        return leftOrder.compareTo(rightOrder);
+      });
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(

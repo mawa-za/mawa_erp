@@ -30,7 +30,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
   Map<String, String> _salesAreaLabels = const {};
   bool _loading = true;
   String? _error;
-  String _status = 'ALL';
+  String _status = 'ARRANGEMENT_CREATED';
 
   @override
   void initState() {
@@ -66,7 +66,12 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
           for (final option in salesAreas) option.description.toUpperCase(): option.description,
         };
       }
-      requests.sort((a, b) => b.funeralDate.compareTo(a.funeralDate));
+      requests.sort((a, b) {
+        final byMembership = (b.membershipNo ?? '').compareTo(a.membershipNo ?? '');
+        return byMembership != 0
+            ? byMembership
+            : (b.serviceRequestNo ?? '').compareTo(a.serviceRequestNo ?? '');
+      });
       if (mounted) setState(() => _requests = requests);
     } catch (e) {
       if (mounted) setState(() => _error = friendlyErrorMessage(e));

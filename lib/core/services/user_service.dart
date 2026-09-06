@@ -84,6 +84,7 @@ class UserService {
     DateTime? expiresAt,
     String protectedReason = '',
     bool mfaRequired = false,
+    String timeZone = 'Africa/Harare',
   }) async {
     try {
       final response = await ApiClient().post(
@@ -105,6 +106,7 @@ class UserService {
           'expiresAt': expiresAt?.toIso8601String(),
           'protectedReason': protectedReason,
           'mfaRequired': mfaRequired,
+          'timeZone': timeZone,
         },
       );
       if (response.statusCode != 200 && response.statusCode != 201) {

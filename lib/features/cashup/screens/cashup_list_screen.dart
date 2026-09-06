@@ -38,7 +38,7 @@ class _CashupListScreenState extends State<CashupListScreen> {
   final List<Cashup> _cashups = [];
   Timer? _searchDebounce;
 
-  String _selectedStatus = 'ALL';
+  String _selectedStatus = 'OPEN';
   int _page = 0;
   bool _isLoading = false;
   bool _isLoadingMore = false;

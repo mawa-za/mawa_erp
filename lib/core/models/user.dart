@@ -6,6 +6,7 @@ class User {
   final String? displayName;
   final String? email;
   final String? cellphone;
+  final String timeZone;
   final String type;
   final String status;
   final Partner? partner;
@@ -30,6 +31,7 @@ class User {
     this.displayName,
     this.email,
     this.cellphone,
+    this.timeZone = 'Africa/Harare',
     required this.type,
     required this.status,
     this.partner,
@@ -55,6 +57,7 @@ class User {
         displayName: json['displayName']?.toString(),
         email: json['email']?.toString(),
         cellphone: json['cellphone']?.toString(),
+        timeZone: (json['timeZone'] ?? 'Africa/Harare').toString(),
         type: (json['type'] ?? json['userType'] ?? '').toString(),
         status: (json['status'] ?? '').toString(),
         partner: json['partner'] != null && json['partner'] is Map
@@ -82,6 +85,7 @@ class User {
   Map<String, dynamic> toEditJson() => {
         'cellphone': cellphone,
         'email': email,
+        'timeZone': timeZone,
         'userType': type,
         'status': status,
         'statusReason': statusReason,

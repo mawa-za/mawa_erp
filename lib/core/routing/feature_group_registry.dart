@@ -114,31 +114,26 @@ class FeatureGroupRegistry {
       aliases: ['legal-management', 'legal-cases'],
     ),
     FeatureGroupDefinition(
-      id: 'clients-relationships',
-      title: 'Clients & Relationships',
-      description:
-          'Maintain clients, contacts, organisations and professional relationships.',
-      routePath: '/feature-groups/clients-relationships',
-      sectionCode: 'YOUR_BUSINESS',
-      iconKey: 'clients',
-      displayOrder: 50,
-      childWorkcenterIds: ['client', 'clients', 'business-partner', 'partner'],
-      aliases: ['client-management'],
-    ),
-    FeatureGroupDefinition(
       id: 'sales-customers',
       title: 'Sales & Customers',
       description:
-          'Manage customers, quotations and sales orders from enquiry through fulfilment.',
+          'Manage customers, clients, business partners, quotations and sales orders from enquiry through fulfilment.',
       routePath: '/feature-groups/sales-customers',
       sectionCode: 'YOUR_BUSINESS',
       iconKey: 'sales',
       displayOrder: 60,
       childWorkcenterIds: [
-        'customer', 'customers', 'quotation', 'quotations',
+        'customer', 'customers', 'client', 'clients',
+        'business-partner', 'business-partners', 'partner', 'partners',
+        'quotation', 'quotations',
         'sales-order', 'sales-orders', 'layby', 'laybys', 'prospect', 'prospects',
       ],
-      aliases: ['sales-management', 'customer-management'],
+      aliases: [
+        'sales-management',
+        'customer-management',
+        'client-management',
+        'partner-management',
+      ],
     ),
     FeatureGroupDefinition(
       id: 'service-management',
@@ -222,7 +217,7 @@ class FeatureGroupRegistry {
         'asset-register', 'asset-management',
         'payroll-batch', 'payroll-batches',
       ],
-      aliases: ['partner-management', 'human-resources', 'hr'],
+      aliases: ['human-resources', 'hr'],
     ),
     FeatureGroupDefinition(
       id: 'approvals',
@@ -333,11 +328,21 @@ class FeatureGroupRegistry {
     final normalized = normalize(id);
     for (final group in groups) {
       if (normalize(group.id) == normalized ||
+          normalize(group.title) == normalized ||
           group.aliases.map(normalize).contains(normalized)) {
         return group;
       }
     }
     return null;
+  }
+
+  /// Stable business order used by both role maintenance and navigation.
+  /// Group titles must never be alphabetically re-sorted because that loses
+  /// the deliberate section and process ordering defined by this catalogue.
+  static int configurationOrder(String groupId) {
+    final canonical = normalize(canonicalGroupId(groupId));
+    final index = groups.indexWhere((group) => normalize(group.id) == canonical);
+    return index < 0 ? groups.length : index;
   }
 
   static String canonicalGroupId(String id) => groupById(id)?.id ?? id;
@@ -390,7 +395,10 @@ class FeatureGroupRegistry {
         .contains(id)) {
       return 'finance-payments';
     }
-    if ({'BUSINESS_PARTNER', 'BUSINESS_PARTNERS'}.contains(id)) {
+    if ({
+      'CUSTOMER', 'CUSTOMERS', 'CLIENT', 'CLIENTS',
+      'BUSINESS_PARTNER', 'BUSINESS_PARTNERS', 'PARTNER', 'PARTNERS',
+    }.contains(id)) {
       return 'sales-customers';
     }
     if ({
@@ -459,7 +467,7 @@ class FeatureGroupRegistry {
     if (id.contains('CUSTOMER') || id.contains('PROSPECT') || id.contains('QUOTATION') ||
         id.contains('SALES') || id.contains('LAYBY') || id.contains('COMPLAINT') ||
         id.contains('INTERACTION')) return groupById('sales-customers');
-    if (id.contains('PARTNER') || id.contains('CLIENT')) return groupById('clients-relationships');
+    if (id.contains('PARTNER') || id.contains('CLIENT')) return groupById('sales-customers');
     if (id.contains('CALENDAR') || id.contains('APPOINTMENT') || id.contains('FORM') ||
         id.contains('ENGAGEMENT') || id.contains('TIME_TRACKER')) return groupById('work-management');
     if (id.contains('CONFIG') || id.contains('ADMIN') || id.contains('API_LOG') ||

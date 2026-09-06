@@ -12,6 +12,7 @@ import '../models/membership_plan.dart' hide DependentType;
 import '../models/membership_claim.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
+import '../services/receipt_cancellation_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../../settings/services/pos_printing_service.dart';
@@ -58,6 +59,23 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
   bool get _isLapsedMembership => _normalizedMembershipStatus == 'LAPSED';
   bool get _isMergedMembership => _normalizedMembershipStatus == 'MERGED';
+  int get _dependentsCountedTowardCapacity => _dependents.where((dependent) {
+        if (dependent.membershipStatus == 'ACTIVE') return true;
+        if (dependent.membershipStatus != 'DECEASED') return false;
+        return _claims.any((claim) {
+          final finalised = const {
+            'APPROVED', 'PAYMENT_PENDING', 'PAYMENT_PROCESSING',
+            'PAYMENT_FAILED', 'PAID'
+          }.contains(claim.status.trim().toUpperCase());
+          return finalised && claim.deceasedPartnerId == dependent.dependentPartnerId;
+        });
+      }).length;
+  int get _remainingDependentCapacity =>
+      (_plan?.maxDependents ?? 0) <= 0
+          ? -1
+          : (_plan!.maxDependents - _dependentsCountedTowardCapacity)
+              .clamp(0, _plan!.maxDependents)
+              .toInt();
 
   @override
   void initState() {
@@ -276,11 +294,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       if (!mounted) return;
       final current = dependent == null ? _member : _dependentPartners[dependent.dependentPartnerId];
       final relink = existing != null && existing.id != current?.id;
-      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      final override = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
         title: Text(relink ? 'Existing partner found' : 'Assign SA-ID'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(relink
-            ? 'This SA-ID belongs to an existing partner. The membership relationship will be changed to that partner after approval; no partner records will be merged.'
+            ? 'This SA-ID belongs to an existing partner. You can link this membership relationship to that partner, or override the assignment and move the SA-ID to the current partner. Both actions require approval.'
             : 'This SA-ID is not assigned to another partner and will be added to the current partner after approval.'),
           const SizedBox(height: 16),
           if (relink && existing != null) ...[
@@ -294,13 +312,14 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             Text("Memberships: ${existingMemberships.isEmpty ? 'None found' : existingMemberships.join(', ')}"),
           ],
         ]),
-        actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('SUBMIT FOR APPROVAL'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          if (relink) OutlinedButton(onPressed: () => Navigator.pop(context, false), child: const Text('LINK EXISTING PARTNER')),
+          FilledButton(onPressed: () => Navigator.pop(context, relink), child: Text(relink ? 'OVERRIDE SA-ID' : 'SUBMIT FOR APPROVAL'))],
       ));
-      if (confirmed != true) return;
+      if (override == null) return;
       await MembershipService().requestPartnerIdentityCorrection(widget.membershipId,
         subjectType: dependent == null ? 'MEMBER' : 'DEPENDENT', dependentId: dependent?.id,
-        identityNumber: input['id']!, reason: input['reason']!);
+        identityNumber: input['id']!, reason: input['reason']!, overrideExistingOwner: override);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Identity correction submitted for approval.')));
     } catch (error) {
@@ -332,6 +351,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ? _buildErrorWidget(colorScheme)
               : _buildContent(colorScheme),
       floatingActionButton: _detail != null && !_isLapsedMembership && !_isMergedMembership
+              && _remainingDependentCapacity != 0
           ? FloatingActionButton.extended(
               onPressed: () async {
                 final result = await showDialog<bool>(
@@ -456,10 +476,11 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       if (!mounted) return;
       final checked = result['premiumsChecked'] ?? 0;
       final corrected = result['premiumsCorrected'] ?? 0;
+      final removed = result['premiumsRemoved'] ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Premium recalculation completed. $checked premiums checked and $corrected corrected.',
+            'Premium recalculation completed. $checked premiums checked, $corrected corrected and $removed invalid pre-start premiums removed.',
           ),
         ),
       );
@@ -830,6 +851,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildInfoRow(Icons.account_balance_wallet_outlined, 'Membership Premium', 'R ${detail.premium.toStringAsFixed(2)}'),
           const Divider(height: 24),
           _buildInfoRow(Icons.event_available, 'Start Date', detail.startDate ?? 'N/A'),
+          _buildInfoRow(Icons.verified_outlined, 'Effective Date', detail.effectiveDate ?? 'N/A'),
           const Divider(height: 24),
           _buildInfoRow(Icons.event_busy, 'End Date', displayEndDate),
           const Divider(height: 24),
@@ -908,7 +930,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }
   }
 
-  Future<void> _requestPremiumPaymentDeletion(Premium premium) async {
+  Future<void> _requestPremiumPaymentCancellation(Premium premium) async {
     try {
       final receipts = await MembershipService().getPremiumReceipts(
         widget.membershipId,
@@ -929,7 +951,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         selectedReceipt = await showDialog<ReceiptResponse>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Select payment to delete'),
+            title: const Text('Select receipt to cancel'),
             content: SizedBox(
               width: 480,
               child: ListView.separated(
@@ -962,15 +984,15 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       final reason = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Request premium payment deletion'),
+          title: const Text('Request receipt cancellation'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _allowDeleteWithoutCashupValidation
-                    ? 'The full payment batch will be reversed only after approval. Cash-up OPEN-status validation is disabled by configuration.'
-                    : 'The full payment batch will be reversed only after approval. This is allowed only while its linked cash-up remains OPEN.',
+                    ? 'The receipt will be cancelled only after approval and will remain visible in its cash-up. Cash-up OPEN-status validation is disabled by configuration.'
+                    : 'The receipt will be cancelled only after approval and will remain visible in its cash-up. This is allowed only while its linked cash-up remains OPEN.',
               ),
               const SizedBox(height: 16),
               TextField(
@@ -978,7 +1000,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                 autofocus: true,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Reason for deletion *',
+                  labelText: 'Reason for cancellation *',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1001,21 +1023,21 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       final requesterId = prefs.getString('userId') ?? '';
-      await MembershipService().requestPremiumPaymentDeletion(
+      await ReceiptCancellationService().requestCancellation(
         paymentBatchId: selectedReceipt.paymentBatchId,
         requesterId: requesterId,
         reason: reason,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Premium payment deletion submitted for approval.')),
+        const SnackBar(content: Text('Receipt cancellation submitted for approval.')),
       );
       await _fetchData();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(friendlyErrorMessage('Unable to request premium payment deletion: $error')),
+          content: Text(friendlyErrorMessage('Unable to request receipt cancellation: $error')),
           backgroundColor: Colors.red,
         ),
       );
@@ -1677,7 +1699,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               ),
               if (!_isMergedMembership &&
                   premium.status.toUpperCase() != 'CANCELLED' &&
-                  premium.status.toUpperCase() != 'REVERSED') ...[
+                  !const {'REVERSED', 'CANCELLED'}.contains(premium.status.toUpperCase())) ...[
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -1714,9 +1736,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                           label: const Text('TRANSFER PAYMENT'),
                         ),
                       OutlinedButton.icon(
-                        onPressed: () => _requestPremiumPaymentDeletion(premium),
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('DELETE PAYMENT'),
+                        onPressed: () => _requestPremiumPaymentCancellation(premium),
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('CANCEL RECEIPT'),
                         style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                       ),
                     ],
@@ -1820,7 +1842,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     if (value == null || value.trim().isEmpty) return 'N/A';
     final parsed = DateTime.tryParse(value.replaceFirst(' ', 'T'));
     if (parsed == null) return value;
-    return DateFormat('dd MMM yyyy • HH:mm').format(parsed.toLocal());
+    return AppDateUtils.displayDateTimePattern(parsed, 'dd MMM yyyy • HH:mm');
   }
 
   Color _getPremiumStatusColor(String status) {
@@ -1830,6 +1852,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       case 'UNPAID': return Colors.red;
       case 'CANCELLED': return Colors.grey;
       case 'REVERSED': return Colors.purple;
+      case 'CANCELLED': return Colors.red;
       default: return Colors.blue;
     }
   }
@@ -1841,10 +1864,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildDependentsSection(ColorScheme colorScheme) {
-    if (_dependents.isEmpty) {
-      return _buildEmptyStateCard(Icons.people_outline, 'No dependents linked to this policy');
-    }
-
     final query = _dependentSearch.trim().toLowerCase();
     final visibleDependents = _dependents.where((dependent) {
       final partner = _dependentPartners[dependent.dependentPartnerId];
@@ -1858,10 +1877,29 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     }).toList();
     return Column(
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            _remainingDependentCapacity < 0
+                ? 'Dependent capacity: unlimited'
+                : 'Dependents that can still be added: $_remainingDependentCapacity of ${_plan?.maxDependents ?? 0}',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: _remainingDependentCapacity == 0 ? colorScheme.error : colorScheme.primary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         TextField(onChanged: (value) => setState(() => _dependentSearch = value),
           decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search dependents by name, ID number, partner number or relationship', border: OutlineInputBorder())),
         const SizedBox(height: 12),
-        if (visibleDependents.isEmpty) const Padding(padding: EdgeInsets.all(20), child: Text('No dependents match your search.')),
+        if (visibleDependents.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(_dependents.isEmpty
+                ? 'No dependents linked to this policy.'
+                : 'No dependents match your search.'),
+          ),
         ...visibleDependents.map((dependent) {
         final partner = _dependentPartners[dependent.dependentPartnerId];
         String displayName = partner?.fullName ?? dependent.fullName;

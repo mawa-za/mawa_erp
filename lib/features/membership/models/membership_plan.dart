@@ -6,6 +6,7 @@ class MembershipPlan {
   final int premiumCents;
   final String currency;
   final int maxDependents;
+  final int waitingPeriodMonths;
   final bool active;
   final String? createdAt;
   final String? oldId;
@@ -20,6 +21,7 @@ class MembershipPlan {
     required this.premiumCents,
     required this.currency,
     required this.maxDependents,
+    this.waitingPeriodMonths = 3,
     required this.active,
     this.createdAt,
     this.oldId,
@@ -59,6 +61,7 @@ class MembershipPlan {
       premiumCents: json['premiumCents'] is int ? json['premiumCents'] : (int.tryParse(json['premiumCents']?.toString() ?? '0') ?? 0),
       currency: (json['currency'] ?? 'ZAR').toString(),
       maxDependents: json['maxDependents'] is int ? json['maxDependents'] : (int.tryParse(json['maxDependents']?.toString() ?? '0') ?? 0),
+      waitingPeriodMonths: json['waitingPeriodMonths'] is int ? json['waitingPeriodMonths'] : (int.tryParse(json['waitingPeriodMonths']?.toString() ?? '3') ?? 3),
       active: json['active'] == true,
       createdAt: parseDateArray(json['createdAt']),
       oldId: json['oldId']?.toString(),
@@ -80,6 +83,7 @@ class MembershipPlan {
       'premiumCents': premiumCents,
       'currency': currency,
       'maxDependents': maxDependents,
+      'waitingPeriodMonths': waitingPeriodMonths,
       'active': active,
       if (createdAt != null) 'createdAt': createdAt,
       if (oldId != null) 'oldId': oldId,
@@ -96,6 +100,7 @@ class MembershipPlan {
     int? premiumCents,
     String? currency,
     int? maxDependents,
+    int? waitingPeriodMonths,
     bool? active,
     String? createdAt,
     String? oldId,
@@ -110,6 +115,7 @@ class MembershipPlan {
       premiumCents: premiumCents ?? this.premiumCents,
       currency: currency ?? this.currency,
       maxDependents: maxDependents ?? this.maxDependents,
+      waitingPeriodMonths: waitingPeriodMonths ?? this.waitingPeriodMonths,
       active: active ?? this.active,
       createdAt: createdAt ?? this.createdAt,
       oldId: oldId ?? this.oldId,

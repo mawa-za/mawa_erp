@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../models/device_sync_submission.dart';
@@ -41,7 +42,7 @@ class _DeviceSyncWorkcenterScreenState extends State<DeviceSyncWorkcenterScreen>
   }
 
   String _pretty(dynamic value) => const JsonEncoder.withIndent('  ').convert(value);
-  String _date(DateTime? value) => value == null ? '—' : DateFormat('dd MMM yyyy HH:mm').format(value.toLocal());
+  String _date(DateTime? value) => AppDateUtils.displayDateTimePattern(value, 'dd MMM yyyy HH:mm', fallback: '—');
 
   Color _statusColor(BuildContext context, String status) {
     switch (status) {

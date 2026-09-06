@@ -172,12 +172,14 @@ class MembershipService {
     String? dependentId,
     required String identityNumber,
     required String reason,
+    bool overrideExistingOwner = false,
   }) async {
     final response = await ApiClient().post('/v2/membership/$membershipId/identity-corrections', body: {
       'subjectType': subjectType,
       if (dependentId != null) 'dependentId': dependentId,
       'identityNumber': identityNumber,
       'reason': reason,
+      'overrideExistingOwner': overrideExistingOwner,
     });
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw AppException(_errorMessage(response.body, 'Failed to submit identity correction: ${response.statusCode}'));
@@ -405,13 +407,13 @@ class MembershipService {
     }
   }
 
-  Future<void> requestPremiumPaymentDeletion({
+  Future<void> requestPremiumPaymentCancellation({
     required String paymentBatchId,
     required String requesterId,
     required String reason,
   }) async {
     final response = await ApiClient().post(
-      '/v2/payment-batches/$paymentBatchId/deletion-request',
+      '/v2/payment-batches/$paymentBatchId/cancellation-request',
       body: {
         'requesterId': requesterId,
         'reason': reason,
@@ -421,7 +423,7 @@ class MembershipService {
       throw AppException.fromHttp(
         statusCode: response.statusCode,
         responseBody: response.body,
-        fallback: 'The premium payment deletion request could not be submitted.',
+        fallback: 'The premium payment cancellation request could not be submitted.',
       );
     }
   }
@@ -1379,6 +1381,23 @@ class MembershipService {
       return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
     throw AppException(_extractMessage(response.body, 'Failed to submit membership plan change'));
+  }
+
+  Future<MembershipChange> requestMembershipDateChange({
+    required String membershipId,
+    required String startDate,
+    required String effectiveDate,
+    required String reason,
+  }) async {
+    final response = await ApiClient().post('/v2/membership-changes/$membershipId/dates', body: {
+      'startDate': startDate,
+      'effectiveDate': effectiveDate,
+      'reason': reason,
+    });
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw AppException(_extractMessage(response.body, 'Failed to submit membership date change'));
   }
 
 
