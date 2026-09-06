@@ -7,6 +7,7 @@ import '../../../core/utils/app_date_utils.dart';
 import '../../../core/errors/app_error.dart';
 import '../models/device_sync_submission.dart';
 import '../services/device_sync_service.dart';
+import 'manual_sync_actions_screen.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
@@ -97,7 +98,7 @@ class _DeviceSyncWorkcenterScreenState extends State<DeviceSyncWorkcenterScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('MawaPay Device Sync'), actions: [IconButton(onPressed: _load, tooltip: 'Refresh', icon: const Icon(Icons.refresh))]),
+    appBar: AppBar(title: const Text('MawaPay Device Sync'), actions: [TextButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualSyncActionsScreen())), icon: const Icon(Icons.build), label: const Text('Manual corrections')), IconButton(onPressed: _load, tooltip: 'Refresh', icon: const Icon(Icons.refresh))]),
     body: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
       Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
         Expanded(child: TextField(controller: _search, onSubmitted: (_) => _load(), decoration: const InputDecoration(prefixIcon: Icon(Icons.search), labelText: 'Search submission, serial, device, user, endpoint or error', border: OutlineInputBorder()))),
