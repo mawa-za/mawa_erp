@@ -187,6 +187,15 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   void selectDeceased(MortuaryInventoryDto item) {
+    final deceasedChanged = selectedDeceased?.id != item.id;
+    if (deceasedChanged) {
+      _clearMembershipCoverSelection();
+      availableCovers = [];
+      deceasedIdentityNumber = '';
+      groupSocietyIdentityNumber = '';
+      groupSocietyDeceasedFirstNames = '';
+      groupSocietyDeceasedLastName = '';
+    }
     selectedDeceased = item;
     if (item.identityNumber != null && item.identityNumber!.isNotEmpty) {
       deceasedIdentityNumber = item.identityNumber!;
@@ -212,13 +221,39 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDeceasedIdentityNumber(String value) {
+    if (deceasedIdentityNumber != value) {
+      _clearMembershipCoverSelection();
+      availableCovers = [];
+    }
+    deceasedIdentityNumber = value;
+    if (groupSocietyClaims.isEmpty) {
+      groupSocietyIdentityNumber = value;
+    }
+    notifyListeners();
+  }
+
   Future<void> checkMembership() async {
     if (deceasedIdentityNumber.isEmpty) return;
     isLoading = true;
     errorMessage = null;
     notifyListeners();
     try {
-      availableCovers = await _api.checkMembership(deceasedIdentityNumber);
+      final covers = await _api.checkMembership(deceasedIdentityNumber);
+      availableCovers = covers;
+      final availableIds = covers
+          .map(_coverSelectionId)
+          .whereType<String>()
+          .toSet();
+      selectedCovers.removeWhere(
+        (cover) => !availableIds.contains(_coverSelectionId(cover)),
+      );
+      if (groceryCoverSelectionId != null &&
+          !selectedCovers.any(
+            (cover) => _coverSelectionId(cover) == groceryCoverSelectionId,
+          )) {
+        groceryCoverSelectionId = null;
+      }
       if (availableCovers.isEmpty) {
         errorMessage = 'No memberships found for this identity number.';
       }
@@ -581,6 +616,18 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       errorMessage = null;
     }
     notifyListeners();
+  }
+
+  void clearMembershipCoverSelection() {
+    if (claims.isNotEmpty) return;
+    _clearMembershipCoverSelection();
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  void _clearMembershipCoverSelection() {
+    selectedCovers.clear();
+    groceryCoverSelectionId = null;
   }
 
   int _coverAmountCents(FuneralMembershipCoverDto cover) {
