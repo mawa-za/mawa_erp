@@ -275,6 +275,17 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
     );
 
     if (saved != true) return;
+    if (role == 'DEBTOR' && requestType == 'GROUP_SOCIETY_SETTLEMENT' &&
+        (bankIntegration != 'FNB' || bankName?.toUpperCase() != 'FNB')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Group Society Settlement must use an FNB source account and FNB integration.'),
+          ),
+        );
+      }
+      return;
+    }
     try {
       final response = await _api.post(
         '/v2/payment-account-configuration',
