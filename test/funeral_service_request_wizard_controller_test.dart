@@ -78,6 +78,41 @@ void main() {
       expect(controller.selectedCoverTotalCents, 3500000);
       expect(controller.shortfallCents, 1000000);
     });
+
+    test('clears all selected funeral covers and the grocery selection', () {
+      controller.selectedCovers = [
+        _cover(
+          id: 'cover-1',
+          funeralAmountCents: 2000000,
+          combinationAmountCents: 1000000,
+        ),
+      ];
+      controller.groceryCoverSelectionId = 'cover-1';
+
+      controller.clearMembershipCoverSelection();
+
+      expect(controller.selectedCovers, isEmpty);
+      expect(controller.groceryCoverSelectionId, isNull);
+    });
+
+    test('clears selected covers when the deceased identity changes', () {
+      controller.deceasedIdentityNumber = '8001015009087';
+      controller.availableCovers = [
+        _cover(
+          id: 'cover-1',
+          funeralAmountCents: 2000000,
+          combinationAmountCents: 1000000,
+        ),
+      ];
+      controller.selectedCovers = List.of(controller.availableCovers);
+      controller.groceryCoverSelectionId = 'cover-1';
+
+      controller.updateDeceasedIdentityNumber('8101015009088');
+
+      expect(controller.availableCovers, isEmpty);
+      expect(controller.selectedCovers, isEmpty);
+      expect(controller.groceryCoverSelectionId, isNull);
+    });
   });
 }
 
