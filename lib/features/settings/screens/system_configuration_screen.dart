@@ -25,6 +25,7 @@ import 'claim_type_configuration_screen.dart';
 import 'company_info_screen.dart';
 import 'field_option_list_screen.dart';
 import 'funeral_claim_payment_configuration_screen.dart';
+import 'group_society_settlement_configuration_screen.dart';
 import 'layby_configuration_screen.dart';
 import 'manual_receipt_book_maintenance_screen.dart';
 import 'manual_receipt_cutover_settings_screen.dart';
@@ -287,6 +288,17 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           onTap: () => _open(
             context,
             const FuneralClaimPaymentConfigurationScreen(),
+          ),
+        ),
+        _ConfigurationItem(
+          title: 'Group Society Settlement',
+          description:
+              'Choose ledger-only settlement, an internal FNB account transfer, or payment to an external funeral provider.',
+          icon: Icons.account_balance_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(
+            context,
+            const GroupSocietySettlementConfigurationScreen(),
           ),
         ),
         _ConfigurationItem(
