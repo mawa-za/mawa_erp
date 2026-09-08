@@ -201,12 +201,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
             border: OutlineInputBorder(),
             helperText: 'Required for membership cover check',
           ),
-          onChanged: (val) {
-            _controller.deceasedIdentityNumber = val;
-            if (_controller.groupSocietyClaims.isEmpty) {
-              _controller.groupSocietyIdentityNumber = val;
-            }
-          },
+          onChanged: _controller.updateDeceasedIdentityNumber,
         ),
         const SizedBox(height: 16),
         InkWell(
@@ -741,6 +736,16 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ),
         if (_controller.selectedCovers.isNotEmpty) ...[
           const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _controller.claims.isEmpty
+                  ? _controller.clearMembershipCoverSelection
+                  : null,
+              icon: const Icon(Icons.clear_all),
+              label: const Text('Clear selected funeral cover'),
+            ),
+          ),
           SearchableDropdownFormField<String>(
             value: _controller.groceryCoverSelectionId,
             decoration: const InputDecoration(
