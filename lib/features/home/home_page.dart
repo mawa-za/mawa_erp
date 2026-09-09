@@ -38,6 +38,7 @@ import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
 import '../inbox/models/inbox.dart';
 import '../inbox/services/inbox_service.dart';
+import '../approvals/services/approval_service.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -145,8 +146,39 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       final response = await ApiClient().get('/v2/role/$roleId/workcenter');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        final assignedApprovalTypes = await ApprovalService().getAssignedTypes();
+        final workcenters = data
+            .map((json) => Workcenter.fromJson(json))
+            .where((item) => !_isCentralApprovalWorkcenter(item))
+            .toList();
+        for (var index = 0; index < assignedApprovalTypes.length; index++) {
+          final assignment = assignedApprovalTypes[index];
+          final label = _approvalTypeLabel(assignment.label);
+          final type = Uri.encodeQueryComponent(assignment.approvalType);
+          final title = Uri.encodeQueryComponent('$label Approvals');
+          workcenters.add(Workcenter(
+            id: 'approval-${assignment.approvalType.toLowerCase().replaceAll('_', '-')}',
+            description: '$label Approvals',
+            cardDescription: 'Review and action $label approval requests assigned to you.',
+            defaultFunction: 'search',
+            path: '/approvals?type=$type&title=$title',
+            position: index + 1,
+            routeKey: 'approval-${assignment.approvalType.toLowerCase()}',
+            routePath: '/approvals?type=$type&title=$title',
+            iconKey: 'approvals',
+            groupCode: 'approvals',
+            groupTitle: 'Approvals',
+            groupDescription: 'Review and action approval requests assigned to you.',
+            sectionCode: 'BUSINESS_SERVICES',
+            sectionTitle: 'Business Services',
+            sectionDisplayOrder: 20,
+            groupDisplayOrder: 45,
+            displayOrder: index + 1,
+            permissionCode: 'approval:${assignment.approvalType}',
+          ));
+        }
         setState(() {
-          _workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
+          _workcenters = workcenters;
           _workcenters.sort((a, b) => a.position.compareTo(b.position));
           _filteredWorkcenters = _workcenters;
           _isLoadingWorkcenters = false;
@@ -159,6 +191,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       setState(() => _isLoadingWorkcenters = false);
     }
   }
+
+  String _approvalTypeLabel(String value) => value
+      .trim()
+      .toLowerCase()
+      .split(RegExp(r'[_\s]+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
 
   Future<void> _fetchRecentModules() async {
     try {

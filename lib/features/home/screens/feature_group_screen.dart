@@ -16,6 +16,7 @@ import '../../../core/widgets/mawa_ui.dart';
 import '../models/workcenter.dart';
 import '../models/tenant_experience.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
+import '../../approvals/services/approval_service.dart';
 
 class FeatureGroupScreen extends StatefulWidget {
   final String groupId;
@@ -84,6 +85,36 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
           .whereType<Map>()
           .map((json) => Workcenter.fromJson(Map<String, dynamic>.from(json)))
           .toList();
+      if (normalizeExperienceKey(widget.groupId) == 'APPROVALS') {
+        final assigned = await ApprovalService().getAssignedTypes();
+        all.removeWhere(_isCentralApprovalWorkcenter);
+        for (var index = 0; index < assigned.length; index++) {
+          final item = assigned[index];
+          final label = _approvalTypeLabel(item.label);
+          final type = Uri.encodeQueryComponent(item.approvalType);
+          final title = Uri.encodeQueryComponent('$label Approvals');
+          all.add(Workcenter(
+            id: 'approval-${item.approvalType.toLowerCase().replaceAll('_', '-')}',
+            description: '$label Approvals',
+            cardDescription: 'Review and action $label approval requests assigned to you.',
+            defaultFunction: 'search',
+            path: '/approvals?type=$type&title=$title',
+            position: index + 1,
+            routeKey: 'approval-${item.approvalType.toLowerCase()}',
+            routePath: '/approvals?type=$type&title=$title',
+            iconKey: 'approvals',
+            groupCode: 'approvals',
+            groupTitle: 'Approvals',
+            groupDescription: 'Review and action approval requests assigned to you.',
+            sectionCode: 'BUSINESS_SERVICES',
+            sectionTitle: 'Business Services',
+            sectionDisplayOrder: 20,
+            groupDisplayOrder: 45,
+            displayOrder: index + 1,
+            permissionCode: 'approval:${item.approvalType}',
+          ));
+        }
+      }
       final allowed = <Workcenter>[];
       final cataloguedChildren = all.where((workcenter) =>
           normalizeExperienceKey(workcenter.groupCode ?? '') ==
@@ -239,6 +270,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     };
     return candidates.any(approvalKeys.contains);
   }
+
+  String _approvalTypeLabel(String value) => value
+      .trim()
+      .toLowerCase()
+      .split(RegExp(r'[_\s]+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
 
   bool _isReportingWorkcenter(Workcenter workcenter) {
     final id = FeatureGroupRegistry.normalize(workcenter.id);

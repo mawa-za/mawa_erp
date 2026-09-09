@@ -1,5 +1,24 @@
 import '../../../core/utils/app_date_utils.dart';
 
+class AssignedApprovalType {
+  final String approvalType;
+  final String label;
+  final int actionableCount;
+
+  const AssignedApprovalType({
+    required this.approvalType,
+    required this.label,
+    required this.actionableCount,
+  });
+
+  factory AssignedApprovalType.fromJson(Map<String, dynamic> json) =>
+      AssignedApprovalType(
+        approvalType: (json['approvalType'] ?? '').toString(),
+        label: (json['label'] ?? '').toString(),
+        actionableCount: int.tryParse((json['actionableCount'] ?? 0).toString()) ?? 0,
+      );
+}
+
 class ApprovalSubmission {
   final String approvalType; // Enum: CLAIM, PAYMENT, LEAVE, etc.
   final String referenceId;

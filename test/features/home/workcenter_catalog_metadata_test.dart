@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mawa_erp/features/home/models/workcenter.dart';
+import 'package:mawa_erp/features/approvals/models/approval.dart';
 
 void main() {
   test('reads navigation and permission metadata from role workcenter response', () {
@@ -27,5 +28,16 @@ void main() {
     expect(workcenter.groupDisplayOrder, 30);
     expect(workcenter.displayOrder, 7);
     expect(workcenter.permissionCode, 'cashup');
+  });
+
+  test('reads an assigned approval type used to generate an approval tile', () {
+    final assignment = AssignedApprovalType.fromJson({
+      'approvalType': 'MEMBERSHIP_TRANSFER',
+      'label': 'MEMBERSHIP TRANSFER',
+      'actionableCount': 2,
+    });
+
+    expect(assignment.approvalType, 'MEMBERSHIP_TRANSFER');
+    expect(assignment.actionableCount, 2);
   });
 }
