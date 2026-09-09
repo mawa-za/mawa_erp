@@ -46,6 +46,8 @@ import '../../features/tombstones/screens/tombstone_order_detail_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_form_screen.dart';
 import '../../features/reports/screens/reports_dashboard_screen.dart';
 import '../../features/forms/company_forms_screen.dart';
+import '../../features/settings/screens/api_log_list_screen.dart';
+import '../../features/payroll/screens/payroll_batch_list_screen.dart';
 
 // Funeral Management
 import '../../features/funeral/presentation/pages/funeral_dashboard_page.dart';
@@ -177,6 +179,14 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const MyHomePage(title: 'mawa'),
+      ),
+      GoRoute(
+        path: AppRoutes.apiLogs,
+        builder: (context, state) => const ApiLogListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.payrollBatches,
+        builder: (context, state) => const PayrollBatchListScreen(),
       ),
       GoRoute(
         path: '/feature-groups/:groupId',
