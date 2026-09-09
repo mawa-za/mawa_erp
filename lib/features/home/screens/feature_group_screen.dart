@@ -64,7 +64,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       final experienceGroup = experience?.groupByCode(canonicalGroupId) ??
           experience?.groupByCode(widget.groupId);
       if (experienceGroup == null && fallbackGroup == null) {
-        throw AppException('Unknown feature group: ${widget.groupId}');
+        // A database-catalogued group may be newer than this ERP build. Its
+        // metadata is resolved after the role workcentres are loaded below.
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -73,7 +74,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         throw AppException('No selected role found');
       }
 
-      final response = await ApiClient().get('/role/$roleId/workcenter');
+      final response = await ApiClient().get('/v2/role/$roleId/workcenter');
       if (response.statusCode != 200) {
         throw AppException('Failed to load role workcenters: ${response.statusCode}');
       }
@@ -84,8 +85,13 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
           .map((json) => Workcenter.fromJson(Map<String, dynamic>.from(json)))
           .toList();
       final allowed = <Workcenter>[];
+      final cataloguedChildren = all.where((workcenter) =>
+          normalizeExperienceKey(workcenter.groupCode ?? '') ==
+          normalizeExperienceKey(widget.groupId)).toList();
 
-      if (experienceGroup != null) {
+      if (cataloguedChildren.isNotEmpty) {
+        allowed.addAll(cataloguedChildren);
+      } else if (experienceGroup != null) {
         for (final configured in experienceGroup.workcenters) {
           if (!configured.active) continue;
           if (!FeatureGroupRegistry.belongsToCanonicalGroup(
@@ -128,7 +134,7 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         );
       }
 
-      final activeGroupId =
+      final activeGroupId = (cataloguedChildren.isEmpty ? null : cataloguedChildren.first.groupCode) ??
           experienceGroup?.code ?? fallbackGroup?.id ?? canonicalGroupId;
       final canonicalActiveGroup =
           FeatureGroupRegistry.canonicalGroupId(activeGroupId);
@@ -137,7 +143,8 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       // place it in more than one group. Role access remains authoritative, so
       // add canonically-owned workcenters to their single correct workspace.
       for (final workcenter in all) {
-        final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id) ??
+        final owner = workcenter.groupCode ??
+            FeatureGroupRegistry.canonicalOwnerForWorkcenter(workcenter.id) ??
             FeatureGroupRegistry.configurationGroupForWorkcenter(
               workcenter.id,
               workcenter.description,
@@ -195,13 +202,16 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       if (!mounted) return;
       setState(() {
         _experienceGroup = experienceGroup;
-        final configuredTitle =
+        final configuredTitle = (cataloguedChildren.isEmpty ? null : cataloguedChildren.first.groupTitle) ??
             experienceGroup?.title ?? fallbackGroup?.title ?? 'Workcenter';
         _groupTitle = FeatureGroupRegistry.presentationTitleForGroup(
           canonicalActiveGroup,
           configuredTitle,
         );
-        _groupDescription = experienceGroup?.description.trim().isNotEmpty == true
+        _groupDescription = cataloguedChildren.isNotEmpty &&
+                cataloguedChildren.first.groupDescription?.trim().isNotEmpty == true
+            ? cataloguedChildren.first.groupDescription!
+            : experienceGroup?.description.trim().isNotEmpty == true
             ? experienceGroup!.description
             : fallbackGroup?.description ?? 'Open a feature to continue.';
         _children = allowed;
@@ -282,7 +292,14 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       return;
     }
 
-    // Some tenants use generic child identifiers such as CLAIMS or PAYMENTS.
+    final cataloguedPath = wc.routePath?.trim();
+    if (cataloguedPath != null && cataloguedPath.startsWith('/')) {
+      context.push(cataloguedPath);
+      return;
+    }
+
+    // Compatibility fallback for pre-catalogue tenant data. Some tenants use
+    // generic child identifiers such as CLAIMS or PAYMENTS.
     // Resolve them in the context of the group before applying the global
     // registry, otherwise a Funeral Claims card can be mistaken for a
     // Membership Claims card.
