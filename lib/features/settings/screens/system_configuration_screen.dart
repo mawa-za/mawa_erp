@@ -85,7 +85,7 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
       final roleId = (prefs.getString('selectedRole') ?? '').trim();
       if (roleId.isEmpty) return;
 
-      final response = await ApiClient().get('/role/$roleId/workcenter');
+      final response = await ApiClient().get('/v2/role/$roleId/workcenter');
       if (response.statusCode != 200) return;
 
       final decoded = jsonDecode(response.body);

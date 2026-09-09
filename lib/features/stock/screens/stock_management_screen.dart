@@ -188,7 +188,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     final roleId = prefs.getString('selectedRole');
     if (roleId == null || roleId.trim().isEmpty) return const [];
 
-    final response = await ApiClient().get('/role/$roleId/workcenter');
+    final response = await ApiClient().get('/v2/role/$roleId/workcenter');
     if (response.statusCode != 200) {
       throw AppException('Failed to load role workcenters: ${response.statusCode} ${response.body}');
     }
