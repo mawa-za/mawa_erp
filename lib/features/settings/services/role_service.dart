@@ -50,7 +50,7 @@ class RoleService {
   }
 
   Future<List<Workcenter>> getAllWorkcenters() async {
-    final response = await _apiClient.get('/workcenter');
+    final response = await _apiClient.get('/v2/workcenters');
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);

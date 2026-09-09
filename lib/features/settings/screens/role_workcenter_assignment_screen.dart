@@ -115,10 +115,8 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     return assignable.where((workcenter) => [
       workcenter.id,
       workcenter.description,
-      FeatureGroupRegistry.configurationGroupForWorkcenter(
-            workcenter.id,
-            workcenter.description,
-          )?.title ?? 'Other Workcentres',
+      workcenter.groupTitle ?? FeatureGroupRegistry.configurationGroupForWorkcenter(
+            workcenter.id, workcenter.description)?.title ?? 'Other Workcentres',
       workcenter.routeKey,
       workcenter.routePath ?? '',
     ].join(' ').toLowerCase().contains(query)).toList();
@@ -129,18 +127,15 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     final workcenters = _visibleWorkcenters;
     final grouped = <String, List<Workcenter>>{};
     for (final workcenter in workcenters) {
-      final group = FeatureGroupRegistry.configurationGroupForWorkcenter(
-        workcenter.id,
-        workcenter.description,
-      );
-      grouped.putIfAbsent(group?.title ?? 'Other Workcentres', () => []).add(workcenter);
+      final group = FeatureGroupRegistry.configurationGroupForWorkcenter(workcenter.id, workcenter.description);
+      grouped.putIfAbsent(workcenter.groupTitle ?? group?.title ?? 'Other Workcentres', () => []).add(workcenter);
     }
     final groupNames = grouped.keys.toList()
       ..sort((left, right) {
         if (left == 'Other Workcentres') return 1;
         if (right == 'Other Workcentres') return -1;
-        final leftOrder = FeatureGroupRegistry.configurationOrder(left);
-        final rightOrder = FeatureGroupRegistry.configurationOrder(right);
+        final leftOrder = grouped[left]?.first.groupDisplayOrder ?? FeatureGroupRegistry.configurationOrder(left);
+        final rightOrder = grouped[right]?.first.groupDisplayOrder ?? FeatureGroupRegistry.configurationOrder(right);
         return leftOrder.compareTo(rightOrder);
       });
     return Scaffold(

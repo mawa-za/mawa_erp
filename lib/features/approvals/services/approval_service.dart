@@ -153,4 +153,17 @@ class ApprovalService {
       );
     }
   }
+
+  Future<List<AssignedApprovalType>> getAssignedTypes() async {
+    final response = await _apiClient.get('/v2/approval/assigned-types');
+    if (response.statusCode != 200) {
+      throw AppException('Failed to load assigned approval types: ${response.statusCode}');
+    }
+    final List<dynamic> data = jsonDecode(response.body);
+    return data
+        .whereType<Map>()
+        .map((item) => AssignedApprovalType.fromJson(Map<String, dynamic>.from(item)))
+        .where((item) => item.approvalType.isNotEmpty)
+        .toList();
+  }
 }

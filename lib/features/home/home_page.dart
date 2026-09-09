@@ -38,6 +38,7 @@ import '../partners/screens/partner_list_screen.dart';
 import '../cashup/screens/cashup_list_screen.dart';
 import '../inbox/models/inbox.dart';
 import '../inbox/services/inbox_service.dart';
+import '../approvals/services/approval_service.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -142,11 +143,42 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   Future<void> _fetchWorkcenters(String roleId) async {
     setState(() => _isLoadingWorkcenters = true);
     try {
-      final response = await ApiClient().get('/role/$roleId/workcenter');
+      final response = await ApiClient().get('/v2/role/$roleId/workcenter');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        final assignedApprovalTypes = await ApprovalService().getAssignedTypes();
+        final workcenters = data
+            .map((json) => Workcenter.fromJson(json))
+            .where((item) => !_isCentralApprovalWorkcenter(item))
+            .toList();
+        for (var index = 0; index < assignedApprovalTypes.length; index++) {
+          final assignment = assignedApprovalTypes[index];
+          final label = _approvalTypeLabel(assignment.label);
+          final type = Uri.encodeQueryComponent(assignment.approvalType);
+          final title = Uri.encodeQueryComponent('$label Approvals');
+          workcenters.add(Workcenter(
+            id: 'approval-${assignment.approvalType.toLowerCase().replaceAll('_', '-')}',
+            description: '$label Approvals',
+            cardDescription: 'Review and action $label approval requests assigned to you.',
+            defaultFunction: 'search',
+            path: '/approvals?type=$type&title=$title',
+            position: index + 1,
+            routeKey: 'approval-${assignment.approvalType.toLowerCase()}',
+            routePath: '/approvals?type=$type&title=$title',
+            iconKey: 'approvals',
+            groupCode: 'approvals',
+            groupTitle: 'Approvals',
+            groupDescription: 'Review and action approval requests assigned to you.',
+            sectionCode: 'BUSINESS_SERVICES',
+            sectionTitle: 'Business Services',
+            sectionDisplayOrder: 20,
+            groupDisplayOrder: 45,
+            displayOrder: index + 1,
+            permissionCode: 'approval:${assignment.approvalType}',
+          ));
+        }
         setState(() {
-          _workcenters = data.map((json) => Workcenter.fromJson(json)).toList();
+          _workcenters = workcenters;
           _workcenters.sort((a, b) => a.position.compareTo(b.position));
           _filteredWorkcenters = _workcenters;
           _isLoadingWorkcenters = false;
@@ -159,6 +191,14 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       setState(() => _isLoadingWorkcenters = false);
     }
   }
+
+  String _approvalTypeLabel(String value) => value
+      .trim()
+      .toLowerCase()
+      .split(RegExp(r'[_\s]+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
 
   Future<void> _fetchRecentModules() async {
     try {
@@ -323,9 +363,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       }
     }
 
-    // Prefer the workcenter identity over a configured path. Some tenants still
-    // carry stale paths (for example Products pointing to Membership Plans),
-    // while the id/route key remains authoritative.
+    // The database catalogue is authoritative for navigation. The compiled
+    // registry below remains only as a compatibility fallback during rollout.
+    final configuredPath = wc.routePath?.trim();
+    if (configuredPath != null && configuredPath.isNotEmpty) {
+      if (configuredPath.startsWith('/')) {
+        context.push(configuredPath);
+        return;
+      }
+    }
+
     final routeById = WorkcenterRouteRegistry.getRoutePath(wc.id);
     if (routeById != null) {
       context.push(routeById);
@@ -338,18 +385,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       return;
     }
 
-    final configuredPath = wc.routePath?.trim();
-    if (configuredPath != null && configuredPath.isNotEmpty) {
-      final mappedPath = WorkcenterRouteRegistry.getRoutePath(configuredPath);
-      if (mappedPath != null) {
-        context.push(mappedPath);
-        return;
-      }
-      if (configuredPath.startsWith('/')) {
-        context.push(configuredPath);
-        return;
-      }
-    }
 
     // Fallback logic
     final id = wc.id.toUpperCase();
@@ -415,9 +450,12 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
   ) {
     final query = _searchController.text.trim().toLowerCase();
     final experience = _tenantExperience;
-    final sections = experience?.sections.isNotEmpty == true
-        ? experience!.sections
-        : _fallbackExperienceSections();
+    final catalogSections = _catalogueExperienceSections(roleWorkcenters);
+    final sections = catalogSections.isNotEmpty
+        ? catalogSections
+        : experience?.sections.isNotEmpty == true
+            ? experience!.sections
+            : _fallbackExperienceSections();
     final usedIds = <String>{};
     final result = <_HomeWorkcenterSection>[];
     final centralApprovalWorkcenter =
@@ -438,7 +476,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         final configuredChildren = <Workcenter>[];
         for (final item in group.workcenters) {
           if (!item.active) continue;
-          if (!FeatureGroupRegistry.belongsToCanonicalGroup(item.id, group.code)) {
+          if (catalogSections.isEmpty &&
+              !FeatureGroupRegistry.belongsToCanonicalGroup(item.id, group.code)) {
             continue;
           }
           final matched = _findRoleWorkcenter(roleWorkcenters, item.id);
@@ -467,7 +506,8 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
           if (FeatureGroupRegistry.isLegacyInventoryUmbrella(candidate.id)) {
             continue;
           }
-          final owner = FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id) ??
+          final owner = candidate.groupCode ??
+              FeatureGroupRegistry.canonicalOwnerForWorkcenter(candidate.id) ??
               FeatureGroupRegistry.configurationGroupForWorkcenter(
                 candidate.id,
                 candidate.description,
@@ -592,6 +632,53 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     }
     result.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     return result;
+  }
+
+  List<TenantExperienceSection> _catalogueExperienceSections(List<Workcenter> items) {
+    final catalogued = items.where((item) =>
+        item.groupCode?.trim().isNotEmpty == true &&
+        item.sectionCode?.trim().isNotEmpty == true).toList();
+    if (catalogued.isEmpty) return const [];
+
+    final bySection = <String, List<Workcenter>>{};
+    for (final item in catalogued) {
+      bySection.putIfAbsent(item.sectionCode!, () => []).add(item);
+    }
+    return bySection.entries.map((sectionEntry) {
+      final sectionItems = sectionEntry.value;
+      final byGroup = <String, List<Workcenter>>{};
+      for (final item in sectionItems) {
+        byGroup.putIfAbsent(item.groupCode!, () => []).add(item);
+      }
+      final groups = byGroup.entries.map((groupEntry) {
+        final groupItems = groupEntry.value;
+        final first = groupItems.first;
+        return TenantExperienceGroup(
+          code: groupEntry.key,
+          title: first.groupTitle ?? groupEntry.key,
+          description: first.groupDescription ?? '',
+          sectionCode: sectionEntry.key,
+          iconKey: first.iconKey ?? first.groupCode ?? '',
+          displayOrder: first.groupDisplayOrder,
+          active: true,
+          workcenters: groupItems.map((item) => TenantExperienceWorkcenter(
+            id: item.id,
+            displayLabel: item.presentationTitle,
+            description: item.cardDescription ?? '',
+            displayOrder: item.displayOrder == 0 ? item.position : item.displayOrder,
+            active: true,
+          )).toList(),
+        );
+      }).toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final first = sectionItems.first;
+      return TenantExperienceSection(
+        code: sectionEntry.key,
+        title: first.sectionTitle ?? sectionEntry.key,
+        description: '',
+        displayOrder: first.sectionDisplayOrder,
+        groups: groups,
+      );
+    }).toList()..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
   }
 
   Workcenter? _findCentralApprovalWorkcenter(

@@ -50,6 +50,8 @@ class AppRoutes {
   static const String groupSocieties = '/group-societies';
   static const String reports = '/reports';
   static const String companyForms = '/company-forms';
+  static const String apiLogs = '/api-logs';
+  static const String payrollBatches = '/payroll-batches';
   static const String inventory = '/inventory';
   static const String inventoryQuotations = '/inventory/quotations';
   static const String inventoryPurchaseOrders = '/inventory/purchase-orders';

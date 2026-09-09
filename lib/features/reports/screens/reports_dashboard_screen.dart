@@ -132,7 +132,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
         throw Exception('No selected role found. Sign in again.');
       }
 
-      final response = await ApiClient().get('/role/$roleId/workcenter');
+      final response = await ApiClient().get('/v2/role/$roleId/workcenter');
       if (response.statusCode != 200) {
         throw Exception('Unable to load report access for the selected role.');
       }
