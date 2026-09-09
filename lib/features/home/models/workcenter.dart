@@ -9,6 +9,15 @@ class Workcenter {
   final String? iconKey;
   final String? displayLabel;
   final String? cardDescription;
+  final String? groupCode;
+  final String? groupTitle;
+  final String? groupDescription;
+  final String? sectionCode;
+  final String? sectionTitle;
+  final int sectionDisplayOrder;
+  final int groupDisplayOrder;
+  final int displayOrder;
+  final String? permissionCode;
 
   Workcenter({
     required this.id,
@@ -21,6 +30,15 @@ class Workcenter {
     this.iconKey,
     this.displayLabel,
     this.cardDescription,
+    this.groupCode,
+    this.groupTitle,
+    this.groupDescription,
+    this.sectionCode,
+    this.sectionTitle,
+    this.sectionDisplayOrder = 0,
+    this.groupDisplayOrder = 0,
+    this.displayOrder = 0,
+    this.permissionCode,
   });
 
   String get presentationTitle =>
@@ -37,6 +55,15 @@ class Workcenter {
     String? iconKey,
     String? displayLabel,
     String? cardDescription,
+    String? groupCode,
+    String? groupTitle,
+    String? groupDescription,
+    String? sectionCode,
+    String? sectionTitle,
+    int? sectionDisplayOrder,
+    int? groupDisplayOrder,
+    int? displayOrder,
+    String? permissionCode,
   }) {
     return Workcenter(
       id: id ?? this.id,
@@ -49,6 +76,15 @@ class Workcenter {
       iconKey: iconKey ?? this.iconKey,
       displayLabel: displayLabel ?? this.displayLabel,
       cardDescription: cardDescription ?? this.cardDescription,
+      groupCode: groupCode ?? this.groupCode,
+      groupTitle: groupTitle ?? this.groupTitle,
+      groupDescription: groupDescription ?? this.groupDescription,
+      sectionCode: sectionCode ?? this.sectionCode,
+      sectionTitle: sectionTitle ?? this.sectionTitle,
+      sectionDisplayOrder: sectionDisplayOrder ?? this.sectionDisplayOrder,
+      groupDisplayOrder: groupDisplayOrder ?? this.groupDisplayOrder,
+      displayOrder: displayOrder ?? this.displayOrder,
+      permissionCode: permissionCode ?? this.permissionCode,
     );
   }
 
@@ -81,6 +117,18 @@ class Workcenter {
       iconKey: wc['iconKey']?.toString(),
       displayLabel: wc['displayLabel']?.toString(),
       cardDescription: wc['cardDescription']?.toString(),
+      groupCode: wc['groupCode']?.toString(),
+      groupTitle: wc['groupTitle']?.toString(),
+      groupDescription: wc['groupDescription']?.toString(),
+      sectionCode: wc['sectionCode']?.toString(),
+      sectionTitle: wc['sectionTitle']?.toString(),
+      sectionDisplayOrder: _asInt(wc['sectionDisplayOrder']),
+      groupDisplayOrder: _asInt(wc['groupDisplayOrder']),
+      displayOrder: _asInt(wc['displayOrder']),
+      permissionCode: wc['permissionCode']?.toString(),
     );
   }
+
+  static int _asInt(dynamic value) =>
+      value is int ? value : int.tryParse(value?.toString() ?? '') ?? 0;
 }
