@@ -20,6 +20,15 @@ class ServiceManagementService {
   Future<Map<String, dynamic>> createOrderFromRequest(String id) async =>
       _map(await _api.post('$_base/requests/$id/order'), 'create service order');
 
+  Future<Map<String, dynamic>> createRequest(Map<String, dynamic> body) async =>
+      _map(await _api.post('$_base/requests', body: body), 'create service request');
+
+  Future<Map<String, dynamic>> createQuotationFromRequest(String id, Map<String, dynamic> body) async =>
+      _map(await _api.post('$_base/requests/$id/quotation', body: body), 'create quotation');
+
+  Future<Map<String, dynamic>> changeRequestStatus(String id, String status) async =>
+      _map(await _api.post('$_base/requests/$id/status', body: {'status': status}), 'update service request');
+
   Future<Map<String, dynamic>> createContractFromRequest(String id) async =>
       _map(await _api.post('$_base/requests/$id/contract'), 'create service contract');
 
