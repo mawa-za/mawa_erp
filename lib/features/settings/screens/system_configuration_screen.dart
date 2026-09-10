@@ -15,6 +15,7 @@ import '../../forms/company_form_configuration_screen.dart';
 import '../../funeral/presentation/pages/funeral_package_setup_page.dart';
 import '../../funeral/presentation/pages/funeral_resource_planning_page.dart';
 import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
+import '../../supplier_network/screens/supplier_network_screen.dart';
 import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import '../../integrations/fnb/fnb_integration_admin_screen.dart';
@@ -373,6 +374,17 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           onTap: () => _open(
             context,
             const FuneralResourcePlanningPage(configurationOnly: true),
+          ),
+        ),
+        _ConfigurationItem(
+          title: 'MAWA Supplier Network',
+          description:
+              'Activate cross-tenant purchase orders, resource scheduling and supplier invoicing.',
+          icon: Icons.hub_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(
+            context,
+            const SupplierNetworkConfigurationScreen(),
           ),
         ),
         _ConfigurationItem(
