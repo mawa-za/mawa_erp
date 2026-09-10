@@ -143,6 +143,9 @@ class WorkcenterRouteRegistry {
     'GROUP_SOCIETY_MANAGEMENT': AppRoutes.groupSocieties,
     'FUNERAL_COVER_UNDERWRITING': AppRoutes.funeralCoverUnderwriting,
     'THIRD_PARTY_FUNERAL_UNDERWRITING': AppRoutes.funeralCoverUnderwriting,
+    'FUNERAL_RESOURCE_PLANNING': AppRoutes.funeralResourcePlanning,
+    'FUNERAL_RESOURCE_PLANNER': AppRoutes.funeralResourcePlanning,
+    'FUNERAL_RESOURCE_PLANNING_CONFIGURATION': AppRoutes.funeralResourcePlanningConfiguration,
 
     // Inventory Management
     'INVENTORY': AppRoutes.inventory,

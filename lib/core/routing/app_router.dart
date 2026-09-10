@@ -63,6 +63,7 @@ import '../../features/funeral/presentation/pages/funeral_package_setup_page.dar
 import '../../features/funeral/presentation/pages/funeral_all_claims_page.dart';
 import '../../features/funeral/presentation/pages/funeral_payments_page.dart';
 import '../../features/funeral/presentation/pages/third_party_funeral_cover_underwriting_page.dart';
+import '../../features/funeral/presentation/pages/funeral_resource_planning_page.dart';
 
 import '../services/session_service.dart';
 
@@ -393,6 +394,8 @@ class AppRouter {
         builder: (context, state) =>
             const ThirdPartyFuneralCoverUnderwritingPage(),
       ),
+      GoRoute(path: AppRoutes.funeralResourcePlanning,builder:(context,state)=>const FuneralResourcePlanningPage()),
+      GoRoute(path: AppRoutes.funeralResourcePlanningConfiguration,builder:(context,state)=>const FuneralResourcePlanningPage(configurationOnly:true)),
       GoRoute(
         path: AppRoutes.companyForms,
         builder: (context, state) => const CompanyFormsScreen(),

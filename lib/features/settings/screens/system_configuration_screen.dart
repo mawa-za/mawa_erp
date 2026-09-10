@@ -13,6 +13,7 @@ import '../../device_crash_logs/screens/device_crash_log_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../forms/company_form_configuration_screen.dart';
 import '../../funeral/presentation/pages/funeral_package_setup_page.dart';
+import '../../funeral/presentation/pages/funeral_resource_planning_page.dart';
 import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
 import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
@@ -362,6 +363,17 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.inventory_2_outlined,
           category: _ConfigurationCategory.operations,
           onTap: () => _open(context, const FuneralPackageSetupPage()),
+        ),
+        _ConfigurationItem(
+          title: 'Funeral Resource Planning',
+          description:
+              'Activate resource planning and configure readiness, reservations and third-party leasing.',
+          icon: Icons.event_available_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(
+            context,
+            const FuneralResourcePlanningPage(configurationOnly: true),
+          ),
         ),
         _ConfigurationItem(
           title: 'Warehouse & Storage',
