@@ -531,6 +531,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         dateKeys: const ['order_date', 'created_at', 'createdAt'],
         actions: [
           _rowAction('Send', (row) => _service.updatePurchaseOrderStatus(_id(row), 'SENT')),
+          _rowAction('Send to MAWA Supplier', (row) => _service.sendPurchaseOrderToMawaSupplier(_id(row))),
           _rowAction('Receive', (row) => _receivePurchaseOrder(row)),
           _rowAction('Cancel', (row) => _service.updatePurchaseOrderStatus(_id(row), 'CANCELLED')),
         ],

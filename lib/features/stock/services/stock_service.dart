@@ -153,6 +153,11 @@ class StockService {
     return _decodeMapResponse(response.body, response.statusCode, 'purchase order status');
   }
 
+  Future<Map<String, dynamic>> sendPurchaseOrderToMawaSupplier(String id) async {
+    final response = await _apiClient.post('/v2/supplier-network/purchase-orders/$id/send');
+    return _decodeMapResponse(response.body, response.statusCode, 'MAWA supplier delivery');
+  }
+
   Future<Map<String, dynamic>> receivePurchaseOrder(
     String id, {
     String? warehouseId,

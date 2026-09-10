@@ -41,6 +41,10 @@ class WorkcenterCardDescriptions {
   static String forWorkcenter(String id, String title) {
     final identity = FeatureGroupRegistry.normalize('$id $title');
 
+    if (identity.contains('SUPPLIER_NETWORK') || identity.contains('INCOMING_CUSTOMER_ORDER')) {
+      return 'Receive customer purchase orders, confirm capacity, reserve resources and invoice completed services.';
+    }
+
     if (identity.contains('MEMBERSHIP_CLAIM')) {
       return 'Search, review and track membership claims through approval and settlement.';
     }
