@@ -15,6 +15,8 @@ class AppRoutes {
   static const String serviceAppointments = '/service-appointments';
   static const String serviceCatalogue = '/service-catalogue';
   static const String serviceResources = '/service-resources';
+  static const String supplierNetworkOrders = '/supplier-network/orders';
+  static const String supplierNetworkConnections = '/supplier-network/connections';
   static const String invoicePreview = '/invoices/:id/preview';
   static const String cases = '/cases';
   static const String createCase = '/cases/new';
@@ -94,6 +96,8 @@ class AppRoutes {
   static const String funeralPackageSetup = '/system-configuration/funeral-packages';
   static const String legacyFuneralPackageSetup = '/funeral/packages/setup';
   static const String funeralCoverUnderwriting = '/funeral/cover-underwriting';
+  static const String funeralResourcePlanning = '/funeral/resource-planning';
+  static const String funeralResourcePlanningConfiguration = '/system-configuration/funeral-resource-planning';
 
   // Legacy routes for redirection
   static const String legacyMembershipDetail = '/membership-detail';

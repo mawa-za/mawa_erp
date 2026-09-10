@@ -92,6 +92,10 @@ class WorkcenterRouteRegistry {
     'SERVICE_CATALOG': AppRoutes.serviceCatalogue,
     'SERVICE_RESOURCE': AppRoutes.serviceResources,
     'SERVICE_RESOURCES': AppRoutes.serviceResources,
+    'SUPPLIER_NETWORK_ORDERS': AppRoutes.supplierNetworkOrders,
+    'INCOMING_CUSTOMER_ORDERS': AppRoutes.supplierNetworkOrders,
+    'SUPPLIER_NETWORK_CONNECTIONS': AppRoutes.supplierNetworkConnections,
+    'MAWA_TRADING_CONNECTIONS': AppRoutes.supplierNetworkConnections,
     'CASHUP': AppRoutes.cashups,
     'CASHUPS': AppRoutes.cashups,
     'PAYMENT_REQUEST': AppRoutes.paymentRequests,
@@ -143,6 +147,9 @@ class WorkcenterRouteRegistry {
     'GROUP_SOCIETY_MANAGEMENT': AppRoutes.groupSocieties,
     'FUNERAL_COVER_UNDERWRITING': AppRoutes.funeralCoverUnderwriting,
     'THIRD_PARTY_FUNERAL_UNDERWRITING': AppRoutes.funeralCoverUnderwriting,
+    'FUNERAL_RESOURCE_PLANNING': AppRoutes.funeralResourcePlanning,
+    'FUNERAL_RESOURCE_PLANNER': AppRoutes.funeralResourcePlanning,
+    'FUNERAL_RESOURCE_PLANNING_CONFIGURATION': AppRoutes.funeralResourcePlanningConfiguration,
 
     // Inventory Management
     'INVENTORY': AppRoutes.inventory,
