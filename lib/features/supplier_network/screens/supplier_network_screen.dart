@@ -15,7 +15,48 @@ class _NetworkConfigState extends State<SupplierNetworkConfigurationScreen>{
   @override void initState(){super.initState();load();}
   Future<void>load()async{try{final x=await service.configuration();if(mounted)setState((){enabled=x['enabled']==true;loading=false;error=null;});}catch(e){if(mounted)setState((){loading=false;error=friendlyErrorMessage(e);});}}
   Future<void>save(bool value)async{setState(()=>saving=true);try{final x=await service.saveConfiguration(value);if(mounted)setState(()=>enabled=x['enabled']==true);}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(friendlyErrorMessage(e))));}finally{if(mounted)setState(()=>saving=false);}}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('MAWA Supplier Network')),body:loading?const Center(child:CircularProgressIndicator()):ListView(padding:const EdgeInsets.all(24),children:[Text('Cross-tenant supplier collaboration',style:Theme.of(context).textTheme.headlineSmall),const SizedBox(height:8),const Text('Exchange approved purchase orders, resource schedules, completion confirmations and invoices with authorised MAWA tenants.'),const SizedBox(height:20),if(error!=null)Card(color:Theme.of(context).colorScheme.errorContainer,child:Padding(padding:const EdgeInsets.all(16),child:Text(error!))),Card(child:SwitchListTile(contentPadding:const EdgeInsets.all(20),secondary:Icon(enabled?Icons.hub:Icons.hub_outlined),title:const Text('Enable MAWA Supplier Network'),subtitle:Text(enabled?'Trading connections and customer orders are available.':'All cross-tenant trading is blocked.'),value:enabled,onChanged:saving?null:save)),const Card(child:Padding(padding:EdgeInsets.all(20),child:Text('After activation, create reciprocal MAWA Trading Connections in the buyer and supplier tenants. Disabling preserves existing records but prevents new exchanges.')))]));
+  Future<void>manageConnections()async{
+    await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const SupplierNetworkConnectionsScreen()));
+  }
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(title:const Text('MAWA Supplier Network')),
+    body:loading?const Center(child:CircularProgressIndicator()):ListView(
+      padding:const EdgeInsets.all(24),
+      children:[
+        Text('Cross-tenant supplier collaboration',style:Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height:8),
+        const Text('Exchange approved purchase orders, resource schedules, completion confirmations and invoices with authorised MAWA tenants.'),
+        const SizedBox(height:20),
+        if(error!=null)Card(color:Theme.of(context).colorScheme.errorContainer,child:Padding(padding:const EdgeInsets.all(16),child:Text(error!))),
+        Card(child:SwitchListTile(
+          contentPadding:const EdgeInsets.all(20),
+          secondary:Icon(enabled?Icons.hub:Icons.hub_outlined),
+          title:const Text('Enable MAWA Supplier Network'),
+          subtitle:Text(enabled?'Trading connections and customer orders are available.':'All cross-tenant trading is blocked.'),
+          value:enabled,
+          onChanged:saving?null:save,
+        )),
+        const SizedBox(height:12),
+        Card(child:Padding(
+          padding:const EdgeInsets.all(20),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('Trading connections',style:Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height:8),
+            Text(enabled
+                ?'Link this tenant to MAWA customers or suppliers and control purchase-order and invoice exchange.'
+                :'Enable the supplier network before creating trading connections.'),
+            const SizedBox(height:16),
+            FilledButton.icon(
+              onPressed:enabled?manageConnections:null,
+              icon:const Icon(Icons.manage_accounts_outlined),
+              label:const Text('Manage Trading Connections'),
+            ),
+          ]),
+        )),
+        const Card(child:Padding(padding:EdgeInsets.all(20),child:Text('A connection must be configured in both tenants: the funeral company records the remote tenant as its supplier, and the supply business records the funeral company as its customer.'))),
+      ],
+    ),
+  );
 }
 
 class SupplierNetworkScreen extends StatefulWidget {const SupplierNetworkScreen({super.key});@override State<SupplierNetworkScreen>createState()=>_OrdersState();}
@@ -42,4 +83,33 @@ class _ConnectionsState extends State<SupplierNetworkConnectionsScreen>{
   @override void initState(){super.initState();load();}
   Future<void>load()async{try{final x=await Future.wait([service.connections(),service.tenants()]);if(mounted)setState((){items=x[0];tenants=x[1];loading=false;error=null;});}catch(e){if(mounted)setState((){loading=false;error=friendlyErrorMessage(e);});}}
   Future<void>add()async{String? tenantId;Partner? partner;String type='SUPPLIER';bool orders=true,invoices=true;final form=GlobalKey<FormState>();final ok=await showDialog<bool>(context:context,builder:(c)=>StatefulBuilder(builder:(c,setLocal)=>AlertDialog(icon:const Icon(Icons.hub_outlined),title:const Text('Create MAWA trading connection'),content:SizedBox(width:560,child:Form(key:form,child:Column(mainAxisSize:MainAxisSize.min,children:[SearchableDropdownFormField<String>(isExpanded:true,decoration:const InputDecoration(labelText:'MAWA tenant',border:OutlineInputBorder()),items:tenants.map((t)=>DropdownMenuItem(value:'${t['id']}',child:Text('${t['name']} · ${t['id']}'))).toList(),validator:(v)=>v==null?'Select a tenant':null,onChanged:(v)=>setLocal(()=>tenantId=v)),const SizedBox(height:14),SearchableDropdownFormField<String>(initialValue:type,decoration:const InputDecoration(labelText:'Relationship',border:OutlineInputBorder()),items:const[DropdownMenuItem(value:'SUPPLIER',child:Text('They supply services to us')),DropdownMenuItem(value:'BUYER',child:Text('We supply services to them'))],onChanged:(v)=>setLocal((){type=v??'SUPPLIER';partner=null;})),const SizedBox(height:14),PartnerSearchDropdown(key:ValueKey(type),role:type=='SUPPLIER'?'SUPPLIER':'CUSTOMER',label:type=='SUPPLIER'?'Search local supplier':'Search local customer',validator:(v)=>v==null?'Select a business partner':null,onPartnerSelected:(v)=>setLocal(()=>partner=v)),const SizedBox(height:8),CheckboxListTile(contentPadding:EdgeInsets.zero,title:const Text('Exchange purchase orders'),value:orders,onChanged:(v)=>setLocal(()=>orders=v??true)),CheckboxListTile(contentPadding:EdgeInsets.zero,title:const Text('Exchange supplier invoices'),value:invoices,onChanged:(v)=>setLocal(()=>invoices=v??true))]))),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Cancel')),FilledButton.icon(onPressed:(){if(form.currentState!.validate())Navigator.pop(c,true);},icon:const Icon(Icons.link),label:const Text('Activate connection'))])));if(ok==true){await service.saveConnection({'remoteTenantId':tenantId,'localPartnerId':partner!.id,'relationshipType':type,'status':'ACTIVE','allowPurchaseOrders':orders,'allowInvoices':invoices});await load();}}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('MAWA Trading Connections'),actions:[IconButton(tooltip:'Add connection',onPressed:add,icon:const Icon(Icons.add))]),body:loading?const Center(child:CircularProgressIndicator()):error!=null?Center(child:Text(error!)):items.isEmpty?const Center(child:Text('No MAWA trading connections configured.')):ListView.builder(padding:const EdgeInsets.all(16),itemCount:items.length,itemBuilder:(c,i){final x=items[i];return Card(child:ListTile(leading:const CircleAvatar(child:Icon(Icons.link)),title:Text('${x['local_partner_name']??x['local_partner_id']}'),subtitle:Text('${x['relationship_type']} · ${x['remote_tenant_id']}'),trailing:Chip(label:Text('${x['status']}'))));}));}
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(
+      title:const Text('MAWA Trading Connections'),
+      actions:[if(MediaQuery.sizeOf(context).width>=700)Padding(padding:const EdgeInsets.only(right:16),child:FilledButton.icon(onPressed:loading?null:add,icon:const Icon(Icons.add),label:const Text('New Connection')))],
+    ),
+    floatingActionButton:loading?null:FloatingActionButton.extended(onPressed:add,icon:const Icon(Icons.add_link),label:const Text('New Connection')),
+    body:loading
+        ?const Center(child:CircularProgressIndicator())
+        :error!=null
+            ?Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[Text(error!,textAlign:TextAlign.center),const SizedBox(height:16),OutlinedButton.icon(onPressed:load,icon:const Icon(Icons.refresh),label:const Text('Retry'))])))
+            :items.isEmpty
+                ?Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.hub_outlined,size:56),const SizedBox(height:16),Text('No trading connections yet',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:8),const Text('Create the local side of a reciprocal connection to another MAWA tenant.',textAlign:TextAlign.center),const SizedBox(height:20),FilledButton.icon(onPressed:add,icon:const Icon(Icons.add_link),label:const Text('Create First Connection'))])))
+                :ListView.builder(
+                    padding:const EdgeInsets.fromLTRB(16,16,16,96),
+                    itemCount:items.length,
+                    itemBuilder:(c,i){
+                      final x=items[i];
+                      final relationship='${x['relationship_type']}'=='BUYER'?'We supply services to them':'They supply services to us';
+                      return Card(child:ListTile(
+                        contentPadding:const EdgeInsets.symmetric(horizontal:20,vertical:10),
+                        leading:const CircleAvatar(child:Icon(Icons.link)),
+                        title:Text('${x['local_partner_name']??x['local_partner_id']}'),
+                        subtitle:Text('$relationship\nRemote MAWA tenant: ${x['remote_tenant_id']}'),
+                        isThreeLine:true,
+                        trailing:Chip(label:Text('${x['status']}')),
+                      ));
+                    },
+                  ),
+  );
+}
