@@ -135,9 +135,9 @@ class _PremiumPaymentSettingsScreenState extends State<PremiumPaymentSettingsScr
                         ),
                         const Divider(height: 1),
                         SwitchListTile(
-                          title: const Text('Allow manual premium payment transfer'),
+                          title: const Text('Allow premium payment transfer'),
                           subtitle: const Text(
-                            'Allows a manually captured premium payment posted to the wrong membership to be reassigned to another membership and premium month.',
+                            'Allows a posted ERP or MawaPay premium payment to be reassigned to another membership and premium month without changing the receipt or cash-up amount.',
                           ),
                           value: _allowPremiumPaymentTransfer,
                           onChanged: (value) => setState(

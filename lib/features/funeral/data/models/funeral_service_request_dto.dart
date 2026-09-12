@@ -8,6 +8,7 @@ class FuneralServiceRequestDto {
   final String mortuaryInventoryId;
   final String deceasedName;
   final String deceasedIdentityNumber;
+  final String deceasedCategory;
   final String deathCertificateNo;
   final String causeOfDeath;
   final DateTime dateOfDeath;
@@ -32,6 +33,7 @@ class FuneralServiceRequestDto {
     required this.mortuaryInventoryId,
     required this.deceasedName,
     required this.deceasedIdentityNumber,
+    this.deceasedCategory = 'ADULT',
     required this.deathCertificateNo,
     required this.causeOfDeath,
     required this.dateOfDeath,
@@ -58,6 +60,7 @@ class FuneralServiceRequestDto {
       'mortuaryInventoryId': mortuaryInventoryId,
       'deceasedName': deceasedName,
       'deceasedIdentityNumber': deceasedIdentityNumber,
+      'deceasedCategory': deceasedCategory,
       'deathCertificateNo': deathCertificateNo,
       'causeOfDeath': causeOfDeath,
       'dateOfDeath': dateOfDeath.toIso8601String().substring(0, 10),
@@ -89,6 +92,7 @@ class FuneralServiceRequestDto {
       mortuaryInventoryId: json['mortuaryInventoryId']?.toString() ?? '',
       deceasedName: json['deceasedName']?.toString() ?? '',
       deceasedIdentityNumber: json['deceasedIdentityNumber']?.toString() ?? '',
+      deceasedCategory: json['deceasedCategory']?.toString() ?? 'ADULT',
       deathCertificateNo: (json['deathCertificateNo'] ?? json['deathCertificateNumber'] ?? json['certificateNumber'] ?? '').toString(),
       causeOfDeath: json['causeOfDeath']?.toString() ?? '',
       dateOfDeath: _parseDateTime(json['dateOfDeath'] ?? json['deathDate'] ?? json['funeralDate']),

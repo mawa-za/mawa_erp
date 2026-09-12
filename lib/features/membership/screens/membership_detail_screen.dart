@@ -475,12 +475,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           .recalculateMembershipPremiums(widget.membershipId);
       if (!mounted) return;
       final checked = result['premiumsChecked'] ?? 0;
+      final generated = result['premiumsGenerated'] ?? 0;
       final corrected = result['premiumsCorrected'] ?? 0;
       final removed = result['premiumsRemoved'] ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Premium recalculation completed. $checked premiums checked, $corrected corrected and $removed invalid pre-start premiums removed.',
+            'Premium recalculation completed. $generated missing premiums generated, $checked checked, $corrected corrected and $removed invalid pre-start premiums removed.',
           ),
         ),
       );
@@ -1369,36 +1370,34 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         premium.id,
       );
       if (!mounted) return;
-      final manualReceipts = receipts
-          .where((receipt) =>
-              receipt.status.toUpperCase() == 'POSTED' &&
-              receipt.isManualPremiumReceipt)
+      final transferableReceipts = receipts
+          .where((receipt) => receipt.status.toUpperCase() == 'POSTED')
           .toList();
-      if (manualReceipts.isEmpty) {
+      if (transferableReceipts.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Only manually captured premium payments can be transferred.'),
+            content: Text('No posted premium payment is available to transfer.'),
           ),
         );
         return;
       }
 
       ReceiptResponse? selectedReceipt;
-      if (manualReceipts.length == 1) {
-        selectedReceipt = manualReceipts.first;
+      if (transferableReceipts.length == 1) {
+        selectedReceipt = transferableReceipts.first;
       } else {
         selectedReceipt = await showDialog<ReceiptResponse>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Select manual payment to transfer'),
+            title: const Text('Select payment to transfer'),
             content: SizedBox(
               width: 500,
               child: ListView.separated(
                 shrinkWrap: true,
-                itemCount: manualReceipts.length,
+                itemCount: transferableReceipts.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final receipt = manualReceipts[index];
+                  final receipt = transferableReceipts[index];
                   final manualNo = receipt.manualReceiptNo.trim();
                   final legacyManualNo = receipt.externalReceiptNo.trim();
                   final displayManualNo = manualNo.isNotEmpty
@@ -1408,7 +1407,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                     leading: const Icon(Icons.receipt_long_outlined),
                     title: Text(receipt.receiptNo),
                     subtitle: Text(
-                      '${displayManualNo.isEmpty ? 'Manual receipt' : 'Manual receipt $displayManualNo'} • R ${receipt.totalAmount.toStringAsFixed(2)}',
+                      '${displayManualNo.isEmpty ? 'MawaPay / system receipt' : 'Manual receipt $displayManualNo'} • R ${receipt.totalAmount.toStringAsFixed(2)}',
                     ),
                     onTap: () => Navigator.pop(context, receipt),
                   );
