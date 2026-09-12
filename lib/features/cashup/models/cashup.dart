@@ -2,6 +2,9 @@ class Cashup {
   final String id;
   final int cashupNo;
   final String deviceId;
+  final String cardTerminalId;
+  final String cardTerminalCode;
+  final String cardTerminalName;
   final String userId;
   final String cashierName;
   final String cashupDate;
@@ -29,6 +32,9 @@ class Cashup {
     required this.id,
     required this.cashupNo,
     required this.deviceId,
+    required this.cardTerminalId,
+    required this.cardTerminalCode,
+    required this.cardTerminalName,
     required this.userId,
     required this.cashierName,
     required this.cashupDate,
@@ -65,12 +71,18 @@ class Cashup {
   }
   bool get depositRequired => !isIndividualEftCashup;
   String get cashierDisplayName => cashierName.trim().isNotEmpty ? cashierName : 'Unknown cashier';
+  String get terminalDisplayName => cardTerminalName.trim().isNotEmpty
+      ? '${cardTerminalName.trim()} (${cardTerminalCode.trim()})'
+      : cardTerminalCode.trim();
 
   factory Cashup.fromJson(Map<String, dynamic> json) {
     return Cashup(
       id: json['id']?.toString() ?? json['cashupId']?.toString() ?? '',
       cashupNo: _asInt(json['cashupNo']),
       deviceId: json['deviceId']?.toString() ?? '',
+      cardTerminalId: json['cardTerminalId']?.toString() ?? '',
+      cardTerminalCode: json['cardTerminalCode']?.toString() ?? '',
+      cardTerminalName: json['cardTerminalName']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
       cashierName: json['cashierName']?.toString() ?? '',
       cashupDate: _formatDate(json['cashupDate'] ?? json['date']),
@@ -107,6 +119,9 @@ class Cashup {
       'id': id,
       'cashupNo': cashupNo,
       'deviceId': deviceId,
+      'cardTerminalId': cardTerminalId,
+      'cardTerminalCode': cardTerminalCode,
+      'cardTerminalName': cardTerminalName,
       'userId': userId,
       'cashierName': cashierName,
       'cashupDate': cashupDate,

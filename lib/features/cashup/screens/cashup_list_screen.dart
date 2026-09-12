@@ -647,6 +647,8 @@ class _CashupListScreenState extends State<CashupListScreen> {
                   _info('Receipts', '${cashup.receiptCount}'),
                   _info('Cashier', cashup.cashierDisplayName),
                   _info('Device', cashup.deviceId),
+                  if (cashup.cardTerminalId.isNotEmpty)
+                    _info('Card terminal', cashup.terminalDisplayName),
                   if (cashup.isManualReceiptBook)
                     _info(
                       'Receipt Book Range',

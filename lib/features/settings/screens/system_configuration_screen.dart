@@ -44,6 +44,7 @@ import 'storage_configuration_screen.dart';
 import 'system_installation_files_screen.dart';
 import 'user_list_screen.dart';
 import 'xero_integration_screen.dart';
+import 'card_terminal_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatefulWidget {
   const SystemConfigurationScreen({super.key});
@@ -291,6 +292,13 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
             context,
             const FuneralClaimPaymentConfigurationScreen(),
           ),
+        ),
+        _ConfigurationItem(
+          title: 'Card Terminals',
+          description: 'Maintain card machines used during payment capture and group card cashups by terminal.',
+          icon: Icons.point_of_sale_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(context, const CardTerminalConfigurationScreen()),
         ),
         _ConfigurationItem(
           title: 'Group Society Settlement',
