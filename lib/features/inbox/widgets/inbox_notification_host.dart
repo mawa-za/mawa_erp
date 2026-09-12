@@ -43,6 +43,8 @@ class _InboxNotificationHostState extends State<InboxNotificationHost> {
   bool _polling = false;
   bool _initialised = false;
   String? _sessionUserId;
+  bool _popupEnabled = true;
+  DateTime? _postponedUntil;
 
   @override
   void initState() {
@@ -74,6 +76,15 @@ class _InboxNotificationHostState extends State<InboxNotificationHost> {
 
     _polling = true;
     try {
+      final preference = await _inboxService.getNotificationPreference();
+      _popupEnabled = preference['popupEnabled'] != false;
+      _postponedUntil = DateTime.tryParse('${preference['postponedUntil'] ?? ''}');
+      if (!_popupEnabled || (_postponedUntil?.isAfter(DateTime.now()) ?? false)) {
+        _dismissTimer?.cancel();
+        _queue.clear();
+        if (_active != null && mounted) setState(() => _active = null);
+        return;
+      }
       final notifications = await _inboxService.getUnreadNotifications(limit: 20);
       final eligible = notifications
           .where((notification) =>
@@ -175,6 +186,21 @@ class _InboxNotificationHostState extends State<InboxNotificationHost> {
     }
   }
 
+  Future<void> _postpone(Duration duration) async {
+    await _inboxService.saveNotificationPreference(
+      popupEnabled: true,
+      postponedUntil: DateTime.now().add(duration),
+    );
+    await _dismiss(markRead: false);
+    _queue.clear();
+  }
+
+  Future<void> _deactivatePopups() async {
+    await _inboxService.saveNotificationPreference(popupEnabled: false);
+    await _dismiss(markRead: false);
+    _queue.clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final notification = _active;
@@ -191,6 +217,8 @@ class _InboxNotificationHostState extends State<InboxNotificationHost> {
               notification: notification,
               onOpen: _openActive,
               onClose: () => _dismiss(markRead: true),
+              onPostpone: _postpone,
+              onDeactivate: _deactivatePopups,
             ),
           ),
       ],
@@ -202,12 +230,16 @@ class _NotificationToast extends StatelessWidget {
   final InboxNotification notification;
   final VoidCallback onOpen;
   final VoidCallback onClose;
+  final Future<void> Function(Duration duration) onPostpone;
+  final Future<void> Function() onDeactivate;
 
   const _NotificationToast({
     super.key,
     required this.notification,
     required this.onOpen,
     required this.onClose,
+    required this.onPostpone,
+    required this.onDeactivate,
   });
 
   @override
@@ -269,6 +301,20 @@ class _NotificationToast extends StatelessWidget {
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
+                              ),
+                              PopupMenuButton<String>(
+                                tooltip: 'Notification options',
+                                onSelected: (value) {
+                                  if (value == '1h') onPostpone(const Duration(hours: 1));
+                                  if (value == 'tomorrow') onPostpone(const Duration(days: 1));
+                                  if (value == 'off') onDeactivate();
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(value: '1h', child: Text('Postpone for 1 hour')),
+                                  PopupMenuItem(value: 'tomorrow', child: Text('Postpone until tomorrow')),
+                                  PopupMenuItem(value: 'off', child: Text('Turn off pop-up notifications')),
+                                ],
+                                icon: const Icon(Icons.more_vert_rounded, size: 18),
                               ),
                               IconButton(
                                 tooltip: 'Close',

@@ -32,6 +32,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<MortuaryInventoryDto> inventory = [];
   MortuaryInventoryDto? selectedDeceased;
   String deceasedIdentityNumber = '';
+  String deceasedCategory = 'ADULT';
   String deathCertificateNo = '';
   String? causeOfDeath;
   List<FieldOption> causeOfDeathOptions = [];
@@ -124,6 +125,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       checkInDate: DateTime.now(),
     );
     deceasedIdentityNumber = request.deceasedIdentityNumber;
+    deceasedCategory = request.deceasedCategory;
     deathCertificateNo = request.deathCertificateNo;
     causeOfDeath = request.causeOfDeath;
     familyRepPartnerId = request.familyRepPartnerId;
@@ -233,6 +235,15 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDeceasedCategory(String value) {
+    deceasedCategory = value;
+    if (value != 'ADULT') {
+      updateDeceasedIdentityNumber('');
+    } else {
+      notifyListeners();
+    }
+  }
+
   Future<void> checkMembership() async {
     if (deceasedIdentityNumber.isEmpty) return;
     isLoading = true;
@@ -290,6 +301,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         mortuaryInventoryId: selectedDeceased!.id,
         deceasedName: selectedDeceased!.deceasedName,
         deceasedIdentityNumber: deceasedIdentityNumber,
+        deceasedCategory: deceasedCategory,
         deathCertificateNo: deathCertificateNo.trim(),
         causeOfDeath: causeOfDeath!,
         dateOfDeath: dateOfDeath!,

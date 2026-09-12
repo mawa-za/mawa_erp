@@ -194,12 +194,33 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               },
             )),
         const SizedBox(height: 24),
+        DropdownButtonFormField<String>(
+          value: _controller.deceasedCategory,
+          decoration: const InputDecoration(
+            labelText: 'Deceased category *',
+            border: OutlineInputBorder(),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'ADULT', child: Text('Adult')),
+            DropdownMenuItem(value: 'INFANT', child: Text('Infant')),
+            DropdownMenuItem(value: 'STILLBORN', child: Text('Stillborn')),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _controller.updateDeceasedCategory(value);
+              if (value != 'ADULT') _idNumberController.clear();
+            });
+          },
+        ),
+        const SizedBox(height: 16),
         TextFormField(
           controller: _idNumberController,
+          enabled: _controller.deceasedCategory == 'ADULT',
           decoration: const InputDecoration(
             labelText: 'Deceased Identity Number',
             border: OutlineInputBorder(),
-            helperText: 'Required for membership cover check',
+            helperText: 'Required for adults; optional for infants and stillborns',
           ),
           onChanged: _controller.updateDeceasedIdentityNumber,
         ),
@@ -1689,7 +1710,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         _controller.errorMessage = 'Please select a deceased person from the list.';
         return;
       }
-      if (_controller.deceasedIdentityNumber.isEmpty) {
+      if (_controller.deceasedCategory == 'ADULT' && _controller.deceasedIdentityNumber.isEmpty) {
         setState(() => _controller.errorMessage = 'Identity number is required for the membership check step.');
         return;
       }
@@ -1706,7 +1727,9 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         return;
       }
       _controller.errorMessage = null;
-      await _controller.checkMembership();
+      if (_controller.deceasedIdentityNumber.isNotEmpty) {
+        await _controller.checkMembership();
+      }
       _controller.nextStep();
     } else if (_controller.currentStep == 1) {
       // Cover selection is optional, but the membership lookup has already
