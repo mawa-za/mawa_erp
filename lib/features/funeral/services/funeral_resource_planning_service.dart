@@ -6,6 +6,8 @@ class FuneralResourcePlanningService {
   final ApiClient _api = ApiClient();
   Future<Map<String,dynamic>> configuration() => _get('/v2/funeral-resource-planning/configuration');
   Future<Map<String,dynamic>> saveConfiguration(Map<String,dynamic> body) => _put('/v2/funeral-resource-planning/configuration',body);
+  Future<List<Map<String,dynamic>>> requirements(String packageId) => _list('/v2/funeral-resource-planning/packages/$packageId/requirements');
+  Future<Map<String,dynamic>> saveRequirement(String packageId,Map<String,dynamic> body,{String? id}) => id==null?_post('/v2/funeral-resource-planning/packages/$packageId/requirements',body):_put('/v2/funeral-resource-planning/packages/$packageId/requirements/$id',body);
   Future<List<Map<String,dynamic>>> plans({String? status,String? query}) async {
     final response=await _api.get('/v2/funeral-resource-planning/plans',queryParameters:{if(status!=null)'status':status,if(query!=null&&query.isNotEmpty)'query':query});
     if(response.statusCode!=200) throw AppException('Failed to load resource plans: ${response.body}');
@@ -22,6 +24,7 @@ class FuneralResourcePlanningService {
   Future<Map<String,dynamic>> lease(String itemId,String supplierId,String productId,num quantity,num unitCost)=>_post('/v2/funeral-resource-planning/items/$itemId/external-allocations',{'supplierPartnerId':supplierId,'productId':productId,'quantity':quantity,'unitCost':unitCost});
   Future<Map<String,dynamic>> confirmReady(String id)=>_post('/v2/funeral-resource-planning/plans/$id/confirm-ready',{});
   Future<Map<String,dynamic>> _get(String path) async {final r=await _api.get(path);if(r.statusCode!=200)throw AppException(r.body);return Map<String,dynamic>.from(jsonDecode(r.body) as Map);}
+  Future<List<Map<String,dynamic>>> _list(String path) async {final r=await _api.get(path);if(r.statusCode!=200)throw AppException(r.body);return (jsonDecode(r.body) as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();}
   Future<Map<String,dynamic>> _post(String path,Map<String,dynamic> body) async {final r=await _api.post(path,body:body);if(r.statusCode<200||r.statusCode>=300)throw AppException(r.body);return Map<String,dynamic>.from(jsonDecode(r.body) as Map);}
   Future<Map<String,dynamic>> _put(String path,Map<String,dynamic> body) async {final r=await _api.put(path,body:body);if(r.statusCode!=200)throw AppException(r.body);return Map<String,dynamic>.from(jsonDecode(r.body) as Map);}
 }

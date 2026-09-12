@@ -9,6 +9,7 @@ import '../../data/models/funeral_service_configuration_dto.dart';
 import '../widgets/funeral_money_text.dart';
 import '../../../../core/models/product_lookup.dart';
 import '../../../../core/services/product_lookup_service.dart';
+import '../../services/funeral_resource_planning_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
@@ -89,6 +90,13 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage('Failed to deactivate package: $e'))));
     }
+  }
+
+  Future<void> _manageResources(FuneralPackageDto package) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _PackageResourceRequirementsDialog(package: package),
+    );
   }
 
   Future<void> _configureFuneralLimits() async {
@@ -265,10 +273,12 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
                     ),
                     PopupMenuButton<String>(
                       onSelected: (value) {
+                        if (value == 'resources') _manageResources(package);
                         if (value == 'edit') _openPackageDialog(package);
                         if (value == 'deactivate') _deactivatePackage(package);
                       },
                       itemBuilder: (context) => [
+                        const PopupMenuItem(value: 'resources', child: ListTile(leading: Icon(Icons.event_available_outlined), title: Text('Resource requirements'), contentPadding: EdgeInsets.zero)),
                         const PopupMenuItem(value: 'edit', child: Text('Edit')),
                         if (package.active) const PopupMenuItem(value: 'deactivate', child: Text('Deactivate')),
                       ],
@@ -300,6 +310,153 @@ class _FuneralPackageSetupPageState extends State<FuneralPackageSetupPage> {
       },
     );
   }
+}
+
+class _PackageResourceRequirementsDialog extends StatefulWidget {
+  const _PackageResourceRequirementsDialog({required this.package});
+  final FuneralPackageDto package;
+
+  @override
+  State<_PackageResourceRequirementsDialog> createState() => _PackageResourceRequirementsDialogState();
+}
+
+class _PackageResourceRequirementsDialogState extends State<_PackageResourceRequirementsDialog> {
+  final _service = FuneralResourcePlanningService();
+  List<Map<String, dynamic>> _requirements = [];
+  List<ProductLookup> _products = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final values = await Future.wait([
+        _service.requirements(widget.package.id),
+        ProductLookupService().getProducts(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _requirements = values[0] as List<Map<String, dynamic>>;
+        _products = values[1] as List<ProductLookup>;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _edit([Map<String, dynamic>? existing]) async {
+    final name = TextEditingController(text: '${existing?['name'] ?? ''}');
+    final category = TextEditingController(text: '${existing?['resource_category'] ?? ''}');
+    final quantity = TextEditingController(text: '${existing?['quantity'] ?? 1}');
+    final uom = TextEditingController(text: '${existing?['uom'] ?? 'EA'}');
+    final start = TextEditingController(text: '${existing?['start_offset_minutes'] ?? 0}');
+    final end = TextEditingController(text: '${existing?['end_offset_minutes'] ?? 1440}');
+    final notes = TextEditingController(text: '${existing?['notes'] ?? ''}');
+    String type = '${existing?['resource_type'] ?? 'ASSET'}';
+    String sourcing = '${existing?['sourcing_mode'] ?? 'INTERNAL_OR_EXTERNAL'}';
+    bool mandatory = existing?['mandatory'] == null || existing?['mandatory'] == true || '${existing?['mandatory']}' == '1';
+    bool active = existing?['active'] == null || existing?['active'] == true || '${existing?['active']}' == '1';
+    ProductLookup? product;
+    final productId = '${existing?['product_id'] ?? ''}';
+    for (final candidate in _products) {
+      if (candidate.id == productId) { product = candidate; break; }
+    }
+    final form = GlobalKey<FormState>();
+    final saved = await showDialog<bool>(context: context, builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        icon: const Icon(Icons.event_available_outlined),
+        title: Text(existing == null ? 'Add resource requirement' : 'Edit resource requirement'),
+        content: SizedBox(width: 620, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextFormField(controller: name, decoration: const InputDecoration(labelText: 'Requirement name', hintText: 'e.g. Lowering machine, hearse or setup team', border: OutlineInputBorder()), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a requirement name' : null),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: SearchableDropdownFormField<String>(value: type, decoration: const InputDecoration(labelText: 'Resource type', border: OutlineInputBorder()), items: const [
+              DropdownMenuItem(value: 'ASSET', child: Text('Equipment / asset')),
+              DropdownMenuItem(value: 'ASSET_POOL', child: Text('Asset pool')),
+              DropdownMenuItem(value: 'VEHICLE', child: Text('Vehicle')),
+              DropdownMenuItem(value: 'EMPLOYEE', child: Text('Employee / team')),
+              DropdownMenuItem(value: 'STOCK', child: Text('Stock / consumable')),
+            ], onChanged: (v) => setDialogState(() => type = v ?? type))),
+            const SizedBox(width: 12),
+            Expanded(child: TextFormField(controller: category, decoration: const InputDecoration(labelText: 'Resource category', hintText: 'Optional matching category', border: OutlineInputBorder()))),
+          ]),
+          const SizedBox(height: 14),
+          SearchableDropdownFormField<ProductLookup>(value: product, isExpanded: true, decoration: const InputDecoration(labelText: 'Linked product or service', helperText: 'Optional for internal resources; required for third-party purchase orders.', border: OutlineInputBorder()), items: _products.map((p) => DropdownMenuItem(value: p, child: Text('${p.code} · ${p.description}', overflow: TextOverflow.ellipsis))).toList(), onChanged: (v) => setDialogState(() => product = v)),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: TextFormField(controller: quantity, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Required quantity', border: OutlineInputBorder()), validator: (v) => (num.tryParse(v ?? '') ?? 0) <= 0 ? 'Enter a valid quantity' : null)),
+            const SizedBox(width: 12),
+            Expanded(child: TextFormField(controller: uom, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Unit of measure', hintText: 'EA, PERSON, HOUR', border: OutlineInputBorder()), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a unit' : null)),
+          ]),
+          const SizedBox(height: 14),
+          SearchableDropdownFormField<String>(value: sourcing, decoration: const InputDecoration(labelText: 'Permitted sourcing', border: OutlineInputBorder()), items: const [
+            DropdownMenuItem(value: 'INTERNAL_ONLY', child: Text('Own resources only')),
+            DropdownMenuItem(value: 'EXTERNAL_ONLY', child: Text('Third-party supplier only')),
+            DropdownMenuItem(value: 'INTERNAL_OR_EXTERNAL', child: Text('Own or third-party resource')),
+          ], onChanged: (v) => setDialogState(() => sourcing = v ?? sourcing)),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: TextFormField(controller: start, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Start offset (minutes)', helperText: 'Negative values start before funeral day.', border: OutlineInputBorder()), validator: (v) => int.tryParse(v ?? '') == null ? 'Enter minutes' : null)),
+            const SizedBox(width: 12),
+            Expanded(child: TextFormField(controller: end, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'End offset (minutes)', helperText: 'Must be later than start.', border: OutlineInputBorder()), validator: (v) => int.tryParse(v ?? '') == null ? 'Enter minutes' : null)),
+          ]),
+          const SizedBox(height: 10),
+          CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('Mandatory before plan can be ready'), value: mandatory, onChanged: (v) => setDialogState(() => mandatory = v ?? true)),
+          CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('Active'), value: active, onChanged: (v) => setDialogState(() => active = v ?? true)),
+          TextFormField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Planning notes', border: OutlineInputBorder())),
+        ])))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton.icon(onPressed: () {
+            if (!form.currentState!.validate()) return;
+            final startValue = int.parse(start.text);
+            final endValue = int.parse(end.text);
+            if (endValue <= startValue) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('End offset must be later than start offset.')));
+              return;
+            }
+            Navigator.pop(context, true);
+          }, icon: const Icon(Icons.save_outlined), label: const Text('Save Requirement')),
+        ],
+      ),
+    ));
+    if (saved == true) {
+      await _service.saveRequirement(widget.package.id, {
+        'name': name.text.trim(), 'resourceType': type, 'resourceCategory': category.text.trim(),
+        'productId': product?.id, 'quantity': num.parse(quantity.text), 'uom': uom.text.trim().toUpperCase(),
+        'mandatory': mandatory, 'sourcingMode': sourcing, 'startOffsetMinutes': int.parse(start.text),
+        'endOffsetMinutes': int.parse(end.text), 'active': active, 'notes': notes.text.trim(),
+      }, id: existing?['id']?.toString());
+      await _load();
+    }
+    for (final controller in [name, category, quantity, uom, start, end, notes]) { controller.dispose(); }
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(child: SizedBox(width: 900, height: 680, child: Column(children: [
+    Padding(padding: const EdgeInsets.fromLTRB(24, 20, 12, 12), child: Row(children: [
+      const CircleAvatar(child: Icon(Icons.event_available_outlined)), const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Resource requirements', style: Theme.of(context).textTheme.titleLarge), Text(widget.package.name)])),
+      FilledButton.icon(onPressed: _loading ? null : () => _edit(), icon: const Icon(Icons.add), label: const Text('Add Requirement')),
+      IconButton(tooltip: 'Close', onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+    ])),
+    const Divider(height: 1),
+    Expanded(child: _loading ? const Center(child: CircularProgressIndicator()) : _error != null ? Center(child: Text(_error!)) : _requirements.isEmpty
+      ? Center(child: Padding(padding: const EdgeInsets.all(32), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.playlist_add_outlined, size: 56), const SizedBox(height: 12), Text('No resource requirements configured', style: Theme.of(context).textTheme.titleLarge), const SizedBox(height: 8), const Text('Add the employees, vehicles, equipment, stock or third-party services required for this package.', textAlign: TextAlign.center), const SizedBox(height: 18), FilledButton.icon(onPressed: () => _edit(), icon: const Icon(Icons.add), label: const Text('Add First Requirement'))])))
+      : ListView.separated(padding: const EdgeInsets.all(20), itemCount: _requirements.length, separatorBuilder: (_, __) => const SizedBox(height: 8), itemBuilder: (_, index) {
+          final item = _requirements[index];
+          final active = item['active'] == true || '${item['active']}' == '1';
+          return Card(child: ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8), leading: CircleAvatar(child: Icon('${item['resource_type']}' == 'EMPLOYEE' ? Icons.groups_outlined : '${item['resource_type']}' == 'VEHICLE' ? Icons.local_shipping_outlined : Icons.handyman_outlined)), title: Text('${item['name']}'), subtitle: Text('${item['resource_type']} · ${item['quantity']} ${item['uom']} · ${item['sourcing_mode']}\n${item['mandatory'] == true || '${item['mandatory']}' == '1' ? 'Mandatory' : 'Optional'}${active ? '' : ' · Inactive'}'), isThreeLine: true, trailing: IconButton(tooltip: 'Edit requirement', onPressed: () => _edit(item), icon: const Icon(Icons.edit_outlined))));
+        })),
+  ])));
 }
 
 class _FuneralPackageDialog extends StatefulWidget {
