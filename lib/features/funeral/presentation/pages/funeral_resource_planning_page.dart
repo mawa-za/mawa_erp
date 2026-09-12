@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../services/funeral_resource_planning_service.dart';
 import '../../../partners/partner_service.dart';
 import '../../data/funeral_api.dart';
@@ -9,16 +10,88 @@ class FuneralResourcePlanningPage extends StatefulWidget {
   @override State<FuneralResourcePlanningPage> createState()=>_State();
 }
 class _State extends State<FuneralResourcePlanningPage>{
-  final _service=FuneralResourcePlanningService(); Map<String,dynamic>? _config; List<Map<String,dynamic>> _plans=[]; bool _loading=true;
+  static const _statuses=['ALL','PLANNING_REQUIRED','IN_PROGRESS','READY','COMPLETED'];
+  final _service=FuneralResourcePlanningService();
+  final _search=TextEditingController();
+  Map<String,dynamic>? _config;
+  List<Map<String,dynamic>> _plans=[];
+  bool _loading=true;
+  String? _error;
+  String _status='ALL';
+
   @override void initState(){super.initState();_load();}
-  Future<void> _load()async{setState(()=>_loading=true);try{final c=await _service.configuration();final p=widget.configurationOnly||c['status']=='DISABLED'?<Map<String,dynamic>>[]:await _service.plans();if(mounted)setState((){_config=c;_plans=p;});}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}finally{if(mounted)setState(()=>_loading=false);}}
-  Future<void> _toggle(bool enabled)async{final c=_config!;final result=await _service.saveConfiguration({'enabled':enabled,'autoCreatePlans':c['autoCreatePlans'],'requireReadiness':c['requireReadiness'],'provisionalExpiryHours':c['provisionalExpiryHours'],'allowThirdPartyLeasing':c['allowThirdPartyLeasing'],'requireApprovedPo':c['requireApprovedPo']});setState(()=>_config=result);await _load();}
+  @override void dispose(){_search.dispose();super.dispose();}
+
+  Future<void> _load()async{
+    setState((){_loading=true;_error=null;});
+    try{
+      final c=await _service.configuration();
+      final enabled=c['status']=='ENABLED';
+      final p=widget.configurationOnly||!enabled?<Map<String,dynamic>>[]:await _service.plans(status:_status=='ALL'?null:_status,query:_search.text.trim());
+      if(mounted)setState((){_config=c;_plans=p;});
+    }catch(e){if(mounted)setState(()=>_error='$e');}
+    finally{if(mounted)setState(()=>_loading=false);}
+  }
+
+  Future<void> _toggle(bool enabled)async{
+    final c=_config!;
+    await _service.saveConfiguration({'enabled':enabled,'autoCreatePlans':c['autoCreatePlans'],'requireReadiness':c['requireReadiness'],'provisionalExpiryHours':c['provisionalExpiryHours'],'allowThirdPartyLeasing':c['allowThirdPartyLeasing'],'requireApprovedPo':c['requireApprovedPo']});
+    await _load();
+  }
+
   Future<void> _openPlanning()async{
     await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const FuneralResourcePlanningPage()));
   }
-  @override Widget build(BuildContext context){return Scaffold(appBar:AppBar(title:Text(widget.configurationOnly?'Funeral Resource Planning Configuration':'Funeral Resource Planning')),body:_loading?const Center(child:CircularProgressIndicator()):_config==null?const Center(child:Text('Configuration unavailable')):ListView(padding:const EdgeInsets.all(24),children:[Card(child:SwitchListTile(title:const Text('Enable Funeral Resource Planning'),subtitle:Text('Tenant status: ${_config!['status']}'),value:_config!['status']=='ENABLED',onChanged:_toggle)),if(widget.configurationOnly)..._settings(),if(widget.configurationOnly&&_config!['status']=='ENABLED')Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Resource planning workspace',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:8),const Text('Open the independent planner to allocate internal resources or arrange third-party leasing for funeral service requests.'),const SizedBox(height:16),FilledButton.icon(onPressed:_openPlanning,icon:const Icon(Icons.event_available_outlined),label:const Text('Open Resource Planning'))]))),if(!widget.configurationOnly&&_config!['status']=='DISABLED')const Card(child:Padding(padding:EdgeInsets.all(24),child:Text('Resource planning is not enabled for this tenant.'))),if(!widget.configurationOnly&&_config!['status']!='DISABLED')..._plans.map((p)=>Card(child:ListTile(title:Text('${p['service_request_no']??''} · ${p['deceased_name']??''}'),subtitle:Text('${p['funeral_date']??''} · ${p['funeral_area']??''}\n${p['unresolved_count']??0} mandatory requirements unresolved'),trailing:Chip(label:Text('${p['status']}')),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>_PlanPage(id:'${p['id']}'))).then((_)=>_load()))))]));}
+
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(
+      title:Text(widget.configurationOnly?'Funeral Resource Planning Configuration':'Funeral Resource Planning'),
+      actions:[if(!widget.configurationOnly)IconButton(tooltip:'Refresh and synchronise plans',onPressed:_loading?null:_load,icon:const Icon(Icons.refresh))],
+    ),
+    body:_loading?const Center(child:CircularProgressIndicator()):_error!=null?_errorView():_config==null?const Center(child:Text('Configuration unavailable')):widget.configurationOnly?_configurationView():_operationalView(),
+  );
+
+  Widget _configurationView()=>ListView(padding:const EdgeInsets.all(24),children:[
+    Card(child:SwitchListTile(contentPadding:const EdgeInsets.all(20),secondary:const Icon(Icons.event_available_outlined),title:const Text('Enable Funeral Resource Planning'),subtitle:Text('Tenant status: ${_config!['status']}'),value:_config!['status']=='ENABLED',onChanged:_toggle)),
+    Card(child:Column(children:_settings())),
+    if(_config!['status']=='ENABLED')Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Resource planning workspace',style:Theme.of(context).textTheme.titleMedium),const SizedBox(height:8),const Text('Upcoming funerals are synchronised automatically. Open the independent planner to allocate internal resources or arrange third-party leasing.'),const SizedBox(height:16),FilledButton.icon(onPressed:_openPlanning,icon:const Icon(Icons.open_in_new),label:const Text('Open Resource Planning'))]))),
+  ]);
+
+  Widget _operationalView(){
+    if(_config!['status']!='ENABLED')return Center(child:Padding(padding:const EdgeInsets.all(32),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.event_busy_outlined,size:64),const SizedBox(height:16),Text('Resource planning is not enabled',style:Theme.of(context).textTheme.headlineSmall),const SizedBox(height:8),const Text('A system administrator must enable it under System Configuration → Funeral Resource Planning.',textAlign:TextAlign.center)])));
+    final required=_plans.where((p)=>'${p['status']}'=='PLANNING_REQUIRED').length;
+    final progress=_plans.where((p)=>'${p['status']}'=='IN_PROGRESS').length;
+    final ready=_plans.where((p)=>'${p['status']}'=='READY').length;
+    return RefreshIndicator(onRefresh:_load,child:ListView(padding:const EdgeInsets.all(24),children:[
+      Text('Upcoming funeral resource plans',style:Theme.of(context).textTheme.headlineSmall),
+      const SizedBox(height:6),
+      const Text('Allocate employees, vehicles, equipment and externally leased resources before the funeral date.'),
+      const SizedBox(height:20),
+      Wrap(spacing:12,runSpacing:12,children:[_summary('Planning required',required,Icons.assignment_late_outlined),_summary('In progress',progress,Icons.pending_actions_outlined),_summary('Ready',ready,Icons.task_alt_outlined),_summary('Plans shown',_plans.length,Icons.event_note_outlined)]),
+      const SizedBox(height:20),
+      Card(child:Padding(padding:const EdgeInsets.all(16),child:Wrap(spacing:12,runSpacing:12,crossAxisAlignment:WrapCrossAlignment.center,children:[SizedBox(width:360,child:TextField(controller:_search,onSubmitted:(_)=>_load(),decoration:InputDecoration(labelText:'Search service request or deceased',prefixIcon:const Icon(Icons.search),suffixIcon:IconButton(tooltip:'Search',onPressed:_load,icon:const Icon(Icons.arrow_forward)),border:const OutlineInputBorder()))),DropdownButton<String>(value:_status,items:_statuses.map((s)=>DropdownMenuItem(value:s,child:Text(_label(s)))).toList(),onChanged:(v){if(v==null)return;setState(()=>_status=v);_load();}),OutlinedButton.icon(onPressed:_load,icon:const Icon(Icons.sync),label:const Text('Synchronise'))]))),
+      const SizedBox(height:12),
+      if(_plans.isEmpty)_emptyState() else ..._plans.map(_planCard),
+    ]));
+  }
+
+  Widget _summary(String label,int value,IconData icon)=>SizedBox(width:210,child:Card(child:Padding(padding:const EdgeInsets.all(16),child:Row(children:[CircleAvatar(child:Icon(icon)),const SizedBox(width:12),Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('$value',style:Theme.of(context).textTheme.headlineSmall),Text(label)])]))));
+
+  Widget _planCard(Map<String,dynamic> p){
+    final raw='${p['funeral_date']??''}';
+    final parsed=DateTime.tryParse(raw);
+    final date=parsed==null?raw:DateFormat('EEE, dd MMM yyyy').format(parsed);
+    final unresolved=int.tryParse('${p['unresolved_count']??0}')??0;
+    return Card(child:ListTile(contentPadding:const EdgeInsets.symmetric(horizontal:20,vertical:12),leading:CircleAvatar(child:Text(date.isEmpty?'?':date.substring(0,1))),title:Text('${p['service_request_no']??'Unnumbered request'} · ${p['deceased_name']??'Deceased not captured'}'),subtitle:Text('$date · ${p['funeral_area']??'Location not captured'}\n${p['item_count']??0} requirements · $unresolved mandatory outstanding'),isThreeLine:true,trailing:Chip(label:Text(_label('${p['status']}'))),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>_PlanPage(id:'${p['id']}'))).then((_)=>_load())));
+  }
+
+  Widget _emptyState()=>Card(child:Padding(padding:const EdgeInsets.all(36),child:Column(children:[const Icon(Icons.event_note_outlined,size:56),const SizedBox(height:16),Text('No matching resource plans',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:8),const Text('Upcoming funeral requests with a funeral date are synchronised automatically. Make sure Automatically create plans is enabled and resource requirements are maintained on the funeral package.',textAlign:TextAlign.center),const SizedBox(height:20),FilledButton.icon(onPressed:_load,icon:const Icon(Icons.sync),label:const Text('Synchronise Upcoming Funerals'))])));
+
+  Widget _errorView()=>Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.error_outline,size:56),const SizedBox(height:12),Text(_error!,textAlign:TextAlign.center),const SizedBox(height:16),FilledButton.icon(onPressed:_load,icon:const Icon(Icons.refresh),label:const Text('Retry'))])));
+
+  String _label(String value)=>value.toLowerCase().split('_').map((word)=>word.isEmpty?'':word[0].toUpperCase()+word.substring(1)).join(' ');
   List<Widget> _settings()=>[
-    CheckboxListTile(title:const Text('Automatically create plans'),value:_config!['autoCreatePlans']==true,onChanged:(v)=>_saveOption('autoCreatePlans',v)),
+    CheckboxListTile(title:const Text('Automatically create plans'),subtitle:const Text('Create and synchronise a plan for every upcoming funeral request.'),value:_config!['autoCreatePlans']==true,onChanged:(v)=>_saveOption('autoCreatePlans',v)),
     CheckboxListTile(title:const Text('Require resource readiness'),value:_config!['requireReadiness']==true,onChanged:(v)=>_saveOption('requireReadiness',v)),
     CheckboxListTile(title:const Text('Allow third-party leasing'),value:_config!['allowThirdPartyLeasing']==true,onChanged:(v)=>_saveOption('allowThirdPartyLeasing',v)),
     CheckboxListTile(title:const Text('Require approved PO before readiness'),value:_config!['requireApprovedPo']==true,onChanged:(v)=>_saveOption('requireApprovedPo',v)),
