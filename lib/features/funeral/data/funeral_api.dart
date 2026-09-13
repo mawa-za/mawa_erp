@@ -172,6 +172,23 @@ class FuneralApi {
     throw AppException('Failed to check membership: ${response.body}');
   }
 
+  Future<List<FuneralMembershipCoverDto>> checkMembershipNumber(
+      String membershipNumber, String deceasedCategory) async {
+    final number = Uri.encodeComponent(membershipNumber.trim());
+    final category = Uri.encodeQueryComponent(deceasedCategory);
+    final response = await _apiClient.get(
+      '/v2/funeral/check-membership-number/$number?deceasedCategory=$category',
+    );
+    if (response.statusCode == 200) {
+      return _decodeList(response.body)
+          .map((e) => FuneralMembershipCoverDto.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ))
+          .toList();
+    }
+    throw AppException('Failed to check membership: ${response.body}');
+  }
+
   Future<FuneralTenantIntegrationConfigurationDto>
       getTenantIntegrationConfiguration() async {
     final response = await _apiClient.get('/v2/funeral/tenant-integration');
