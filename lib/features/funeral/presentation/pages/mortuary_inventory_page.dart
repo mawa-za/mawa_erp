@@ -68,8 +68,10 @@ class _MortuaryInventoryPageState extends State<MortuaryInventoryPage> {
                   ),
                   TextFormField(
                     controller: idNumberController,
-                    decoration: const InputDecoration(labelText: 'Identity Number'),
-                    validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Identity Number (optional)',
+                      helperText: 'May be left blank for infants and stillborns.',
+                    ),
                   ),
                   const SizedBox(height: 16),
                   ListTile(
