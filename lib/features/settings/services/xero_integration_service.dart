@@ -34,6 +34,7 @@ class XeroConnection {
 
 class XeroActivationResult {
   final bool invoiceIntegrationEnabled;
+  final bool? invoiceIntegrationRequested;
   final String? integrationStatus;
   final String? authenticationUrl;
   final String? clientIdSecret;
@@ -49,6 +50,7 @@ class XeroActivationResult {
 
   XeroActivationResult({
     required this.invoiceIntegrationEnabled,
+    this.invoiceIntegrationRequested,
     this.integrationStatus,
     this.authenticationUrl,
     this.clientIdSecret,
@@ -66,6 +68,9 @@ class XeroActivationResult {
   factory XeroActivationResult.fromJson(Map<String, dynamic> json) {
     return XeroActivationResult(
       invoiceIntegrationEnabled: json['invoiceIntegrationEnabled'] == true,
+      invoiceIntegrationRequested: json['invoiceIntegrationRequested'] is bool
+          ? json['invoiceIntegrationRequested'] as bool
+          : null,
       integrationStatus: json['integrationStatus']?.toString(),
       authenticationUrl: json['authenticationUrl']?.toString(),
       clientIdSecret: json['clientIdSecret']?.toString(),
@@ -166,6 +171,21 @@ class XeroIntegrationService {
     }
 
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<XeroActivationResult> updateInvoiceIntegration(bool enabled) async {
+    final response = await ApiClient().post(
+      '/v2/integrations/xero/invoice-integration',
+      body: {'enabled': enabled},
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException('Failed to update Xero invoice integration: ${response.body}');
+    }
+
+    return XeroActivationResult.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
   bool _reauthorisationRequired(int statusCode, String body) {
     if (statusCode == 401) return true;
