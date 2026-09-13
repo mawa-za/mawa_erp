@@ -23,6 +23,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   bool _saving = false;
   bool _loadingConnections = false;
   bool _deactivating = false;
+  bool _updatingInvoiceIntegration = false;
   bool _obscureSecret = true;
   List<XeroConnection> _connections = const [];
   String? _selectedTenantId;
@@ -51,7 +52,8 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.secretNames();
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
+            result.invoiceIntegrationEnabled;
         _integrationStatus = result.integrationStatus;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
@@ -96,7 +98,8 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         _statusMessage = result.message;
         _integrationStatus = result.integrationStatus;
         _authenticationUrl = result.authenticationUrl;
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
+            _invoiceIntegrationEnabled;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -154,9 +157,6 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       setState(() {
         _connections = const [];
         _selectedTenantId = null;
-        if (reconnectRequired) {
-          _invoiceIntegrationEnabled = false;
-        }
         _statusMessage = message.isEmpty
             ? 'Unable to load Xero organisations. Activate or reconnect Xero.'
             : message;
@@ -175,7 +175,8 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.selectTenant(connection.tenantId);
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
+            result.invoiceIntegrationEnabled;
         _integrationStatus = result.integrationStatus;
         _selectedTenantId = result.selectedTenantId ?? connection.tenantId;
         _statusMessage = result.message ?? 'Xero organisation selected.';
@@ -217,7 +218,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.deactivate();
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ?? false;
         _selectedTenantId = null;
         _statusMessage = result.message;
       });
@@ -228,6 +229,32 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (mounted) _showError('Unable to deactivate Xero', error);
     } finally {
       if (mounted) setState(() => _deactivating = false);
+    }
+  }
+
+  Future<void> _updateInvoiceIntegration(bool enabled) async {
+    final previous = _invoiceIntegrationEnabled;
+    setState(() {
+      _invoiceIntegrationEnabled = enabled;
+      _updatingInvoiceIntegration = true;
+    });
+    try {
+      final result = await _service.updateInvoiceIntegration(enabled);
+      if (!mounted) return;
+      setState(() {
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ?? enabled;
+        _integrationStatus = result.integrationStatus ?? _integrationStatus;
+        _statusMessage = result.message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Xero configuration updated')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _invoiceIntegrationEnabled = previous);
+      _showError('Unable to update Xero invoice integration', error);
+    } finally {
+      if (mounted) setState(() => _updatingInvoiceIntegration = false);
     }
   }
 
@@ -361,7 +388,9 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: _invoiceIntegrationEnabled,
-                      onChanged: (value) => setState(() => _invoiceIntegrationEnabled = value),
+                      onChanged: _updatingInvoiceIntegration
+                          ? null
+                          : _updateInvoiceIntegration,
                       title: const Text('Enable invoice integration'),
                       subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Existing master data is queued after activation.'),
                     ),
