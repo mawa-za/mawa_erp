@@ -43,6 +43,7 @@ class XeroActivationResult {
   final String? tenantIdSecret;
   final String? accessTokenSecret;
   final String? redirectUrl;
+  final String? paymentAccountCode;
   final String? selectedTenantId;
   final String? selectedTenantName;
   final bool organisationSelectionRequired;
@@ -59,6 +60,7 @@ class XeroActivationResult {
     this.tenantIdSecret,
     this.accessTokenSecret,
     this.redirectUrl,
+    this.paymentAccountCode,
     this.selectedTenantId,
     this.selectedTenantName,
     this.organisationSelectionRequired = false,
@@ -79,6 +81,7 @@ class XeroActivationResult {
       tenantIdSecret: json['tenantIdSecret']?.toString(),
       accessTokenSecret: json['accessTokenSecret']?.toString(),
       redirectUrl: json['redirectUrl']?.toString(),
+      paymentAccountCode: json['paymentAccountCode']?.toString(),
       selectedTenantId: json['selectedTenantId']?.toString(),
       selectedTenantName: json['selectedTenantName']?.toString(),
       organisationSelectionRequired: json['organisationSelectionRequired'] == true,
@@ -104,6 +107,7 @@ class XeroIntegrationService {
     required String clientId,
     required String clientSecret,
     required String redirectUrl,
+    required String paymentAccountCode,
     bool invoiceIntegrationEnabled = true,
   }) async {
     final response = await ApiClient().post(
@@ -112,6 +116,7 @@ class XeroIntegrationService {
         'clientId': clientId,
         'clientSecret': clientSecret,
         'redirectUrl': redirectUrl,
+        'paymentAccountCode': paymentAccountCode,
         'invoiceIntegrationEnabled': invoiceIntegrationEnabled,
       },
     );

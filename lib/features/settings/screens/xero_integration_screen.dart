@@ -17,6 +17,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   final _clientIdController = TextEditingController();
   final _clientSecretController = TextEditingController();
   final _redirectUrlController = TextEditingController();
+  final _paymentAccountCodeController = TextEditingController();
   final _service = XeroIntegrationService();
 
   bool _invoiceIntegrationEnabled = true;
@@ -63,6 +64,9 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         if ((result.redirectUrl ?? '').trim().isNotEmpty) {
           _redirectUrlController.text = result.redirectUrl!;
         }
+        if ((result.paymentAccountCode ?? '').trim().isNotEmpty) {
+          _paymentAccountCodeController.text = result.paymentAccountCode!;
+        }
       });
     } catch (_) {
       // The activation call still generates and returns the same fixed names.
@@ -74,6 +78,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     _clientIdController.dispose();
     _clientSecretController.dispose();
     _redirectUrlController.dispose();
+    _paymentAccountCodeController.dispose();
     super.dispose();
   }
 
@@ -90,6 +95,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         clientId: _clientIdController.text.trim(),
         clientSecret: _clientSecretController.text,
         redirectUrl: _redirectUrlController.text.trim(),
+        paymentAccountCode: _paymentAccountCodeController.text.trim(),
         invoiceIntegrationEnabled: _invoiceIntegrationEnabled,
       );
 
@@ -383,6 +389,19 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                         final uri = Uri.tryParse(value?.trim() ?? '');
                         return uri == null || !uri.hasScheme || uri.host.isEmpty ? 'Enter a valid redirect URL' : null;
                       },
+                    ),
+                    const SizedBox(height: 4),
+                    TextFormField(
+                      controller: _paymentAccountCodeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Xero payment account code',
+                        helperText: 'Bank account code used when MAWA payments are posted to Xero.',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => _invoiceIntegrationEnabled &&
+                              (value == null || value.trim().isEmpty)
+                          ? 'Xero payment account code is required'
+                          : null,
                     ),
                     const SizedBox(height: 4),
                     SwitchListTile(
