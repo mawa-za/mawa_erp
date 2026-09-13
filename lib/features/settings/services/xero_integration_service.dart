@@ -34,6 +34,7 @@ class XeroConnection {
 
 class XeroActivationResult {
   final bool invoiceIntegrationEnabled;
+  final String? integrationStatus;
   final String? authenticationUrl;
   final String? clientIdSecret;
   final String? clientSecretSecret;
@@ -48,6 +49,7 @@ class XeroActivationResult {
 
   XeroActivationResult({
     required this.invoiceIntegrationEnabled,
+    this.integrationStatus,
     this.authenticationUrl,
     this.clientIdSecret,
     this.clientSecretSecret,
@@ -64,6 +66,7 @@ class XeroActivationResult {
   factory XeroActivationResult.fromJson(Map<String, dynamic> json) {
     return XeroActivationResult(
       invoiceIntegrationEnabled: json['invoiceIntegrationEnabled'] == true,
+      integrationStatus: json['integrationStatus']?.toString(),
       authenticationUrl: json['authenticationUrl']?.toString(),
       clientIdSecret: json['clientIdSecret']?.toString(),
       clientSecretSecret: json['clientSecretSecret']?.toString(),

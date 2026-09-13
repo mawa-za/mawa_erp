@@ -27,6 +27,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   List<XeroConnection> _connections = const [];
   String? _selectedTenantId;
   String? _statusMessage;
+  String? _integrationStatus;
   String? _authenticationUrl;
   String? _clientIdSecretName;
   String? _clientSecretSecretName;
@@ -51,6 +52,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       setState(() {
         _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _integrationStatus = result.integrationStatus;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -92,6 +94,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       setState(() {
         _statusMessage = result.message;
+        _integrationStatus = result.integrationStatus;
         _authenticationUrl = result.authenticationUrl;
         _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
         _clientIdSecretName = result.clientIdSecret;
@@ -174,6 +177,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       setState(() {
         _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _integrationStatus = result.integrationStatus;
         _selectedTenantId = result.selectedTenantId ?? connection.tenantId;
         _statusMessage = result.message ?? 'Xero organisation selected.';
       });
@@ -262,6 +266,18 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Xero accounting integration', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        if ((_integrationStatus ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Chip(
+                            avatar: Icon(
+                              _statusIcon(_integrationStatus!),
+                              size: 18,
+                              color: _statusColor(theme, _integrationStatus!),
+                            ),
+                            label: Text(_formatStatus(_integrationStatus!)),
+                            side: BorderSide(color: _statusColor(theme, _integrationStatus!)),
+                          ),
+                        ],
                         const SizedBox(height: 4),
                         Text(
                           _statusMessage ?? 'Save the Xero application credentials, authorise access, then select the organisation used to synchronise customers, products and invoices.',
@@ -444,5 +460,41 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         ],
       ),
     );
+  }
+
+  String _formatStatus(String status) {
+    return status
+        .toLowerCase()
+        .split('_')
+        .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
+  IconData _statusIcon(String status) {
+    switch (status) {
+      case 'AUTHORISED':
+        return Icons.check_circle_outline;
+      case 'PENDING_AUTHORISATION':
+      case 'PENDING_ORGANISATION_SELECTION':
+        return Icons.schedule_outlined;
+      case 'REAUTHORISATION_REQUIRED':
+        return Icons.warning_amber_outlined;
+      default:
+        return Icons.link_off_outlined;
+    }
+  }
+
+  Color _statusColor(ThemeData theme, String status) {
+    switch (status) {
+      case 'AUTHORISED':
+        return Colors.green.shade700;
+      case 'PENDING_AUTHORISATION':
+      case 'PENDING_ORGANISATION_SELECTION':
+        return Colors.orange.shade800;
+      case 'REAUTHORISATION_REQUIRED':
+        return theme.colorScheme.error;
+      default:
+        return theme.colorScheme.onSurfaceVariant;
+    }
   }
 }
