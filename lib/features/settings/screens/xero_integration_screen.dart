@@ -140,7 +140,6 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       setState(() {
         _connections = connections;
         if (connections.isEmpty) {
-          _invoiceIntegrationEnabled = false;
           _selectedTenantId = null;
         }
         _statusMessage = connections.isEmpty
