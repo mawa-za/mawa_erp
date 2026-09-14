@@ -269,6 +269,19 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select the card terminal used.')));
                   return;
                 }
+                final printerStatus = await PosPrintingService().receiptPrinterAvailability();
+                if (!context.mounted) return;
+                if (!printerStatus.online) {
+                  final proceed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+                    title: const Text('Receipt printer unavailable'),
+                    content: Text('${printerStatus.message}\n\nThe payment can be recorded, but automatic printing is not currently available.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Record without printing')),
+                    ],
+                  ));
+                  if (proceed != true) return;
+                }
                 setDialogState(() => submitting = true);
                 try {
                   final prefs = await SharedPreferences.getInstance();
@@ -287,15 +300,16 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     final printFailures = <String>[];
                     for (final receipt in response.receipts) {
                       try {
-                        await PosPrintingService().queueReceipt(receipt.id);
-                      } catch (_) {
-                        printFailures.add(receipt.receiptNo);
+                        final job = await PosPrintingService().queueReceiptAndWait(receipt.id);
+                        if (job.status != 'SPOOLED') printFailures.add('${receipt.receiptNo}: ${job.lastError ?? job.status}');
+                      } catch (error) {
+                        printFailures.add('${receipt.receiptNo}: ${friendlyErrorMessage(error)}');
                       }
                     }
                     if (printFailures.isNotEmpty && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text(
-                          'Payment recorded. ${printFailures.length} receipt(s) could not be queued for printing.',
+                          'Payment recorded, but printing was not confirmed:\n${printFailures.join('\n')}',
                         ),
                       ));
                     }
@@ -911,10 +925,13 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     }
 
     try {
-      await PosPrintingService().queueReceipt(receiptId, reprint: true);
+      final job = await PosPrintingService().queueReceiptAndWait(receiptId, reprint: true);
+      if (job.status == 'FAILED') throw AppException(job.lastError ?? 'The print agent reported a failure.');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Receipt reprint queued successfully.')),
+        SnackBar(content: Text(job.status == 'SPOOLED'
+            ? 'Receipt reprint sent to the printer.'
+            : 'Receipt reprint is still ${job.status.toLowerCase()}. Check Print Jobs.')),
       );
     } catch (error) {
       if (!mounted) return;

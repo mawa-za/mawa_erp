@@ -134,3 +134,48 @@ class PosEnrollmentCode {
         location: (json['location'] ?? '').toString(),
       );
 }
+
+class PosPrintJob {
+  final String id;
+  final String sourceType;
+  final String sourceId;
+  final String? receiptId;
+  final String terminalId;
+  final String agentId;
+  final String printerId;
+  final String printerQueueName;
+  final String status;
+  final int attemptCount;
+  final int maxAttempts;
+  final String? createdAt;
+  final String? updatedAt;
+  final String? spooledAt;
+  final String? lastError;
+
+  const PosPrintJob({required this.id, required this.sourceType, required this.sourceId,
+    required this.receiptId, required this.terminalId, required this.agentId,
+    required this.printerId, required this.printerQueueName, required this.status,
+    required this.attemptCount, required this.maxAttempts, required this.createdAt,
+    required this.updatedAt, required this.spooledAt, required this.lastError});
+
+  bool get terminal => status == 'SPOOLED' || status == 'FAILED';
+  bool get failed => status == 'FAILED';
+  bool get aged {
+    final value = createdAt == null ? null : DateTime.tryParse(createdAt!);
+    return value != null && status != 'SPOOLED' && DateTime.now().difference(value.toLocal()).inMinutes >= 2;
+  }
+
+  factory PosPrintJob.fromJson(Map<String, dynamic> json) => PosPrintJob(
+    id: (json['id'] ?? '').toString(), sourceType: (json['sourceType'] ?? '').toString(),
+    sourceId: (json['sourceId'] ?? '').toString(), receiptId: json['receiptId']?.toString(),
+    terminalId: (json['terminalId'] ?? '').toString(), agentId: (json['agentId'] ?? '').toString(),
+    printerId: (json['printerId'] ?? '').toString(), printerQueueName: (json['printerQueueName'] ?? '').toString(),
+    status: (json['status'] ?? 'QUEUED').toString().toUpperCase(),
+    attemptCount: (json['attemptCount'] as num?)?.toInt() ?? 0,
+    maxAttempts: (json['maxAttempts'] as num?)?.toInt() ?? 5,
+    createdAt: json['createdAt'] == null ? null : AppDateUtils.normalizeDateTime(json['createdAt']),
+    updatedAt: json['updatedAt'] == null ? null : AppDateUtils.normalizeDateTime(json['updatedAt']),
+    spooledAt: json['spooledAt'] == null ? null : AppDateUtils.normalizeDateTime(json['spooledAt']),
+    lastError: json['lastError']?.toString(),
+  );
+}

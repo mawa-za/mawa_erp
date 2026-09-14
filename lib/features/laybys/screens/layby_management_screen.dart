@@ -738,10 +738,13 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
     final receiptId = _text(payment['receipt_id']);
     if (receiptId.isEmpty) return;
     try {
-      await PosPrintingService().queueReceipt(receiptId, reprint: true);
+      final job = await PosPrintingService().queueReceiptAndWait(receiptId, reprint: true);
+      if (job.status == 'FAILED') throw AppException(job.lastError ?? 'The print agent reported a failure.');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Receipt ${_text(payment['receipt_no'])} queued for reprint.')),
+        SnackBar(content: Text(job.status == 'SPOOLED'
+            ? 'Receipt ${_text(payment['receipt_no'])} sent to the printer.'
+            : 'Receipt reprint is still ${job.status.toLowerCase()}. Check Print Jobs.')),
       );
     } catch (e) {
       if (!mounted) return;

@@ -63,6 +63,20 @@ class _CaptureInvoicePaymentDialogState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final printerStatus = await PosPrintingService().receiptPrinterAvailability();
+    if (!mounted) return;
+    if (!printerStatus.online) {
+      final proceed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: const Text('Receipt printer unavailable'),
+        content: Text('${printerStatus.message}\n\nThe payment can be recorded, but automatic printing is not currently available.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Record without printing')),
+        ],
+      ));
+      if (proceed != true) return;
+    }
+
     setState(() => _submitting = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -108,16 +122,17 @@ class _CaptureInvoicePaymentDialogState
     final failures = <String>[];
     for (final receipt in response.receipts) {
       try {
-        await PosPrintingService().queueReceipt(receipt.id);
-      } catch (_) {
-        failures.add(receipt.receiptNo);
+        final job = await PosPrintingService().queueReceiptAndWait(receipt.id);
+        if (job.status != 'SPOOLED') failures.add('${receipt.receiptNo}: ${job.lastError ?? job.status}');
+      } catch (error) {
+        failures.add('${receipt.receiptNo}: ${friendlyErrorMessage(error)}');
       }
     }
     if (failures.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Payment recorded, but ${failures.length} receipt(s) could not be queued for printing.',
+            'Payment recorded, but printing was not confirmed:\n${failures.join('\n')}',
           ),
         ),
       );
