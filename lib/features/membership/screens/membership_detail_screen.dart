@@ -915,10 +915,13 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       }
 
       if (selectedReceipt == null) return;
-      await PosPrintingService().queueReceipt(selectedReceipt.id, reprint: true);
+      final job = await PosPrintingService().queueReceiptAndWait(selectedReceipt.id, reprint: true);
+      if (job.status == 'FAILED') throw AppException(job.lastError ?? 'The print agent reported a failure.');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Receipt ${selectedReceipt.receiptNo} queued for reprint.')),
+        SnackBar(content: Text(job.status == 'SPOOLED'
+            ? 'Receipt ${selectedReceipt.receiptNo} sent to the printer.'
+            : 'Receipt reprint is still ${job.status.toLowerCase()}. Check Print Jobs.')),
       );
     } catch (error) {
       if (!mounted) return;

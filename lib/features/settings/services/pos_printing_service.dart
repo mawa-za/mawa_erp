@@ -204,6 +204,44 @@ class PosPrintingService {
     return (decoded['id'] ?? '').toString();
   }
 
+  Future<PosPrintJob> getJob(String jobId) async {
+    final response = await ApiClient().get('/v2/pos-printing/jobs/$jobId');
+    if (response.statusCode != 200) throw AppException(_message(response.body, 'Unable to load print status'));
+    return PosPrintJob.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+  }
+
+  Future<List<PosPrintJob>> getJobs() async {
+    final response = await ApiClient().get('/v2/pos-printing/jobs');
+    if (response.statusCode != 200) throw AppException(_message(response.body, 'Unable to load print jobs'));
+    final decoded = jsonDecode(response.body);
+    return (decoded as List).whereType<Map>().map((e) => PosPrintJob.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  Future<PosPrintJob> waitForJob(String jobId, {Duration timeout = const Duration(seconds: 12)}) async {
+    final deadline = DateTime.now().add(timeout);
+    var job = await getJob(jobId);
+    while (!job.terminal && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 750));
+      job = await getJob(jobId);
+    }
+    return job;
+  }
+
+  Future<PosPrintJob> queueReceiptAndWait(String receiptId, {bool reprint = false, String? printerId}) async {
+    final id = await queueReceipt(receiptId, reprint: reprint, printerId: printerId);
+    if (id.isEmpty) throw AppException('The backend did not return a print job ID.');
+    return waitForJob(id);
+  }
+
+  Future<PosPrintJob> retryJob(String jobId, {bool reroute = false}) async {
+    final suffix = reroute ? 'reroute-retry' : 'retry';
+    final response = await ApiClient().post('/v2/pos-printing/jobs/$jobId/$suffix', body: const {});
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AppException(_message(response.body, reroute ? 'Unable to reroute print job' : 'Unable to retry print job'));
+    }
+    return PosPrintJob.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+  }
+
   Future<String> queueCashup(String cashupId, {bool reprint = false, String? printerId}) async {
     final terminal = await ensureTerminal();
     if (!terminal.configured && (printerId == null || printerId.isEmpty)) {
