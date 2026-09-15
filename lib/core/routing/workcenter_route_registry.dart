@@ -96,6 +96,7 @@ class WorkcenterRouteRegistry {
     'INCOMING_CUSTOMER_ORDERS': AppRoutes.supplierNetworkOrders,
     'SUPPLIER_NETWORK_CONNECTIONS': AppRoutes.supplierNetworkConnections,
     'MAWA_TRADING_CONNECTIONS': AppRoutes.supplierNetworkConnections,
+    'RESELLER_CLIENT_MANAGEMENT': AppRoutes.resellerClientManagement,
     'CASHUP': AppRoutes.cashups,
     'CASHUPS': AppRoutes.cashups,
     'PAYMENT_REQUEST': AppRoutes.paymentRequests,
