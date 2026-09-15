@@ -17,6 +17,7 @@ class AppRoutes {
   static const String serviceResources = '/service-resources';
   static const String supplierNetworkOrders = '/supplier-network/orders';
   static const String supplierNetworkConnections = '/supplier-network/connections';
+  static const String resellerClientManagement = '/reseller/clients';
   static const String invoicePreview = '/invoices/:id/preview';
   static const String cases = '/cases';
   static const String createCase = '/cases/new';
