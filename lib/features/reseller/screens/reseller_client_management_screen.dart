@@ -98,7 +98,7 @@ class _SupportSessionDialogState extends State<_SupportSessionDialog> {
   @override Widget build(BuildContext context) => AlertDialog(title: Text('Support access: ${widget.clientName}'), content: SizedBox(width: 480, child: Form(key: _form, child: Column(mainAxisSize: MainAxisSize.min, children: [
     const Text('Access is time-limited and fully audited. Read-only is recommended for first-line diagnosis.'), const SizedBox(height: 16),
     TextFormField(controller: _reason, maxLines: 3, decoration: const InputDecoration(labelText: 'Access reason'), validator: (v) => v?.trim().isEmpty == true ? 'Reason is required' : null),
-    const SizedBox(height: 12), TextFormField(controller: _ticket, decoration: const InputDecoration(labelText: 'Ticket reference (optional)')),
+    const SizedBox(height: 12), TextFormField(controller: _ticket, decoration: const InputDecoration(labelText: 'Active ticket reference'), validator: (v) => v?.trim().isEmpty == true ? 'Ticket reference is required' : null),
     const SizedBox(height: 12), DropdownButtonFormField<String>(value: _mode, decoration: const InputDecoration(labelText: 'Access mode'), items: const [
       DropdownMenuItem(value: 'READ_ONLY', child: Text('Read only')), DropdownMenuItem(value: 'SUPPORT_OPERATOR', child: Text('Support operator')),
     ], onChanged: (v) => setState(() => _mode = v!)),

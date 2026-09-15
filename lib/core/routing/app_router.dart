@@ -16,6 +16,7 @@ import '../../features/invoicing/screens/invoice_list_screen.dart';
 import '../../features/service_orders/screens/service_order_list_screen.dart';
 import '../../features/supplier_network/screens/supplier_network_screen.dart';
 import '../../features/reseller/screens/reseller_client_management_screen.dart';
+import '../../features/support/screens/support_ticket_screen.dart';
 import '../../features/service_management/screens/service_management_screen.dart';
 import '../../features/cases/screens/case_list_screen.dart';
 import '../../features/cases/screens/create_case_screen.dart';
@@ -234,6 +235,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.resellerClientManagement,
         builder: (context, state) => const ResellerClientManagementScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.supportTickets,
+        builder: (context, state) => const SupportTicketScreen(),
       ),
       GoRoute(
         path: AppRoutes.supplierNetworkConnections,
