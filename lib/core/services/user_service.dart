@@ -129,6 +129,21 @@ class UserService {
     }
   }
 
+  Future<User> assignCardTerminal(String userId, String? cardTerminalId) async {
+    final response = await ApiClient().put(
+      '/v2/user/$userId/card-terminal',
+      body: {'cardTerminalId': cardTerminalId},
+    );
+    if (response.statusCode != 200) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'Unable to update the user card terminal.',
+      );
+    }
+    return User.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+  }
+
   Future<void> deleteUser(String userId) async {
     final response = await ApiClient().delete('/v2/user/$userId');
     if (response.statusCode != 200 && response.statusCode != 204) {

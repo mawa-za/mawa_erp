@@ -12,7 +12,6 @@ import '../models/group_society_payment.dart';
 import '../services/membership_service.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../settings/services/pos_printing_service.dart';
-import '../../settings/widgets/card_terminal_dropdown.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -177,7 +176,6 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
     final notesController = TextEditingController();
     DateTime selectedDate = DateTime.now();
     String? selectedMethod;
-    String? selectedCardTerminalId;
     bool submitting = false;
 
     final result = await showDialog<bool>(
@@ -224,11 +222,11 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     items: ['CASH', 'CARD', 'EFT', 'DEBIT_ORDER', 'OTHER']
                         .map((method) => DropdownMenuItem(value: method, child: Text(method.replaceAll('_', ' '))))
                         .toList(),
-                    onChanged: submitting ? null : (value) => setDialogState(() { selectedMethod = value; if(value!='CARD') selectedCardTerminalId=null; }),
+                    onChanged: submitting ? null : (value) => setDialogState(() => selectedMethod = value),
                   ),
                   if (selectedMethod == 'CARD') ...[
-                    const SizedBox(height: 12),
-                    CardTerminalDropdown(value: selectedCardTerminalId, onChanged: (value) => setDialogState(() => selectedCardTerminalId = value)),
+                    const SizedBox(height: 10),
+                    const Text('The card terminal assigned to your user in User Maintenance will be used automatically.'),
                   ],
                   const SizedBox(height: 12),
                   TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference Number')),
@@ -265,10 +263,6 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a payment method.')));
                   return;
                 }
-                if (selectedMethod == 'CARD' && (selectedCardTerminalId == null || selectedCardTerminalId!.isEmpty)) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select the card terminal used.')));
-                  return;
-                }
                 final printerStatus = await PosPrintingService().receiptPrinterAvailability();
                 if (!context.mounted) return;
                 if (!printerStatus.online) {
@@ -293,7 +287,6 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     'notes': notesController.text.trim(),
                     'createdBy': prefs.getString('userId') ?? 'unknown',
                     'deviceId': prefs.getString('deviceId') ?? 'ERP-ONLINE',
-                    'terminalId': selectedMethod == 'CARD' ? selectedCardTerminalId : null,
                     'location': prefs.getString('location'),
                   });
                   if (response.receipts.isNotEmpty) {

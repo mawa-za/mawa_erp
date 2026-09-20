@@ -6,6 +6,7 @@ import '../../../core/models/user.dart';
 import '../../../core/services/user_service.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
+import '../services/card_terminal_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
@@ -19,18 +20,20 @@ class UserDetailScreen extends StatefulWidget {
 class _UserDetailScreenState extends State<UserDetailScreen> {
   final _users = UserService();
   final _roles = RoleService();
+  final _cardTerminals = CardTerminalService();
   bool _loading = true;
   String? _error;
   User? _user;
   List<Map<String,dynamic>> _assigned = [];
   List<Role> _available = [];
+  List<CardTerminal> _terminals = [];
 
   @override void initState(){super.initState();_load();}
   Future<void> _load() async {
     setState(() {_loading=true;_error=null;});
     try {
-      final values=await Future.wait([_users.getUser(widget.userId),_users.getUserRoles(widget.userId),_roles.getRoles()]);
-      if(mounted)setState((){_user=values[0] as User;_assigned=List<Map<String,dynamic>>.from(values[1] as List);_available=values[2] as List<Role>;_loading=false;});
+      final values=await Future.wait([_users.getUser(widget.userId),_users.getUserRoles(widget.userId),_roles.getRoles(),_cardTerminals.list()]);
+      if(mounted)setState((){_user=values[0] as User;_assigned=List<Map<String,dynamic>>.from(values[1] as List);_available=values[2] as List<Role>;_terminals=values[3] as List<CardTerminal>;_loading=false;});
     } catch(e){if(mounted)setState((){_error=friendlyErrorMessage(e);_loading=false;});}
   }
 
@@ -46,6 +49,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         if(!await _confirm('Delete ${_user!.username}?'))return;
         await _users.deleteUser(widget.userId);if(mounted)Navigator.pop(context,true);return;
       }else if(action=='policy'){await _editPolicy();return;}
+      else if(action=='card-terminal'){await _editCardTerminal();return;}
       await _load();
     }catch(e){_showError(e);}
   }
@@ -57,6 +61,50 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       actions:[TextButton(onPressed:()=>Navigator.pop(dialogContext),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(dialogContext,selected),child:const Text('Save'))])));
     if(result==null)return;
     try{await _users.updateUserRoles(widget.userId,result.toList());await _load();}catch(e){_showError(e);}
+  }
+
+  Future<void> _editCardTerminal() async {
+    final u = _user!;
+    String selected = u.cardTerminalId ?? '';
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: Text('Card terminal — ${u.username}'),
+          content: SizedBox(
+            width: 520,
+            child: SearchableDropdownFormField<String>(
+              value: selected,
+              decoration: const InputDecoration(
+                labelText: 'Assigned card terminal',
+                helperText: 'Card payments in MawaERP and MawaPay will use this terminal automatically.',
+                prefixIcon: Icon(Icons.point_of_sale_outlined),
+              ),
+              items: <DropdownMenuItem<String>>[
+                const DropdownMenuItem(value: '', child: Text('No terminal assigned')),
+                ..._terminals.map((terminal) => DropdownMenuItem(
+                      value: terminal.id,
+                      enabled: terminal.active,
+                      child: Text(terminal.active ? terminal.label : '${terminal.label} (Inactive)'),
+                    )),
+              ],
+              onChanged: (value) => setLocal(() => selected = value ?? ''),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (save != true) return;
+    try {
+      await _users.assignCardTerminal(widget.userId, selected.isEmpty ? null : selected);
+      await _load();
+    } catch (e) {
+      _showError(e);
+    }
   }
 
   Future<void> _editPolicy() async {
@@ -78,14 +126,23 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('User Details'),actions:[if(_user!=null)PopupMenuButton<String>(onSelected:_action,itemBuilder:(_)=>[
     const PopupMenuItem(value:'policy',child:ListTile(leading:Icon(Icons.policy_outlined),title:Text('Access policy'),contentPadding:EdgeInsets.zero)),
+    const PopupMenuItem(value:'card-terminal',child:ListTile(leading:Icon(Icons.point_of_sale_outlined),title:Text('Card terminal'),contentPadding:EdgeInsets.zero)),
     if(_user!.status.toUpperCase()=='ACTIVE')const PopupMenuItem(value:'lock',child:ListTile(leading:Icon(Icons.lock_outline),title:Text('Lock'),contentPadding:EdgeInsets.zero))else const PopupMenuItem(value:'unlock',child:ListTile(leading:Icon(Icons.lock_open),title:Text('Unlock'),contentPadding:EdgeInsets.zero)),
     const PopupMenuItem(value:'reset',child:ListTile(leading:Icon(Icons.password),title:Text('Reset password'),contentPadding:EdgeInsets.zero)),
     PopupMenuItem(value:'delete',enabled:!_user!.protectedUser&&!_user!.systemManaged,child:const ListTile(leading:Icon(Icons.delete_outline,color:Colors.red),title:Text('Delete'),contentPadding:EdgeInsets.zero)),
   ]),IconButton(onPressed:_load,icon:const Icon(Icons.refresh))]),body:_loading?const Center(child:CircularProgressIndicator()):_error!=null?Center(child:Text(_error!)):ListView(padding:const EdgeInsets.all(20),children:[
     _header(_user!),const SizedBox(height:16),_section('Assigned roles',[if(_assigned.isEmpty)const Text('No roles assigned') else Wrap(spacing:8,runSpacing:8,children:_assigned.map((r)=>Chip(avatar:(r['protectedRole']==true)?const Icon(Icons.shield,size:16):null,label:Text((r['id']??'').toString()))).toList()),const SizedBox(height:8),OutlinedButton.icon(onPressed:_manageRoles,icon:const Icon(Icons.manage_accounts),label:const Text('Manage roles'))]),
-    _section('Account policy',[_row('Account type',_user!.accountType),_row('Access scope',_user!.accessScope),_row('Environment',_user!.environmentScope.isEmpty?'All permitted environments':_user!.environmentScope),_row('External transactions',_user!.externalTransactionsBlocked?'Blocked':'Allowed'),_row('Expiry',AppDateUtils.displayDateTime(_user!.expiresAt,fallback:'None')),_row('MFA',_user!.mfaRequired?'Required':'Not required'),if(_user!.protectedReason.isNotEmpty)_row('Reason',_user!.protectedReason)]),
+    _section('Account policy',[_row('Account type',_user!.accountType),_row('Access scope',_user!.accessScope),_row('Card terminal',_cardTerminalLabel(_user!.cardTerminalId)),_row('Environment',_user!.environmentScope.isEmpty?'All permitted environments':_user!.environmentScope),_row('External transactions',_user!.externalTransactionsBlocked?'Blocked':'Allowed'),_row('Expiry',AppDateUtils.displayDateTime(_user!.expiresAt,fallback:'None')),_row('MFA',_user!.mfaRequired?'Required':'Not required'),if(_user!.protectedReason.isNotEmpty)_row('Reason',_user!.protectedReason)]),
     _section('User information',[_row('Username',_user!.username),_row('Email',_user!.email??''),_row('Cellphone',_user!.cellphone??''),_row('Time zone',_user!.timeZone),_row('User type',_user!.type),_row('Status',_user!.status)]),
   ]));
+
+  String _cardTerminalLabel(String? id) {
+    if (id == null || id.isEmpty) return 'Not assigned';
+    for (final terminal in _terminals) {
+      if (terminal.id == id) return terminal.active ? terminal.label : '${terminal.label} (Inactive)';
+    }
+    return 'Assigned terminal unavailable';
+  }
 
   Widget _header(User u)=>Card(child:Padding(padding:const EdgeInsets.all(20),child:Row(children:[CircleAvatar(radius:28,child:Icon(u.testUser?Icons.science:u.protectedUser?Icons.shield:Icons.person)),const SizedBox(width:16),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(u.displayName?.isNotEmpty==true?u.displayName!:u.username,style:Theme.of(context).textTheme.titleLarge),Text(u.username),Wrap(spacing:6,children:[if(u.protectedUser)const Chip(label:Text('PROTECTED')),if(u.testUser)const Chip(label:Text('TEST USER')),if(u.systemManaged)const Chip(label:Text('SYSTEM MANAGED'))])]))])));
   Widget _section(String title,List<Widget> children)=>Card(child:Padding(padding:const EdgeInsets.all(20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight:FontWeight.bold)),const SizedBox(height:12),...children])));
