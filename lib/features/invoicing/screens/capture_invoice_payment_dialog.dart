@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/errors/app_error.dart';
 import '../../membership/models/payment_batch_response.dart';
 import '../../settings/services/pos_printing_service.dart';
-import '../../settings/widgets/card_terminal_dropdown.dart';
 import '../models/invoice_detail.dart';
 import '../services/invoice_service.dart';
 
@@ -32,7 +31,6 @@ class _CaptureInvoicePaymentDialogState
   final _notesController = TextEditingController();
 
   String? _paymentMethod;
-  String? _cardTerminalId;
   DateTime _paymentDate = DateTime.now();
   bool _submitting = false;
 
@@ -96,8 +94,7 @@ class _CaptureInvoicePaymentDialogState
           'createdBy': userId,
           'employeeResponsible': userId,
           'deviceId': prefs.getString('deviceId') ?? 'ERP-ONLINE',
-          'terminalId': _paymentMethod == 'CARD' ? _cardTerminalId : null,
-          'location': prefs.getString('location'),
+                    'location': prefs.getString('location'),
         },
       );
 
@@ -220,12 +217,12 @@ class _CaptureInvoicePaymentDialogState
                   ],
                   onChanged: _submitting
                       ? null
-                      : (value) => setState(() { _paymentMethod = value; if(value!='CARD') _cardTerminalId=null; }),
+                      : (value) => setState(() => _paymentMethod = value),
                   validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                 ),
                 if (_paymentMethod == 'CARD') ...[
-                  const SizedBox(height: 14),
-                  CardTerminalDropdown(value: _cardTerminalId, onChanged: (value) => setState(() => _cardTerminalId = value)),
+                  const SizedBox(height: 10),
+                  const Text('The card terminal assigned to your user in User Maintenance will be used automatically.'),
                 ],
                 const SizedBox(height: 14),
                 InkWell(

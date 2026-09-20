@@ -7,6 +7,7 @@ class User {
   final String? email;
   final String? cellphone;
   final String timeZone;
+  final String? cardTerminalId;
   final String type;
   final String status;
   final Partner? partner;
@@ -32,6 +33,7 @@ class User {
     this.email,
     this.cellphone,
     this.timeZone = 'Africa/Harare',
+    this.cardTerminalId,
     required this.type,
     required this.status,
     this.partner,
@@ -58,6 +60,7 @@ class User {
         email: json['email']?.toString(),
         cellphone: json['cellphone']?.toString(),
         timeZone: (json['timeZone'] ?? 'Africa/Harare').toString(),
+        cardTerminalId: json['cardTerminalId']?.toString(),
         type: (json['type'] ?? json['userType'] ?? '').toString(),
         status: (json['status'] ?? '').toString(),
         partner: json['partner'] != null && json['partner'] is Map
