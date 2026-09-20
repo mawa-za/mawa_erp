@@ -100,6 +100,14 @@ class _PurpleConfigurationScreenState extends State<PurpleConfigurationScreen> {
     final duration = TextEditingController(text: '${existing?['durationMinutes'] ?? 30}');
     final interval = TextEditingController(text: '${existing?['slotIntervalMinutes'] ?? 30}');
     final location = TextEditingController(text: '${existing?['location'] ?? ''}');
+    String pricingModel = '${existing?['pricingModel'] ?? 'CATALOGUE_PRICE'}';
+    final fixedPrice = TextEditingController(text: '${existing?['fixedPrice'] ?? ''}');
+    final minimumPrice = TextEditingController(text: '${existing?['minimumPrice'] ?? ''}');
+    final maximumPrice = TextEditingController(text: '${existing?['maximumPrice'] ?? ''}');
+    final hourlyRate = TextEditingController(text: '${existing?['hourlyRate'] ?? ''}');
+    final calloutFee = TextEditingController(text: '${existing?['calloutFee'] ?? ''}');
+    final disclaimer = TextEditingController(text: '${existing?['pricingDisclaimer'] ?? ''}');
+    bool inspectionRequired = _bool(existing?['inspectionRequired'], false);
     bool booking = _bool(existing?['bookingEnabled'], true);
     bool request = _bool(existing?['serviceRequestEnabled'], true);
     bool active = _bool(existing?['active'], true);
@@ -122,6 +130,21 @@ class _PurpleConfigurationScreenState extends State<PurpleConfigurationScreen> {
             Expanded(child: TextField(controller: interval, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Slot interval'))),
           ]),
           TextField(controller: location, decoration: const InputDecoration(labelText: 'Location (optional)')),
+          DropdownButtonFormField<String>(value: pricingModel, decoration: const InputDecoration(labelText: 'Customer pricing display'), items: const [
+            DropdownMenuItem(value: 'CATALOGUE_PRICE', child: Text('Catalogue price')),
+            DropdownMenuItem(value: 'FIXED', child: Text('Fixed price')),
+            DropdownMenuItem(value: 'FROM', child: Text('Starting from')),
+            DropdownMenuItem(value: 'RANGE', child: Text('Price range')),
+            DropdownMenuItem(value: 'HOURLY', child: Text('Hourly rate')),
+            DropdownMenuItem(value: 'CALLOUT_PLUS_LABOUR', child: Text('Call-out plus labour')),
+            DropdownMenuItem(value: 'INSPECTION_REQUIRED', child: Text('Inspection required')),
+            DropdownMenuItem(value: 'ON_REQUEST', child: Text('Price on request')),
+          ], onChanged: (v) => setLocal(() => pricingModel = v ?? 'CATALOGUE_PRICE')),
+          Row(children: [Expanded(child: TextField(controller: fixedPrice, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Fixed / from price'))), const SizedBox(width: 8), Expanded(child: TextField(controller: hourlyRate, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Hourly rate')))]),
+          Row(children: [Expanded(child: TextField(controller: minimumPrice, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Minimum price'))), const SizedBox(width: 8), Expanded(child: TextField(controller: maximumPrice, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Maximum price')))]),
+          TextField(controller: calloutFee, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Call-out fee')),
+          TextField(controller: disclaimer, decoration: const InputDecoration(labelText: 'Pricing note shown to customer')),
+          SwitchListTile(value: inspectionRequired, onChanged: (v) => setLocal(() => inspectionRequired = v), title: const Text('Assessment required before final price')),
           SwitchListTile(value: booking, onChanged: (v) => setLocal(() => booking = v), title: const Text('Available for bookings')),
           SwitchListTile(value: request, onChanged: (v) => setLocal(() => request = v), title: const Text('Available for service requests')),
           SwitchListTile(value: active, onChanged: (v) => setLocal(() => active = v), title: const Text('Active')),
@@ -142,6 +165,15 @@ class _PurpleConfigurationScreenState extends State<PurpleConfigurationScreen> {
                 'displayOrder': existing?['displayOrder'] ?? 0,
                 'bookingEnabled': booking,
                 'serviceRequestEnabled': request,
+                'pricingModel': pricingModel,
+                'fixedPrice': double.tryParse(fixedPrice.text),
+                'minimumPrice': double.tryParse(minimumPrice.text),
+                'maximumPrice': double.tryParse(maximumPrice.text),
+                'hourlyRate': double.tryParse(hourlyRate.text),
+                'calloutFee': double.tryParse(calloutFee.text),
+                'pricingCurrency': 'ZAR',
+                'pricingDisclaimer': disclaimer.text.trim(),
+                'inspectionRequired': inspectionRequired,
                 'active': active,
               });
               if (context.mounted) Navigator.pop(context, true);
@@ -151,6 +183,7 @@ class _PurpleConfigurationScreenState extends State<PurpleConfigurationScreen> {
       )),
     );
     displayName.dispose(); description.dispose(); duration.dispose(); interval.dispose(); location.dispose();
+    fixedPrice.dispose(); minimumPrice.dispose(); maximumPrice.dispose(); hourlyRate.dispose(); calloutFee.dispose(); disclaimer.dispose();
     if (saved == true) await _load();
   }
 

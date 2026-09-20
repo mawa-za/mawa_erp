@@ -4,6 +4,7 @@ import '../services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import 'pos_print_job_monitor_screen.dart';
 
 class PosPrintingSettingsScreen extends StatefulWidget {
   const PosPrintingSettingsScreen({super.key});
@@ -209,7 +210,13 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('POS Printing')),
+      appBar: AppBar(title: const Text('POS Printing'), actions: [
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosPrintJobMonitorScreen())),
+          icon: const Icon(Icons.receipt_long_outlined),
+          label: const Text('Print jobs'),
+        ),
+      ]),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

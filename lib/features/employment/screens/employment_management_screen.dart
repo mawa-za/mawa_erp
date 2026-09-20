@@ -6,6 +6,7 @@ import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/partner_service.dart';
+import '../../partners/screens/partner_create_screen.dart';
 import '../../partners/screens/partner_detail_screen.dart';
 import '../services/employment_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -973,6 +974,8 @@ class _PartnerPickerDialogState extends State<_PartnerPickerDialog> {
   final TextEditingController _query = TextEditingController();
   List<Partner> _partners = const [];
   bool _loading = false;
+  bool _hasSearched = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -981,13 +984,55 @@ class _PartnerPickerDialogState extends State<_PartnerPickerDialog> {
   }
 
   Future<void> _search() async {
-    setState(() => _loading = true);
+    final query = _query.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _hasSearched = false;
+        _partners = const [];
+        _error = 'Enter a name, partner number or identity number.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final partners = await PartnerService().getPartners(query: _query.text);
-      if (mounted) setState(() => _partners = partners.take(100).toList());
+      final partners = await PartnerService().getPartners(query: query);
+      if (mounted) {
+        setState(() {
+          _hasSearched = true;
+          _partners = partners.take(100).toList();
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _hasSearched = false;
+          _partners = const [];
+          _error = friendlyErrorMessage(
+            error,
+            fallback: 'We could not search for partners. Please try again.',
+          );
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _createPartner() async {
+    final partner = await Navigator.of(context).push<Partner>(
+      MaterialPageRoute(
+        builder: (_) => const PartnerCreateScreen(
+          initialRole: 'EMPLOYEE',
+          lockInitialRole: true,
+          returnCreatedPartner: true,
+        ),
+      ),
+    );
+    if (partner != null && mounted) Navigator.pop(context, partner);
   }
 
   @override
@@ -1012,22 +1057,57 @@ class _PartnerPickerDialogState extends State<_PartnerPickerDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            if (_error != null) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      itemCount: _partners.length,
-                      itemBuilder: (_, index) {
-                        final partner = _partners[index];
-                        return ListTile(
-                          title: Text(partner.fullName),
-                          subtitle: Text(
-                            '${partner.number} ${partner.identityNumber}'.trim(),
+                  : _hasSearched && _partners.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.person_off_outlined, size: 48),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'No matching partner was found.',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Create the person as a new employee partner, then continue with the hire request.',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              FilledButton.icon(
+                                onPressed: _createPartner,
+                                icon: const Icon(Icons.person_add_alt_1_rounded),
+                                label: const Text('Create New Partner'),
+                              ),
+                            ],
                           ),
-                          onTap: () => Navigator.pop(context, partner),
-                        );
-                      },
-                    ),
+                        )
+                      : ListView.builder(
+                          itemCount: _partners.length,
+                          itemBuilder: (_, index) {
+                            final partner = _partners[index];
+                            return ListTile(
+                              title: Text(partner.fullName),
+                              subtitle: Text(
+                                '${partner.number} ${partner.identityNumber}'.trim(),
+                              ),
+                              onTap: () => Navigator.pop(context, partner),
+                            );
+                          },
+                        ),
             ),
           ],
         ),

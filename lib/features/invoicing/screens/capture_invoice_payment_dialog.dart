@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/errors/app_error.dart';
 import '../../membership/models/payment_batch_response.dart';
 import '../../settings/services/pos_printing_service.dart';
+import '../../settings/widgets/card_terminal_dropdown.dart';
 import '../models/invoice_detail.dart';
 import '../services/invoice_service.dart';
 
@@ -31,6 +32,7 @@ class _CaptureInvoicePaymentDialogState
   final _notesController = TextEditingController();
 
   String? _paymentMethod;
+  String? _cardTerminalId;
   DateTime _paymentDate = DateTime.now();
   bool _submitting = false;
 
@@ -61,6 +63,20 @@ class _CaptureInvoicePaymentDialogState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final printerStatus = await PosPrintingService().receiptPrinterAvailability();
+    if (!mounted) return;
+    if (!printerStatus.online) {
+      final proceed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: const Text('Receipt printer unavailable'),
+        content: Text('${printerStatus.message}\n\nThe payment can be recorded, but automatic printing is not currently available.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Record without printing')),
+        ],
+      ));
+      if (proceed != true) return;
+    }
+
     setState(() => _submitting = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -80,7 +96,7 @@ class _CaptureInvoicePaymentDialogState
           'createdBy': userId,
           'employeeResponsible': userId,
           'deviceId': prefs.getString('deviceId') ?? 'ERP-ONLINE',
-          'terminalId': prefs.getString('terminalId'),
+          'terminalId': _paymentMethod == 'CARD' ? _cardTerminalId : null,
           'location': prefs.getString('location'),
         },
       );
@@ -106,16 +122,17 @@ class _CaptureInvoicePaymentDialogState
     final failures = <String>[];
     for (final receipt in response.receipts) {
       try {
-        await PosPrintingService().queueReceipt(receipt.id);
-      } catch (_) {
-        failures.add(receipt.receiptNo);
+        final job = await PosPrintingService().queueReceiptAndWait(receipt.id);
+        if (job.status != 'SPOOLED') failures.add('${receipt.receiptNo}: ${job.lastError ?? job.status}');
+      } catch (error) {
+        failures.add('${receipt.receiptNo}: ${friendlyErrorMessage(error)}');
       }
     }
     if (failures.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Payment recorded, but ${failures.length} receipt(s) could not be queued for printing.',
+            'Payment recorded, but printing was not confirmed:\n${failures.join('\n')}',
           ),
         ),
       );
@@ -203,9 +220,13 @@ class _CaptureInvoicePaymentDialogState
                   ],
                   onChanged: _submitting
                       ? null
-                      : (value) => setState(() => _paymentMethod = value),
+                      : (value) => setState(() { _paymentMethod = value; if(value!='CARD') _cardTerminalId=null; }),
                   validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                 ),
+                if (_paymentMethod == 'CARD') ...[
+                  const SizedBox(height: 14),
+                  CardTerminalDropdown(value: _cardTerminalId, onChanged: (value) => setState(() => _cardTerminalId = value)),
+                ],
                 const SizedBox(height: 14),
                 InkWell(
                   onTap: _submitting ? null : _pickDate,
