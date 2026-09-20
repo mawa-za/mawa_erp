@@ -166,6 +166,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       case 'TOMBSTONE':
         return 'CLAIM_TOMBSTONE';
       case 'FUNERAL':
+      case 'STILLBORN':
         return 'CLAIM_FUNERAL';
       case 'COMBINATION':
         return 'CLAIM_COMBINATION';

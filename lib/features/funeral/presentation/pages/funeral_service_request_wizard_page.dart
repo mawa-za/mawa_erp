@@ -36,6 +36,7 @@ class FuneralServiceRequestWizardPage extends StatefulWidget {
 class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestWizardPage> {
   late final FuneralServiceRequestWizardController _controller;
   final _idNumberController = TextEditingController();
+  final _membershipNumberController = TextEditingController();
   final _deathCertificateController = TextEditingController();
   final _deliveryDirectionsController = TextEditingController();
 
@@ -72,6 +73,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     _idNumberController.dispose();
+    _membershipNumberController.dispose();
     _deathCertificateController.dispose();
     _deliveryDirectionsController.dispose();
     super.dispose();
@@ -194,15 +196,48 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               },
             )),
         const SizedBox(height: 24),
+        DropdownButtonFormField<String>(
+          value: _controller.deceasedCategory,
+          decoration: const InputDecoration(
+            labelText: 'Deceased category *',
+            border: OutlineInputBorder(),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'ADULT', child: Text('Adult')),
+            DropdownMenuItem(value: 'INFANT', child: Text('Infant')),
+            DropdownMenuItem(value: 'STILLBORN', child: Text('Stillborn')),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _controller.updateDeceasedCategory(value);
+            });
+          },
+        ),
+        const SizedBox(height: 16),
         TextFormField(
           controller: _idNumberController,
           decoration: const InputDecoration(
             labelText: 'Deceased Identity Number',
             border: OutlineInputBorder(),
-            helperText: 'Required for membership cover check',
+            helperText: 'Required for adults; optional for infants and stillborns',
           ),
           onChanged: _controller.updateDeceasedIdentityNumber,
         ),
+        if (_controller.deceasedCategory != 'ADULT') ...[
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _membershipNumberController,
+            decoration: const InputDecoration(
+              labelText: 'Parent / policyholder membership number',
+              helperText:
+                  'Use this to find infant or stillborn cover when the deceased has no SA ID.',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.card_membership_outlined),
+            ),
+            onChanged: (value) => _controller.coverMembershipNumber = value,
+          ),
+        ],
         const SizedBox(height: 16),
         InkWell(
           borderRadius: BorderRadius.circular(4),
@@ -255,8 +290,10 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         const SizedBox(height: 16),
         TextFormField(
           controller: _deathCertificateController,
-          decoration: const InputDecoration(
-            labelText: 'Death Certificate Number',
+          decoration: InputDecoration(
+            labelText: _controller.deceasedCategory == 'STILLBORN'
+                ? 'Stillbirth / burial document reference'
+                : 'Death Certificate Number',
             border: OutlineInputBorder(),
           ),
           onChanged: (value) => _controller.deathCertificateNo = value,
@@ -1689,7 +1726,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         _controller.errorMessage = 'Please select a deceased person from the list.';
         return;
       }
-      if (_controller.deceasedIdentityNumber.isEmpty) {
+      if (_controller.deceasedCategory == 'ADULT' && _controller.deceasedIdentityNumber.isEmpty) {
         setState(() => _controller.errorMessage = 'Identity number is required for the membership check step.');
         return;
       }
@@ -1702,11 +1739,17 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         return;
       }
       if (_controller.deathCertificateNo.trim().isEmpty) {
-        setState(() => _controller.errorMessage = 'Death Certificate Number is required.');
+        setState(() => _controller.errorMessage =
+            _controller.deceasedCategory == 'STILLBORN'
+                ? 'Stillbirth or burial document reference is required.'
+                : 'Death Certificate Number is required.');
         return;
       }
       _controller.errorMessage = null;
-      await _controller.checkMembership();
+      if (_controller.deceasedIdentityNumber.isNotEmpty ||
+          _controller.coverMembershipNumber.trim().isNotEmpty) {
+        await _controller.checkMembership();
+      }
       _controller.nextStep();
     } else if (_controller.currentStep == 1) {
       // Cover selection is optional, but the membership lookup has already

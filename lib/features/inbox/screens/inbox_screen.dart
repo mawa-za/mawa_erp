@@ -74,6 +74,69 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
     }
   }
 
+  Future<void> _configureNotifications() async {
+    try {
+      final preference = await _service.getNotificationPreference();
+      if (!mounted) return;
+      var enabled = preference['popupEnabled'] != false;
+      var postponedUntil = DateTime.tryParse('${preference['postponedUntil'] ?? ''}');
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Inbox notification settings'),
+            content: SizedBox(
+              width: 440,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Show pop-up notifications'),
+                  subtitle: const Text('Notifications remain available in your Inbox when pop-ups are disabled.'),
+                  value: enabled,
+                  onChanged: (value) => setDialogState(() => enabled = value),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Postpone notifications'),
+                  subtitle: Text(postponedUntil?.isAfter(DateTime.now()) == true
+                      ? 'Postponed until ${DateFormat('dd MMM yyyy HH:mm').format(postponedUntil!)}'
+                      : 'Not postponed'),
+                  trailing: PopupMenuButton<Duration?>(
+                    onSelected: (duration) => setDialogState(() =>
+                        postponedUntil = duration == null ? null : DateTime.now().add(duration)),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: Duration(hours: 1), child: Text('1 hour')),
+                      PopupMenuItem(value: Duration(hours: 4), child: Text('4 hours')),
+                      PopupMenuItem(value: Duration(days: 1), child: Text('Until tomorrow')),
+                      PopupMenuItem(value: null, child: Text('Resume now')),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: () async {
+                  await _service.saveNotificationPreference(
+                    popupEnabled: enabled,
+                    postponedUntil: postponedUntil,
+                  );
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage(error))),
+      );
+    }
+  }
+
   Future<void> _openApproval(Approval approval, {InboxNotification? notification}) async {
     if (notification != null && notification.isUnread) {
       try {
@@ -121,6 +184,11 @@ class _InboxScreenState extends State<InboxScreen> with SingleTickerProviderStat
       appBar: AppBar(
         title: const Text('Inbox', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
+          IconButton(
+            tooltip: 'Notification settings',
+            onPressed: _configureNotifications,
+            icon: const Icon(Icons.notifications_outlined),
+          ),
           if ((_inbox?.unreadCount ?? 0) > 0)
             TextButton.icon(
               onPressed: _markAllRead,

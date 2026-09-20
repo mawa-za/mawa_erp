@@ -560,6 +560,8 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
             _buildInfoRow(Icons.event_available, 'Date', cashup.cashupDate),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.devices_outlined, 'Device', cashup.deviceId),
+            if (cashup.cardTerminalId.isNotEmpty)
+              _buildInfoRow(Icons.credit_card_outlined, 'Card terminal', cashup.terminalDisplayName),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.person_outline, 'Cashier', cashup.cashierDisplayName),
             const SizedBox(height: 8),

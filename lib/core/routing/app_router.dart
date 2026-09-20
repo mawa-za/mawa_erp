@@ -14,6 +14,9 @@ import '../../features/membership/screens/member_list_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
 import '../../features/service_orders/screens/service_order_list_screen.dart';
+import '../../features/supplier_network/screens/supplier_network_screen.dart';
+import '../../features/reseller/screens/reseller_client_management_screen.dart';
+import '../../features/support/screens/support_ticket_screen.dart';
 import '../../features/service_management/screens/service_management_screen.dart';
 import '../../features/cases/screens/case_list_screen.dart';
 import '../../features/cases/screens/create_case_screen.dart';
@@ -63,6 +66,7 @@ import '../../features/funeral/presentation/pages/funeral_package_setup_page.dar
 import '../../features/funeral/presentation/pages/funeral_all_claims_page.dart';
 import '../../features/funeral/presentation/pages/funeral_payments_page.dart';
 import '../../features/funeral/presentation/pages/third_party_funeral_cover_underwriting_page.dart';
+import '../../features/funeral/presentation/pages/funeral_resource_planning_page.dart';
 
 import '../services/session_service.dart';
 
@@ -223,6 +227,22 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.serviceOrders,
         builder: (context, state) => const ServiceOrderListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.supplierNetworkOrders,
+        builder: (context, state) => const SupplierNetworkScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.resellerClientManagement,
+        builder: (context, state) => const ResellerClientManagementScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.supportTickets,
+        builder: (context, state) => const SupportTicketScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.supplierNetworkConnections,
+        builder: (context, state) => const SupplierNetworkConnectionsScreen(),
       ),
       // Legacy Service Management deep link retained for compatibility.
       GoRoute(
@@ -393,6 +413,8 @@ class AppRouter {
         builder: (context, state) =>
             const ThirdPartyFuneralCoverUnderwritingPage(),
       ),
+      GoRoute(path: AppRoutes.funeralResourcePlanning,builder:(context,state)=>const FuneralResourcePlanningPage()),
+      GoRoute(path: AppRoutes.funeralResourcePlanningConfiguration,builder:(context,state)=>const FuneralResourcePlanningPage(configurationOnly:true)),
       GoRoute(
         path: AppRoutes.companyForms,
         builder: (context, state) => const CompanyFormsScreen(),

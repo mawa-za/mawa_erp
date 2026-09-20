@@ -127,7 +127,7 @@ class MembershipPlan {
 
 enum DependentType { ANY, MAIN_MEMBER, SPOUSE, CHILD, PARENT, EXTENDED_FAMILY, OTHER }
 
-enum ClaimType { CASH, TOMBSTONE, FUNERAL, COMBINATION, GROCERY }
+enum ClaimType { CASH, TOMBSTONE, FUNERAL, STILLBORN, COMBINATION, GROCERY }
 
 class MembershipPlanClaimPayout {
   final String? id;

@@ -143,7 +143,9 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
                   ],
                 )
               : _standaloneBody,
-      floatingActionButton: widget.view == ServiceManagementView.contracts
+      floatingActionButton: widget.view == ServiceManagementView.requests
+          ? FloatingActionButton.extended(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Service request'))
+          : widget.view == ServiceManagementView.contracts
           ? FloatingActionButton.extended(
               onPressed: _newContract,
               icon: const Icon(Icons.add),
@@ -159,6 +161,9 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
                   ? ListenableBuilder(
                       listenable: _tabs,
                       builder: (_, __) {
+                        if (_tabs.index == 1) {
+                          return FloatingActionButton.extended(onPressed: _newRequest, icon: const Icon(Icons.add), label: const Text('Service request'));
+                        }
                         if (_tabs.index == 2) {
                           return FloatingActionButton.extended(
                             onPressed: _newContract,
@@ -294,10 +299,14 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
                 if ('${request['service_location_name'] ?? ''}'.isNotEmpty) '${request['service_location_name']}',
                 if (request['preferred_date'] != null) 'Preferred ${request['preferred_date']} ${request['preferred_start_time'] ?? ''}',
                 if ('${request['source_channel'] ?? ''}'.isNotEmpty) 'Source ${request['source_channel']}',
+                'Status ${request['lifecycle_status'] ?? 'NEW'}',
+                if ('${request['quotation_no'] ?? ''}'.isNotEmpty) 'Quote ${request['quotation_no']} • R${request['quotation_total']}',
               ].where((value) => value.trim().isNotEmpty).join(' • ')),
               trailing: PopupMenuButton<String>(
                 onSelected: (value) => _convertRequest(request, value),
                 itemBuilder: (_) => [
+                  if ('${request['quotation_id'] ?? ''}'.isEmpty)
+                    const PopupMenuItem(value: 'quotation', child: Text('Prepare quotation')),
                   const PopupMenuItem(value: 'order', child: Text('Create service order')),
                   if (recurring) const PopupMenuItem(value: 'contract', child: Text('Create draft contract')),
                 ],
@@ -315,6 +324,9 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
       if (action == 'contract') {
         await _service.createContractFromRequest(id);
         _message('Draft service contract created.');
+      } else if (action == 'quotation') {
+        await _prepareQuotation(request);
+        return;
       } else {
         await _service.createOrderFromRequest(id);
         _message('Service order created and ready for scheduling.');
@@ -323,6 +335,50 @@ class _ServiceManagementScreenState extends State<ServiceManagementScreen>
     } catch (error) {
       _message(friendlyErrorMessage(error, fallback: 'Unable to convert the service request.'));
     }
+  }
+
+  Future<void> _newRequest() async {
+    final products = await _service.serviceProducts();
+    if (!mounted) return;
+    Partner? customer;
+    String? productId;
+    String source = 'CALL_CENTRE';
+    final summary = TextEditingController();
+    final description = TextEditingController();
+    final saved = await showDialog<bool>(context: context, builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setLocal) => AlertDialog(
+        title: const Text('Create service request'),
+        content: SizedBox(width: 620, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          PartnerSearchDropdown(key: ValueKey(customer?.id ?? 'request-customer'), role: 'CUSTOMER', label: 'Search customer', initialPartner: customer, onPartnerSelected: (v) => setLocal(() => customer = v)),
+          Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () async { final value = await showQuickCustomerCreateDialog(context); if (value != null) setLocal(() => customer = value); }, icon: const Icon(Icons.person_add_alt_1_outlined), label: const Text('Quick create customer'))),
+          DropdownButtonFormField<String>(value: productId, decoration: const InputDecoration(labelText: 'Service'), items: products.map((p) => DropdownMenuItem(value: '${p['id']}', child: Text('${p['description'] ?? p['code']}'))).toList(), onChanged: (v) { setLocal(() => productId = v); final match = products.where((p) => '${p['id']}' == v); if (match.isNotEmpty && summary.text.isEmpty) summary.text = '${match.first['description'] ?? ''}'; }),
+          const SizedBox(height: 12),
+          TextField(controller: summary, decoration: const InputDecoration(labelText: 'Request summary')),
+          const SizedBox(height: 12),
+          TextField(controller: description, minLines: 3, maxLines: 6, decoration: const InputDecoration(labelText: 'What does the customer need?')),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(value: source, decoration: const InputDecoration(labelText: 'Source'), items: const [DropdownMenuItem(value: 'CALL_CENTRE', child: Text('Telephone')), DropdownMenuItem(value: 'BRANCH', child: Text('Walk-in')), DropdownMenuItem(value: 'EMAIL', child: Text('Email / WhatsApp')), DropdownMenuItem(value: 'ERP', child: Text('Internal'))], onChanged: (v) => setLocal(() => source = v ?? 'CALL_CENTRE')),
+        ]))),
+        actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: customer == null || productId == null ? null : () async { try { await _service.createRequest({'customerPartnerId': customer!.id, 'productId': productId, 'summary': summary.text.trim(), 'description': description.text.trim(), 'sourceChannel': source, 'priority': 'NORMAL', 'category': 'GENERAL'}); if (context.mounted) Navigator.pop(context, true); } catch (e) { _message(friendlyErrorMessage(e, fallback: 'Unable to create service request.')); } }, child: const Text('Create request'))],
+      ),
+    ));
+    summary.dispose(); description.dispose();
+    if (saved == true) { _message('Service request created.'); await _load(); }
+  }
+
+  Future<void> _prepareQuotation(Map<String, dynamic> request) async {
+    final price = TextEditingController();
+    final notes = TextEditingController(text: 'Quotation for service request ${request['number'] ?? ''}');
+    final created = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Prepare service quotation'),
+      content: SizedBox(width: 480, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Estimated price (R)')),
+        const SizedBox(height: 12), TextField(controller: notes, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Quotation notes')),
+      ])),
+      actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: () async { final amount = double.tryParse(price.text); if (amount == null) return; try { await _service.createQuotationFromRequest('${request['id']}', {'status': 'DRAFT', 'currency': 'ZAR', 'validUntil': DateTime.now().add(const Duration(days: 14)).toIso8601String().split('T').first, 'notes': notes.text.trim(), 'lines': [{'productId': request['product_id'], 'description': request['service_name'] ?? request['summary'], 'quantity': 1, 'uom': 'EA', 'unitPrice': amount, 'taxRate': 0}]}); if (context.mounted) Navigator.pop(context, true); } catch (e) { _message(friendlyErrorMessage(e, fallback: 'Unable to create quotation.')); } }, child: const Text('Create draft'))],
+    ));
+    price.dispose(); notes.dispose();
+    if (created == true) { _message('Draft quotation created and linked to the request.'); await _load(); }
   }
 
   Widget _contractsTab() {

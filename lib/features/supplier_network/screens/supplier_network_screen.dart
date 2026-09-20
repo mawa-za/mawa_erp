@@ -1,0 +1,115 @@
+import 'package:flutter/material.dart';
+import 'package:mawa_erp/core/errors/app_error.dart';
+import 'package:mawa_erp/core/widgets/partner_search_dropdown.dart';
+import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import 'package:mawa_erp/features/partners/models/partner.dart';
+
+import '../services/supplier_network_service.dart';
+
+class SupplierNetworkConfigurationScreen extends StatefulWidget {
+  const SupplierNetworkConfigurationScreen({super.key});
+  @override State<SupplierNetworkConfigurationScreen> createState()=>_NetworkConfigState();
+}
+class _NetworkConfigState extends State<SupplierNetworkConfigurationScreen>{
+  final service=SupplierNetworkService(); bool loading=true,saving=false,enabled=false; String? error;
+  @override void initState(){super.initState();load();}
+  Future<void>load()async{try{final x=await service.configuration();if(mounted)setState((){enabled=x['enabled']==true;loading=false;error=null;});}catch(e){if(mounted)setState((){loading=false;error=friendlyErrorMessage(e);});}}
+  Future<void>save(bool value)async{setState(()=>saving=true);try{final x=await service.saveConfiguration(value);if(mounted)setState(()=>enabled=x['enabled']==true);}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(friendlyErrorMessage(e))));}finally{if(mounted)setState(()=>saving=false);}}
+  Future<void>manageConnections()async{
+    await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const SupplierNetworkConnectionsScreen()));
+  }
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(title:const Text('MAWA Supplier Network')),
+    body:loading?const Center(child:CircularProgressIndicator()):ListView(
+      padding:const EdgeInsets.all(24),
+      children:[
+        Text('Cross-tenant supplier collaboration',style:Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height:8),
+        const Text('Exchange approved purchase orders, resource schedules, completion confirmations and invoices with authorised MAWA tenants.'),
+        const SizedBox(height:20),
+        if(error!=null)Card(color:Theme.of(context).colorScheme.errorContainer,child:Padding(padding:const EdgeInsets.all(16),child:Text(error!))),
+        Card(child:SwitchListTile(
+          contentPadding:const EdgeInsets.all(20),
+          secondary:Icon(enabled?Icons.hub:Icons.hub_outlined),
+          title:const Text('Enable MAWA Supplier Network'),
+          subtitle:Text(enabled?'Trading connections and customer orders are available.':'All cross-tenant trading is blocked.'),
+          value:enabled,
+          onChanged:saving?null:save,
+        )),
+        const SizedBox(height:12),
+        Card(child:Padding(
+          padding:const EdgeInsets.all(20),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('Trading connections',style:Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height:8),
+            Text(enabled
+                ?'Link this tenant to MAWA customers or suppliers and control purchase-order and invoice exchange.'
+                :'Enable the supplier network before creating trading connections.'),
+            const SizedBox(height:16),
+            FilledButton.icon(
+              onPressed:enabled?manageConnections:null,
+              icon:const Icon(Icons.manage_accounts_outlined),
+              label:const Text('Manage Trading Connections'),
+            ),
+          ]),
+        )),
+        const Card(child:Padding(padding:EdgeInsets.all(20),child:Text('A connection must be configured in both tenants: the funeral company records the remote tenant as its supplier, and the supply business records the funeral company as its customer.'))),
+      ],
+    ),
+  );
+}
+
+class SupplierNetworkScreen extends StatefulWidget {const SupplierNetworkScreen({super.key});@override State<SupplierNetworkScreen>createState()=>_OrdersState();}
+class _OrdersState extends State<SupplierNetworkScreen>{
+  final service=SupplierNetworkService();bool loading=true;String? error;List<Map<String,dynamic>>orders=[];
+  @override void initState(){super.initState();load();}
+  Future<void>load()async{setState((){loading=true;error=null;});try{final x=await service.orders();if(mounted)setState((){orders=x;loading=false;});}catch(e){if(mounted)setState((){error=friendlyErrorMessage(e);loading=false;});}}
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Incoming Customer Orders'),actions:[IconButton(tooltip:'Refresh',onPressed:load,icon:const Icon(Icons.refresh))]),body:loading?const Center(child:CircularProgressIndicator()):error!=null?Center(child:Padding(padding:const EdgeInsets.all(24),child:Text(error!))):orders.isEmpty?const Center(child:Text('No customer purchase orders have been received.')):ListView.builder(padding:const EdgeInsets.all(16),itemCount:orders.length,itemBuilder:(c,i){final o=orders[i];return Card(child:ListTile(leading:const CircleAvatar(child:Icon(Icons.assignment_outlined)),title:Text('${o['order_no']} · ${o['customer_name']??''}'),subtitle:Text('Customer PO ${o['buyer_purchase_order_no']}\n${o['funeral_reference']??''}'),isThreeLine:true,trailing:Chip(label:Text('${o['status']}')),onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>_OrderPage('${o['id']}'))).then((_)=>load())));}));
+}
+
+class _OrderPage extends StatefulWidget{final String id;const _OrderPage(this.id);@override State<_OrderPage>createState()=>_OrderPageState();}
+class _OrderPageState extends State<_OrderPage>{
+  final service=SupplierNetworkService();Map<String,dynamic>?order;bool loading=true;
+  @override void initState(){super.initState();load();}
+  Future<void>load()async{final x=await service.order(widget.id);if(mounted)setState((){order=x;loading=false;});}
+  Future<void>act(Future<Map<String,dynamic>>Function()fn)async{try{await fn();await load();}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(friendlyErrorMessage(e))));}}
+  Future<void>respond(String status)async{final note=TextEditingController();final needsNote=status!='ACCEPTED';final ok=await showDialog<bool>(context:context,builder:(c)=>AlertDialog(icon:Icon(status=='ACCEPTED'?Icons.task_alt_outlined:status=='DECLINED'?Icons.cancel_outlined:Icons.edit_calendar_outlined),title:Text(status=='ACCEPTED'?'Accept customer order':status=='DECLINED'?'Decline customer order':'Propose order changes'),content:SizedBox(width:460,child:Column(mainAxisSize:MainAxisSize.min,children:[Text(status=='ACCEPTED'?'Requested quantities will be confirmed and a scheduled service order created.':'The buyer will receive the reason or proposed change.'),if(needsNote)...[const SizedBox(height:16),TextField(controller:note,maxLines:3,decoration:const InputDecoration(labelText:'Reason or proposed changes',border:OutlineInputBorder()))]])),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(c,true),child:Text(status=='ACCEPTED'?'Accept':'Submit'))]));if(ok==true)await act(()=>service.respond(widget.id,status,note:note.text.trim()));}
+  Future<void>reserve(List<Map<String,dynamic>>lines)async{final assets=await service.resources();if(!mounted)return;String? lineId='${lines.first['id']}',assetId;Partner? employee;String type='ASSET';final qty=TextEditingController(text:'1');final form=GlobalKey<FormState>();final ok=await showDialog<bool>(context:context,builder:(c)=>StatefulBuilder(builder:(c,setLocal)=>AlertDialog(icon:const Icon(Icons.event_available_outlined),title:const Text('Reserve resource'),content:SizedBox(width:540,child:Form(key:form,child:Column(mainAxisSize:MainAxisSize.min,children:[SearchableDropdownFormField<String>(initialValue:lineId,isExpanded:true,decoration:const InputDecoration(labelText:'Customer order line',border:OutlineInputBorder()),items:lines.map((l)=>DropdownMenuItem(value:'${l['id']}',child:Text('${l['description']}'))).toList(),validator:(v)=>v==null?'Select an order line':null,onChanged:(v)=>setLocal(()=>lineId=v)),const SizedBox(height:14),SearchableDropdownFormField<String>(initialValue:type,decoration:const InputDecoration(labelText:'Resource type',border:OutlineInputBorder()),items:const[DropdownMenuItem(value:'ASSET',child:Text('Vehicle, equipment or asset')),DropdownMenuItem(value:'EMPLOYEE',child:Text('Employee'))],onChanged:(v)=>setLocal((){type=v??'ASSET';assetId=null;employee=null;})),const SizedBox(height:14),if(type=='ASSET')SearchableDropdownFormField<String>(isExpanded:true,decoration:const InputDecoration(labelText:'Available asset',border:OutlineInputBorder()),items:assets.map((a)=>DropdownMenuItem(value:'${a['id']}',child:Text('${a['name']} · ${a['number']}${a['category']==null?'':' · ${a['category']}'}'))).toList(),validator:(v)=>v==null?'Select an asset':null,onChanged:(v)=>setLocal(()=>assetId=v))else PartnerSearchDropdown(key:const ValueKey('network-employee'),role:'EMPLOYEE',label:'Search employee by name or number',validator:(v)=>v==null?'Select an employee':null,onPartnerSelected:(v)=>setLocal(()=>employee=v)),const SizedBox(height:14),TextFormField(controller:qty,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:const InputDecoration(labelText:'Quantity',border:OutlineInputBorder()),validator:(v)=>(num.tryParse(v??'')??0)<=0?'Enter a valid quantity':null)]))),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Cancel')),FilledButton.icon(onPressed:(){if(form.currentState!.validate())Navigator.pop(c,true);},icon:const Icon(Icons.event_available),label:const Text('Reserve'))])));if(ok==true)await act(()=>service.reserve(widget.id,{'lineId':lineId,if(type=='ASSET')'assetId':assetId,if(type=='EMPLOYEE')'employeePartnerId':employee!.id,'quantity':num.parse(qty.text)}));}
+  @override Widget build(BuildContext context){if(loading)return const Scaffold(body:Center(child:CircularProgressIndicator()));final lines=List<Map<String,dynamic>>.from(order!['lines']as List);final status='${order!['status']}';return Scaffold(appBar:AppBar(title:Text('${order!['order_no']}')),body:ListView(padding:const EdgeInsets.all(24),children:[Text('${order!['customer_name']??''}',style:Theme.of(context).textTheme.headlineSmall),Text('Customer PO ${order!['buyer_purchase_order_no']} · $status'),if('${order!['funeral_reference']??''}'.isNotEmpty)Text('Funeral ${order!['funeral_reference']}'),const SizedBox(height:16),...lines.map((l)=>Card(child:ListTile(title:Text('${l['description']}'),subtitle:Text('Requested ${l['requested_quantity']} ${l['uom']} · Confirmed ${l['confirmed_quantity']}'),trailing:Text('R ${l['unit_price']}')))),const SizedBox(height:16),Wrap(spacing:10,runSpacing:10,children:[if(status=='RECEIVED'||status=='UNDER_REVIEW')FilledButton.icon(onPressed:()=>respond('ACCEPTED'),icon:const Icon(Icons.task_alt),label:const Text('Accept and schedule')),if(status=='RECEIVED'||status=='UNDER_REVIEW')OutlinedButton.icon(onPressed:()=>respond('CHANGE_PROPOSED'),icon:const Icon(Icons.edit_calendar),label:const Text('Propose changes')),if(status=='RECEIVED'||status=='UNDER_REVIEW')OutlinedButton.icon(onPressed:()=>respond('DECLINED'),icon:const Icon(Icons.cancel_outlined),label:const Text('Decline')),if(lines.isNotEmpty&&['ACCEPTED','PARTIALLY_ACCEPTED','SCHEDULED','IN_PROGRESS'].contains(status))OutlinedButton.icon(onPressed:()=>reserve(lines),icon:const Icon(Icons.event_available),label:const Text('Reserve resource')),if(['ACCEPTED','PARTIALLY_ACCEPTED','SCHEDULED','IN_PROGRESS'].contains(status))FilledButton.icon(onPressed:()=>act(()=>service.complete(widget.id)),icon:const Icon(Icons.done_all),label:const Text('Confirm completion')),if(status=='COMPLETED')FilledButton.icon(onPressed:()=>act(()=>service.invoice(widget.id)),icon:const Icon(Icons.receipt_long),label:const Text('Generate invoice'))]) ]));}}
+
+class SupplierNetworkConnectionsScreen extends StatefulWidget{const SupplierNetworkConnectionsScreen({super.key});@override State<SupplierNetworkConnectionsScreen>createState()=>_ConnectionsState();}
+class _ConnectionsState extends State<SupplierNetworkConnectionsScreen>{
+  final service=SupplierNetworkService();List<Map<String,dynamic>>items=[],tenants=[];bool loading=true;String? error;
+  @override void initState(){super.initState();load();}
+  Future<void>load()async{try{final x=await Future.wait([service.connections(),service.tenants()]);if(mounted)setState((){items=x[0];tenants=x[1];loading=false;error=null;});}catch(e){if(mounted)setState((){loading=false;error=friendlyErrorMessage(e);});}}
+  Future<void>add()async{String? tenantId;Partner? partner;String type='SUPPLIER';bool orders=true,invoices=true;final form=GlobalKey<FormState>();final ok=await showDialog<bool>(context:context,builder:(c)=>StatefulBuilder(builder:(c,setLocal)=>AlertDialog(icon:const Icon(Icons.hub_outlined),title:const Text('Create MAWA trading connection'),content:SizedBox(width:560,child:Form(key:form,child:Column(mainAxisSize:MainAxisSize.min,children:[SearchableDropdownFormField<String>(isExpanded:true,decoration:const InputDecoration(labelText:'MAWA tenant',border:OutlineInputBorder()),items:tenants.map((t)=>DropdownMenuItem(value:'${t['id']}',child:Text('${t['name']} · ${t['id']}'))).toList(),validator:(v)=>v==null?'Select a tenant':null,onChanged:(v)=>setLocal(()=>tenantId=v)),const SizedBox(height:14),SearchableDropdownFormField<String>(initialValue:type,decoration:const InputDecoration(labelText:'Relationship',border:OutlineInputBorder()),items:const[DropdownMenuItem(value:'SUPPLIER',child:Text('They supply services to us')),DropdownMenuItem(value:'BUYER',child:Text('We supply services to them'))],onChanged:(v)=>setLocal((){type=v??'SUPPLIER';partner=null;})),const SizedBox(height:14),PartnerSearchDropdown(key:ValueKey(type),role:type=='SUPPLIER'?'SUPPLIER':'CUSTOMER',label:type=='SUPPLIER'?'Search local supplier':'Search local customer',validator:(v)=>v==null?'Select a business partner':null,onPartnerSelected:(v)=>setLocal(()=>partner=v)),const SizedBox(height:8),CheckboxListTile(contentPadding:EdgeInsets.zero,title:const Text('Exchange purchase orders'),value:orders,onChanged:(v)=>setLocal(()=>orders=v??true)),CheckboxListTile(contentPadding:EdgeInsets.zero,title:const Text('Exchange supplier invoices'),value:invoices,onChanged:(v)=>setLocal(()=>invoices=v??true))]))),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('Cancel')),FilledButton.icon(onPressed:(){if(form.currentState!.validate())Navigator.pop(c,true);},icon:const Icon(Icons.link),label:const Text('Activate connection'))])));if(ok==true){await service.saveConnection({'remoteTenantId':tenantId,'localPartnerId':partner!.id,'relationshipType':type,'status':'ACTIVE','allowPurchaseOrders':orders,'allowInvoices':invoices});await load();}}
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar:AppBar(
+      title:const Text('MAWA Trading Connections'),
+      actions:[if(MediaQuery.sizeOf(context).width>=700)Padding(padding:const EdgeInsets.only(right:16),child:FilledButton.icon(onPressed:loading?null:add,icon:const Icon(Icons.add),label:const Text('New Connection')))],
+    ),
+    floatingActionButton:loading?null:FloatingActionButton.extended(onPressed:add,icon:const Icon(Icons.add_link),label:const Text('New Connection')),
+    body:loading
+        ?const Center(child:CircularProgressIndicator())
+        :error!=null
+            ?Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[Text(error!,textAlign:TextAlign.center),const SizedBox(height:16),OutlinedButton.icon(onPressed:load,icon:const Icon(Icons.refresh),label:const Text('Retry'))])))
+            :items.isEmpty
+                ?Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.hub_outlined,size:56),const SizedBox(height:16),Text('No trading connections yet',style:Theme.of(context).textTheme.titleLarge),const SizedBox(height:8),const Text('Create the local side of a reciprocal connection to another MAWA tenant.',textAlign:TextAlign.center),const SizedBox(height:20),FilledButton.icon(onPressed:add,icon:const Icon(Icons.add_link),label:const Text('Create First Connection'))])))
+                :ListView.builder(
+                    padding:const EdgeInsets.fromLTRB(16,16,16,96),
+                    itemCount:items.length,
+                    itemBuilder:(c,i){
+                      final x=items[i];
+                      final relationship='${x['relationship_type']}'=='BUYER'?'We supply services to them':'They supply services to us';
+                      return Card(child:ListTile(
+                        contentPadding:const EdgeInsets.symmetric(horizontal:20,vertical:10),
+                        leading:const CircleAvatar(child:Icon(Icons.link)),
+                        title:Text('${x['local_partner_name']??x['local_partner_id']}'),
+                        subtitle:Text('$relationship\nRemote MAWA tenant: ${x['remote_tenant_id']}'),
+                        isThreeLine:true,
+                        trailing:Chip(label:Text('${x['status']}')),
+                      ));
+                    },
+                  ),
+  );
+}
