@@ -10,7 +10,6 @@ import '../../invoicing/screens/invoice_detail_screen.dart';
 import '../../partners/models/partner.dart';
 import '../../partners/screens/partner_create_screen.dart';
 import '../../settings/services/pos_printing_service.dart';
-import '../../settings/widgets/card_terminal_dropdown.dart';
 import '../services/layby_service.dart';
 
 class LaybyManagementScreen extends StatefulWidget {
@@ -280,7 +279,6 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
     final amount = TextEditingController();
     final notes = TextEditingController();
     String method = '';
-    String? cardTerminalId;
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
@@ -301,15 +299,11 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
             ],
             onChanged: (v) => setDialogState(() {
               method = v ?? '';
-              if (method != 'CARD') cardTerminalId = null;
             }),
           ),
           if (method == 'CARD') ...[
-            const SizedBox(height: 12),
-            CardTerminalDropdown(
-              value: cardTerminalId,
-              onChanged: (value) => setDialogState(() => cardTerminalId = value),
-            ),
+            const SizedBox(height: 10),
+            const Text('The card terminal assigned to your user in User Maintenance will be used automatically.'),
           ],
           const SizedBox(height: 12),
           TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
@@ -322,11 +316,9 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
     );
     if (accepted != true) return;
     final value = double.tryParse(amount.text.replaceAll(',', '.')) ?? 0;
-    if (value <= 0 || method.isEmpty || (method == 'CARD' && cardTerminalId == null)) {
+    if (value <= 0 || method.isEmpty) {
       if (mounted) {
-        setState(() => _error = method == 'CARD' && cardTerminalId == null
-            ? 'Select the card terminal used for this payment.'
-            : 'Enter a valid payment amount and select a payment method.');
+        setState(() => _error = 'Enter a valid payment amount and select a payment method.');
       }
       return;
     }
@@ -334,7 +326,6 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
       await widget.service.capturePayment(widget.laybyId, {
         'amountCents': (value * 100).round(),
         'paymentMethod': method,
-        if (method == 'CARD') 'terminalId': cardTerminalId,
         if (notes.text.trim().isNotEmpty) 'notes': notes.text.trim(),
       });
     });
