@@ -13,7 +13,9 @@ import '../../device_crash_logs/screens/device_crash_log_screen.dart';
 import '../../approvals/screens/approval_workflow_list_screen.dart';
 import '../../forms/company_form_configuration_screen.dart';
 import '../../funeral/presentation/pages/funeral_package_setup_page.dart';
+import '../../funeral/presentation/pages/funeral_resource_planning_page.dart';
 import '../../funeral/presentation/pages/funeral_tenant_integration_setup_page.dart';
+import '../../supplier_network/screens/supplier_network_screen.dart';
 import '../../funeral/presentation/pages/third_party_funeral_underwriter_configuration_page.dart';
 import '../../funeral/presentation/pages/trusted_tenants_page.dart';
 import '../../integrations/fnb/fnb_integration_admin_screen.dart';
@@ -42,6 +44,7 @@ import 'storage_configuration_screen.dart';
 import 'system_installation_files_screen.dart';
 import 'user_list_screen.dart';
 import 'xero_integration_screen.dart';
+import 'card_terminal_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatefulWidget {
   const SystemConfigurationScreen({super.key});
@@ -291,6 +294,13 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           ),
         ),
         _ConfigurationItem(
+          title: 'Card Terminals',
+          description: 'Maintain card machines used during payment capture and group card cashups by terminal.',
+          icon: Icons.point_of_sale_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(context, const CardTerminalConfigurationScreen()),
+        ),
+        _ConfigurationItem(
           title: 'Group Society Settlement',
           description:
               'Choose ledger-only settlement, an internal FNB account transfer, or payment to an external funeral provider.',
@@ -362,6 +372,28 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.inventory_2_outlined,
           category: _ConfigurationCategory.operations,
           onTap: () => _open(context, const FuneralPackageSetupPage()),
+        ),
+        _ConfigurationItem(
+          title: 'Funeral Resource Planning',
+          description:
+              'Activate resource planning and configure readiness, reservations and third-party leasing.',
+          icon: Icons.event_available_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(
+            context,
+            const FuneralResourcePlanningPage(configurationOnly: true),
+          ),
+        ),
+        _ConfigurationItem(
+          title: 'MAWA Supplier Network',
+          description:
+              'Activate cross-tenant purchase orders, resource scheduling and supplier invoicing.',
+          icon: Icons.hub_outlined,
+          category: _ConfigurationCategory.operations,
+          onTap: () => _open(
+            context,
+            const SupplierNetworkConfigurationScreen(),
+          ),
         ),
         _ConfigurationItem(
           title: 'Warehouse & Storage',

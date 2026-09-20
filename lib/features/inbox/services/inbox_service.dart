@@ -56,6 +56,28 @@ class InboxService {
     }
   }
 
+  Future<Map<String, dynamic>> getNotificationPreference() async {
+    final response = await _apiClient.get('/v2/inbox/notification-preference');
+    if (response.statusCode != 200) {
+      throw AppException(_message(response.body, 'Unable to load notification preferences.'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<Map<String, dynamic>> saveNotificationPreference({
+    required bool popupEnabled,
+    DateTime? postponedUntil,
+  }) async {
+    final response = await _apiClient.put('/v2/inbox/notification-preference', body: {
+      'popupEnabled': popupEnabled,
+      'postponedUntil': postponedUntil?.toIso8601String(),
+    });
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AppException(_message(response.body, 'Unable to save notification preferences.'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   String _message(String body, String fallback) {
     try {
       final decoded = jsonDecode(body);

@@ -32,6 +32,8 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   List<MortuaryInventoryDto> inventory = [];
   MortuaryInventoryDto? selectedDeceased;
   String deceasedIdentityNumber = '';
+  String coverMembershipNumber = '';
+  String deceasedCategory = 'ADULT';
   String deathCertificateNo = '';
   String? causeOfDeath;
   List<FieldOption> causeOfDeathOptions = [];
@@ -124,6 +126,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       checkInDate: DateTime.now(),
     );
     deceasedIdentityNumber = request.deceasedIdentityNumber;
+    deceasedCategory = request.deceasedCategory;
     deathCertificateNo = request.deathCertificateNo;
     causeOfDeath = request.causeOfDeath;
     familyRepPartnerId = request.familyRepPartnerId;
@@ -233,13 +236,30 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateDeceasedCategory(String value) {
+    deceasedCategory = value;
+    _clearMembershipCoverSelection();
+    availableCovers = [];
+    notifyListeners();
+  }
+
   Future<void> checkMembership() async {
-    if (deceasedIdentityNumber.isEmpty) return;
+    if (deceasedIdentityNumber.trim().isEmpty &&
+        coverMembershipNumber.trim().isEmpty) {
+      errorMessage = deceasedCategory == 'ADULT'
+          ? 'Enter the deceased identity number.'
+          : 'Enter an identity number or membership number.';
+      notifyListeners();
+      return;
+    }
     isLoading = true;
     errorMessage = null;
     notifyListeners();
     try {
-      final covers = await _api.checkMembership(deceasedIdentityNumber);
+      final covers = deceasedIdentityNumber.trim().isNotEmpty
+          ? await _api.checkMembership(deceasedIdentityNumber.trim())
+          : await _api.checkMembershipNumber(
+              coverMembershipNumber.trim(), deceasedCategory);
       availableCovers = covers;
       final availableIds = covers
           .map(_coverSelectionId)
@@ -290,6 +310,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
         mortuaryInventoryId: selectedDeceased!.id,
         deceasedName: selectedDeceased!.deceasedName,
         deceasedIdentityNumber: deceasedIdentityNumber,
+        deceasedCategory: deceasedCategory,
         deathCertificateNo: deathCertificateNo.trim(),
         causeOfDeath: causeOfDeath!,
         dateOfDeath: dateOfDeath!,
@@ -631,6 +652,9 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   int _coverAmountCents(FuneralMembershipCoverDto cover) {
+    if (deceasedCategory == 'STILLBORN') {
+      return cover.stillbornAmountCents;
+    }
     if (selectedCovers.length > 1) {
       return cover.combinationAmountCents;
     }

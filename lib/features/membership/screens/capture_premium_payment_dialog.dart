@@ -9,6 +9,7 @@ import '../models/receipt_response.dart';
 import '../../../core/services/bluetooth_print_service.dart';
 import '../../../core/services/setting_service.dart';
 import '../../settings/services/pos_printing_service.dart';
+import '../../settings/widgets/card_terminal_dropdown.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
@@ -33,6 +34,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   final _notesController = TextEditingController();
 
   String? _paymentMethod;
+  String? _cardTerminalId;
   bool _isSubmitting = false;
   bool _isLoadingUnpaid = true;
   List<Map<String, dynamic>> _unpaidPremiums = [];
@@ -190,7 +192,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
         createdBy: userId,
         periodYYYYMM: _unpaidPremiums.length > 1 ? _selectedPeriodYYYYMM : null,
         deviceId: deviceId,
-        terminalId: prefs.getString('terminalId'),
+        terminalId: _paymentMethod == 'CARD' ? _cardTerminalId : null,
         location: prefs.getString('location'),
         employeeResponsible: userId,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
@@ -199,9 +201,12 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
       final printFailures = <String>[];
       for (final receipt in response.receipts) {
         try {
-          await PosPrintingService().queueReceipt(receipt.id);
+          final job = await PosPrintingService().queueReceiptAndWait(receipt.id);
+          if (job.status != 'SPOOLED') {
+            printFailures.add('${receipt.receiptNo}: ${job.lastError ?? 'still ${job.status.toLowerCase()}'}');
+          }
         } catch (error) {
-          printFailures.add(receipt.receiptNo);
+          printFailures.add('${receipt.receiptNo}: ${friendlyErrorMessage(error)}');
         }
       }
 
@@ -210,7 +215,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
         _successResponse = response;
         _printWarning = printFailures.isEmpty
             ? null
-            : '${printFailures.length} receipt(s) could not be queued automatically. Use the print button next to the receipt to retry.';
+            : 'Printing was not confirmed for:\n${printFailures.join('\n')}\nUse Print Jobs to retry or reroute.';
         _isSubmitting = false;
       });
     } catch (e) {
@@ -228,10 +233,13 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
           const SnackBar(content: Text('Receipt queued for printing...'), duration: Duration(seconds: 1)),
         );
       }
-      await PosPrintingService().queueReceipt(receipt.id, reprint: receipt.printCount > 0);
+      final job = await PosPrintingService().queueReceiptAndWait(receipt.id, reprint: receipt.printCount > 0);
+      if (job.status == 'FAILED') throw AppException(job.lastError ?? 'The print agent reported a failure.');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Receipt queued for the configured Windows printer'), behavior: SnackBarBehavior.floating),
+          SnackBar(content: Text(job.status == 'SPOOLED'
+              ? 'Receipt sent to the configured Windows printer'
+              : 'Receipt is still ${job.status.toLowerCase()}. Check Print Jobs if it does not print.'), behavior: SnackBarBehavior.floating),
         );
       }
     } catch (cloudError) {
@@ -402,9 +410,13 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                             ],
                           ),
                         )).toList(),
-                        onChanged: (value) => setState(() => _paymentMethod = value),
+                        onChanged: (value) => setState(() { _paymentMethod = value; if(value!='CARD') _cardTerminalId=null; }),
                         validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                       ),
+                      if (_paymentMethod == 'CARD') ...[
+                        const SizedBox(height: 16),
+                        CardTerminalDropdown(value: _cardTerminalId, onChanged: (value) => setState(() => _cardTerminalId = value)),
+                      ],
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _notesController,

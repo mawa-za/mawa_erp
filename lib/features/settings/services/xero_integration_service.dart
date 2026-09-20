@@ -34,6 +34,8 @@ class XeroConnection {
 
 class XeroActivationResult {
   final bool invoiceIntegrationEnabled;
+  final bool? invoiceIntegrationRequested;
+  final String? integrationStatus;
   final String? authenticationUrl;
   final String? clientIdSecret;
   final String? clientSecretSecret;
@@ -41,6 +43,7 @@ class XeroActivationResult {
   final String? tenantIdSecret;
   final String? accessTokenSecret;
   final String? redirectUrl;
+  final String? paymentAccountCode;
   final String? selectedTenantId;
   final String? selectedTenantName;
   final bool organisationSelectionRequired;
@@ -48,6 +51,8 @@ class XeroActivationResult {
 
   XeroActivationResult({
     required this.invoiceIntegrationEnabled,
+    this.invoiceIntegrationRequested,
+    this.integrationStatus,
     this.authenticationUrl,
     this.clientIdSecret,
     this.clientSecretSecret,
@@ -55,6 +60,7 @@ class XeroActivationResult {
     this.tenantIdSecret,
     this.accessTokenSecret,
     this.redirectUrl,
+    this.paymentAccountCode,
     this.selectedTenantId,
     this.selectedTenantName,
     this.organisationSelectionRequired = false,
@@ -64,6 +70,10 @@ class XeroActivationResult {
   factory XeroActivationResult.fromJson(Map<String, dynamic> json) {
     return XeroActivationResult(
       invoiceIntegrationEnabled: json['invoiceIntegrationEnabled'] == true,
+      invoiceIntegrationRequested: json['invoiceIntegrationRequested'] is bool
+          ? json['invoiceIntegrationRequested'] as bool
+          : null,
+      integrationStatus: json['integrationStatus']?.toString(),
       authenticationUrl: json['authenticationUrl']?.toString(),
       clientIdSecret: json['clientIdSecret']?.toString(),
       clientSecretSecret: json['clientSecretSecret']?.toString(),
@@ -71,6 +81,7 @@ class XeroActivationResult {
       tenantIdSecret: json['tenantIdSecret']?.toString(),
       accessTokenSecret: json['accessTokenSecret']?.toString(),
       redirectUrl: json['redirectUrl']?.toString(),
+      paymentAccountCode: json['paymentAccountCode']?.toString(),
       selectedTenantId: json['selectedTenantId']?.toString(),
       selectedTenantName: json['selectedTenantName']?.toString(),
       organisationSelectionRequired: json['organisationSelectionRequired'] == true,
@@ -96,6 +107,7 @@ class XeroIntegrationService {
     required String clientId,
     required String clientSecret,
     required String redirectUrl,
+    required String paymentAccountCode,
     bool invoiceIntegrationEnabled = true,
   }) async {
     final response = await ApiClient().post(
@@ -104,6 +116,7 @@ class XeroIntegrationService {
         'clientId': clientId,
         'clientSecret': clientSecret,
         'redirectUrl': redirectUrl,
+        'paymentAccountCode': paymentAccountCode,
         'invoiceIntegrationEnabled': invoiceIntegrationEnabled,
       },
     );
@@ -163,6 +176,21 @@ class XeroIntegrationService {
     }
 
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<XeroActivationResult> updateInvoiceIntegration(bool enabled) async {
+    final response = await ApiClient().post(
+      '/v2/integrations/xero/invoice-integration',
+      body: {'enabled': enabled},
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException('Failed to update Xero invoice integration: ${response.body}');
+    }
+
+    return XeroActivationResult.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
   bool _reauthorisationRequired(int statusCode, String body) {
     if (statusCode == 401) return true;

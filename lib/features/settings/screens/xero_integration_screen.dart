@@ -17,16 +17,19 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   final _clientIdController = TextEditingController();
   final _clientSecretController = TextEditingController();
   final _redirectUrlController = TextEditingController();
+  final _paymentAccountCodeController = TextEditingController();
   final _service = XeroIntegrationService();
 
   bool _invoiceIntegrationEnabled = true;
   bool _saving = false;
   bool _loadingConnections = false;
   bool _deactivating = false;
+  bool _updatingInvoiceIntegration = false;
   bool _obscureSecret = true;
   List<XeroConnection> _connections = const [];
   String? _selectedTenantId;
   String? _statusMessage;
+  String? _integrationStatus;
   String? _authenticationUrl;
   String? _clientIdSecretName;
   String? _clientSecretSecretName;
@@ -50,7 +53,9 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.secretNames();
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
+            result.invoiceIntegrationEnabled;
+        _integrationStatus = result.integrationStatus;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -58,6 +63,9 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         _accessTokenSecretName = result.accessTokenSecret;
         if ((result.redirectUrl ?? '').trim().isNotEmpty) {
           _redirectUrlController.text = result.redirectUrl!;
+        }
+        if ((result.paymentAccountCode ?? '').trim().isNotEmpty) {
+          _paymentAccountCodeController.text = result.paymentAccountCode!;
         }
       });
     } catch (_) {
@@ -70,6 +78,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     _clientIdController.dispose();
     _clientSecretController.dispose();
     _redirectUrlController.dispose();
+    _paymentAccountCodeController.dispose();
     super.dispose();
   }
 
@@ -86,14 +95,17 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         clientId: _clientIdController.text.trim(),
         clientSecret: _clientSecretController.text,
         redirectUrl: _redirectUrlController.text.trim(),
+        paymentAccountCode: _paymentAccountCodeController.text.trim(),
         invoiceIntegrationEnabled: _invoiceIntegrationEnabled,
       );
 
       if (!mounted) return;
       setState(() {
         _statusMessage = result.message;
+        _integrationStatus = result.integrationStatus;
         _authenticationUrl = result.authenticationUrl;
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
+            _invoiceIntegrationEnabled;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -137,7 +149,6 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       setState(() {
         _connections = connections;
         if (connections.isEmpty) {
-          _invoiceIntegrationEnabled = false;
           _selectedTenantId = null;
         }
         _statusMessage = connections.isEmpty
@@ -152,9 +163,6 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       setState(() {
         _connections = const [];
         _selectedTenantId = null;
-        if (reconnectRequired) {
-          _invoiceIntegrationEnabled = false;
-        }
         _statusMessage = message.isEmpty
             ? 'Unable to load Xero organisations. Activate or reconnect Xero.'
             : message;
@@ -173,7 +181,9 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.selectTenant(connection.tenantId);
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
+            result.invoiceIntegrationEnabled;
+        _integrationStatus = result.integrationStatus;
         _selectedTenantId = result.selectedTenantId ?? connection.tenantId;
         _statusMessage = result.message ?? 'Xero organisation selected.';
       });
@@ -214,7 +224,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.deactivate();
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ?? false;
         _selectedTenantId = null;
         _statusMessage = result.message;
       });
@@ -225,6 +235,32 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (mounted) _showError('Unable to deactivate Xero', error);
     } finally {
       if (mounted) setState(() => _deactivating = false);
+    }
+  }
+
+  Future<void> _updateInvoiceIntegration(bool enabled) async {
+    final previous = _invoiceIntegrationEnabled;
+    setState(() {
+      _invoiceIntegrationEnabled = enabled;
+      _updatingInvoiceIntegration = true;
+    });
+    try {
+      final result = await _service.updateInvoiceIntegration(enabled);
+      if (!mounted) return;
+      setState(() {
+        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ?? enabled;
+        _integrationStatus = result.integrationStatus ?? _integrationStatus;
+        _statusMessage = result.message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Xero configuration updated')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _invoiceIntegrationEnabled = previous);
+      _showError('Unable to update Xero invoice integration', error);
+    } finally {
+      if (mounted) setState(() => _updatingInvoiceIntegration = false);
     }
   }
 
@@ -262,6 +298,18 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Xero accounting integration', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        if ((_integrationStatus ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Chip(
+                            avatar: Icon(
+                              _statusIcon(_integrationStatus!),
+                              size: 18,
+                              color: _statusColor(theme, _integrationStatus!),
+                            ),
+                            label: Text(_formatStatus(_integrationStatus!)),
+                            side: BorderSide(color: _statusColor(theme, _integrationStatus!)),
+                          ),
+                        ],
                         const SizedBox(height: 4),
                         Text(
                           _statusMessage ?? 'Save the Xero application credentials, authorise access, then select the organisation used to synchronise customers, products and invoices.',
@@ -343,10 +391,25 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       },
                     ),
                     const SizedBox(height: 4),
+                    TextFormField(
+                      controller: _paymentAccountCodeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Xero payment account code',
+                        helperText: 'Bank account code used when MAWA payments are posted to Xero.',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => _invoiceIntegrationEnabled &&
+                              (value == null || value.trim().isEmpty)
+                          ? 'Xero payment account code is required'
+                          : null,
+                    ),
+                    const SizedBox(height: 4),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: _invoiceIntegrationEnabled,
-                      onChanged: (value) => setState(() => _invoiceIntegrationEnabled = value),
+                      onChanged: _updatingInvoiceIntegration
+                          ? null
+                          : _updateInvoiceIntegration,
                       title: const Text('Enable invoice integration'),
                       subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Existing master data is queued after activation.'),
                     ),
@@ -444,5 +507,41 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         ],
       ),
     );
+  }
+
+  String _formatStatus(String status) {
+    return status
+        .toLowerCase()
+        .split('_')
+        .map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+  }
+
+  IconData _statusIcon(String status) {
+    switch (status) {
+      case 'AUTHORISED':
+        return Icons.check_circle_outline;
+      case 'PENDING_AUTHORISATION':
+      case 'PENDING_ORGANISATION_SELECTION':
+        return Icons.schedule_outlined;
+      case 'REAUTHORISATION_REQUIRED':
+        return Icons.warning_amber_outlined;
+      default:
+        return Icons.link_off_outlined;
+    }
+  }
+
+  Color _statusColor(ThemeData theme, String status) {
+    switch (status) {
+      case 'AUTHORISED':
+        return Colors.green.shade700;
+      case 'PENDING_AUTHORISATION':
+      case 'PENDING_ORGANISATION_SELECTION':
+        return Colors.orange.shade800;
+      case 'REAUTHORISATION_REQUIRED':
+        return theme.colorScheme.error;
+      default:
+        return theme.colorScheme.onSurfaceVariant;
+    }
   }
 }
