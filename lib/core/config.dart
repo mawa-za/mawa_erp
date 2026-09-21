@@ -10,6 +10,8 @@ class Config {
           return 'api.app.mawa.co.za';
         case 'beta':
           return 'beta.api.app.mawa.co.za';
+        case 'hotfix':
+          return 'hotfix.api.app.mawa.co.za';
         case 'alpha':
           return 'alpha.api.app.mawa.co.za';
         case 'dev':
@@ -26,6 +28,8 @@ class Config {
         return 'reports.api.app.mawa.co.za';
       case 'beta':
         return 'beta.reports.api.app.mawa.co.za';
+      case 'hotfix':
+        return 'hotfix.reports.api.app.mawa.co.za';
       case 'alpha':
         return 'alpha.reports.api.app.mawa.co.za';
       case 'prep':
@@ -91,6 +95,7 @@ class Config {
       'prep.app.mawa.co.za',
       'alpha.app.mawa.co.za',
       'beta.app.mawa.co.za',
+      'hotfix.app.mawa.co.za',
       'localhost',
       '127.0.0.1',
     }.contains(host);

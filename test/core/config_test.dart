@@ -37,6 +37,15 @@ void main() {
       );
     });
 
+    test('does not treat the hotfix shared environment host as a tenant', () {
+      expect(
+        Config.resolveWebTenantReference(
+          'https://hotfix.app.mawa.co.za/#/login',
+        ),
+        isEmpty,
+      );
+    });
+
     test('uses an explicit tenant id from the URL', () {
       expect(
         Config.resolveWebTenantReference(
