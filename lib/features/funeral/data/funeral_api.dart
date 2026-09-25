@@ -415,6 +415,21 @@ class FuneralApi {
     throw AppException('Failed to submit group society cover: ${response.body}');
   }
 
+  Future<GroupSocietyFuneralClaimDto> submitGroupSocietyCoverForApproval(
+    String serviceRequestId,
+    String claimId,
+  ) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceRequestId/group-society-cover/$claimId/submit-for-approval',
+    );
+    if (response.statusCode == 200) {
+      return GroupSocietyFuneralClaimDto.fromJson(
+        Map<String, dynamic>.from(jsonDecode(response.body) as Map),
+      );
+    }
+    throw AppException('Failed to submit group society claim for approval: ${response.body}');
+  }
+
   Future<List<FuneralPaymentSummaryDto>> getFuneralPayments() async {
     final response = await _apiClient.get('/v2/funeral/payments');
     if (response.statusCode == 200) {

@@ -37,6 +37,7 @@ class GroupSocietyFuneralClaimDto {
     this.createdAt,
   });
 
+  bool get isDraft => status.toUpperCase() == 'DRAFT';
   bool get isPending => const {'PENDING_APPROVAL', 'SUBMITTED', 'PENDING'}.contains(status.toUpperCase());
   bool get isApproved => status.toUpperCase() == 'APPROVED';
 

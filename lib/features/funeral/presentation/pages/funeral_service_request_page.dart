@@ -342,7 +342,7 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                         OutlinedButton.icon(
                         onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/claims'),
                         icon: const Icon(Icons.request_quote_outlined),
-                        label: const Text('Claims'),
+                        label: const Text('Manage Funding & Claims'),
                         ),
                         OutlinedButton.icon(
                         onPressed: id.isEmpty ? null : () => context.push('/funeral/service-request/$id/invoice-preview'),

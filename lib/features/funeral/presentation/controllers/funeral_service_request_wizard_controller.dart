@@ -525,6 +525,36 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
+  Future<bool> submitGroupSocietyClaimForApproval(
+    GroupSocietyFuneralClaimDto claim,
+  ) async {
+    if (serviceRequestId == null || serviceRequestId!.isEmpty) {
+      errorMessage = 'Create the funeral arrangement before submitting group society funding.';
+      notifyListeners();
+      return false;
+    }
+
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final submitted = await _api.submitGroupSocietyCoverForApproval(
+        serviceRequestId!,
+        claim.id,
+      );
+      groupSocietyClaims = [submitted];
+      return true;
+    } catch (error) {
+      errorMessage = friendlyErrorMessage(
+        'Failed to submit group society funding for approval: $error',
+      );
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> loadInvoicePreview() async {
     isLoading = true;
     errorMessage = null;
@@ -723,5 +753,5 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   bool get hasPendingClaims => claims.any((claim) {
         final status = claim.status.name.toUpperCase();
         return status == 'PENDING' || status == 'DRAFT' || status == 'SUBMITTED';
-      }) || groupSocietyClaims.any((claim) => claim.isPending);
+      }) || groupSocietyClaims.any((claim) => claim.isPending || claim.isDraft);
 }
