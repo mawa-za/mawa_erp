@@ -23,6 +23,9 @@ import '../../features/cases/screens/case_list_screen.dart';
 import '../../features/cases/screens/create_case_screen.dart';
 import '../../features/cases/screens/case_detail_screen.dart';
 import '../../features/cases/screens/case_detail_shell_screen.dart';
+import '../../features/cases/screens/upcoming_events_screen.dart';
+import '../../features/cases/screens/overdue_tasks_screen.dart';
+import '../../features/cases/screens/unbilled_cases_screen.dart';
 import '../../features/approvals/screens/approval_list_screen.dart';
 import '../../features/approvals/screens/approval_workflow_list_screen.dart';
 import '../../features/inbox/screens/inbox_screen.dart';
@@ -276,28 +279,72 @@ class AppRouter {
           view: ServiceManagementView.resources,
         ),
       ),
-      GoRoute(path: AppRoutes.legal, builder: (context,state) => const LegalPracticeScreen()),
-      GoRoute(path: AppRoutes.legalIntake, builder: (context,state) => const LegalPracticeScreen(resource:'intakes', title:'Clients & Intake')),
-      GoRoute(path: AppRoutes.legalConflicts, builder: (context,state) => const LegalPracticeScreen(resource:'conflicts', title:'Conflict Checks')),
-      GoRoute(path: AppRoutes.legalLitigation, builder: (context,state) => const LegalPracticeScreen(resource:'proceedings', title:'Litigation')),
-      GoRoute(path: AppRoutes.legalConveyancing, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalEstates, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalCommercial, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalFamily, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalLabour, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalCriminal, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalCalendar, builder: (context,state) => const LegalPracticeScreen(resource:'proceedings', title:'Legal Calendar')),
-      GoRoute(path: AppRoutes.legalTasks, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalDocuments, builder: (context,state) => const LegalPracticeScreen(resource:'documents', title:'Legal Documents')),
-      GoRoute(path: AppRoutes.legalCorrespondence, builder: (context,state) => const LegalPracticeScreen(resource:'correspondence', title:'Legal Correspondence')),
-      GoRoute(path: AppRoutes.legalTime, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalDisbursements, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalBilling, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalTrust, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalTrustPayments, builder: (context,state) => const CaseListScreen()),
-      GoRoute(path: AppRoutes.legalTrustReconciliation, builder: (context,state) => const LegalPracticeScreen(resource:'trust-reconciliations', title:'Trust Reconciliation')),
-      GoRoute(path: AppRoutes.legalReports, builder: (context,state) => const LegalPracticeScreen(title:'Legal Reports')),
-      GoRoute(path: AppRoutes.legalAdministration, builder: (context,state) => const LegalPracticeScreen(title:'Legal Administration')),
+      GoRoute(
+        path: AppRoutes.legal,
+        builder: (context, state) => const LegalPracticeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.legalIntake,
+        builder: (context, state) => const LegalPracticeScreen(
+          resource: 'intakes',
+          title: 'Client Intake',
+          mode: LegalPracticeMode.intake,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.legalConflicts,
+        builder: (context, state) => const LegalPracticeScreen(
+          resource: 'conflicts',
+          title: 'Conflict Checks',
+          mode: LegalPracticeMode.conflicts,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.legalDiary,
+        builder: (context, state) => const LegalPracticeScreen(
+          title: 'Legal Diary',
+          mode: LegalPracticeMode.diary,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.legalTimeBilling,
+        builder: (context, state) => const LegalPracticeScreen(
+          title: 'Time & Billing',
+          mode: LegalPracticeMode.timeBilling,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.legalTrust,
+        builder: (context, state) => const LegalPracticeScreen(
+          title: 'Trust Accounting',
+          mode: LegalPracticeMode.trust,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.legalTrustReconciliation,
+        builder: (context, state) => const LegalPracticeScreen(
+          resource: 'trust-reconciliations',
+          title: 'Trust Reconciliation',
+          mode: LegalPracticeMode.trustReconciliation,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.legalReports,
+        builder: (context, state) => const LegalPracticeScreen(
+          title: 'Legal Reports',
+          mode: LegalPracticeMode.reports,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.legalAdministration,
+        builder: (context, state) => const LegalPracticeScreen(
+          title: 'Legal Administration',
+          mode: LegalPracticeMode.administration,
+        ),
+      ),
+      GoRoute(path: AppRoutes.caseUpcomingEvents, builder: (context, state) => const UpcomingEventsScreen()),
+      GoRoute(path: AppRoutes.caseOverdueTasks, builder: (context, state) => const OverdueTasksScreen()),
+      GoRoute(path: AppRoutes.caseUnbilled, builder: (context, state) => const UnbilledCasesScreen()),
       GoRoute(
         path: AppRoutes.cases,
         builder: (context, state) => const CaseListScreen(),
