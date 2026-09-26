@@ -61,6 +61,17 @@ class _LegalPracticeScreenState extends State<LegalPracticeScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            tooltip: 'Back to Legal Practice',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/feature-groups/legal-practice');
+              }
+            },
+          ),
           title: Text(widget.title),
           actions: [
             if (widget.resource != null || widget.mode == LegalPracticeMode.dashboard)
@@ -161,7 +172,7 @@ class _LegalPracticeScreenState extends State<LegalPracticeScreen> {
           title: const Text('Conflict checks are part of intake'),
           subtitle: const Text('Screen adverse parties and related entities before converting an instruction into a matter.'),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.go(AppRoutes.legalConflicts),
+          onTap: () => context.push(AppRoutes.legalConflicts),
         )),
         const SizedBox(height: 12),
         if (rows.isEmpty)
@@ -206,7 +217,7 @@ class _LegalPracticeScreenState extends State<LegalPracticeScreen> {
           title: Text(action.title),
           subtitle: Text(action.description),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.go(action.route),
+          onTap: () => context.push(action.route),
         )),
       )).toList(),
     );

@@ -331,6 +331,20 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
       return;
     }
 
+    // Legal Practice was consolidated from many legacy workcentres. Resolve
+    // the current workcentre identity before trusting a possibly stale
+    // catalogued route from an older tenant migration.
+    final currentGroup = FeatureGroupRegistry.normalize(
+      _experienceGroup?.code ?? FeatureGroupRegistry.canonicalGroupId(widget.groupId),
+    );
+    if (currentGroup == FeatureGroupRegistry.normalize('legal-practice')) {
+      final legalRoute = _routeForCurrentGroup(wc);
+      if (legalRoute != null) {
+        context.push(legalRoute);
+        return;
+      }
+    }
+
     final cataloguedPath = wc.routePath?.trim();
     if (cataloguedPath != null && cataloguedPath.startsWith('/')) {
       context.push(cataloguedPath);
@@ -467,6 +481,34 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
     }
 
     if (group == FeatureGroupRegistry.normalize('legal-practice')) {
+      // Resolve each Legal Practice workcentre explicitly. Do not use a broad
+      // MATTER/CASE fallback first: legacy descriptions can contain those
+      // words and incorrectly send every legal card to the matter register.
+      final legalKeys = <String>{
+        FeatureGroupRegistry.normalize(workcenter.id),
+        FeatureGroupRegistry.normalize(workcenter.routeKey),
+      };
+      if (legalKeys.any((key) => key == 'LEGAL_INTAKE')) {
+        return AppRoutes.legalIntake;
+      }
+      if (legalKeys.any((key) => key == 'LEGAL_MATTERS')) {
+        return AppRoutes.cases;
+      }
+      if (legalKeys.any((key) => key == 'LEGAL_DIARY')) {
+        return AppRoutes.legalDiary;
+      }
+      if (legalKeys.any((key) => key == 'LEGAL_TIME_BILLING')) {
+        return AppRoutes.legalTimeBilling;
+      }
+      if (legalKeys.any((key) => key == 'LEGAL_TRUST')) {
+        return AppRoutes.legalTrust;
+      }
+      if (legalKeys.any((key) => key == 'LEGAL_REPORTS')) {
+        return AppRoutes.legalReports;
+      }
+      if (legalKeys.any((key) => key == 'LEGAL_ADMINISTRATION')) {
+        return AppRoutes.legalAdministration;
+      }
       if (identity.contains('CASE') || identity.contains('MATTER')) {
         return AppRoutes.cases;
       }
