@@ -78,7 +78,7 @@ class _CaseListScreenState extends State<CaseListScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Case Management', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Legal Matters', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -123,7 +123,7 @@ class _CaseListScreenState extends State<CaseListScreen> {
           }
         },
         icon: const Icon(Icons.add_rounded),
-        label: const Text('New Case', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const Text('New Matter', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -140,7 +140,7 @@ class _CaseListScreenState extends State<CaseListScreen> {
               _applyFilters();
             },
             decoration: InputDecoration(
-              hintText: 'Search by case number or title...',
+              hintText: 'Search by matter number or title...',
               prefixIcon: const Icon(Icons.search_rounded),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
               filled: true,
