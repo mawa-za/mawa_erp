@@ -819,7 +819,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
         ),
         const SizedBox(height: 6),
         const Text(
-          'Select an active group society and the amount it should fund. The approval request will be created when the funeral arrangement is initiated.',
+          'Select an active group society and the amount it should fund. A draft funding claim will be created first; supporting documentation is required before it can be submitted for approval.',
           style: TextStyle(color: Colors.grey),
         ),
         const SizedBox(height: 14),
@@ -1079,6 +1079,52 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
               Text(
                 'Deceased: ${claim.deceasedFirstNames} ${claim.deceasedLastName} • ${claim.identityType}: ${claim.identityNumber}',
               ),
+              if (claim.isDraft) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'Supporting documentation is required for Group Society funding before it can be submitted for approval.',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AttachmentSection(
+                  objectId: claim.id,
+                  documentTypeField:
+                      'DOCUMENT-TYPE-GROUP-SOCIETY-FUNERAL-CLAIM',
+                  allowDelete: true,
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: _controller.isLoading
+                        ? null
+                        : () async {
+                            final submitted = await _controller
+                                .submitGroupSocietyClaimForApproval(claim);
+                            if (!mounted) return;
+                            if (submitted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Group Society funding submitted for approval.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.send_outlined),
+                    label: const Text('Submit for Approval'),
+                  ),
+                ),
+              ],
               if (claim.isPending) ...[
                 const SizedBox(height: 10),
                 const Row(
@@ -1186,7 +1232,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'The group society approval request will be submitted after the package and arrangement details are saved.',
+                      'A draft group society funding claim will be created after the arrangement details are saved. Supporting documentation must then be uploaded before submission for approval.',
                     ),
                   ),
                 ],
