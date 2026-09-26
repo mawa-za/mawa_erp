@@ -299,6 +299,31 @@ class CaseManagementService {
     throw AppException('Failed to load unbilled disbursements');
   }
 
+  /// Returns matters that currently contain unbilled billable work.
+  ///
+  /// The backend exposes unbilled time entries and disbursements separately,
+  /// so derive the matter list from those supported endpoints instead of
+  /// calling a non-existent `/v2/cases/billing/unbilled` endpoint.
+  Future<List<LegalCase>> getUnbilledCases() async {
+    final results = await Future.wait([
+      getUnbilledTimeEntries(),
+      getUnbilledDisbursements(),
+    ]);
+
+    final timeEntries = results[0] as List<CaseTimeEntry>;
+    final disbursements = results[1] as List<CaseDisbursement>;
+    final caseIds = <String>{
+      ...timeEntries.where((entry) => entry.billable && !entry.billed).map((entry) => entry.caseId),
+      ...disbursements.where((item) => item.billable && !item.billed).map((item) => item.caseId),
+    }..removeWhere((id) => id.isEmpty);
+
+    if (caseIds.isEmpty) return <LegalCase>[];
+
+    final cases = await Future.wait(caseIds.map(getCaseById));
+    cases.sort((a, b) => b.caseNo.compareTo(a.caseNo));
+    return cases;
+  }
+
   Future<CaseInvoicePreview> getInvoicePreview(String caseId) async {
     final response = await ApiClient().get('/v2/cases/$caseId/invoice-preview');
     if (response.statusCode == 200) {
