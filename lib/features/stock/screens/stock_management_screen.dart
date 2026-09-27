@@ -58,31 +58,18 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       try {
         cards = await _loadVisibleCards();
       } catch (_) {
-        // The backend still protects every operation. A stale role-workcenter
-        // response must not make a valid deep-linked inventory tile unusable.
-        cards = List<_InventoryCardDefinition>.from(
-          _inventoryCardCatalog.where(
-            (card) => !_isCommercialDocumentSection(card.section),
-          ),
-        );
+        // Fail closed. The backend is authoritative and the UI must not invent
+        // inventory access when role/workcentre resolution fails.
+        cards = <_InventoryCardDefinition>[];
       }
 
       final requested = _requestedSection();
-      if (requested != null && !cards.any((card) => card.section == requested)) {
-        cards.add(_inventoryCardCatalog.firstWhere((card) => card.section == requested));
-      }
-      if (cards.isEmpty && widget.initialSection == null) {
-        cards = List<_InventoryCardDefinition>.from(
-          _inventoryCardCatalog.where(
-            (card) => !_isCommercialDocumentSection(card.section),
-          ),
-        );
-      }
+      final requestedAllowed = requested != null && cards.any((card) => card.section == requested);
 
       if (!mounted) return;
       setState(() {
         _visibleCards = cards;
-        _selectedSection ??= requested;
+        _selectedSection ??= requestedAllowed ? requested : null;
       });
 
       await _loadSectionData(_selectedSection ?? _InventorySection.dashboard);

@@ -321,6 +321,199 @@ class StockService {
     return _decodeMapResponse(response.body, response.statusCode, 'sales order status');
   }
 
+  Future<List<Map<String, dynamic>>> inventoryDocuments({String? type, String? status, String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/documents', queryParameters: {
+      if (type != null && type.isNotEmpty) 'type': type,
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'inventory documents');
+  }
+
+  Future<Map<String, dynamic>> inventoryDocument(String id) async {
+    final response = await _apiClient.get('/v2/inventory/documents/$id');
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory document');
+  }
+
+  Future<Map<String, dynamic>> createInventoryDocument(Map<String, dynamic> body) async {
+    final response = await _apiClient.post('/v2/inventory/documents', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory document');
+  }
+
+  Future<Map<String, dynamic>> postInventoryDocument(String id) async {
+    final response = await _apiClient.post('/v2/inventory/documents/$id/post', body: <String, dynamic>{});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory posting');
+  }
+
+  Future<Map<String, dynamic>> submitInventoryDocument(String id) async {
+    final response = await _apiClient.post('/v2/inventory/documents/$id/submit', body: <String, dynamic>{});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory approval submission');
+  }
+
+  Future<Map<String, dynamic>> createWarehouseTransfer(Map<String, dynamic> body) async {
+    final response = await _apiClient.post('/v2/inventory/warehouse-transfers', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'warehouse transfer');
+  }
+
+  Future<Map<String, dynamic>> submitWarehouseTransfer(String id) async {
+    final response = await _apiClient.post('/v2/inventory/warehouse-transfers/$id/submit', body: <String, dynamic>{});
+    return _decodeMapResponse(response.body, response.statusCode, 'warehouse transfer approval');
+  }
+
+  Future<Map<String, dynamic>> dispatchWarehouseTransfer(String id) async {
+    final response = await _apiClient.post('/v2/inventory/warehouse-transfers/$id/dispatch', body: <String, dynamic>{});
+    return _decodeMapResponse(response.body, response.statusCode, 'warehouse transfer dispatch');
+  }
+
+  Future<Map<String, dynamic>> receiveWarehouseTransfer(String id, Map<String, dynamic> body) async {
+    final response = await _apiClient.post('/v2/inventory/warehouse-transfers/$id/receive', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'warehouse transfer receipt');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryStockCounts({String? status, String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/stock-counts', queryParameters: {
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'inventory stock counts');
+  }
+
+  Future<Map<String, dynamic>> inventoryStockCount(String id) async {
+    final response = await _apiClient.get('/v2/inventory/stock-counts/$id');
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory stock count');
+  }
+
+  Future<Map<String, dynamic>> createInventoryStockCount(Map<String, dynamic> body) async {
+    final response = await _apiClient.post('/v2/inventory/stock-counts', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory stock count');
+  }
+
+  Future<Map<String, dynamic>> recordInventoryStockCount(String id, List<Map<String, dynamic>> lines) async {
+    final response = await _apiClient.put('/v2/inventory/stock-counts/$id/counts', body: {'lines': lines});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory stock count entries');
+  }
+
+  Future<Map<String, dynamic>> finalizeInventoryStockCount(String id) async {
+    final response = await _apiClient.post('/v2/inventory/stock-counts/$id/finalize', body: <String, dynamic>{});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory stock count finalisation');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryReservations({String? status}) async {
+    final response = await _apiClient.get('/v2/inventory/reservations', queryParameters: {if (status != null && status.isNotEmpty) 'status': status});
+    return _decodeListResponse(response.body, response.statusCode, 'inventory reservations');
+  }
+
+  Future<Map<String, dynamic>> createInventoryReservation(Map<String, dynamic> body) async {
+    final response = await _apiClient.post('/v2/inventory/reservations', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory reservation');
+  }
+
+  Future<Map<String, dynamic>> releaseInventoryReservation(String id) async {
+    final response = await _apiClient.post('/v2/inventory/reservations/$id/release', body: <String, dynamic>{});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory reservation release');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryAvailability({String? productId, String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/availability', queryParameters: {
+      if (productId != null && productId.isNotEmpty) 'productId': productId,
+      if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'inventory availability');
+  }
+
+  Future<List<Map<String, dynamic>>> reversibleInventoryMovements({String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/movements/reversible', queryParameters: {
+      if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'reversible inventory movements');
+  }
+
+  Future<Map<String, dynamic>> reverseInventoryMovement(String id, {String? notes}) async {
+    final response = await _apiClient.post('/v2/inventory/movements/$id/reverse', body: {if (notes != null && notes.isNotEmpty) 'notes': notes});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory reversal');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryReplenishmentRecommendations({String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/replenishment/recommendations', queryParameters: {if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId});
+    return _decodeListResponse(response.body, response.statusCode, 'inventory replenishment recommendations');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryPurchaseRecommendations({String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/purchase-recommendations', queryParameters: {if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId});
+    return _decodeListResponse(response.body, response.statusCode, 'inventory purchase recommendations');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryExpiryAlerts({String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/expiry-alerts', queryParameters: {if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId});
+    return _decodeListResponse(response.body, response.statusCode, 'inventory expiry alerts');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryAgeing({String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/ageing', queryParameters: {if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId});
+    return _decodeListResponse(response.body, response.statusCode, 'inventory ageing');
+  }
+
+  Future<Map<String, dynamic>> inventoryHealth({String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/health', queryParameters: {if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory health');
+  }
+
+  Future<Map<String, dynamic>> inventoryBatchRecall(String batchNo) async {
+    final response = await _apiClient.get('/v2/inventory/recall', queryParameters: {'batchNo': batchNo});
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory batch recall');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryReasonCodes() async {
+    final response = await _apiClient.get('/v2/inventory/reason-codes');
+    return _decodeListResponse(response.body, response.statusCode, 'inventory reason codes');
+  }
+
+  Future<Map<String, dynamic>> saveInventoryReasonCode(Map<String, dynamic> body) async {
+    final response = await _apiClient.put('/v2/inventory/reason-codes', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory reason code');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryPolicies({String? productId, String? warehouseId}) async {
+    final response = await _apiClient.get('/v2/inventory/setup/policies', queryParameters: {
+      if (productId != null && productId.isNotEmpty) 'productId': productId,
+      if (warehouseId != null && warehouseId.isNotEmpty) 'warehouseId': warehouseId,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'inventory policies');
+  }
+
+  Future<Map<String, dynamic>> saveInventoryPolicy(Map<String, dynamic> body) async {
+    final response = await _apiClient.put('/v2/inventory/setup/policies', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory policy');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryUomConversions(String productId) async {
+    final response = await _apiClient.get('/v2/inventory/setup/products/$productId/uom-conversions');
+    return _decodeListResponse(response.body, response.statusCode, 'inventory UOM conversions');
+  }
+
+  Future<Map<String, dynamic>> saveInventoryUomConversion(Map<String, dynamic> body) async {
+    final response = await _apiClient.put('/v2/inventory/setup/uom-conversions', body: body);
+    return _decodeMapResponse(response.body, response.statusCode, 'inventory UOM conversion');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryReferenceWarehouses(String workcentre) async {
+    final response = await _apiClient.get('/v2/inventory/reference/warehouses', queryParameters: {'workcentre': workcentre});
+    return _decodeListResponse(response.body, response.statusCode, 'inventory warehouses');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryReferenceLocations(String workcentre, String warehouseId) async {
+    final response = await _apiClient.get('/v2/inventory/reference/locations', queryParameters: {'workcentre': workcentre, 'warehouseId': warehouseId});
+    return _decodeListResponse(response.body, response.statusCode, 'inventory locations');
+  }
+
+  Future<List<Map<String, dynamic>>> inventoryReferenceProducts(String workcentre, {String? query}) async {
+    final response = await _apiClient.get('/v2/inventory/reference/products', queryParameters: {
+      'workcentre': workcentre,
+      if (query != null && query.isNotEmpty) 'query': query,
+    });
+    return _decodeListResponse(response.body, response.statusCode, 'inventory products');
+  }
+
   Map<String, dynamic> _decodeMap(String body) {
     if (body.trim().isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(body);

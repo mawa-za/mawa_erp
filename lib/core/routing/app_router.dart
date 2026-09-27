@@ -47,6 +47,13 @@ import '../../features/membership/screens/membership_claim_list_screen.dart';
 import '../../features/membership/screens/membership_plan_list_screen.dart';
 import '../../features/membership/screens/group_society_list_screen.dart';
 import '../../features/stock/screens/stock_management_screen.dart';
+import '../../features/stock/screens/inventory_workcentre_screen.dart';
+import '../../features/stock/screens/inventory_reservations_screen.dart';
+import '../../features/stock/screens/inventory_stock_count_screen.dart';
+import '../../features/stock/screens/inventory_reversal_screen.dart';
+import '../../features/stock/screens/inventory_warehouse_transfer_screen.dart';
+import '../../features/stock/screens/inventory_dashboard_screen.dart';
+import '../../features/stock/screens/inventory_setup_screen.dart';
 import '../../features/laybys/screens/layby_management_screen.dart';
 import '../../features/tombstones/screens/tombstone_management_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_detail_screen.dart';
@@ -499,6 +506,19 @@ class AppRouter {
         path: AppRoutes.inventory,
         builder: (context, state) => const InventoryManagementScreen(),
       ),
+      GoRoute(path: AppRoutes.inventoryDashboard, builder: (context, state) => const InventoryDashboardScreen()),
+      GoRoute(path: AppRoutes.inventoryQuality, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'quality-inspection', title: 'Quality Inspection', description: 'Inspect, hold, quarantine, release or reject inventory.', movementTypes: ['QUALITY_HOLD','QUALITY_RELEASE','QUALITY_REJECT','QUARANTINE','QUARANTINE_RELEASE'])),
+      GoRoute(path: AppRoutes.inventoryReplenishment, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'stock-replenishment', title: 'Stock Replenishment', description: 'Move stock from bulk storage into operational picking locations.', movementTypes: ['REPLENISHMENT'])),
+      GoRoute(path: AppRoutes.inventoryInternalTransfers, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'stock-transfer', title: 'Internal Stock Transfers', description: 'Move stock between storage locations within a warehouse.', movementTypes: ['BIN_TRANSFER'])),
+      GoRoute(path: AppRoutes.inventoryWarehouseTransfers, builder: (context, state) => const InventoryWarehouseTransferScreen()),
+      GoRoute(path: AppRoutes.inventoryReservations, builder: (context, state) => const InventoryReservationsScreen()),
+      GoRoute(path: AppRoutes.inventoryPicking, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'stock-picking', title: 'Picking', description: 'Pick and stage inventory for fulfilment.', movementTypes: ['PICK','PICK_REVERSAL'])),
+      GoRoute(path: AppRoutes.inventoryDispatch, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'stock-dispatch', title: 'Dispatch & Goods Issue', description: 'Issue inventory for sales, funeral services, service orders, production and internal consumption.', movementTypes: ['SALES_ISSUE','FUNERAL_SERVICE_ISSUE','SERVICE_ORDER_ISSUE','PRODUCTION_ISSUE','TOMBSTONE_INSTALLATION_ISSUE','INTERNAL_CONSUMPTION'])),
+      GoRoute(path: AppRoutes.inventoryReturns, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'stock-returns', title: 'Inventory Returns', description: 'Receive customer returns and return inventory to suppliers.', movementTypes: ['CUSTOMER_RETURN_RECEIPT','RETURN_TO_SUPPLIER'])),
+      GoRoute(path: AppRoutes.inventoryCounts, builder: (context, state) => const InventoryStockCountScreen()),
+      GoRoute(path: AppRoutes.inventoryAdjustments, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'stock-adjustment', title: 'Stock Adjustments', description: 'Post controlled positive or negative inventory corrections.', movementTypes: ['ADJUSTMENT_IN','ADJUSTMENT_OUT'])),
+      GoRoute(path: AppRoutes.inventoryWriteoffs, builder: (context, state) => const InventoryWorkcentreScreen(workcentreId: 'stock-writeoff', title: 'Write-offs & Disposal', description: 'Move damaged or expired stock to restricted states and dispose of authorised stock.', movementTypes: ['DAMAGE_TRANSFER','EXPIRY_TRANSFER','SCRAP_TRANSFER','DISPOSAL_ISSUE'])),
+      GoRoute(path: AppRoutes.inventoryReversals, builder: (context, state) => const InventoryReversalScreen()),
       GoRoute(
         path: AppRoutes.inventoryQuotations,
         builder: (context, state) => const InventoryManagementScreen(initialSection: 'quotations'),
@@ -537,7 +557,7 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.inventorySetup,
-        redirect: (context, state) => AppRoutes.systemConfiguration,
+        builder: (context, state) => const InventorySetupScreen(),
       ),
 
       // Tombstone Management
