@@ -23,6 +23,9 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
   Map<String, int> _positions = {};
   String? _error;
   String _searchQuery = '';
+  List<Map<String, dynamic>> _inventoryWarehouses = [];
+  Set<String> _warehouseScope = {};
+  bool _warehouseScopeAvailable = false;
 
   @override
   void initState() {
@@ -38,6 +41,16 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
     try {
       final all = await _roleService.getAllWorkcenters();
       final assigned = await _roleService.getRoleWorkcenters(widget.role.id);
+      List<Map<String, dynamic>> warehouses = const [];
+      List<Map<String, dynamic>> warehouseScope = const [];
+      bool warehouseScopeAvailable = false;
+      try {
+        warehouses = await _roleService.getInventoryWarehouses();
+        warehouseScope = await _roleService.getRoleWarehouseScope(widget.role.id);
+        warehouseScopeAvailable = true;
+      } catch (_) {
+        // Inventory warehouse scoping is available only to users with Inventory Configuration access.
+      }
       
       if (mounted) {
         setState(() {
@@ -55,6 +68,9 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
               _positions[_allWorkcenters[i].id] = i + 1;
             }
           }
+          _inventoryWarehouses = warehouses;
+          _warehouseScope = warehouseScope.map((w) => '${w['id']}').toSet();
+          _warehouseScopeAvailable = warehouseScopeAvailable;
           _isLoading = false;
         });
       }
@@ -88,6 +104,9 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
       }
 
       await _roleService.assignWorkcentersToRole(widget.role.id, assignments);
+      if (_warehouseScopeAvailable) {
+        await _roleService.saveRoleWarehouseScope(widget.role.id, _warehouseScope.toList());
+      }
       _originalAssignedWorkcenterIds = Set<String>.from(_assignedWorkcenterIds);
       
       if (mounted) {
@@ -189,6 +208,26 @@ class _RoleWorkcenterAssignmentScreenState extends State<RoleWorkcenterAssignmen
                         onChanged: (value) => setState(() => _searchQuery = value),
                       ),
                     ),
+                    if (_warehouseScopeAvailable && _inventoryWarehouses.isNotEmpty)
+                      Card(
+                        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: ExpansionTile(
+                          leading: const Icon(Icons.warehouse_outlined),
+                          title: const Text('Inventory warehouse scope', style: TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(_warehouseScope.isEmpty ? 'Unrestricted — role can access all warehouses' : '${_warehouseScope.length} warehouse(s) selected'),
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                              child: Text('Leave all warehouses unselected for unrestricted access. Selecting warehouses restricts inventory operations for this role to those warehouses.'),
+                            ),
+                            ..._inventoryWarehouses.map((w) => CheckboxListTile(
+                              value: _warehouseScope.contains('${w['id']}'),
+                              title: Text('${w['warehouse_code']} - ${w['name']}'),
+                              onChanged: (value) => setState(() { if (value == true) { _warehouseScope.add('${w['id']}'); } else { _warehouseScope.remove('${w['id']}'); } }),
+                            )),
+                          ],
+                        ),
+                      ),
                     Expanded(
                       child: ListView.builder(
                   padding: const EdgeInsets.all(16),

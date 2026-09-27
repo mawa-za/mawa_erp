@@ -50,6 +50,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         await _users.deleteUser(widget.userId);if(mounted)Navigator.pop(context,true);return;
       }else if(action=='policy'){await _editPolicy();return;}
       else if(action=='card-terminal'){await _editCardTerminal();return;}
+      else if(action=='inventory-warehouses'){await _editInventoryWarehouses();return;}
       await _load();
     }catch(e){_showError(e);}
   }
@@ -61,6 +62,44 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       actions:[TextButton(onPressed:()=>Navigator.pop(dialogContext),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(dialogContext,selected),child:const Text('Save'))])));
     if(result==null)return;
     try{await _users.updateUserRoles(widget.userId,result.toList());await _load();}catch(e){_showError(e);}
+  }
+
+  Future<void> _editInventoryWarehouses() async {
+    try {
+      final values = await Future.wait([_users.getInventoryWarehouses(), _users.getUserWarehouseScope(widget.userId)]);
+      final warehouses = List<Map<String, dynamic>>.from(values[0]);
+      final selected = List<Map<String, dynamic>>.from(values[1]).map((w) => '${w['id']}').toSet();
+      if (!mounted) return;
+      final result = await showDialog<Set<String>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setLocal) => AlertDialog(
+            title: Text('Inventory warehouse access — ${_user!.username}'),
+            content: SizedBox(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('User-specific warehouse access is combined with access inherited from assigned roles. Leave all unselected when no direct user scope is required.'),
+                  const SizedBox(height: 12),
+                  ...warehouses.map((w) => CheckboxListTile(
+                    value: selected.contains('${w['id']}'),
+                    title: Text('${w['warehouse_code']} - ${w['name']}'),
+                    onChanged: (v) => setLocal(() { if (v == true) { selected.add('${w['id']}'); } else { selected.remove('${w['id']}'); } }),
+                  )),
+                ]),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(dialogContext, selected), child: const Text('Save')),
+            ],
+          ),
+        ),
+      );
+      if (result == null) return;
+      await _users.saveUserWarehouseScope(widget.userId, result.toList());
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inventory warehouse access updated.')));
+    } catch (e) { _showError(e); }
   }
 
   Future<void> _editCardTerminal() async {
@@ -127,6 +166,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('User Details'),actions:[if(_user!=null)PopupMenuButton<String>(onSelected:_action,itemBuilder:(_)=>[
     const PopupMenuItem(value:'policy',child:ListTile(leading:Icon(Icons.policy_outlined),title:Text('Access policy'),contentPadding:EdgeInsets.zero)),
     const PopupMenuItem(value:'card-terminal',child:ListTile(leading:Icon(Icons.point_of_sale_outlined),title:Text('Card terminal'),contentPadding:EdgeInsets.zero)),
+    const PopupMenuItem(value:'inventory-warehouses',child:ListTile(leading:Icon(Icons.warehouse_outlined),title:Text('Inventory warehouse access'),contentPadding:EdgeInsets.zero)),
     if(_user!.status.toUpperCase()=='ACTIVE')const PopupMenuItem(value:'lock',child:ListTile(leading:Icon(Icons.lock_outline),title:Text('Lock'),contentPadding:EdgeInsets.zero))else const PopupMenuItem(value:'unlock',child:ListTile(leading:Icon(Icons.lock_open),title:Text('Unlock'),contentPadding:EdgeInsets.zero)),
     const PopupMenuItem(value:'reset',child:ListTile(leading:Icon(Icons.password),title:Text('Reset password'),contentPadding:EdgeInsets.zero)),
     PopupMenuItem(value:'delete',enabled:!_user!.protectedUser&&!_user!.systemManaged,child:const ListTile(leading:Icon(Icons.delete_outline,color:Colors.red),title:Text('Delete'),contentPadding:EdgeInsets.zero)),

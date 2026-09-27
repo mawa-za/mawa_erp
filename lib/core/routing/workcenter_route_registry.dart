@@ -154,6 +154,19 @@ class WorkcenterRouteRegistry {
 
     // Inventory Management
     'INVENTORY': AppRoutes.inventory,
+    'INVENTORY_DASHBOARD': AppRoutes.inventoryDashboard,
+    'QUALITY_INSPECTION': AppRoutes.inventoryQuality,
+    'STOCK_REPLENISHMENT': AppRoutes.inventoryReplenishment,
+    'STOCK_TRANSFER': AppRoutes.inventoryInternalTransfers,
+    'WAREHOUSE_TRANSFER': AppRoutes.inventoryWarehouseTransfers,
+    'STOCK_RESERVATION': AppRoutes.inventoryReservations,
+    'STOCK_PICKING': AppRoutes.inventoryPicking,
+    'STOCK_DISPATCH': AppRoutes.inventoryDispatch,
+    'STOCK_RETURNS': AppRoutes.inventoryReturns,
+    'STOCK_COUNT': AppRoutes.inventoryCounts,
+    'STOCK_ADJUSTMENT': AppRoutes.inventoryAdjustments,
+    'STOCK_WRITEOFF': AppRoutes.inventoryWriteoffs,
+    'STOCK_REVERSAL': AppRoutes.inventoryReversals,
     'INVENTORY_MANAGEMENT': AppRoutes.inventory,
     'STOCK_MANAGEMENT': AppRoutes.inventory,
     'QUOTATION': AppRoutes.inventoryQuotations,
@@ -177,8 +190,8 @@ class WorkcenterRouteRegistry {
     'LAYBYS': AppRoutes.laybys,
     'INVENTORY_AUDIT': AppRoutes.inventoryAudit,
     'STOCK_AUDIT': AppRoutes.inventoryAudit,
-    'INVENTORY_SETUP': AppRoutes.systemConfiguration,
-    'WAREHOUSE_SETUP': AppRoutes.systemConfiguration,
+    'INVENTORY_SETUP': AppRoutes.inventorySetup,
+    'WAREHOUSE_SETUP': AppRoutes.inventorySetup,
 
     // Tombstone Management
     'TOMBSTONE': AppRoutes.tombstones,

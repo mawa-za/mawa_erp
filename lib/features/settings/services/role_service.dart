@@ -92,4 +92,24 @@ class RoleService {
       throw AppException('Failed to remove workcenter from role');
     }
   }
+
+  Future<List<Map<String, dynamic>>> getInventoryWarehouses() async {
+    final response = await _apiClient.get('/v2/inventory/setup/warehouses');
+    if (response.statusCode != 200) throw AppException('Failed to load inventory warehouses');
+    final List<dynamic> data = jsonDecode(response.body);
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getRoleWarehouseScope(String roleId) async {
+    final response = await _apiClient.get('/v2/inventory/setup/roles/$roleId/warehouses');
+    if (response.statusCode != 200) throw AppException('Failed to load role warehouse scope');
+    final List<dynamic> data = jsonDecode(response.body);
+    return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> saveRoleWarehouseScope(String roleId, List<String> warehouseIds) async {
+    final response = await _apiClient.put('/v2/inventory/setup/roles/$roleId/warehouses', body: warehouseIds);
+    if (response.statusCode != 200) throw AppException(response.body.isNotEmpty ? response.body : 'Failed to save role warehouse scope');
+  }
+
 }

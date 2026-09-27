@@ -67,6 +67,19 @@ class AppRoutes {
   static const String laybys = '/laybys';
   static const String inventoryAudit = '/inventory/audit';
   static const String inventorySetup = '/inventory/setup';
+  static const String inventoryDashboard = '/inventory/dashboard';
+  static const String inventoryQuality = '/inventory/quality';
+  static const String inventoryReplenishment = '/inventory/replenishment';
+  static const String inventoryInternalTransfers = '/inventory/transfers/internal';
+  static const String inventoryWarehouseTransfers = '/inventory/transfers/warehouse';
+  static const String inventoryReservations = '/inventory/reservations';
+  static const String inventoryPicking = '/inventory/picking';
+  static const String inventoryDispatch = '/inventory/dispatch';
+  static const String inventoryReturns = '/inventory/returns';
+  static const String inventoryCounts = '/inventory/counts';
+  static const String inventoryAdjustments = '/inventory/adjustments';
+  static const String inventoryWriteoffs = '/inventory/writeoffs';
+  static const String inventoryReversals = '/inventory/reversals';
 
   // Tombstone Management
   static const String tombstones = '/tombstones';
