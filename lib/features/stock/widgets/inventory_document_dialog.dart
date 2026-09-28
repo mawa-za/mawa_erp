@@ -64,8 +64,6 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   final _notesController = TextEditingController();
   final _quotationTitleController = TextEditingController();
   final _quotationSummaryController = TextEditingController();
-  List<Map<String, dynamic>> _funeralPackages = [];
-  String? _selectedFuneralPackageId;
   final _partnerSearchController = SearchController();
   final _dateFormat = DateFormat('yyyy-MM-dd');
 
@@ -127,8 +125,6 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
     _referenceController.text = _text(widget.sourceDocument?['supplier_reference'] ?? widget.sourceDocument?['customer_reference']);
     _quotationTitleController.text = _text(widget.sourceDocument?['title']);
     _quotationSummaryController.text = _text(widget.sourceDocument?['summary']);
-    _selectedFuneralPackageId = _firstNonEmpty(widget.sourceDocument?['funeral_package_id']);
-    if (_isQuotation) _loadFuneralPackages();
     _notesController.text = widget.editExisting
         ? _text(widget.sourceDocument?['notes'])
         : widget.sourceDocument == null
@@ -491,8 +487,6 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
               ),
             ),
           if (_isQuotation)
-            SizedBox(width: 360, child: _funeralPackageDropdown()),
-          if (_isQuotation)
             SizedBox(
               width: 734,
               child: TextFormField(
@@ -539,63 +533,6 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
             ),
         ],
       );
-
-  Future<void> _loadFuneralPackages() async {
-    try {
-      final packages = await widget.service.funeralPackages();
-      if (!mounted) return;
-      setState(() => _funeralPackages = packages);
-    } catch (_) {
-      // Quotation capture must remain available even when funeral packages are not configured.
-    }
-  }
-
-  Widget _funeralPackageDropdown() => DropdownButtonFormField<String>(
-        value: _selectedFuneralPackageId,
-        decoration: const InputDecoration(
-          labelText: 'Funeral Package',
-          hintText: 'Optional - add all package items',
-          border: OutlineInputBorder(),
-        ),
-        items: [
-          const DropdownMenuItem<String>(value: null, child: Text('No funeral package')),
-          ..._funeralPackages.map((package) => DropdownMenuItem<String>(
-                value: _text(package['id']),
-                child: Text(_text(package['name'])),
-              )),
-        ],
-        onChanged: widget.readOnly ? null : (value) => _applyFuneralPackage(value),
-      );
-
-  void _applyFuneralPackage(String? packageId) {
-    setState(() {
-      _selectedFuneralPackageId = packageId;
-      if (packageId == null || packageId.isEmpty) return;
-      final package = _funeralPackages.firstWhere(
-        (row) => _text(row['id']) == packageId,
-        orElse: () => <String, dynamic>{},
-      );
-      final products = package['products'];
-      if (products is! List) return;
-      for (final line in _lines) line.dispose();
-      _lines.clear();
-      for (final raw in products.whereType<Map>()) {
-        final item = Map<String, dynamic>.from(raw);
-        final cents = _toDouble(item['unitPriceCents']);
-        _lines.add(_InventoryLineDraft(
-          productId: _text(item['productId']),
-          productCode: _text(item['productCode']),
-          description: _text(item['productDescription']),
-          quantity: _text(item['quantity']).isEmpty ? '1' : _text(item['quantity']),
-          unitPrice: (cents / 100).toStringAsFixed(2),
-          taxRate: '15',
-        ));
-      }
-      if (_quotationTitleController.text.trim().isEmpty) {
-        _quotationTitleController.text = _text(package['name']);
-      }
-    });
-  }
 
   Widget _buildPartnerSearch() {
     return SearchAnchor(
@@ -740,10 +677,21 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         title: 'Line items',
         subtitle:
             'Select a product or service, then confirm the description, quantity and pricing.',
-        trailing: FilledButton.tonalIcon(
-          onPressed: _addLine,
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Add item'),
+        trailing: Wrap(
+          spacing: 8,
+          children: [
+            FilledButton.tonalIcon(
+              onPressed: _addLine,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add item'),
+            ),
+            if (_isQuotation)
+              FilledButton.tonalIcon(
+                onPressed: widget.readOnly ? null : _addProductBundle,
+                icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                label: const Text('Add Product Bundle'),
+              ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1228,7 +1176,6 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
               customerReference: _referenceController.text.trim(),
               title: _quotationTitleController.text.trim(),
               summary: _quotationSummaryController.text.trim(),
-              funeralPackageId: _selectedFuneralPackageId,
               quotationDate: _dateFormat.format(_documentDate),
               validUntil: _secondaryDate == null ? null : _dateFormat.format(_secondaryDate!),
               requestedDeliveryDate: null,
@@ -1241,7 +1188,6 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
               customerReference: _referenceController.text.trim(),
               title: _quotationTitleController.text.trim(),
               summary: _quotationSummaryController.text.trim(),
-              funeralPackageId: _selectedFuneralPackageId,
               quotationDate: _dateFormat.format(_documentDate),
               validUntil: _secondaryDate == null ? null : _dateFormat.format(_secondaryDate!),
               requestedDeliveryDate: null,
@@ -1309,6 +1255,8 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         'uom': line.uomController.text.trim().isEmpty ? 'EA' : line.uomController.text.trim(),
         'unitPrice': _toDouble(line.unitPriceController.text),
         'taxRate': _toDouble(line.taxRateController.text),
+        if (line.productBundleId != null && line.productBundleId!.isNotEmpty) 'productBundleId': line.productBundleId,
+        if (line.bundleRole != null && line.bundleRole!.isNotEmpty) 'bundleRole': line.bundleRole,
       };
 
   Map<String, dynamic> _salesLinePayload(_InventoryLineDraft line) => _commercialLinePayload(line);
@@ -1324,6 +1272,81 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         'unitCost': _toDouble(line.unitPriceController.text),
         'taxRate': _toDouble(line.taxRateController.text),
       };
+
+  Future<void> _addProductBundle() async {
+    try {
+      final bundles = await widget.service.productBundles();
+      if (!mounted) return;
+      if (bundles.isEmpty) {
+        _snack('No active product bundles are configured.', isError: true);
+        return;
+      }
+      final selected = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Add Product Bundle'),
+          content: SizedBox(
+            width: 520,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: bundles.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (_, index) {
+                final bundle = bundles[index];
+                return ListTile(
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title: Text(_text(bundle['name'])),
+                  subtitle: Text('${_text(bundle['main_product_code'])} • ${_text(bundle['bundle_type']).replaceAll('_', ' ')}'),
+                  trailing: Text(_money(_toDouble(bundle['bundle_price']))),
+                  onTap: () => Navigator.of(dialogContext).pop(bundle),
+                );
+              },
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel'))],
+        ),
+      );
+      if (selected == null || !mounted) return;
+      setState(() {
+        // Remove untouched placeholder rows before importing the bundle.
+        _lines.removeWhere((line) {
+          final empty = !line.hasProduct && line.descriptionController.text.trim().isEmpty;
+          if (empty) line.dispose();
+          return empty;
+        });
+        _lines.add(_InventoryLineDraft(
+          productId: _text(selected['main_product_id']),
+          productCode: _text(selected['main_product_code']),
+          description: _text(selected['main_product_description']).isEmpty ? _text(selected['name']) : _text(selected['main_product_description']),
+          quantity: '1',
+          uom: _text(selected['main_product_uom']).isEmpty ? 'EA' : _text(selected['main_product_uom']),
+          unitPrice: _toDouble(selected['bundle_price']).toStringAsFixed(2),
+          taxRate: '15',
+          productBundleId: _text(selected['id']),
+          bundleRole: 'MAIN',
+        ));
+        final items = selected['items'];
+        if (items is List) {
+          for (final raw in items.whereType<Map>()) {
+            final item = Map<String, dynamic>.from(raw);
+            _lines.add(_InventoryLineDraft(
+              productId: _text(item['product_id']),
+              productCode: _text(item['product_code']),
+              description: 'Included: ${_text(item['product_description'])}',
+              quantity: _text(item['quantity']).isEmpty ? '1' : _text(item['quantity']),
+              uom: _text(item['uom']).isEmpty ? 'EA' : _text(item['uom']),
+              unitPrice: '0.00',
+              taxRate: '0',
+              productBundleId: _text(selected['id']),
+              bundleRole: 'COMPONENT',
+            ));
+          }
+        }
+      });
+    } catch (e) {
+      _snack('Unable to load product bundles: $e', isError: true);
+    }
+  }
 
   void _addLine() => setState(() => _lines.add(_InventoryLineDraft()));
 
@@ -1421,6 +1444,8 @@ class _InventoryLineDraft {
   String? productId;
   String productCode;
   String? purchaseOrderLineId;
+  String? productBundleId;
+  String? bundleRole;
   final SearchController productSearchController;
   final TextEditingController descriptionController;
   final TextEditingController quantityController;
@@ -1433,6 +1458,8 @@ class _InventoryLineDraft {
     this.productId,
     this.productCode = '',
     this.purchaseOrderLineId,
+    this.productBundleId,
+    this.bundleRole,
     String description = '',
     String quantity = '1',
     String uom = 'EA',
@@ -1462,6 +1489,8 @@ class _InventoryLineDraft {
         productId: _s(line['product_id']),
         productCode: _s(line['product_code']),
         purchaseOrderLineId: _s(line['purchase_order_line_id']),
+        productBundleId: _s(line['product_bundle_id']),
+        bundleRole: _s(line['bundle_role']),
         description: _s(line['product_description'] ?? line['description']),
         quantity: _s(line['quantity'] ?? line['ordered_qty']),
         uom: _s(line['uom']).isEmpty ? 'EA' : _s(line['uom']),

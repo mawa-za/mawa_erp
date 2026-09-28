@@ -26,7 +26,6 @@ class StockService {
     String? customerReference,
     String? title,
     String? summary,
-    String? funeralPackageId,
     String? quotationDate,
     String? validUntil,
     String? requestedDeliveryDate,
@@ -38,7 +37,6 @@ class StockService {
       if (customerReference != null && customerReference.isNotEmpty) 'customerReference': customerReference,
       if (title != null && title.isNotEmpty) 'title': title,
       if (summary != null && summary.isNotEmpty) 'summary': summary,
-      if (funeralPackageId != null && funeralPackageId.isNotEmpty) 'funeralPackageId': funeralPackageId,
       if (quotationDate != null && quotationDate.isNotEmpty) 'quotationDate': quotationDate,
       if (validUntil != null && validUntil.isNotEmpty) 'validUntil': validUntil,
       if (requestedDeliveryDate != null && requestedDeliveryDate.isNotEmpty) 'requestedDeliveryDate': requestedDeliveryDate,
@@ -61,7 +59,6 @@ class StockService {
     String? customerReference,
     String? title,
     String? summary,
-    String? funeralPackageId,
     String? quotationDate,
     String? validUntil,
     String? requestedDeliveryDate,
@@ -73,7 +70,6 @@ class StockService {
       if (customerReference != null && customerReference.isNotEmpty) 'customerReference': customerReference,
       if (title != null) 'title': title,
       if (summary != null) 'summary': summary,
-      if (funeralPackageId != null) 'funeralPackageId': funeralPackageId,
       if (quotationDate != null && quotationDate.isNotEmpty) 'quotationDate': quotationDate,
       if (validUntil != null && validUntil.isNotEmpty) 'validUntil': validUntil,
       if (requestedDeliveryDate != null && requestedDeliveryDate.isNotEmpty) 'requestedDeliveryDate': requestedDeliveryDate,
@@ -120,9 +116,9 @@ class StockService {
     return _decodeListResponse(response.body, response.statusCode, 'products');
   }
 
-  Future<List<Map<String, dynamic>>> funeralPackages() async {
-    final response = await _apiClient.get('/v2/funeral/packages', queryParameters: {'activeOnly': true});
-    return _decodeListResponse(response.body, response.statusCode, 'funeral packages');
+  Future<List<Map<String, dynamic>>> productBundles() async {
+    final response = await _apiClient.get('/v2/product-bundles');
+    return _decodeListResponse(response.body, response.statusCode, 'product bundles');
   }
 
   Future<Uint8List> quotationPdf(String id) async {
