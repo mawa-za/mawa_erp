@@ -108,7 +108,7 @@ class _InventoryWarehouseTransferScreenState extends State<InventoryWarehouseTra
           if (doc['reference_no'] != null) Text('Reference: ${doc['reference_no']}'),
           if (doc['notes'] != null) Text('Notes: ${doc['notes']}'),
           const SizedBox(height: 12),
-          ...lines.map((l) => Card(child: ListTile(title: Text('${l['product_code'] ?? l['product_id']} - ${l['product_description'] ?? ''}'), subtitle: Text('Requested ${l['quantity']} ${l['uom']} • Dispatched ${l['dispatched_qty'] ?? 0} • Received ${l['received_qty'] ?? 0} • Damaged ${l['damaged_qty'] ?? 0} • Short ${l['shortage_qty'] ?? 0}'))),
+          ...lines.map((l) => Card(child: ListTile(title: Text('${l['product_code'] ?? l['product_id']} - ${l['product_description'] ?? ''}'), subtitle: Text('Requested ${l['quantity']} ${l['uom']} • Dispatched ${l['dispatched_qty'] ?? 0} • Received ${l['received_qty'] ?? 0} • Damaged ${l['damaged_qty'] ?? 0} • Short ${l['shortage_qty'] ?? 0}')))),
         ])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, 'close'), child: const Text('Close')),
