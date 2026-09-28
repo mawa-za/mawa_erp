@@ -62,6 +62,10 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   final _formKey = GlobalKey<FormState>();
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
+  final _quotationTitleController = TextEditingController();
+  final _quotationSummaryController = TextEditingController();
+  List<Map<String, dynamic>> _funeralPackages = [];
+  String? _selectedFuneralPackageId;
   final _partnerSearchController = SearchController();
   final _dateFormat = DateFormat('yyyy-MM-dd');
 
@@ -121,6 +125,10 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         _firstNonEmpty(widget.sourceDocument?['storage_location_id']) ??
         _firstLocationForWarehouse(_selectedWarehouseId);
     _referenceController.text = _text(widget.sourceDocument?['supplier_reference'] ?? widget.sourceDocument?['customer_reference']);
+    _quotationTitleController.text = _text(widget.sourceDocument?['title']);
+    _quotationSummaryController.text = _text(widget.sourceDocument?['summary']);
+    _selectedFuneralPackageId = _firstNonEmpty(widget.sourceDocument?['funeral_package_id']);
+    if (_isQuotation) _loadFuneralPackages();
     _notesController.text = widget.editExisting
         ? _text(widget.sourceDocument?['notes'])
         : widget.sourceDocument == null
@@ -173,6 +181,8 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
   void dispose() {
     _referenceController.dispose();
     _notesController.dispose();
+    _quotationTitleController.dispose();
+    _quotationSummaryController.dispose();
     _partnerSearchController.dispose();
     for (final line in _lines) {
       line.dispose();
@@ -472,6 +482,25 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
         spacing: 14,
         runSpacing: 14,
         children: [
+          if (_isQuotation)
+            SizedBox(
+              width: 360,
+              child: TextFormField(
+                controller: _quotationTitleController,
+                decoration: const InputDecoration(labelText: 'Quotation Title', border: OutlineInputBorder()),
+              ),
+            ),
+          if (_isQuotation)
+            SizedBox(width: 360, child: _funeralPackageDropdown()),
+          if (_isQuotation)
+            SizedBox(
+              width: 734,
+              child: TextFormField(
+                controller: _quotationSummaryController,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Quotation Summary', hintText: 'Optional summary shown on the quotation PDF', border: OutlineInputBorder()),
+              ),
+            ),
           SizedBox(
             width: 280,
             child: TextFormField(
@@ -510,6 +539,63 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
             ),
         ],
       );
+
+  Future<void> _loadFuneralPackages() async {
+    try {
+      final packages = await widget.service.funeralPackages();
+      if (!mounted) return;
+      setState(() => _funeralPackages = packages);
+    } catch (_) {
+      // Quotation capture must remain available even when funeral packages are not configured.
+    }
+  }
+
+  Widget _funeralPackageDropdown() => DropdownButtonFormField<String>(
+        value: _selectedFuneralPackageId,
+        decoration: const InputDecoration(
+          labelText: 'Funeral Package',
+          hintText: 'Optional - add all package items',
+          border: OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('No funeral package')),
+          ..._funeralPackages.map((package) => DropdownMenuItem<String>(
+                value: _text(package['id']),
+                child: Text(_text(package['name'])),
+              )),
+        ],
+        onChanged: widget.readOnly ? null : (value) => _applyFuneralPackage(value),
+      );
+
+  void _applyFuneralPackage(String? packageId) {
+    setState(() {
+      _selectedFuneralPackageId = packageId;
+      if (packageId == null || packageId.isEmpty) return;
+      final package = _funeralPackages.firstWhere(
+        (row) => _text(row['id']) == packageId,
+        orElse: () => <String, dynamic>{},
+      );
+      final products = package['products'];
+      if (products is! List) return;
+      for (final line in _lines) line.dispose();
+      _lines.clear();
+      for (final raw in products.whereType<Map>()) {
+        final item = Map<String, dynamic>.from(raw);
+        final cents = _toDouble(item['unitPriceCents']);
+        _lines.add(_InventoryLineDraft(
+          productId: _text(item['productId']),
+          productCode: _text(item['productCode']),
+          description: _text(item['productDescription']),
+          quantity: _text(item['quantity']).isEmpty ? '1' : _text(item['quantity']),
+          unitPrice: (cents / 100).toStringAsFixed(2),
+          taxRate: '15',
+        ));
+      }
+      if (_quotationTitleController.text.trim().isEmpty) {
+        _quotationTitleController.text = _text(package['name']);
+      }
+    });
+  }
 
   Widget _buildPartnerSearch() {
     return SearchAnchor(
@@ -1140,6 +1226,9 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
               _text(widget.sourceDocument!['id']),
               customerPartnerId: _partnerId,
               customerReference: _referenceController.text.trim(),
+              title: _quotationTitleController.text.trim(),
+              summary: _quotationSummaryController.text.trim(),
+              funeralPackageId: _selectedFuneralPackageId,
               quotationDate: _dateFormat.format(_documentDate),
               validUntil: _secondaryDate == null ? null : _dateFormat.format(_secondaryDate!),
               requestedDeliveryDate: null,
@@ -1150,6 +1239,9 @@ class _InventoryDocumentDialogState extends State<InventoryDocumentDialog> {
             await widget.service.createQuotation(
               customerPartnerId: _partnerId,
               customerReference: _referenceController.text.trim(),
+              title: _quotationTitleController.text.trim(),
+              summary: _quotationSummaryController.text.trim(),
+              funeralPackageId: _selectedFuneralPackageId,
               quotationDate: _dateFormat.format(_documentDate),
               validUntil: _secondaryDate == null ? null : _dateFormat.format(_secondaryDate!),
               requestedDeliveryDate: null,

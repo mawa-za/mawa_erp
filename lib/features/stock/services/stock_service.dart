@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import '../../../core/api_client.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -23,6 +24,9 @@ class StockService {
   Future<Map<String, dynamic>> createQuotation({
     String? customerPartnerId,
     String? customerReference,
+    String? title,
+    String? summary,
+    String? funeralPackageId,
     String? quotationDate,
     String? validUntil,
     String? requestedDeliveryDate,
@@ -32,6 +36,9 @@ class StockService {
     final response = await _apiClient.post('/v2/quotations', body: {
       if (customerPartnerId != null && customerPartnerId.isNotEmpty) 'customerPartnerId': customerPartnerId,
       if (customerReference != null && customerReference.isNotEmpty) 'customerReference': customerReference,
+      if (title != null && title.isNotEmpty) 'title': title,
+      if (summary != null && summary.isNotEmpty) 'summary': summary,
+      if (funeralPackageId != null && funeralPackageId.isNotEmpty) 'funeralPackageId': funeralPackageId,
       if (quotationDate != null && quotationDate.isNotEmpty) 'quotationDate': quotationDate,
       if (validUntil != null && validUntil.isNotEmpty) 'validUntil': validUntil,
       if (requestedDeliveryDate != null && requestedDeliveryDate.isNotEmpty) 'requestedDeliveryDate': requestedDeliveryDate,
@@ -52,6 +59,9 @@ class StockService {
     String id, {
     String? customerPartnerId,
     String? customerReference,
+    String? title,
+    String? summary,
+    String? funeralPackageId,
     String? quotationDate,
     String? validUntil,
     String? requestedDeliveryDate,
@@ -61,6 +71,9 @@ class StockService {
     final response = await _apiClient.put('/v2/quotations/$id', body: {
       if (customerPartnerId != null && customerPartnerId.isNotEmpty) 'customerPartnerId': customerPartnerId,
       if (customerReference != null && customerReference.isNotEmpty) 'customerReference': customerReference,
+      if (title != null) 'title': title,
+      if (summary != null) 'summary': summary,
+      if (funeralPackageId != null) 'funeralPackageId': funeralPackageId,
       if (quotationDate != null && quotationDate.isNotEmpty) 'quotationDate': quotationDate,
       if (validUntil != null && validUntil.isNotEmpty) 'validUntil': validUntil,
       if (requestedDeliveryDate != null && requestedDeliveryDate.isNotEmpty) 'requestedDeliveryDate': requestedDeliveryDate,
@@ -105,6 +118,17 @@ class StockService {
       'stockControlled': 'true',
     });
     return _decodeListResponse(response.body, response.statusCode, 'products');
+  }
+
+  Future<List<Map<String, dynamic>>> funeralPackages() async {
+    final response = await _apiClient.get('/v2/funeral/packages', queryParameters: {'activeOnly': true});
+    return _decodeListResponse(response.body, response.statusCode, 'funeral packages');
+  }
+
+  Future<Uint8List> quotationPdf(String id) async {
+    final response = await _apiClient.get('/v2/quotations/$id/pdf');
+    if (response.statusCode >= 200 && response.statusCode < 300) return response.bodyBytes;
+    throw AppException('Failed to download quotation PDF: ${response.statusCode} ${response.body}');
   }
 
   Future<Map<String, dynamic>> updateQuotationStatus(String id, String status) async {

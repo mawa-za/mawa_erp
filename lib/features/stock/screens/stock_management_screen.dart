@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/files/download_bytes.dart';
 import '../../home/models/workcenter.dart';
 import '../../invoicing/screens/invoice_detail_screen.dart';
 import '../../laybys/services/layby_service.dart';
@@ -516,6 +517,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         dateKeys: const ['quotation_date', 'created_at', 'createdAt'],
         actions: [
           _rowAction('View / Edit', _openQuotationForEdit),
+          _rowAction('Download PDF', _downloadQuotationPdf),
           _rowAction('Send', (row) => _service.updateQuotationStatus(_id(row), 'SENT')),
           _rowAction('Accept', (row) => _service.updateQuotationStatus(_id(row), 'ACCEPTED')),
           _rowAction('Create / View Invoice', _createInvoiceFromQuotation),
@@ -1502,6 +1504,16 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       readOnly: readOnly,
     );
     if (saved == true) await _load();
+  }
+
+  Future<void> _downloadQuotationPdf(Map<String, dynamic> row) async {
+    final bytes = await _service.quotationPdf(_id(row));
+    final number = _text(row['quotation_no']).trim();
+    await downloadBytes(
+      bytes: bytes,
+      fileName: '${number.isEmpty ? 'quotation' : number}.pdf',
+      mimeType: 'application/pdf',
+    );
   }
 
   Future<void> _createInvoiceFromQuotation(Map<String, dynamic> row) async {
