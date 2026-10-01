@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/setting.dart';
 import '../../../core/services/setting_service.dart';
-import 'package:mawa_erp/core/errors/app_error.dart';
 
 class SystemSettingsScreen extends StatefulWidget {
   const SystemSettingsScreen({super.key});
@@ -37,7 +36,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = friendlyErrorMessage(e);
+          _error = e.toString();
           _isLoading = false;
         });
       }
@@ -62,6 +61,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       case 'CASH-BANK-ACCOUNT':
       case 'EFT-BANK-ACCOUNT':
         return Icons.account_balance_outlined;
+      case 'MEMBERSHIP':
+        return Icons.card_membership_outlined;
       case 'WAREHOUSE-LAYOUT':
         return Icons.warehouse_outlined;
       case 'FNB-API':
@@ -80,6 +81,33 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     }
   }
 
+  String _settingLabel(Setting setting) {
+    if (setting.type.toUpperCase() == 'MEMBERSHIP' &&
+        setting.attribute.toUpperCase() == 'PREMIUM_HISTORY_MONTH_LIMIT') {
+      return 'Premium History Month Limit';
+    }
+    return setting.attribute.replaceAll('-', ' ').replaceAll('_', ' ');
+  }
+
+  String? _settingDescription(Setting setting) {
+    if (setting.type.toUpperCase() == 'MEMBERSHIP' &&
+        setting.attribute.toUpperCase() == 'PREMIUM_HISTORY_MONTH_LIMIT') {
+      return 'Maximum number of premium months retained/recalculated for old memberships and displayed in premium history.';
+    }
+    return null;
+  }
+
+  String? _validateSettingValue(Setting setting, String value) {
+    if (setting.type.toUpperCase() == 'MEMBERSHIP' &&
+        setting.attribute.toUpperCase() == 'PREMIUM_HISTORY_MONTH_LIMIT') {
+      final months = int.tryParse(value.trim());
+      if (months == null || months <= 0) {
+        return 'Enter a whole number greater than 0.';
+      }
+    }
+    return null;
+  }
+
   Future<void> _editSetting(Setting setting) async {
     final controller = TextEditingController(text: setting.value);
     final colorScheme = Theme.of(context).colorScheme;
@@ -92,7 +120,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           children: [
             Icon(_getIconForType(setting.type), color: colorScheme.primary, size: 24),
             const SizedBox(width: 12),
-            Expanded(child: Text('Edit ${setting.attribute}', style: const TextStyle(fontSize: 18))),
+            Expanded(child: Text('Edit ${_settingLabel(setting)}', style: const TextStyle(fontSize: 18))),
           ],
         ),
         content: Column(
@@ -120,7 +148,16 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             child: Text('CANCEL', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold)),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
+            onPressed: () {
+              final validationError = _validateSettingValue(setting, controller.text);
+              if (validationError != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(validationError), behavior: SnackBarBehavior.floating),
+                );
+                return;
+              }
+              Navigator.pop(context, controller.text.trim());
+            },
             child: const Text('SAVE CHANGES', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
@@ -139,7 +176,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
           );
         }
       }
@@ -224,7 +261,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(friendlyErrorMessage('Error: $e')), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
           );
         }
       }
@@ -367,7 +404,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    s.attribute.replaceAll('-', ' '),
+                    _settingLabel(s),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -384,6 +421,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       fontStyle: s.value.isEmpty ? FontStyle.italic : FontStyle.normal,
                     ),
                   ),
+                  if (_settingDescription(s) != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      _settingDescription(s)!,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
                 ],
               ),
             ),
