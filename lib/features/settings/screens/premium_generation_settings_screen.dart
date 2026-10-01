@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/services/setting_service.dart';
 import '../../../core/utils/app_date_utils.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -21,6 +22,9 @@ class _PremiumGenerationSettingsScreenState
   static const String _dayOfMonthMode = 'DAY_OF_MONTH';
   static const String _monthAfterLastPaymentMode =
       'MONTH_AFTER_LAST_PAYMENT';
+  static const String _membershipSettings = 'MEMBERSHIP';
+  static const String _premiumHistoryMonthLimit = 'PREMIUM_HISTORY_MONTH_LIMIT';
+  static const int _defaultPremiumHistoryMonthLimit = 24;
 
   String _mode = _dayOfMonthMode;
   int _generationDay = 1;
@@ -32,6 +36,14 @@ class _PremiumGenerationSettingsScreenState
   String? _lastGeneratedPeriod;
   String? _pageError;
   Map<String, dynamic>? _lastBackfillResult;
+  final TextEditingController _premiumHistoryMonthLimitController =
+      TextEditingController(text: '$_defaultPremiumHistoryMonthLimit');
+
+  @override
+  void dispose() {
+    _premiumHistoryMonthLimitController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -53,6 +65,21 @@ class _PremiumGenerationSettingsScreenState
       }
 
       final data = _decodeObject(response.body);
+      final settings = await SettingService().getSettings();
+      final historyLimitSetting = settings.where(
+        (setting) =>
+            setting.type.toUpperCase() == _membershipSettings &&
+            setting.attribute.toUpperCase() == _premiumHistoryMonthLimit,
+      );
+      final configuredHistoryLimit = historyLimitSetting.isEmpty
+          ? _defaultPremiumHistoryMonthLimit
+          : _asInt(
+              historyLimitSetting.first.value,
+              fallback: _defaultPremiumHistoryMonthLimit,
+            );
+      final effectiveHistoryLimit = configuredHistoryLimit > 0
+          ? configuredHistoryLimit
+          : _defaultPremiumHistoryMonthLimit;
       final rawMode = (data['generationMode'] ??
               data['generation_mode'] ??
               _dayOfMonthMode)
@@ -70,6 +97,7 @@ class _PremiumGenerationSettingsScreenState
             : rawMode;
         _generationDay = configuredDay.clamp(1, 31).toInt();
         _enabled = _asBool(data['enabled'], fallback: true);
+        _premiumHistoryMonthLimitController.text = effectiveHistoryLimit.toString();
         _lastRunAt = AppDateUtils.normalizeDateTime(
           data['lastRunAt'] ?? data['last_run_at'],
           fallback: '',
@@ -90,6 +118,16 @@ class _PremiumGenerationSettingsScreenState
 
   Future<void> _save() async {
     if (_saving || _backfilling) return;
+    final historyLimit = int.tryParse(
+      _premiumHistoryMonthLimitController.text.trim(),
+    );
+    if (historyLimit == null || historyLimit <= 0) {
+      _showMessage(
+        'Premium history month limit must be a whole number greater than zero.',
+        isError: true,
+      );
+      return;
+    }
     setState(() => _saving = true);
 
     try {
@@ -105,6 +143,12 @@ class _PremiumGenerationSettingsScreenState
         throw AppException(_errorMessage(response.body, response.statusCode));
       }
 
+      await SettingService().updateSetting(
+        _membershipSettings,
+        _premiumHistoryMonthLimit,
+        historyLimit.toString(),
+      );
+
       final data = _decodeObject(response.body);
       if (!mounted) return;
       setState(() {
@@ -116,7 +160,7 @@ class _PremiumGenerationSettingsScreenState
             (data['lastGeneratedPeriod'] ?? data['last_generated_period'])
                 ?.toString();
       });
-      _showMessage('Automatic premium generation configuration saved.');
+      _showMessage('Premium generation configuration saved.');
     } catch (error) {
       if (!mounted) return;
       _showMessage(
@@ -279,6 +323,20 @@ class _PremiumGenerationSettingsScreenState
                             ),
                             subtitle: const Text(
                               'Keeps one next premium available based on Paid Up To.',
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _premiumHistoryMonthLimitController,
+                            enabled: !_saving && !_backfilling,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Premium history month limit',
+                              border: OutlineInputBorder(),
+                              helperText:
+                                  'Limits premium recalculation and premium history display. '
+                                  'Older premiums without posted payments are removed during recalculation.',
+                              suffixText: 'months',
                             ),
                           ),
                           const SizedBox(height: 8),
