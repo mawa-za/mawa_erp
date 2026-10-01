@@ -115,6 +115,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
       var allowPremiumPaymentTransfer = false;
       var allowDeleteWithoutCashupValidation = false;
+      var premiumHistoryMonthLimit = 24;
       try {
         final settings = await SettingService().getSettings();
         for (final setting in settings) {
@@ -130,6 +131,10 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
               break;
             case 'ALLOW_PREMIUM_PAYMENT_DELETE_WITHOUT_CASHUP_VALIDATION':
               allowDeleteWithoutCashupValidation = enabled;
+              break;
+            case 'PREMIUM_HISTORY_MONTH_LIMIT':
+              final parsed = int.tryParse(setting.value.trim());
+              if (parsed != null && parsed > 0) premiumHistoryMonthLimit = parsed;
               break;
           }
         }
@@ -148,6 +153,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       }));
 
       premiums.sort((a, b) => b.periodYYYYMM.compareTo(a.periodYYYYMM));
+      final visiblePremiums = premiums.take(premiumHistoryMonthLimit).toList();
 
       if (mounted) {
         setState(() {
@@ -156,7 +162,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _plan = plan;
           _dependents = dependents;
           _dependentPartners = dependentPartners;
-          _premiums = premiums;
+          _premiums = visiblePremiums;
           _claims = claims;
           _allowPremiumPaymentTransfer = allowPremiumPaymentTransfer;
           _allowDeleteWithoutCashupValidation = allowDeleteWithoutCashupValidation;
