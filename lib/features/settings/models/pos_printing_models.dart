@@ -101,11 +101,7 @@ class PosTerminal {
   });
 
   bool get configured =>
-      enabled &&
-      agentId != null &&
-      agentId!.isNotEmpty &&
-      defaultReceiptPrinterId != null &&
-      defaultReceiptPrinterId!.isNotEmpty;
+      enabled && agentId != null && agentId!.isNotEmpty;
 
   factory PosTerminal.fromJson(Map<String, dynamic> json) => PosTerminal(
         id: (json['id'] ?? '').toString(),
