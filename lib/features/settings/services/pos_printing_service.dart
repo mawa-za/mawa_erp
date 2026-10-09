@@ -63,17 +63,13 @@ class PosPrintingService {
       if (!terminal.configured) {
         return const ReceiptPrinterAvailability(
           online: false,
-          message: 'This device does not have a receipt printer configured.',
+          message: 'This device is not linked to a Windows print agent.',
         );
       }
-
       final agents = await getAgents();
       PosPrintAgent? assignedAgent;
       for (final agent in agents) {
-        if (agent.id == terminal.agentId) {
-          assignedAgent = agent;
-          break;
-        }
+        if (agent.id == terminal.agentId) { assignedAgent = agent; break; }
       }
       if (assignedAgent == null || !assignedAgent.active || !assignedAgent.online) {
         return const ReceiptPrinterAvailability(
@@ -81,35 +77,14 @@ class PosPrintingService {
           message: 'The configured Windows print agent is offline.',
         );
       }
-
-      PosPrinter? receiptPrinter;
-      for (final printer in assignedAgent.printers) {
-        if (printer.id == terminal.defaultReceiptPrinterId) {
-          receiptPrinter = printer;
-          break;
-        }
-      }
-      if (receiptPrinter == null) {
-        return const ReceiptPrinterAvailability(
-          online: false,
-          message: 'The configured receipt printer could not be found on the print agent.',
-        );
-      }
-      if (!receiptPrinter.online) {
-        return ReceiptPrinterAvailability(
-          online: false,
-          message: 'Receipt printer ${receiptPrinter.displayName} is offline.',
-        );
-      }
-
       return ReceiptPrinterAvailability(
         online: true,
-        message: 'Receipt printer ${receiptPrinter.displayName} is online.',
+        message: 'Windows print agent ${assignedAgent.name} is online. The agent selects its locally configured receipt printer.',
       );
     } catch (error) {
       return ReceiptPrinterAvailability(
         online: false,
-        message: 'MAWA could not confirm the receipt printer status: ${friendlyErrorMessage(error)}',
+        message: 'MAWA could not confirm the print agent status: ${friendlyErrorMessage(error)}',
       );
     }
   }
@@ -145,7 +120,7 @@ class PosPrintingService {
   Future<PosTerminal> assignTerminal({
     required String terminalId,
     required String agentId,
-    required String receiptPrinterId,
+    String? receiptPrinterId,
     String? documentPrinterId,
   }) async {
     final response = await ApiClient().put('/v2/pos-printing/terminals/$terminalId/assignment', body: {
@@ -187,13 +162,12 @@ class PosPrintingService {
 
   Future<String> queueReceipt(String receiptId, {bool reprint = false, String? printerId}) async {
     final terminal = await ensureTerminal();
-    if (!terminal.configured && (printerId == null || printerId.isEmpty)) {
-      throw AppException('This terminal is not linked to a Windows print agent and receipt printer. Configure POS Printing under System Configuration.');
+    if (!terminal.configured) {
+      throw AppException('This terminal is not linked to a Windows print agent. Configure POS Printing under System Configuration.');
     }
     final requestId = _requestId();
     final response = await ApiClient().post('/v2/receipts/$receiptId/print-jobs', body: {
       'terminalId': terminal.id,
-      'printerId': printerId,
       'requestId': requestId,
       'reprint': reprint,
     });
@@ -244,13 +218,12 @@ class PosPrintingService {
 
   Future<String> queueCashup(String cashupId, {bool reprint = false, String? printerId}) async {
     final terminal = await ensureTerminal();
-    if (!terminal.configured && (printerId == null || printerId.isEmpty)) {
-      throw AppException('This terminal is not linked to a Windows print agent and receipt printer. Configure POS Printing under System Configuration.');
+    if (!terminal.configured) {
+      throw AppException('This terminal is not linked to a Windows print agent. Configure POS Printing under System Configuration.');
     }
     final requestId = _requestId(prefix: 'cashup');
     final response = await ApiClient().post('/v2/cashup/$cashupId/print-jobs', body: {
       'terminalId': terminal.id,
-      'printerId': printerId,
       'requestId': requestId,
       'reprint': reprint,
     });
@@ -264,7 +237,6 @@ class PosPrintingService {
   Future<String> queueTestPrint({required String terminalId, String? printerId}) async {
     final requestId = _requestId(prefix: 'test');
     final response = await ApiClient().post('/v2/pos-printing/terminals/$terminalId/test-print', body: {
-      'printerId': printerId,
       'requestId': requestId,
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {

@@ -99,16 +99,11 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       var terminal = await _service.ensureTerminal(displayName: _terminalName.text, location: _location.text);
-      if (_agentId == null || _printerId == null) throw AppException('Select a print agent and receipt printer.');
-      await _service.configurePrinter(
-        printerId: _printerId!,
-        supportsCut: _supportsCut,
-        paperWidthChars: _paperWidthChars,
-      );
-      terminal = await _service.assignTerminal(terminalId: terminal.id, agentId: _agentId!, receiptPrinterId: _printerId!);
+      if (_agentId == null) throw AppException('Select a Windows print agent.');
+      terminal = await _service.assignTerminal(terminalId: terminal.id, agentId: _agentId!);
       if (!mounted) return;
       setState(() => _terminal = terminal);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('POS printing configuration saved')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('POS print agent saved')));
     } catch (e) {
       if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
@@ -117,42 +112,15 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
   }
 
   Future<void> _testPrint() async {
-    if (_agentId == null || _printerId == null) {
-      setState(() => _error = 'Select a print agent and receipt printer.');
-      return;
-    }
-    if (!_selectedPrinterOnline) {
-      setState(() => _error = 'The selected receipt printer is offline. Power it on and wait for the Windows print agent to rediscover it.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (_agentId == null) { setState(() => _error = 'Select a Windows print agent.'); return; }
+    setState(() { _loading = true; _error = null; });
     try {
-      var terminal = await _service.ensureTerminal(
-        displayName: _terminalName.text,
-        location: _location.text,
-      );
-      await _service.configurePrinter(
-        printerId: _printerId!,
-        supportsCut: _supportsCut,
-        paperWidthChars: _paperWidthChars,
-      );
-      terminal = await _service.assignTerminal(
-        terminalId: terminal.id,
-        agentId: _agentId!,
-        receiptPrinterId: _printerId!,
-      );
-      await _service.queueTestPrint(
-        terminalId: terminal.id,
-        printerId: _printerId,
-      );
+      var terminal = await _service.ensureTerminal(displayName: _terminalName.text, location: _location.text);
+      terminal = await _service.assignTerminal(terminalId: terminal.id, agentId: _agentId!);
+      await _service.queueTestPrint(terminalId: terminal.id);
       if (!mounted) return;
       setState(() => _terminal = terminal);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configuration saved and test print queued.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Test print queued to the agent's local receipt printer.")));
     } catch (e) {
       if (mounted) setState(() => _error = friendlyErrorMessage(e));
     } finally {
@@ -261,52 +229,15 @@ class _PosPrintingSettingsScreenState extends State<PosPrintingSettingsScreen> {
                           }),
                         ),
                         const SizedBox(height: 12),
-                        SearchableDropdownFormField<String>(
-                          value: _printers.any((p) => p.id == _printerId) ? _printerId : null,
-                          decoration: const InputDecoration(labelText: 'Default receipt printer'),
-                          items: _printers.map((p) => DropdownMenuItem(value: p.id, child: Text('${p.displayName}${p.online ? '' : ' • Offline'}'))).toList(),
-                          onChanged: _selectPrinter,
-                        ),
-                        if (_selectedPrinter != null && !_selectedPrinterOnline) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(Icons.info_outline, size: 18, color: Colors.orange.shade800),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'This printer is still assigned to the terminal but is currently offline. It will remain visible and can be used again when the agent rediscovers it.',
-                                  style: TextStyle(color: Colors.orange.shade900),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        SearchableDropdownFormField<int>(
-                          value: const [32, 42, 48].contains(_paperWidthChars) ? _paperWidthChars : 42,
-                          decoration: const InputDecoration(labelText: 'Receipt width'),
-                          items: const [
-                            DropdownMenuItem(value: 32, child: Text('32 characters (typical 58 mm)')),
-                            DropdownMenuItem(value: 42, child: Text('42 characters (typical 80 mm)')),
-                            DropdownMenuItem(value: 48, child: Text('48 characters (wide 80 mm)')),
-                          ],
-                          onChanged: (value) => setState(() => _paperWidthChars = value ?? 42),
-                        ),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Use ESC/POS paper cutter'),
-                          subtitle: const Text('Disable this for printers without an automatic cutter.'),
-                          value: _supportsCut,
-                          onChanged: (value) => setState(() => _supportsCut = value),
+                        const Text(
+                          'The physical receipt printer is configured locally on the Windows print agent. MAWA ERP only assigns this terminal to an agent.',
                         ),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton.icon(
-                              onPressed: _agentId != null && _printerId != null && _selectedPrinterOnline ? _testPrint : null,
+                              onPressed: _agentId != null ? _testPrint : null,
                               icon: const Icon(Icons.print_outlined),
                               label: const Text('Test print'),
                             ),
