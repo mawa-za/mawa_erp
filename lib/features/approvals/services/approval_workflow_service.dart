@@ -17,6 +17,15 @@ class ApprovalWorkflowService {
     }
   }
 
+  Future<List<String>> getApprovalTypes() async {
+    final response = await _apiClient.get('/v2/approval-workflow/types');
+    if (response.statusCode != 200) {
+      throw AppException('Failed to load approval types');
+    }
+    final List<dynamic> data = jsonDecode(response.body);
+    return data.map((value) => value.toString()).toList();
+  }
+
   Future<List<ApprovalWorkflow>> getActiveWorkflows() async {
     final response = await _apiClient.get('/v2/approval-workflow/active');
     if (response.statusCode == 200) {

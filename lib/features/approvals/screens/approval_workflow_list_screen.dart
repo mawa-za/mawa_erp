@@ -20,6 +20,7 @@ class _ApprovalWorkflowListScreenState
 
   bool _isLoading = true;
   List<ApprovalWorkflow> _allWorkflows = [];
+  List<String> _unconfiguredApprovalTypes = [];
   List<ApprovalWorkflow> _workflows = [];
   String _selectedStatus = 'ALL';
   String _searchQuery = '';
@@ -38,6 +39,7 @@ class _ApprovalWorkflowListScreenState
     });
     try {
       final response = await _service.getWorkflows();
+      final approvalTypes = await _service.getApprovalTypes();
       if (!mounted) return;
 
       response.sort(
@@ -45,6 +47,9 @@ class _ApprovalWorkflowListScreenState
       );
       setState(() {
         _allWorkflows = response;
+        final configured = response.map((workflow) => workflow.approvalType).toSet();
+        _unconfiguredApprovalTypes = approvalTypes
+            .where((type) => !configured.contains(type)).toList()..sort();
         _applyStatusFilter();
         _isLoading = false;
       });
@@ -205,6 +210,32 @@ class _ApprovalWorkflowListScreenState
               }),
             ),
           ),
+          if (!_isLoading && _error == null && _selectedStatus != 'ACTIVE')
+            ExpansionTile(
+              title: Text('Unconfigured approval types (${_unconfiguredApprovalTypes.length})'),
+              subtitle: const Text('Configure a workflow to enable approval tasks'),
+              children: _unconfiguredApprovalTypes
+                  .where((type) => _searchQuery.isEmpty ||
+                      type.toLowerCase().contains(_searchQuery.toLowerCase()))
+                  .map((type) => ListTile(
+                        leading: const Icon(Icons.add_circle_outline),
+                        title: Text(type.replaceAll('_', ' ')),
+                        subtitle: const Text('No workflow configured'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () async {
+                          final created = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ApprovalWorkflowCreateScreen(
+                                initialApprovalType: type,
+                              ),
+                            ),
+                          );
+                          if (created == true) _fetchWorkflows();
+                        },
+                      ))
+                  .toList(),
+            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
