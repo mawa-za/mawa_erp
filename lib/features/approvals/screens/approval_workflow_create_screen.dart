@@ -13,8 +13,9 @@ import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 
 class ApprovalWorkflowCreateScreen extends StatefulWidget {
   final ApprovalWorkflow? workflow;
+  final String? initialApprovalType;
 
-  const ApprovalWorkflowCreateScreen({super.key, this.workflow});
+  const ApprovalWorkflowCreateScreen({super.key, this.workflow, this.initialApprovalType});
 
   @override
   State<ApprovalWorkflowCreateScreen> createState() => _ApprovalWorkflowCreateScreenState();
@@ -80,6 +81,9 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   @override
   void initState() {
     super.initState();
+    if (widget.initialApprovalType != null) {
+      _selectedApprovalType = widget.initialApprovalType!;
+    }
     if (widget.workflow != null) {
       _nameController.text = widget.workflow!.name;
       _descriptionController.text = widget.workflow!.description;
