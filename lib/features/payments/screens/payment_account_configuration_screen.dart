@@ -107,6 +107,7 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
                       ),
                       items: const [
                         DropdownMenuItem(value: 'DEBTOR', child: Text('Debtor account')),
+                        DropdownMenuItem(value: 'INVOICE', child: Text('Invoice PDF banking details')),
                         DropdownMenuItem(
                           value: 'PAYROLL_DEBTOR',
                           child: Text('Payroll debtor account'),
@@ -364,6 +365,8 @@ class _PaymentAccountConfigurationScreenState extends State<PaymentAccountConfig
     switch (role) {
       case 'DEBTOR':
         return 'Debtor account';
+      case 'INVOICE':
+        return 'Invoice PDF banking details';
       case 'PAYROLL_DEBTOR':
         return 'Payroll debtor account';
       case 'PETTY_CASH_CREDITOR':
