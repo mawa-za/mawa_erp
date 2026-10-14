@@ -24,8 +24,6 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
   final _formKey = GlobalKey<FormState>();
   final _amount = TextEditingController();
   final _number = TextEditingController();
-  final _reason = TextEditingController();
-  final _attachmentId = TextEditingController();
   final _notes = TextEditingController();
 
   List<Map<String, dynamic>> _employees = const [];
@@ -126,8 +124,8 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
         originalCollectorEmployeeId: _collectorEmployeeId!,
         locationAreaCode: _locationAreaCode!,
         captureMode: _mode,
-        lateCaptureReason: _reason.text.trim(),
-        proofAttachmentId: _attachmentId.text.trim(),
+        lateCaptureReason: '',
+        proofAttachmentId: '',
         createdBy: prefs.getString('userId') ?? 'unknown',
         notes: _notes.text.trim(),
       );
@@ -139,7 +137,7 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
 
   @override
   void dispose() {
-    for (final controller in [_amount, _number, _reason, _attachmentId, _notes]) {
+    for (final controller in [_amount, _number, _notes]) {
       controller.dispose();
     }
     super.dispose();
@@ -284,19 +282,6 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                       onChanged: (value) => setState(() => _locationAreaCode = value),
                       validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                     ),
-                    if (_mode == 'MANUAL_EMERGENCY') ...[
-                      const SizedBox(height: 12),
-                      TextFormField(controller: _reason, maxLines: 2, decoration: const InputDecoration(labelText: 'Emergency/late capture reason (optional)', border: OutlineInputBorder())),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _attachmentId,
-                        decoration: const InputDecoration(
-                          labelText: 'Carbon-copy proof attachment ID',
-                          helperText: 'Optional: reference an uploaded proof document.', 
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 12),
                     TextFormField(controller: _notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
                     if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
