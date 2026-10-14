@@ -13,9 +13,23 @@ class _State extends State<ManualReceiptCutoverSettingsScreen> {
   @override void initState(){ super.initState(); _load(); }
   Future<void> _load() async {
     try { final r=await ApiClient().get('/v2/manual-receipts/configuration');
-      if(r.statusCode==200){ final m=jsonDecode(r.body); if(!mounted)return; setState((){ _goLive=m['mawaPayGoLiveDate'] == null ? null : DateTime.tryParse(m['mawaPayGoLiveDate'].toString()); _closeDate=m['legacyCaptureCloseDate']==null?null:DateTime.tryParse(m['legacyCaptureCloseDate'].toString()); _proof=m['emergencyReceiptRequiresProof']==true; _legacyEnabled=m['legacyCaptureEnabled']!=false; _loading=false; _error=_goLive==null?'No saved MAWAPay go-live date was returned by the server for this tenant. Verify the tenant configuration before capturing receipts.':null;}); }
+      if(r.statusCode==200){ final m=jsonDecode(r.body); if(!mounted)return; setState((){ _goLive=m['mawaPayGoLiveDate'] == null ? null : _readDate(m['mawaPayGoLiveDate']); _closeDate=m['legacyCaptureCloseDate']==null?null:_readDate(m['legacyCaptureCloseDate']); _proof=m['emergencyReceiptRequiresProof']==true; _legacyEnabled=m['legacyCaptureEnabled']!=false; _loading=false; _error=_goLive==null?'No saved MAWAPay go-live date was returned by the server for this tenant. Verify the tenant configuration before capturing receipts.':null;}); }
       else { if(mounted)setState((){_loading=false;_error='Unable to load cutover configuration (HTTP ${r.statusCode}).';}); }
     } catch(e){ if(mounted)setState((){_loading=false; _error=friendlyErrorMessage(e);}); }
+  }
+  // Jackson may serialize Java LocalDate as either ISO text or [year, month, day].
+  DateTime? _readDate(dynamic value) {
+    if (value == null) return null;
+    if (value is List && value.length == 3) {
+      final y = int.tryParse(value[0].toString());
+      final m = int.tryParse(value[1].toString());
+      final d = int.tryParse(value[2].toString());
+      if (y == null || m == null || d == null) return null;
+      final parsed = DateTime(y, m, d);
+      return parsed.year == y && parsed.month == m && parsed.day == d ? parsed : null;
+    }
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
   String _fmt(DateTime d)=>'${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
   Future<void> _pick(bool goLive) async { final d=await showDatePicker(context: context, initialDate:(goLive?_goLive:_closeDate)??DateTime.now(), firstDate:DateTime(2020), lastDate:DateTime(2035)); if(d!=null)setState((){if(goLive)_goLive=d;else _closeDate=d;}); }
@@ -28,14 +42,15 @@ class _State extends State<ManualReceiptCutoverSettingsScreen> {
         throw StateError('Configuration was submitted but could not be verified (HTTP ${verify.statusCode}). Reload before attempting another save.');
       }
       final persisted = jsonDecode(verify.body);
-      final persistedDate = persisted is Map ? persisted['mawaPayGoLiveDate']?.toString() : null;
+      final persistedGoLive = persisted is Map ? _readDate(persisted['mawaPayGoLiveDate']) : null;
+      final persistedDate = persistedGoLive == null ? null : _fmt(persistedGoLive);
       if (persistedDate != expectedDate) {
         throw StateError('Configuration verification failed: expected $expectedDate but the server returned ${persistedDate ?? "no go-live date"}. Check tenant selection and backend deployment.');
       }
       if (!mounted) return;
       setState(() {
-        _goLive = DateTime.tryParse(persistedDate!);
-        _closeDate = persisted['legacyCaptureCloseDate'] == null ? null : DateTime.tryParse(persisted['legacyCaptureCloseDate'].toString());
+        _goLive = persistedGoLive;
+        _closeDate = persisted['legacyCaptureCloseDate'] == null ? null : _readDate(persisted['legacyCaptureCloseDate']);
         _proof = persisted['emergencyReceiptRequiresProof'] == true;
         _legacyEnabled = persisted['legacyCaptureEnabled'] != false;
         _saving = false;
