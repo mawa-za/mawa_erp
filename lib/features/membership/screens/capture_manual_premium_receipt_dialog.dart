@@ -286,16 +286,15 @@ class _CaptureManualPremiumReceiptDialogState extends State<CaptureManualPremium
                     ),
                     if (_mode == 'MANUAL_EMERGENCY') ...[
                       const SizedBox(height: 12),
-                      TextFormField(controller: _reason, maxLines: 2, decoration: const InputDecoration(labelText: 'Emergency/late capture reason', border: OutlineInputBorder()), validator: _required),
+                      TextFormField(controller: _reason, maxLines: 2, decoration: const InputDecoration(labelText: 'Emergency/late capture reason (optional)', border: OutlineInputBorder())),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _attachmentId,
                         decoration: const InputDecoration(
                           labelText: 'Carbon-copy proof attachment ID',
-                          helperText: 'Upload the proof under Documents first, then enter its attachment ID.',
+                          helperText: 'Optional: reference an uploaded proof document.', 
                           border: OutlineInputBorder(),
                         ),
-                        validator: _required,
                       ),
                     ],
                     const SizedBox(height: 12),
