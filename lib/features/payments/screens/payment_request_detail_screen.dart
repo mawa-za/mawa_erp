@@ -158,14 +158,17 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     }
     try {
       var report = await _service.getTypedBankReport(widget.paymentId);
-      if (report == null) {
+      // Only exhausted failed background polls are rechecked when the user opens
+      // this payment request. Successful/pending automatic polling is unchanged.
+      final pausedAfterFailures = await _service.isBankReportPollingPaused(widget.paymentId);
+      if (report == null || pausedAfterFailures) {
         try {
           report = await _service.refreshTypedBankReport(widget.paymentId);
           _attempts = await _service.getPaymentAttempts(widget.paymentId);
         } catch (e) {
           _bankReportMessage = friendlyErrorMessage(
             e,
-            fallback: 'FNB has not returned a bank report yet. MAWA will continue checking automatically.',
+            fallback: 'FNB has not returned a report. After three failed polls, the next check occurs when this payment request is opened.',
           );
         }
       }
@@ -174,7 +177,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           _bankReport = report;
           _bankReportMessage = report == null
               ? (_bankReportMessage ??
-                  'FNB has not returned a bank report yet. MAWA will continue checking automatically.')
+                  'FNB has not returned a bank report yet. If automatic polling was paused after three failed attempts, reopen this payment request to check again.')
               : null;
         });
       }

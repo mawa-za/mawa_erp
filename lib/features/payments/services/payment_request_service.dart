@@ -173,6 +173,15 @@ class PaymentRequestService {
     throw AppException('Failed to load bank report: ${response.body}');
   }
 
+  Future<bool> isBankReportPollingPaused(String id) async {
+    final response = await _apiClient.get('/v2/payment-request/$id/bank-report/polling-paused');
+    if (response.statusCode == 200) {
+      final result = jsonDecode(response.body) as Map<String, dynamic>;
+      return result['paused'] == true;
+    }
+    throw AppException('Failed to load bank report polling status: ${response.body}');
+  }
+
   Future<Map<String, dynamic>> refreshBankReport(String id) async {
     final response = await _apiClient.post(
       '/v2/payment-request/$id/bank-report/refresh',
