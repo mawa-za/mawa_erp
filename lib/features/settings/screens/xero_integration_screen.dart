@@ -317,6 +317,17 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       final blockers = (readiness['blockers'] as List? ?? const [])
           .map((entry) => entry.toString()).toList();
+      // Invoice inspection is read-only and intentionally does not certify the ledger.
+      Map<String, dynamic>? ledger;
+      String? ledgerError;
+      if (type == 'INVOICE') {
+        try {
+          ledger = await _service.invoiceLedgerSnapshot(id);
+        } catch (error) {
+          ledgerError = error.toString();
+        }
+      }
+      if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -334,6 +345,33 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                 for (final blocker in blockers)
                   Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text('• $blocker')),
                 const SizedBox(height: 12),
+                if (type == 'INVOICE') ...[
+                  Text('Xero ledger evidence', style: Theme.of(dialogContext).textTheme.titleMedium),
+                  const SizedBox(height: 6),
+                  if (ledgerError != null)
+                    SelectableText('Unable to retrieve ledger evidence: $ledgerError')
+                  else if (ledger != null) ...[
+                    SelectableText('Invoice identity matches: ${ledger['invoiceIdentityMatches'] == true ? 'Yes' : 'No / unknown'}'),
+                    SelectableText('MAWA total (cents): ${ledger['mawaTotalCents'] ?? 'Unknown'}'),
+                    SelectableText('Xero total: ${ledger['xeroTotal'] ?? 'Unknown'}'),
+                    SelectableText('Xero paid: ${ledger['xeroAmountPaid'] ?? 'Unknown'}'),
+                    SelectableText('Xero credited: ${ledger['xeroAmountCredited'] ?? 'Unknown'}'),
+                    SelectableText('Xero due: ${ledger['xeroAmountDue'] ?? 'Unknown'}'),
+                    SelectableText('Xero status: ${ledger['xeroStatus'] ?? 'Unknown'}'),
+                    const SizedBox(height: 8),
+                    Text('Financial comparison', style: Theme.of(dialogContext).textTheme.titleSmall),
+                    ..._ledgerEvidenceRows(ledger['financialComparison']),
+                    const SizedBox(height: 8),
+                    Text('Independent payment evidence', style: Theme.of(dialogContext).textTheme.titleSmall),
+                    ..._ledgerEvidenceRows(ledger['independentPaymentEvidence']),
+                    Text('Independent credit-note evidence', style: Theme.of(dialogContext).textTheme.titleSmall),
+                    ..._ledgerEvidenceRows(ledger['independentCreditNoteEvidence']),
+                    const SizedBox(height: 8),
+                    const Text('Ledger NOT certified. Quarantine release is disabled.',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                  const SizedBox(height: 12),
+                ],
                 Text('Audit history (${history.length})', style: Theme.of(dialogContext).textTheme.titleMedium),
                 if (history.isEmpty) const Text('No reconciliation checks recorded.'),
                 for (final event in history)
@@ -349,6 +387,24 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     } catch (error) {
       if (mounted) setState(() => _reconciliationNotice = error.toString());
     }
+  }
+
+  List<Widget> _ledgerEvidenceRows(dynamic value) {
+    if (value == null) return [const Text('Evidence unavailable')];
+    if (value is Map) {
+      return value.entries.map((entry) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: SelectableText('${entry.key}: ${entry.value}'),
+      )).toList();
+    }
+    if (value is List) {
+      if (value.isEmpty) return [const Text('No records returned; completeness unverified')];
+      return value.map((entry) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: SelectableText(entry.toString()),
+      )).toList();
+    }
+    return [SelectableText(value.toString())];
   }
 
   Widget _reconciliationCard() {

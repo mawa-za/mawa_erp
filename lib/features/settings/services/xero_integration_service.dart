@@ -245,6 +245,21 @@ class XeroIntegrationService {
         .map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
+  /// Read-only invoice ledger evidence. Never releases a quarantined transaction.
+  Future<Map<String, dynamic>> invoiceLedgerSnapshot(String invoiceId) async {
+    if (invoiceId.isEmpty) {
+      throw const XeroIntegrationException('Invoice ID is required');
+    }
+    final response = await ApiClient().get(
+      '/v2/integrations/xero/reconciliation/invoice/${Uri.encodeComponent(invoiceId)}/ledger-snapshot',
+    );
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to load Xero invoice ledger evidence'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   bool _reauthorisationRequired(int statusCode, String body) {
     if (statusCode == 401) return true;
     try {
