@@ -307,6 +307,50 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     }
   }
 
+  Future<void> _showReconciliationDetails(Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    final type = item['type']?.toString() ?? '';
+    if (id.isEmpty || !mounted) return;
+    try {
+      final readiness = await _service.reconciliationReleaseReadiness(type, id);
+      final history = await _service.reconciliationAuditHistory(type, id);
+      if (!mounted) return;
+      final blockers = (readiness['blockers'] as List? ?? const [])
+          .map((entry) => entry.toString()).toList();
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('$type reconciliation review'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                SelectableText('Transaction: $id'),
+                const SizedBox(height: 12),
+                const Text('Release is disabled until external ledger verification and audited recovery are implemented.',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Text('Release blockers (${blockers.length})', style: Theme.of(dialogContext).textTheme.titleMedium),
+                for (final blocker in blockers)
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text('• $blocker')),
+                const SizedBox(height: 12),
+                Text('Audit history (${history.length})', style: Theme.of(dialogContext).textTheme.titleMedium),
+                if (history.isEmpty) const Text('No reconciliation checks recorded.'),
+                for (final event in history)
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: SelectableText('${event['created_at'] ?? event['createdAt'] ?? ''}  '
+                      '${event['outcome'] ?? ''}  ${event['detail'] ?? ''}')),
+              ]),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _reconciliationNotice = error.toString());
+    }
+  }
+
   Widget _reconciliationCard() {
     return Card(child: Padding(
       padding: const EdgeInsets.all(16),
@@ -327,10 +371,16 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
             title: Text('${item['type'] ?? ''} · ${item['reference'] ?? item['id'] ?? ''}'),
             subtitle: Text('Xero ID: ${item['external_id'] ?? 'Not linked'}\n${item['error'] ?? ''}'),
             isThreeLine: true,
-            trailing: TextButton(
-              onPressed: _checkingReconciliationId != null ? null : () => _checkReconciliation(item),
-              child: _checkingReconciliationId == item['id'] ? const Text('Checking...') : const Text('Check Xero'),
-            ),
+            trailing: Wrap(mainAxisSize: MainAxisSize.min, spacing: 8, children: [
+              TextButton(
+                onPressed: () => _showReconciliationDetails(item),
+                child: const Text('Review blockers'),
+              ),
+              TextButton(
+                onPressed: _checkingReconciliationId != null ? null : () => _checkReconciliation(item),
+                child: _checkingReconciliationId == item['id'] ? const Text('Checking...') : const Text('Check Xero'),
+              ),
+            ]),
           ),
       ]),
     ));
