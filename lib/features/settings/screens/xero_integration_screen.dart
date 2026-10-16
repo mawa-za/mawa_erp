@@ -26,6 +26,10 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   bool _deactivating = false;
   bool _updatingInvoiceIntegration = false;
   bool _obscureSecret = true;
+  bool _loadingReconciliation = false;
+  String? _checkingReconciliationId;
+  String? _reconciliationNotice;
+  List<Map<String, dynamic>> _reconciliationItems = const [];
   List<XeroConnection> _connections = const [];
   String? _selectedTenantId;
   String? _statusMessage;
@@ -46,6 +50,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     }
     _loadSecretNames();
     _loadConnections(showErrors: false);
+    _loadReconciliation();
   }
 
   Future<void> _loadSecretNames() async {
@@ -271,6 +276,66 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     );
   }
 
+  Future<void> _loadReconciliation() async {
+    if (_loadingReconciliation) return;
+    setState(() => _loadingReconciliation = true);
+    try {
+      final items = await _service.pendingReconciliation();
+      if (!mounted) return;
+      setState(() { _reconciliationItems = items; });
+    } catch (error) {
+      if (mounted) setState(() => _reconciliationNotice = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingReconciliation = false);
+    }
+  }
+
+  Future<void> _checkReconciliation(Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    final type = item['type']?.toString() ?? '';
+    if (id.isEmpty) return;
+    setState(() => _checkingReconciliationId = id);
+    try {
+      final result = await _service.checkReconciliation(type, id);
+      if (!mounted) return;
+      setState(() => _reconciliationNotice = result['message']?.toString());
+      await _loadReconciliation();
+    } catch (error) {
+      if (mounted) setState(() => _reconciliationNotice = error.toString());
+    } finally {
+      if (mounted) setState(() => _checkingReconciliationId = null);
+    }
+  }
+
+  Widget _reconciliationCard() {
+    return Card(child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Expanded(child: Text('Xero reconciliation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+          IconButton(tooltip: 'Refresh', onPressed: _loadingReconciliation ? null : _loadReconciliation,
+              icon: const Icon(Icons.refresh)),
+        ]),
+        const Text('Read-only Xero matching. Transactions remain quarantined; no replay or automatic release.'),
+        if (_loadingReconciliation) const LinearProgressIndicator(),
+        if (_reconciliationNotice != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8),
+            child: SelectableText(_reconciliationNotice!)),
+        if (!_loadingReconciliation && _reconciliationItems.isEmpty)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No quarantined transactions found.')),
+        for (final item in _reconciliationItems)
+          ListTile(
+            title: Text('${item['type'] ?? ''} · ${item['reference'] ?? item['id'] ?? ''}'),
+            subtitle: Text('Xero ID: ${item['external_id'] ?? 'Not linked'}\n${item['error'] ?? ''}'),
+            isThreeLine: true,
+            trailing: TextButton(
+              onPressed: _checkingReconciliationId != null ? null : () => _checkReconciliation(item),
+              child: _checkingReconciliationId == item['id'] ? const Text('Checking...') : const Text('Check Xero'),
+            ),
+          ),
+      ]),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -285,6 +350,8 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _reconciliationCard(),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),

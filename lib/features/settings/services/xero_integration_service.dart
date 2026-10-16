@@ -192,6 +192,30 @@ class XeroIntegrationService {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+  Future<List<Map<String, dynamic>>> pendingReconciliation() async {
+    final response = await ApiClient().get('/v2/integrations/xero/reconciliation/pending');
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to load Xero reconciliation items'));
+    }
+    return (jsonDecode(response.body) as List)
+        .map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  Future<Map<String, dynamic>> checkReconciliation(String type, String id) async {
+    if (!{'INVOICE', 'PAYMENT', 'CREDIT_NOTE', 'CREDIT_NOTE_ALLOCATION'}.contains(type) || id.isEmpty) {
+      throw const XeroIntegrationException('Unsupported reconciliation request');
+    }
+    final response = await ApiClient().post(
+      '/v2/integrations/xero/reconciliation/$type/$id/check', body: {},
+    );
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Xero reconciliation check failed'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   bool _reauthorisationRequired(int statusCode, String body) {
     if (statusCode == 401) return true;
     try {
