@@ -432,7 +432,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
             title: Text('${item['type'] ?? ''} · ${item['reference'] ?? item['id'] ?? ''}'),
             subtitle: Text('Xero ID: ${item['external_id'] ?? 'Not linked'}\n${item['error'] ?? ''}'),
             isThreeLine: true,
-            trailing: Wrap(mainAxisSize: MainAxisSize.min, spacing: 8, children: [
+            trailing: Wrap(spacing: 8, children: [
               TextButton(
                 onPressed: () => _showReconciliationDetails(item),
                 child: const Text('Review blockers'),
