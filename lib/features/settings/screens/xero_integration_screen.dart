@@ -20,7 +20,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   final _paymentAccountCodeController = TextEditingController();
   final _service = XeroIntegrationService();
 
-  bool _invoiceIntegrationEnabled = true;
+  bool _invoiceIntegrationEnabled = false;
   bool _saving = false;
   bool _loadingConnections = false;
   bool _deactivating = false;
@@ -61,6 +61,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
             result.invoiceIntegrationEnabled;
         _integrationStatus = result.integrationStatus;
+        _selectedTenantId = result.selectedTenantId;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -153,7 +154,11 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       setState(() {
         _connections = connections;
-        if (connections.isEmpty) {
+        // Only highlight a persisted selection that is still authorised.
+        // Never auto-select the sole available organisation: that would
+        // falsely imply it was explicitly saved on the backend.
+        if (_selectedTenantId != null &&
+            !connections.any((c) => c.tenantId == _selectedTenantId)) {
           _selectedTenantId = null;
         }
         _statusMessage = connections.isEmpty
@@ -427,7 +432,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
             title: Text('${item['type'] ?? ''} · ${item['reference'] ?? item['id'] ?? ''}'),
             subtitle: Text('Xero ID: ${item['external_id'] ?? 'Not linked'}\n${item['error'] ?? ''}'),
             isThreeLine: true,
-            trailing: Wrap(spacing: 8, children: [
+            trailing: Wrap(mainAxisSize: MainAxisSize.min, spacing: 8, children: [
               TextButton(
                 onPressed: () => _showReconciliationDetails(item),
                 child: const Text('Review blockers'),
@@ -584,7 +589,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                           ? null
                           : _updateInvoiceIntegration,
                       title: const Text('Enable invoice integration'),
-                      subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Existing master data is queued after activation.'),
+                      subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Historical records are not queued automatically. Existing transactions require a separate approved reconciliation and backfill.'),
                     ),
                     const SizedBox(height: 12),
                     Wrap(

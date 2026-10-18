@@ -108,7 +108,7 @@ class XeroIntegrationService {
     required String clientSecret,
     required String redirectUrl,
     required String paymentAccountCode,
-    bool invoiceIntegrationEnabled = true,
+    bool invoiceIntegrationEnabled = false,
   }) async {
     final response = await ApiClient().post(
       '/v2/integrations/xero/activate',
