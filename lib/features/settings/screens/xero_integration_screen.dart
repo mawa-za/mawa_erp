@@ -644,17 +644,31 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       child: Text('No Xero organisations available yet.'),
                     )
                   else
-                    ..._connections.map(
-                      (connection) => RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: connection.tenantId,
-                        groupValue: _selectedTenantId,
-                        onChanged: (_) => _selectConnection(connection),
-                        title: Text(connection.tenantName?.trim().isNotEmpty == true ? connection.tenantName! : connection.tenantId),
-                        subtitle: Text([
-                          if (connection.tenantType?.trim().isNotEmpty == true) connection.tenantType!,
-                          connection.tenantId,
-                        ].join(' • ')),
+                    RadioGroup<String>(
+                      groupValue: _selectedTenantId,
+                      onChanged: (tenantId) {
+                        if (tenantId == null) return;
+                        for (final connection in _connections) {
+                          if (connection.tenantId == tenantId) {
+                            _selectConnection(connection);
+                            break;
+                          }
+                        }
+                      },
+                      child: Column(
+                        children: [
+                          ..._connections.map(
+                            (connection) => RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              value: connection.tenantId,
+                              title: Text(connection.tenantName?.trim().isNotEmpty == true ? connection.tenantName! : connection.tenantId),
+                              subtitle: Text([
+                                if (connection.tenantType?.trim().isNotEmpty == true) connection.tenantType!,
+                                connection.tenantId,
+                              ].join(' • ')),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   const Divider(height: 28),
