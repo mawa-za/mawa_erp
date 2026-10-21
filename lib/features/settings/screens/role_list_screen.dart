@@ -268,6 +268,10 @@ class _RoleListScreenState extends State<RoleListScreen> {
                           },
                           itemBuilder: (_) => [
                             const PopupMenuItem(
+                              value: 'vat',
+                              child: Text('VAT permissions'),
+                            ),
+                            const PopupMenuItem(
                               value: 'edit',
                               child: Text('Edit role'),
                             ),
