@@ -293,7 +293,7 @@ class _RoleListScreenState extends State<RoleListScreen> {
       margin: const EdgeInsets.only(left: 5),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(.1),
+        color: color.withValues(alpha: .1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
