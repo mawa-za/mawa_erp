@@ -44,6 +44,7 @@ import 'storage_configuration_screen.dart';
 import 'system_installation_files_screen.dart';
 import 'user_list_screen.dart';
 import 'xero_integration_screen.dart';
+import 'vat_configuration_screen.dart';
 import 'card_terminal_configuration_screen.dart';
 
 class SystemConfigurationScreen extends StatefulWidget {
@@ -318,6 +319,13 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.account_balance_outlined,
           category: _ConfigurationCategory.finance,
           onTap: () => _open(context, const FnbIntegrationAdminScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'VAT Configuration',
+          description: 'Manage tenant VAT registration, pricing defaults and effective-dated tax policies.',
+          icon: Icons.receipt_long_outlined,
+          category: _ConfigurationCategory.finance,
+          onTap: () => _open(context, const VatConfigurationScreen()),
         ),
         _ConfigurationItem(
           title: 'Xero Integration',

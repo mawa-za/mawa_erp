@@ -20,12 +20,16 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   final _paymentAccountCodeController = TextEditingController();
   final _service = XeroIntegrationService();
 
-  bool _invoiceIntegrationEnabled = true;
+  bool _invoiceIntegrationEnabled = false;
   bool _saving = false;
   bool _loadingConnections = false;
   bool _deactivating = false;
   bool _updatingInvoiceIntegration = false;
   bool _obscureSecret = true;
+  bool _loadingReconciliation = false;
+  String? _checkingReconciliationId;
+  String? _reconciliationNotice;
+  List<Map<String, dynamic>> _reconciliationItems = const [];
   List<XeroConnection> _connections = const [];
   String? _selectedTenantId;
   String? _statusMessage;
@@ -46,6 +50,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     }
     _loadSecretNames();
     _loadConnections(showErrors: false);
+    _loadReconciliation();
   }
 
   Future<void> _loadSecretNames() async {
@@ -56,6 +61,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
             result.invoiceIntegrationEnabled;
         _integrationStatus = result.integrationStatus;
+        _selectedTenantId = result.selectedTenantId;
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -148,7 +154,11 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       setState(() {
         _connections = connections;
-        if (connections.isEmpty) {
+        // Only highlight a persisted selection that is still authorised.
+        // Never auto-select the sole available organisation: that would
+        // falsely imply it was explicitly saved on the backend.
+        if (_selectedTenantId != null &&
+            !connections.any((c) => c.tenantId == _selectedTenantId)) {
           _selectedTenantId = null;
         }
         _statusMessage = connections.isEmpty
@@ -271,6 +281,172 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     );
   }
 
+  Future<void> _loadReconciliation() async {
+    if (_loadingReconciliation) return;
+    setState(() => _loadingReconciliation = true);
+    try {
+      final items = await _service.pendingReconciliation();
+      if (!mounted) return;
+      setState(() { _reconciliationItems = items; });
+    } catch (error) {
+      if (mounted) setState(() => _reconciliationNotice = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingReconciliation = false);
+    }
+  }
+
+  Future<void> _checkReconciliation(Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    final type = item['type']?.toString() ?? '';
+    if (id.isEmpty) return;
+    setState(() => _checkingReconciliationId = id);
+    try {
+      final result = await _service.checkReconciliation(type, id);
+      if (!mounted) return;
+      setState(() => _reconciliationNotice = result['message']?.toString());
+      await _loadReconciliation();
+    } catch (error) {
+      if (mounted) setState(() => _reconciliationNotice = error.toString());
+    } finally {
+      if (mounted) setState(() => _checkingReconciliationId = null);
+    }
+  }
+
+  Future<void> _showReconciliationDetails(Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    final type = item['type']?.toString() ?? '';
+    if (id.isEmpty || !mounted) return;
+    try {
+      final readiness = await _service.reconciliationReleaseReadiness(type, id);
+      final history = await _service.reconciliationAuditHistory(type, id);
+      if (!mounted) return;
+      final blockers = (readiness['blockers'] as List? ?? const [])
+          .map((entry) => entry.toString()).toList();
+      // Invoice inspection is read-only and intentionally does not certify the ledger.
+      Map<String, dynamic>? ledger;
+      String? ledgerError;
+      if (type == 'INVOICE') {
+        try {
+          ledger = await _service.invoiceLedgerSnapshot(id);
+        } catch (error) {
+          ledgerError = error.toString();
+        }
+      }
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('$type reconciliation review'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                SelectableText('Transaction: $id'),
+                const SizedBox(height: 12),
+                const Text('Release is disabled until external ledger verification and audited recovery are implemented.',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Text('Release blockers (${blockers.length})', style: Theme.of(dialogContext).textTheme.titleMedium),
+                for (final blocker in blockers)
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text('• $blocker')),
+                const SizedBox(height: 12),
+                if (type == 'INVOICE') ...[
+                  Text('Xero ledger evidence', style: Theme.of(dialogContext).textTheme.titleMedium),
+                  const SizedBox(height: 6),
+                  if (ledgerError != null)
+                    SelectableText('Unable to retrieve ledger evidence: $ledgerError')
+                  else if (ledger != null) ...[
+                    SelectableText('Invoice identity matches: ${ledger['invoiceIdentityMatches'] == true ? 'Yes' : 'No / unknown'}'),
+                    SelectableText('MAWA total (cents): ${ledger['mawaTotalCents'] ?? 'Unknown'}'),
+                    SelectableText('Xero total: ${ledger['xeroTotal'] ?? 'Unknown'}'),
+                    SelectableText('Xero paid: ${ledger['xeroAmountPaid'] ?? 'Unknown'}'),
+                    SelectableText('Xero credited: ${ledger['xeroAmountCredited'] ?? 'Unknown'}'),
+                    SelectableText('Xero due: ${ledger['xeroAmountDue'] ?? 'Unknown'}'),
+                    SelectableText('Xero status: ${ledger['xeroStatus'] ?? 'Unknown'}'),
+                    const SizedBox(height: 8),
+                    Text('Financial comparison', style: Theme.of(dialogContext).textTheme.titleSmall),
+                    ..._ledgerEvidenceRows(ledger['financialComparison']),
+                    const SizedBox(height: 8),
+                    Text('Independent payment evidence', style: Theme.of(dialogContext).textTheme.titleSmall),
+                    ..._ledgerEvidenceRows(ledger['independentPaymentEvidence']),
+                    Text('Independent credit-note evidence', style: Theme.of(dialogContext).textTheme.titleSmall),
+                    ..._ledgerEvidenceRows(ledger['independentCreditNoteEvidence']),
+                    const SizedBox(height: 8),
+                    const Text('Ledger NOT certified. Quarantine release is disabled.',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                  const SizedBox(height: 12),
+                ],
+                Text('Audit history (${history.length})', style: Theme.of(dialogContext).textTheme.titleMedium),
+                if (history.isEmpty) const Text('No reconciliation checks recorded.'),
+                for (final event in history)
+                  Padding(padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: SelectableText('${event['created_at'] ?? event['createdAt'] ?? ''}  '
+                      '${event['outcome'] ?? ''}  ${event['detail'] ?? ''}')),
+              ]),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _reconciliationNotice = error.toString());
+    }
+  }
+
+  List<Widget> _ledgerEvidenceRows(dynamic value) {
+    if (value == null) return [const Text('Evidence unavailable')];
+    if (value is Map) {
+      return value.entries.map((entry) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: SelectableText('${entry.key}: ${entry.value}'),
+      )).toList();
+    }
+    if (value is List) {
+      if (value.isEmpty) return [const Text('No records returned; completeness unverified')];
+      return value.map((entry) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: SelectableText(entry.toString()),
+      )).toList();
+    }
+    return [SelectableText(value.toString())];
+  }
+
+  Widget _reconciliationCard() {
+    return Card(child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Expanded(child: Text('Xero reconciliation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+          IconButton(tooltip: 'Refresh', onPressed: _loadingReconciliation ? null : _loadReconciliation,
+              icon: const Icon(Icons.refresh)),
+        ]),
+        const Text('Read-only Xero matching. Transactions remain quarantined; no replay or automatic release.'),
+        if (_loadingReconciliation) const LinearProgressIndicator(),
+        if (_reconciliationNotice != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8),
+            child: SelectableText(_reconciliationNotice!)),
+        if (!_loadingReconciliation && _reconciliationItems.isEmpty)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No quarantined transactions found.')),
+        for (final item in _reconciliationItems)
+          ListTile(
+            title: Text('${item['type'] ?? ''} · ${item['reference'] ?? item['id'] ?? ''}'),
+            subtitle: Text('Xero ID: ${item['external_id'] ?? 'Not linked'}\n${item['error'] ?? ''}'),
+            isThreeLine: true,
+            trailing: Wrap(spacing: 8, children: [
+              TextButton(
+                onPressed: () => _showReconciliationDetails(item),
+                child: const Text('Review blockers'),
+              ),
+              TextButton(
+                onPressed: _checkingReconciliationId != null ? null : () => _checkReconciliation(item),
+                child: _checkingReconciliationId == item['id'] ? const Text('Checking...') : const Text('Check Xero'),
+              ),
+            ]),
+          ),
+      ]),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -285,6 +461,8 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _reconciliationCard(),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -411,7 +589,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                           ? null
                           : _updateInvoiceIntegration,
                       title: const Text('Enable invoice integration'),
-                      subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Existing master data is queued after activation.'),
+                      subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Historical records are not queued automatically. Existing transactions require a separate approved reconciliation and backfill.'),
                     ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -466,17 +644,31 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       child: Text('No Xero organisations available yet.'),
                     )
                   else
-                    ..._connections.map(
-                      (connection) => RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: connection.tenantId,
-                        groupValue: _selectedTenantId,
-                        onChanged: (_) => _selectConnection(connection),
-                        title: Text(connection.tenantName?.trim().isNotEmpty == true ? connection.tenantName! : connection.tenantId),
-                        subtitle: Text([
-                          if (connection.tenantType?.trim().isNotEmpty == true) connection.tenantType!,
-                          connection.tenantId,
-                        ].join(' • ')),
+                    RadioGroup<String>(
+                      groupValue: _selectedTenantId,
+                      onChanged: (tenantId) {
+                        if (tenantId == null) return;
+                        for (final connection in _connections) {
+                          if (connection.tenantId == tenantId) {
+                            _selectConnection(connection);
+                            break;
+                          }
+                        }
+                      },
+                      child: Column(
+                        children: [
+                          ..._connections.map(
+                            (connection) => RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              value: connection.tenantId,
+                              title: Text(connection.tenantName?.trim().isNotEmpty == true ? connection.tenantName! : connection.tenantId),
+                              subtitle: Text([
+                                if (connection.tenantType?.trim().isNotEmpty == true) connection.tenantType!,
+                                connection.tenantId,
+                              ].join(' • ')),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   const Divider(height: 28),

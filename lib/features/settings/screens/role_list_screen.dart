@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/role.dart';
 import '../services/role_service.dart';
 import 'role_workcenter_assignment_screen.dart';
+import 'role_vat_permission_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class RoleListScreen extends StatefulWidget {
@@ -257,10 +258,19 @@ class _RoleListScreenState extends State<RoleListScreen> {
                         ),
                         trailing: PopupMenuButton<String>(
                           onSelected: (value) {
+                            if (value == 'vat') {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => RoleVatPermissionScreen(roleId: role.id),
+                              ));
+                            }
                             if (value == 'edit') _edit(role);
                             if (value == 'delete') _delete(role);
                           },
                           itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'vat',
+                              child: Text('VAT permissions'),
+                            ),
                             const PopupMenuItem(
                               value: 'edit',
                               child: Text('Edit role'),
@@ -287,7 +297,7 @@ class _RoleListScreenState extends State<RoleListScreen> {
       margin: const EdgeInsets.only(left: 5),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(.1),
+        color: color.withValues(alpha: .1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(

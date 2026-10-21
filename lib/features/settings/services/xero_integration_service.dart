@@ -108,7 +108,7 @@ class XeroIntegrationService {
     required String clientSecret,
     required String redirectUrl,
     required String paymentAccountCode,
-    bool invoiceIntegrationEnabled = true,
+    bool invoiceIntegrationEnabled = false,
   }) async {
     final response = await ApiClient().post(
       '/v2/integrations/xero/activate',
@@ -192,6 +192,74 @@ class XeroIntegrationService {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+  Future<List<Map<String, dynamic>>> pendingReconciliation() async {
+    final response = await ApiClient().get('/v2/integrations/xero/reconciliation/pending');
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to load Xero reconciliation items'));
+    }
+    return (jsonDecode(response.body) as List)
+        .map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  Future<Map<String, dynamic>> checkReconciliation(String type, String id) async {
+    if (!{'INVOICE', 'PAYMENT', 'CREDIT_NOTE', 'CREDIT_NOTE_ALLOCATION'}.contains(type) || id.isEmpty) {
+      throw const XeroIntegrationException('Unsupported reconciliation request');
+    }
+    final response = await ApiClient().post(
+      '/v2/integrations/xero/reconciliation/$type/$id/check', body: {},
+    );
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Xero reconciliation check failed'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<Map<String, dynamic>> reconciliationReleaseReadiness(String type, String id) async {
+    if (!{'INVOICE', 'PAYMENT', 'CREDIT_NOTE', 'CREDIT_NOTE_ALLOCATION'}.contains(type) || id.isEmpty) {
+      throw const XeroIntegrationException('Unsupported reconciliation request');
+    }
+    final response = await ApiClient().get(
+      '/v2/integrations/xero/reconciliation/$type/$id/release-readiness',
+    );
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to load Xero release blockers'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<List<Map<String, dynamic>>> reconciliationAuditHistory(String type, String id) async {
+    if (!{'INVOICE', 'PAYMENT', 'CREDIT_NOTE', 'CREDIT_NOTE_ALLOCATION'}.contains(type) || id.isEmpty) {
+      throw const XeroIntegrationException('Unsupported reconciliation request');
+    }
+    final response = await ApiClient().get(
+      '/v2/integrations/xero/reconciliation/$type/$id/audit',
+    );
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to load Xero reconciliation audit history'));
+    }
+    return (jsonDecode(response.body) as List)
+        .map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  /// Read-only invoice ledger evidence. Never releases a quarantined transaction.
+  Future<Map<String, dynamic>> invoiceLedgerSnapshot(String invoiceId) async {
+    if (invoiceId.isEmpty) {
+      throw const XeroIntegrationException('Invoice ID is required');
+    }
+    final response = await ApiClient().get(
+      '/v2/integrations/xero/reconciliation/invoice/${Uri.encodeComponent(invoiceId)}/ledger-snapshot',
+    );
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to load Xero invoice ledger evidence'));
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   bool _reauthorisationRequired(int statusCode, String body) {
     if (statusCode == 401) return true;
     try {
