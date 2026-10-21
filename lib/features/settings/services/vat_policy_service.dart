@@ -21,7 +21,7 @@ class VatPolicy {
 }
 
 class VatPolicyService {
-  static const _path = '/v2/integrations/xero/vat-policy';
+  static const _path = '/v2/accounting/vat-policy';
 
   Future<List<VatPolicy>> load() async {
     final response = await ApiClient().get(_path);
