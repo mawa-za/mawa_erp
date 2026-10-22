@@ -730,11 +730,12 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   }
 
   Widget _buildMemberCard(Partner member, ColorScheme colorScheme) {
-    final isDeceased = member.status == 'DECEASED';
+    final isDeceased = _detail?.memberStatus == 'DECEASED';
     final canProcessClaim = canProcessMembershipClaim(
       currentMembershipId: widget.membershipId,
       deceasedPartnerId: member.id,
       claims: _claims,
+      deceasedOnCurrentMembership: isDeceased,
     );
     final themeColor = isDeceased ? Colors.purple : colorScheme.primary;
 
@@ -779,7 +780,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                       ],
                     ),
                   ),
-                  _buildStatusChip(member.status, isCompact: false),
+                  _buildStatusChip(isDeceased ? 'DECEASED' : _detail?.memberStatus ?? 'ACTIVE', isCompact: false),
                 ],
               ),
               const SizedBox(height: 24),
@@ -1916,7 +1917,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         String displayIdType = partnerIdentity.isNotEmpty ? (partner?.idType ?? 'ID') : (dependent.identity?.type.description ?? 'ID');
         final hasSaId = displayIdType.trim().toUpperCase() == 'SA-ID' && displayId != 'N/A';
         final deceasedOnCurrentMembership = dependent.membershipStatus == 'DECEASED';
-        final isDeceased = deceasedOnCurrentMembership || partner?.status == 'DECEASED';
+        final isDeceased = deceasedOnCurrentMembership;
         final canProcessClaim = canProcessMembershipClaim(
           currentMembershipId: widget.membershipId,
           deceasedPartnerId: dependent.dependentPartnerId,

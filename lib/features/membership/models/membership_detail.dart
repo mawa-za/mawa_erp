@@ -7,6 +7,8 @@ class MembershipDetail {
   final String? startDate;
   final String? endDate;
   final String status;
+  final String memberStatus;
+  final String? memberDeceasedDate;
   final String? paidUpToPeriod;
   final String? joinDate;
   final String? effectiveDate;
@@ -28,6 +30,8 @@ class MembershipDetail {
     this.startDate,
     this.endDate,
     required this.status,
+    this.memberStatus = 'ACTIVE',
+    this.memberDeceasedDate,
     this.paidUpToPeriod,
     this.joinDate,
     this.effectiveDate,
@@ -88,6 +92,8 @@ class MembershipDetail {
       startDate: parseDateValue(json['startDate']),
       endDate: parseDateValue(json['endDate']),
       status: (json['status'] ?? '').toString(),
+      memberStatus: (json['memberStatus'] ?? 'ACTIVE').toString().toUpperCase(),
+      memberDeceasedDate: parseDateValue(json['memberDeceasedDate']),
       paidUpToPeriod: json['paidUpToPeriod']?.toString(),
       joinDate: parseDateValue(json['joinDate']),
       effectiveDate: parseDateValue(json['effectiveDate'] ?? json['benefitEligibleFrom']),
@@ -112,6 +118,8 @@ class MembershipDetail {
       'startDate': startDate,
       'endDate': endDate,
       'status': status,
+      'memberStatus': memberStatus,
+      'memberDeceasedDate': memberDeceasedDate,
       'paidUpToPeriod': paidUpToPeriod,
       'joinDate': joinDate,
       'effectiveDate': effectiveDate,
