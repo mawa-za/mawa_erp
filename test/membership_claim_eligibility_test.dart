@@ -5,11 +5,12 @@ import 'package:mawa_erp/features/membership/utils/membership_claim_eligibility.
 MembershipClaim _claim({
   required String membershipId,
   required String deceasedPartnerId,
+  String status = 'SUBMITTED',
 }) {
   return MembershipClaim.fromJson({
     'membershipId': membershipId,
     'deceasedPartnerId': deceasedPartnerId,
-    'status': 'SUBMITTED',
+    'status': status,
   });
 }
 
@@ -43,6 +44,32 @@ void main() {
         ),
         isFalse,
       );
+    });
+
+    test('permits a new claim after the previous claim is cancelled', () {
+      expect(
+        canProcessMembershipClaim(
+          currentMembershipId: 'MEMBERSHIP-B',
+          deceasedPartnerId: 'PARTNER-1',
+          claims: [_claim(membershipId: 'MEMBERSHIP-B', deceasedPartnerId: 'PARTNER-1', status: 'CANCELLED')],
+          deceasedOnCurrentMembership: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('blocks draft, rejected and submitted claims until cancellation', () {
+      for (final status in ['DRAFT', 'REJECTED', 'SUBMITTED', 'PAID']) {
+        expect(
+          canProcessMembershipClaim(
+            currentMembershipId: 'MEMBERSHIP-B',
+            deceasedPartnerId: 'PARTNER-1',
+            claims: [_claim(membershipId: 'MEMBERSHIP-B', deceasedPartnerId: 'PARTNER-1', status: status)],
+          ),
+          isFalse,
+          reason: status,
+        );
+      }
     });
 
     test('blocks a dependent already deceased on the current membership', () {
