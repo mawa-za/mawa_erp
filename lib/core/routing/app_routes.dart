@@ -70,6 +70,9 @@ class AppRoutes {
 
   // Tombstone Management
   static const String tombstones = '/tombstones';
+  static const String tombstoneInstallationRequests = '/tombstones/installation-requests';
+  static const String tombstoneNewInstallationRequest = '/tombstones/installation-requests/new';
+  static const String tombstoneInstallationRequestDetail = '/tombstones/installation-requests/:id';
   static const String tombstoneOrders = '/tombstones/orders';
   static const String tombstoneOrderDetail = '/tombstones/orders/:id';
   static const String tombstoneNewOrder = '/tombstones/orders/new';

@@ -45,6 +45,8 @@ import '../../features/membership/screens/group_society_list_screen.dart';
 import '../../features/stock/screens/stock_management_screen.dart';
 import '../../features/laybys/screens/layby_management_screen.dart';
 import '../../features/tombstones/screens/tombstone_management_screen.dart';
+import '../../features/tombstones/screens/tombstone_installation_request_list_screen.dart';
+import '../../features/tombstones/screens/tombstone_installation_request_wizard_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_detail_screen.dart';
 import '../../features/tombstones/screens/tombstone_order_form_screen.dart';
 import '../../features/reports/screens/reports_dashboard_screen.dart';
@@ -470,6 +472,16 @@ class AppRouter {
         redirect: (context, state) => AppRoutes.systemConfiguration,
       ),
 
+      GoRoute(
+        path: AppRoutes.tombstoneInstallationRequests,
+        builder: (context, state) => const TombstoneInstallationRequestListScreen(),
+        routes: [
+          GoRoute(path: 'new', builder: (context, state) => const TombstoneInstallationRequestWizardScreen()),
+          GoRoute(path: ':id', builder: (context, state) => TombstoneInstallationRequestWizardScreen(
+            requestId: state.pathParameters['id']!,
+          )),
+        ],
+      ),
       // Tombstone Management
       GoRoute(
         path: AppRoutes.tombstones,

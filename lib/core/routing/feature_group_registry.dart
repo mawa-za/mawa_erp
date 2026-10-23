@@ -90,13 +90,13 @@ class FeatureGroupRegistry {
       iconKey: 'tombstone',
       displayOrder: 30,
       childWorkcenterIds: [
-        'tombstone-orders', 'tombstone-laybys',
+        'tombstone-installation-requests', 'tombstone-orders', 'tombstone-laybys',
         'tombstone-site-assessments', 'tombstone-design-approvals',
         'tombstone-production-jobs', 'tombstone-installation-planning',
         'tombstone-installation-calendar', 'tombstone-installation-teams',
         'tombstone-rework-jobs', 'tombstone-reports',
       ],
-      aliases: ['tombstone-management', 'tombstones'],
+      aliases: ['tombstone-management', 'tombstones', 'tombstone-installation-requests'],
     ),
     FeatureGroupDefinition(
       id: 'legal-practice',

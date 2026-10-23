@@ -4,6 +4,7 @@ import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'tombstone_order_detail_screen.dart';
 import 'tombstone_order_form_screen.dart';
+import 'tombstone_installation_request_list_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class TombstoneManagementScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class TombstoneManagementScreen extends StatefulWidget {
 class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
   static const _sections = <String, String>{
     'orders': 'Orders',
+    'requests': 'Installation Requests',
     'laybys': 'Lay-by Agreements',
     'assessments': 'Site Assessments',
     'designs': 'Design Approvals',
@@ -57,6 +59,8 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
       List<TombstoneOrder> orders = const [];
       List<Map<String, dynamic>> records = const [];
       switch (_section) {
+        case 'requests':
+          break;
         case 'orders':
           orders = await _service.orders(query: _search.text.trim());
           break;
@@ -177,13 +181,14 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
         children: [
           _dashboardCards(),
           const SizedBox(height: 16),
+          if (_section == 'requests') const SizedBox(height: 650, child: TombstoneInstallationRequestListScreen(embedded: true)),
           if (_section == 'orders') _orderSearch(),
           if (_section == 'reports') _reports(),
           if (_section == 'orders' && _orders.isNotEmpty) _orderListHeader(),
           if (_section == 'orders') ..._orders.map(_orderCard),
-          if (_section != 'orders' && _section != 'reports') ..._records.map(_recordCard),
+          if (_section != 'orders' && _section != 'reports' && _section != 'requests') ..._records.map(_recordCard),
           if (_section == 'orders' && _orders.isEmpty) _empty('No tombstone orders found'),
-          if (_section != 'orders' && _section != 'reports' && _records.isEmpty) _empty('No ${_sections[_section]!.toLowerCase()} found'),
+          if (_section != 'orders' && _section != 'reports' && _section != 'requests' && _records.isEmpty) _empty('No ${_sections[_section]!.toLowerCase()} found'),
         ],
       ),
     );

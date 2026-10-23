@@ -184,6 +184,8 @@ class WorkcenterRouteRegistry {
     'TOMBSTONE': AppRoutes.tombstones,
     'TOMBSTONES': AppRoutes.tombstones,
     'TOMBSTONE_MANAGEMENT': AppRoutes.tombstones,
+    'TOMBSTONE_INSTALLATION_REQUEST': AppRoutes.tombstoneInstallationRequests,
+    'TOMBSTONE_INSTALLATION_REQUESTS': AppRoutes.tombstoneInstallationRequests,
     'TOMBSTONE_ORDER': AppRoutes.tombstoneOrders,
     'TOMBSTONE_ORDERS': AppRoutes.tombstoneOrders,
     'TOMBSTONE_LAYBY': AppRoutes.tombstoneLaybys,
