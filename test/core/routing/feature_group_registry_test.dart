@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mawa_erp/core/routing/feature_group_registry.dart';
+import 'package:mawa_erp/core/routing/workcenter_route_registry.dart';
 
 void main() {
   group('FeatureGroupRegistry canonical navigation', () {
@@ -41,6 +42,36 @@ void main() {
 
     test('ordinary employee workcenters remain grouped', () {
       expect(FeatureGroupRegistry.isStandaloneCard('employee', 'Employees'), isFalse);
+    });
+
+    test('every Tombstone Operations feature is a standalone workcentre', () {
+      final group = FeatureGroupRegistry.groupById('tombstone-operations')!;
+      expect(group.childWorkcenterIds, hasLength(11));
+      for (final id in group.childWorkcenterIds) {
+        expect(FeatureGroupRegistry.isStandaloneCard(id), isTrue,
+            reason: '$id must appear directly on the home screen');
+      }
+      expect(FeatureGroupRegistry.isStandaloneCard('tombstone-management'), isFalse);
+      expect(FeatureGroupRegistry.isStandaloneCard('funeral-service-request'), isFalse);
+    });
+
+    test('standalone Tombstone workcentres resolve their own routes', () {
+      final expected = <String, String>{
+        'tombstone-installation-requests': '/tombstones/installation-requests',
+        'tombstone-orders': '/tombstones/orders',
+        'tombstone-laybys': '/tombstones/laybys',
+        'tombstone-site-assessments': '/tombstones/site-assessments',
+        'tombstone-design-approvals': '/tombstones/designs',
+        'tombstone-production-jobs': '/tombstones/production',
+        'tombstone-installation-planning': '/tombstones/installations',
+        'tombstone-installation-calendar': '/tombstones/calendar',
+        'tombstone-installation-teams': '/tombstones/teams',
+        'tombstone-rework-jobs': '/tombstones/rework',
+        'tombstone-reports': '/tombstones/reports',
+      };
+      for (final entry in expected.entries) {
+        expect(WorkcenterRouteRegistry.getRoutePath(entry.key), entry.value);
+      }
     });
 
     test('tombstone installation requests belong to Tombstone Operations', () {

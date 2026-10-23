@@ -4,7 +4,6 @@ import '../models/tombstone_models.dart';
 import '../services/tombstone_service.dart';
 import 'tombstone_order_detail_screen.dart';
 import 'tombstone_order_form_screen.dart';
-import 'tombstone_installation_request_list_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class TombstoneManagementScreen extends StatefulWidget {
@@ -18,7 +17,6 @@ class TombstoneManagementScreen extends StatefulWidget {
 class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
   static const _sections = <String, String>{
     'orders': 'Orders',
-    'requests': 'Installation Requests',
     'laybys': 'Lay-by Agreements',
     'assessments': 'Site Assessments',
     'designs': 'Design Approvals',
@@ -47,6 +45,17 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant TombstoneManagementScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSection != widget.initialSection) {
+      _section = _sections.containsKey(widget.initialSection)
+          ? widget.initialSection
+          : 'orders';
+      _load();
+    }
+  }
+
+  @override
   void dispose() {
     _search.dispose();
     super.dispose();
@@ -59,8 +68,6 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
       List<TombstoneOrder> orders = const [];
       List<Map<String, dynamic>> records = const [];
       switch (_section) {
-        case 'requests':
-          break;
         case 'orders':
           orders = await _service.orders(query: _search.text.trim());
           break;
@@ -114,7 +121,7 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Tombstone Management'),
+        title: Text('Tombstone ${_sections[_section]}'),
         titleTextStyle: TextStyle(
           color: colorScheme.onSurface,
           fontSize: 18,
@@ -133,38 +140,10 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
       floatingActionButton: _section == 'orders'
           ? FloatingActionButton.extended(onPressed: _newOrder, icon: const Icon(Icons.add), label: const Text('New Order'))
           : null,
-      body: LayoutBuilder(builder: (context, constraints) {
-        if (constraints.maxWidth >= 960) {
-          return Row(children: [
-            NavigationRail(
-              selectedIndex: _sections.keys.toList().indexOf(_section),
-              labelType: NavigationRailLabelType.all,
-              onDestinationSelected: (index) { setState(() => _section = _sections.keys.elementAt(index)); _load(); },
-              destinations: _sections.entries.map((e) => NavigationRailDestination(icon: Icon(_icon(e.key)), label: Text(e.value))).toList(),
-            ),
-            const VerticalDivider(width: 1),
-            Expanded(child: _content()),
-          ]);
-        }
-        return Column(children: [
-          SizedBox(
-            height: 56,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              children: _sections.entries.map((e) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  selected: e.key == _section,
-                  label: Text(e.value),
-                  onSelected: (_) { setState(() => _section = e.key); _load(); },
-                ),
-              )).toList(),
-            ),
-          ),
-          Expanded(child: _content()),
-        ]);
-      }),
+      // Each workcentre has a dedicated route and focused screen. Navigation
+      // to other tombstone operations happens from the home workcentre cards,
+      // not through a rail or nested horizontal tab bar.
+      body: _content(),
     );
   }
 
@@ -181,41 +160,15 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _dashboardCards(),
-          const SizedBox(height: 16),
-          if (_section == 'requests') const SizedBox(height: 650, child: TombstoneInstallationRequestListScreen(embedded: true)),
           if (_section == 'orders') _orderSearch(),
           if (_section == 'reports') _reports(),
           if (_section == 'orders' && _orders.isNotEmpty) _orderListHeader(),
           if (_section == 'orders') ..._orders.map(_orderCard),
-          if (_section != 'orders' && _section != 'reports' && _section != 'requests') ..._records.map(_recordCard),
+          if (_section != 'orders' && _section != 'reports') ..._records.map(_recordCard),
           if (_section == 'orders' && _orders.isEmpty) _empty('No tombstone orders found'),
-          if (_section != 'orders' && _section != 'reports' && _section != 'requests' && _records.isEmpty) _empty('No ${_sections[_section]!.toLowerCase()} found'),
+          if (_section != 'orders' && _section != 'reports' && _records.isEmpty) _empty('No ${_sections[_section]!.toLowerCase()} found'),
         ],
       ),
-    );
-  }
-
-  Widget _dashboardCards() {
-    final d = _dashboard;
-    if (d == null) return const SizedBox.shrink();
-    final values = [
-      ('Orders', d.count('totalOrders'), Icons.inventory_2_outlined),
-      ('Awaiting funding', d.count('awaitingFunding'), Icons.account_balance_wallet_outlined),
-      ('In production', d.count('inProduction'), Icons.precision_manufacturing_outlined),
-      ('Ready to install', d.count('readyForInstallation'), Icons.construction_outlined),
-      ('Scheduled', d.count('scheduledInstallations'), Icons.event_available_outlined),
-      ('Rework', d.count('reworkRequired'), Icons.build_circle_outlined),
-    ];
-    return Wrap(
-      spacing: 12, runSpacing: 12,
-      children: values.map((v) => SizedBox(width: 180, child: Card(child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(children: [Icon(v.$3), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${v.$2}', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-          Text(v.$1, maxLines: 2),
-        ]))]),
-      )))).toList(),
     );
   }
 

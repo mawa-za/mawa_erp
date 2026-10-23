@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'app_routes.dart';
+import 'feature_group_registry.dart';
 import 'route_guards.dart';
 
 import '../../features/setup/setup_screen.dart';
@@ -196,6 +197,13 @@ class AppRouter {
       ),
       GoRoute(
         path: '/feature-groups/:groupId',
+        // Old bookmarks for the bundled tombstone page open a specific
+        // operational workcentre instead of showing an all-features grid.
+        redirect: (context, state) =>
+            FeatureGroupRegistry.normalize(FeatureGroupRegistry.canonicalGroupId(
+                    state.pathParameters['groupId'] ?? '')) == 'TOMBSTONE_OPERATIONS'
+                ? AppRoutes.tombstoneOrders
+                : null,
         builder: (context, state) => FeatureGroupScreen(
           groupId: state.pathParameters['groupId']!,
         ),
@@ -485,7 +493,7 @@ class AppRouter {
       // Tombstone Management
       GoRoute(
         path: AppRoutes.tombstones,
-        builder: (context, state) => const TombstoneManagementScreen(),
+        redirect: (context, state) => AppRoutes.tombstoneOrders,
       ),
       GoRoute(
         path: AppRoutes.tombstoneOrders,
