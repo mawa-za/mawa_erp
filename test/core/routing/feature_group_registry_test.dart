@@ -44,18 +44,20 @@ void main() {
       expect(FeatureGroupRegistry.isStandaloneCard('employee', 'Employees'), isFalse);
     });
 
-    test('every Tombstone Operations feature is a standalone workcentre', () {
+    test('Tombstone Operations remains a grouped home card', () {
       final group = FeatureGroupRegistry.groupById('tombstone-operations')!;
+      expect(group.routePath, '/feature-groups/tombstone-operations');
       expect(group.childWorkcenterIds, hasLength(11));
       for (final id in group.childWorkcenterIds) {
-        expect(FeatureGroupRegistry.isStandaloneCard(id), isTrue,
-            reason: '$id must appear directly on the home screen');
+        expect(FeatureGroupRegistry.isStandaloneCard(id), isFalse,
+            reason: '$id should appear inside Tombstone Operations');
+        expect(FeatureGroupRegistry.canonicalOwnerForWorkcenter(id),
+            'tombstone-operations');
       }
       expect(FeatureGroupRegistry.isStandaloneCard('tombstone-management'), isFalse);
-      expect(FeatureGroupRegistry.isStandaloneCard('funeral-service-request'), isFalse);
     });
 
-    test('standalone Tombstone workcentres resolve their own routes', () {
+    test('Tombstone Operations cards resolve to separate routes', () {
       final expected = <String, String>{
         'tombstone-installation-requests': '/tombstones/installation-requests',
         'tombstone-orders': '/tombstones/orders',

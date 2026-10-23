@@ -492,22 +492,8 @@ class FeatureGroupRegistry {
     }.contains(normalize(workcenterId));
   }
 
-  /// Tombstone operations are independent, role-assignable workcentres.
-  /// The legacy tombstone-management umbrella is intentionally not a card.
-  static bool isStandaloneCard(String workcenterId, [String? description]) {
-    const tombstoneWorkcentres = <String>{
-      'TOMBSTONE_INSTALLATION_REQUESTS',
-      'TOMBSTONE_ORDERS',
-      'TOMBSTONE_LAYBYS',
-      'TOMBSTONE_SITE_ASSESSMENTS',
-      'TOMBSTONE_DESIGN_APPROVALS',
-      'TOMBSTONE_PRODUCTION_JOBS',
-      'TOMBSTONE_INSTALLATION_PLANNING',
-      'TOMBSTONE_INSTALLATION_CALENDAR',
-      'TOMBSTONE_INSTALLATION_TEAMS',
-      'TOMBSTONE_REWORK_JOBS',
-      'TOMBSTONE_REPORTS',
-    };
-    return tombstoneWorkcentres.contains(normalize(workcenterId));
-  }
+  /// Keep Tombstone Operations and other workcentre cards inside their
+  /// feature-group landing pages. A card is an independent workcentre once
+  /// opened, not a top-level home card.
+  static bool isStandaloneCard(String workcenterId, [String? description]) => false;
 }

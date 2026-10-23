@@ -193,6 +193,19 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         allowed.add(workcenter);
       }
 
+      // Old role catalogues may still expose the legacy all-in-one
+      // Tombstone Management card. Keep the group and its real child cards,
+      // but never show the obsolete umbrella as an additional feature.
+      if (FeatureGroupRegistry.normalize(canonicalActiveGroup) ==
+          FeatureGroupRegistry.normalize('tombstone-operations')) {
+        final tombstoneGroup =
+            FeatureGroupRegistry.groupById('tombstone-operations')!;
+        final validIds = tombstoneGroup.childWorkcenterIds
+            .map(FeatureGroupRegistry.normalize).toSet();
+        allowed.removeWhere((item) =>
+            !validIds.contains(FeatureGroupRegistry.normalize(item.id)));
+      }
+
       if (FeatureGroupRegistry.normalize(canonicalActiveGroup) ==
           FeatureGroupRegistry.normalize('products-inventory')) {
         allowed.removeWhere(
@@ -329,6 +342,25 @@ class _FeatureGroupScreenState extends State<FeatureGroupScreen> {
         '${AppRoutes.approvals}?type=${Uri.encodeQueryComponent(type)}&title=${Uri.encodeQueryComponent('$label Approvals')}',
       );
       return;
+    }
+
+    // Tombstone Operations cards have their own routes and permission IDs.
+    // Some existing role/workcentre records still use the legacy shared
+    // /tombstones path. Do not let that path override the specific card ID.
+    if (FeatureGroupRegistry.canonicalGroupId(widget.groupId) ==
+        'tombstone-operations') {
+      final allowedTombstoneIds = FeatureGroupRegistry
+          .groupById('tombstone-operations')!
+          .childWorkcenterIds
+          .map(FeatureGroupRegistry.normalize)
+          .toSet();
+      if (allowedTombstoneIds.contains(normalizedId)) {
+        final specificRoute = WorkcenterRouteRegistry.getRoutePath(wc.id);
+        if (specificRoute != null) {
+          context.push(specificRoute);
+          return;
+        }
+      }
     }
 
     final cataloguedPath = wc.routePath?.trim();

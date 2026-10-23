@@ -310,17 +310,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   IconData _getIconData(String id, [String? iconKey]) {
     final lowerId = '${iconKey ?? ''} $id'.toLowerCase();
-    if (lowerId.contains('tombstone-installation-requests')) return Icons.assignment_rounded;
-    if (lowerId.contains('tombstone-orders')) return Icons.inventory_2_rounded;
-    if (lowerId.contains('tombstone-laybys')) return Icons.savings_rounded;
-    if (lowerId.contains('tombstone-site-assessments')) return Icons.location_searching_rounded;
-    if (lowerId.contains('tombstone-design-approvals')) return Icons.design_services_rounded;
-    if (lowerId.contains('tombstone-production-jobs')) return Icons.precision_manufacturing_rounded;
-    if (lowerId.contains('tombstone-installation-planning')) return Icons.construction_rounded;
-    if (lowerId.contains('tombstone-installation-calendar')) return Icons.calendar_month_rounded;
-    if (lowerId.contains('tombstone-installation-teams')) return Icons.groups_rounded;
-    if (lowerId.contains('tombstone-rework-jobs')) return Icons.build_circle_rounded;
-    if (lowerId.contains('tombstone-reports')) return Icons.analytics_rounded;
     if (lowerId.contains('employment')) return Icons.work_history_rounded;
     if (lowerId.contains('leave')) return Icons.event_available_rounded;
     if (lowerId.contains('asset')) return Icons.precision_manufacturing_rounded;
@@ -550,35 +539,6 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
         }
         if (configuredChildren.isEmpty) continue;
 
-        // Tombstone Operations has no umbrella navigation. Surface each
-        // authorised operational workcentre directly under Your Business,
-        // with its own route and permission. Never show the legacy
-        // Tombstone Management card, even for tenants with an older catalogue.
-        if (FeatureGroupRegistry.normalize(group.code) == 'TOMBSTONE_OPERATIONS') {
-          final standalone = configuredChildren
-              .where((child) => FeatureGroupRegistry.isStandaloneCard(child.id))
-              .toList()
-            ..sort((a, b) {
-              final left = a.displayOrder == 0 ? a.position : a.displayOrder;
-              final right = b.displayOrder == 0 ? b.position : b.displayOrder;
-              return left.compareTo(right);
-            });
-          for (var index = 0; index < standalone.length; index++) {
-            final child = standalone[index];
-            final searchable = '${child.presentationTitle} ${child.description} '
-                '${child.cardDescription ?? ''} ${child.id}'.toLowerCase();
-            if (query.isNotEmpty && !searchable.contains(query)) continue;
-            // Use a uniform group-order scale so each Tombstone card remains
-            // between the preceding and following business groups.
-            cards.add(child.copyWith(
-              position: group.displayOrder * 1000 + index,
-              routePath: WorkcenterRouteRegistry.getRoutePath(child.id) ??
-                  child.routePath,
-            ));
-          }
-          continue;
-        }
-
         final groupTitle = FeatureGroupRegistry.presentationTitleForGroup(
           group.code,
           group.title,
@@ -600,7 +560,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
             cardDescription: group.description,
             defaultFunction: '',
             path: '/feature-groups/${group.code}',
-            position: group.displayOrder * 1000,
+            position: group.displayOrder,
             routeKey: group.code,
             routePath: '/feature-groups/${group.code}',
             iconKey: group.iconKey,
