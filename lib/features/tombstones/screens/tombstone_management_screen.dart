@@ -170,10 +170,12 @@ class _TombstoneManagementScreenState extends State<TombstoneManagementScreen> {
 
   Widget _content() {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.error_outline, size: 48), const SizedBox(height: 12), Text(_error!, textAlign: TextAlign.center),
-      const SizedBox(height: 12), FilledButton(onPressed: _load, child: const Text('Retry')),
-    ]));
+    if (_error != null) {
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.error_outline, size: 48), const SizedBox(height: 12), Text(_error!, textAlign: TextAlign.center),
+        const SizedBox(height: 12), FilledButton(onPressed: _load, child: const Text('Retry')),
+      ]));
+    }
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(

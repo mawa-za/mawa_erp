@@ -138,8 +138,11 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
       _covers = savedCovers.map((v) => Map<String, dynamic>.from(v as Map)).toList();
       _chosenCovers.addAll(_covers.map(_coverKey));
     }
-    if (_orderId != null) _step = 6;
-    else if (_claims.isNotEmpty) _step = 4;
+    if (_orderId != null) {
+      _step = 6;
+    } else if (_claims.isNotEmpty) {
+      _step = 4;
+    }
   }
 
   Future<void> _restore() async {
@@ -237,8 +240,10 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     if (_requestId == null || _orderId == null) return;
     await _run(() async {
       final result = await _service.applyInstallationFunding(_requestId!);
-      if (mounted) setState(() => _claims = (result['claims'] as List? ?? [])
-          .map((c) => Map<String, dynamic>.from(c as Map)).toList());
+      if (mounted) {
+        setState(() => _claims = (result['claims'] as List? ?? [])
+            .map((c) => Map<String, dynamic>.from(c as Map)).toList());
+      }
     });
   }
   Future<void> _generate() async {
@@ -253,25 +258,39 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     final initial = installation ? (_installationDate ?? now) : (_dateOfDeath ?? now);
     final selected = await showDatePicker(context: context, initialDate: initial,
       firstDate: DateTime(1900), lastDate: installation ? DateTime(2100) : now);
-    if (selected != null && mounted) setState(() { if (installation) _installationDate = selected; else _dateOfDeath = selected; });
+    if (selected != null && mounted) {
+      setState(() {
+        if (installation) {
+          _installationDate = selected;
+        } else {
+          _dateOfDeath = selected;
+        }
+      });
+    }
   }
   Future<void> _selectDeceasedPartner() async {
     final selection = await showDialog<FamilyRepresentativeSelection>(context: context,
       builder: (_) => const FamilyRepresentativeSelectorDialog());
-    if (selection != null && mounted) setState(() {
-      _deceasedId.text = selection.partner.id;
-      _deceasedName.text = selection.partner.fullName;
-      if (selection.partner.identityNumber.isNotEmpty) _identity.text = selection.partner.identityNumber;
-    });
+    if (selection != null && mounted) {
+      setState(() {
+        _deceasedId.text = selection.partner.id;
+        _deceasedName.text = selection.partner.fullName;
+        if (selection.partner.identityNumber.isNotEmpty) {
+          _identity.text = selection.partner.identityNumber;
+        }
+      });
+    }
   }
   Future<void> _selectRepresentative() async {
     final result = await showDialog<FamilyRepresentativeSelection>(context: context,
       builder: (_) => const FamilyRepresentativeSelectorDialog());
-    if (result != null && mounted) setState(() {
-      _customer.text = result.partner.id;
-      _representativeName.text = result.partner.fullName;
-      _representativeContact.text = result.contactDetails;
-    });
+    if (result != null && mounted) {
+      setState(() {
+        _customer.text = result.partner.id;
+        _representativeName.text = result.partner.fullName;
+        _representativeContact.text = result.contactDetails;
+      });
+    }
   }
   Widget _field(TextEditingController controller, String label, {bool isRequired = false, int lines = 1}) =>
     Padding(padding: const EdgeInsets.only(bottom: 14), child: TextField(
@@ -340,7 +359,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
           ..._items.asMap().entries.map((entry) => Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
             Row(children: [Expanded(child: Text('Item ${entry.key + 1}', style: const TextStyle(fontWeight: FontWeight.bold))),
               if (_items.length > 1 && _isEditable) IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => setState(() { final removed = _items.removeAt(entry.key); removed.dispose(); }))]),
-            DropdownButtonFormField<String>(value: entry.value.itemType,
+            DropdownButtonFormField<String>(initialValue: entry.value.itemType,
               decoration: const InputDecoration(labelText: 'Line type'),
               items: const [DropdownMenuItem(value: 'TOMBSTONE', child: Text('Tombstone product')),
                 DropdownMenuItem(value: 'INSTALLATION', child: Text('Installation service')),
