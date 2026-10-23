@@ -20,9 +20,11 @@ class _ItemInput {
   String itemType = 'TOMBSTONE';
   final amount = TextEditingController(text: '0');
   final quantity = TextEditingController(text: '1');
-  void dispose() { description.dispose(); amount.dispose(); quantity.dispose(); }
+  final inscription = TextEditingController();
+  void dispose() { description.dispose(); amount.dispose(); quantity.dispose(); inscription.dispose(); }
   Map<String, dynamic> toJson() => {
     'description': description.text.trim(), 'itemType': itemType,
+    'inscriptionText': inscription.text.trim().isEmpty ? null : inscription.text.trim(),
     'quantity': double.tryParse(quantity.text) ?? 1,
     'unitPriceCents': ((double.tryParse(amount.text) ?? 0) * 100).round(),
   };
@@ -32,9 +34,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   final _service = TombstoneService();
   final _deceasedName = TextEditingController();
   final _identity = TextEditingController();
-  final _deceasedId = TextEditingController();
-  final _deathCertificate = TextEditingController();
-  final _causeOfDeath = TextEditingController();
+  final _deceasedId = TextEditingController(); // Internal link, never shown for manual entry.
   final _customer = TextEditingController();
   final _representativeName = TextEditingController();
   final _representativeContact = TextEditingController();
@@ -77,7 +77,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   }
   @override
   void dispose() {
-    for (final c in [_deceasedName, _identity, _deceasedId, _deathCertificate, _causeOfDeath,
+    for (final c in [_deceasedName, _identity, _deceasedId,
       _customer, _representativeName, _representativeContact, _cemetery, _cemeteryArea, _grave,
       _salesArea, _notes, _discount]) { c.dispose(); }
     for (final i in _items) { i.dispose(); }
@@ -107,8 +107,6 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     if (data['deceased_identity_number'] != null) _identity.text = data['deceased_identity_number'].toString();
     if (data['deceased_partner_id'] != null) _deceasedId.text = data['deceased_partner_id'].toString();
     if (data['date_of_death'] != null) _dateOfDeath = _parseDate(data['date_of_death']);
-    if (data['death_certificate_no'] != null) _deathCertificate.text = data['death_certificate_no'].toString();
-    if (data['cause_of_death'] != null) _causeOfDeath.text = data['cause_of_death'].toString();
     if (data['customer_partner_id'] != null) _customer.text = data['customer_partner_id'].toString();
     if (data['family_representative_name'] != null) _representativeName.text = data['family_representative_name'].toString();
     if (data['family_representative_contact'] != null) _representativeContact.text = data['family_representative_contact'].toString();
@@ -127,6 +125,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         final item = Map<String, dynamic>.from(raw as Map);
         final input = _ItemInput();
         input.description.text = item['description']?.toString() ?? '';
+        input.inscription.text = item['inscriptionText']?.toString() ?? '';
         input.itemType = item['itemType']?.toString() ?? 'TOMBSTONE';
         input.quantity.text = item['quantity']?.toString() ?? '1';
         input.amount.text = ((item['unitPriceCents'] as num? ?? 0) / 100).toStringAsFixed(2);
@@ -159,7 +158,8 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     finally { if (mounted) setState(() => _busy = false); }
   }
   Future<void> _lookup() async {
-    if (_identity.text.trim().isEmpty) { setState(() => _error = 'Enter the deceased identity number.'); return; }
+    if (_identity.text.trim().isEmpty) { setState(() => _error = 'Enter the deceased identity number to search for a membership benefit.'); return; }
+    if (_dateOfDeath == null) { setState(() => _error = 'Enter the date of death to check historical membership benefits.'); return; }
     await _run(() async {
       final result = await _service.lookupTombstoneCover(_identity.text.trim(), eventDate: _dateOfDeath);
       if (mounted) setState(() { _covers = result; _chosenCovers.clear(); });
@@ -170,12 +170,10 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     final selections = _covers.where((item) => _chosenCovers.contains(_coverKey(item))).toList();
     return {
       'customerPartnerId': _customer.text.trim(),
-      'deceasedPartnerId': _deceasedId.text.trim(),
+      'deceasedPartnerId': _blank(_deceasedId.text),
       'deceasedName': _deceasedName.text.trim(),
       'deceasedIdentityNumber': _blank(_identity.text),
       'dateOfDeath': _date(_dateOfDeath),
-      'causeOfDeath': _blank(_causeOfDeath.text),
-      'deathCertificateNo': _blank(_deathCertificate.text),
       'familyRepresentativePartnerId': _blank(_customer.text),
       'familyRepresentativeName': _blank(_representativeName.text),
       'familyRepresentativeContact': _blank(_representativeContact.text),
@@ -197,11 +195,13 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   }
 
   Future<void> _save() async {
-    if (_deceasedName.text.trim().isEmpty || _dateOfDeath == null || _deceasedId.text.trim().isEmpty) {
-      setState(() => _error = 'Complete deceased name, partner and date of death.'); return;
+    if (_deceasedName.text.trim().isEmpty) {
+      setState(() => _error = 'Enter the deceased full name supplied by the family.'); return;
     }
-    if (_customer.text.trim().isEmpty) { setState(() => _error = 'Select a family representative.'); return; }
-    if (_chosenCovers.isEmpty) { setState(() => _error = 'Select at least one Tombstone benefit.'); return; }
+    if (_chosenCovers.isNotEmpty && _dateOfDeath == null) {
+      setState(() => _error = 'Date of death is required only when claiming membership cover.'); return;
+    }
+    if (_customer.text.trim().isEmpty) { setState(() => _error = 'Select or capture the family representative.'); return; }
     if (_items.any((i) => (double.tryParse(i.quantity.text) ?? 0) <= 0 ||
         (double.tryParse(i.amount.text) ?? -1) < 0)) {
       setState(() => _error = 'Enter valid positive quantities and non-negative item prices.'); return;
@@ -217,6 +217,10 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     });
   }
   Future<void> _initiate() async {
+    if (_chosenCovers.isEmpty) {
+      setState(() => _error = 'No claim is needed for a customer-funded installation.');
+      return;
+    }
     if (_requestId == null) { await _save(); if (_requestId == null) return; }
     await _run(() async {
       final response = await _service.initiateInstallationClaims(_requestId!);
@@ -247,7 +251,10 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     });
   }
   Future<void> _generate() async {
-    if (_requestId == null || _claims.isEmpty) { setState(() => _error = 'Initiate Tombstone Claims first.'); return; }
+    if (_requestId == null) { setState(() => _error = 'Save the installation request first.'); return; }
+    if (_chosenCovers.isNotEmpty && _claims.isEmpty) {
+      setState(() => _error = 'Initiate Tombstone Claims for the selected cover first.'); return;
+    }
     await _run(() async {
       final response = await _service.generateInstallationOrder(_requestId!);
       if (mounted) setState(() { _orderId = response['tombstone_order_id']?.toString(); _status = response['status']?.toString(); });
@@ -304,24 +311,25 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     switch (_step) {
       case 0:
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _hint('Identify the deceased using an existing partner or membership. Mortuary admission is not required.'),
-          _field(_identity, 'Deceased identity number'),
+          _hint("Capture details from the family's tombstone information form. We do not need to have conducted the funeral. No death certificate or mortuary admission is required."),
           _field(_deceasedName, 'Deceased full name', isRequired: true),
-          _field(_deceasedId, 'Deceased partner ID', isRequired: true),
-          OutlinedButton.icon(onPressed: _isEditable ? _lookup : null, icon: const Icon(Icons.search), label: const Text('Find membership covers by identity')),
+          _field(_identity, 'Deceased identity number (if available)'),
           OutlinedButton.icon(onPressed: _isEditable ? _selectDeceasedPartner : null,
-            icon: const Icon(Icons.person_search), label: const Text('Select or capture deceased partner')),
-          ListTile(title: const Text('Date of death *'), subtitle: Text(_date(_dateOfDeath) ?? 'Select date'),
+            icon: const Icon(Icons.person_search), label: const Text('Link existing deceased partner (optional)')),
+          if (_deceasedId.text.trim().isNotEmpty)
+            ListTile(title: const Text('Existing MAWA deceased record linked'),
+              trailing: _isEditable ? IconButton(onPressed: () => setState(() => _deceasedId.clear()),
+                tooltip: 'Unlink deceased', icon: const Icon(Icons.close)) : null),
+          ListTile(title: const Text('Date of death (required only for a membership claim)'),
+            subtitle: Text(_date(_dateOfDeath) ?? 'Not supplied by family'),
             trailing: const Icon(Icons.calendar_month), onTap: _isEditable ? () => _pickDate(installation: false) : null),
-          _field(_deathCertificate, 'Death certificate number'),
-          _field(_causeOfDeath, 'Cause of death'),
         ]);
       case 1:
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _hint('Select each eligible Tombstone cover. Funeral Claims remain separate; no Grocery Claim will be created.'),
-          OutlinedButton.icon(onPressed: _isEditable ? _lookup : null, icon: const Icon(Icons.search), label: const Text('Refresh cover lookup')),
-          if (_covers.isEmpty) const ListTile(title: Text('No eligible Tombstone covers loaded'),
-            subtitle: Text('Search by the deceased identity number on the previous step.')),
+          _hint('Membership cover is optional. For a private installation paid by the family, leave all covers unselected. If claiming a Tombstone benefit, enter the deceased identity and date of death first.'),
+          OutlinedButton.icon(onPressed: _isEditable ? _lookup : null, icon: const Icon(Icons.search), label: const Text('Find eligible Tombstone benefits')),
+          if (_covers.isEmpty) const ListTile(title: Text('No Tombstone cover selected'),
+            subtitle: Text('You may continue with a customer-funded installation; no membership claim or grocery claim will be created.')),
           ..._covers.map((cover) => CheckboxListTile(
             value: _chosenCovers.contains(_coverKey(cover)),
             onChanged: _isEditable ? (checked) => setState(() {
@@ -367,6 +375,8 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
               onChanged: _isEditable ? (value) => setState(() => entry.value.itemType = value ?? 'TOMBSTONE') : null),
             const SizedBox(height: 12),
             _field(entry.value.description, 'Product or service description', isRequired: true),
+            if (entry.value.itemType == 'TOMBSTONE')
+              _field(entry.value.inscription, 'Inscription / family-provided wording', lines: 3),
             _field(entry.value.quantity, 'Quantity'), _field(entry.value.amount, 'Unit price (R)'),
           ])))),
           OutlinedButton.icon(onPressed: _isEditable ? () => setState(() => _items.add(_ItemInput())) : null,
@@ -376,13 +386,16 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         ]);
       case 4:
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _hint('Save the request, initiate TOMBSTONE claims, print forms, attach supporting documents and submit each claim for approval.'),
+          _hint(_chosenCovers.isEmpty
+            ? 'No membership cover selected: save the family-supplied installation details and proceed to the order preview. No claim is required.'
+            : 'Save the request, initiate TOMBSTONE claims, and submit the claim form and applicable supporting family information for approval. A death certificate is not requested for installation.'),
           if (_requestId == null || _status == 'DRAFT') ...[
             FilledButton.icon(onPressed: _busy ? null : _save, icon: const Icon(Icons.save_outlined), label: const Text('Save request')),
             const SizedBox(height: 12),
-            FilledButton.icon(onPressed: _busy ? null : _initiate, icon: const Icon(Icons.description_outlined), label: const Text('Initiate Tombstone Claims')),
+            if (_chosenCovers.isNotEmpty)
+              FilledButton.icon(onPressed: _busy ? null : _initiate, icon: const Icon(Icons.description_outlined), label: const Text('Initiate Tombstone Claims')),
           ],
-          if (_claims.isEmpty) const ListTile(title: Text('No claims initiated')),
+          if (_claims.isEmpty) ListTile(title: Text(_chosenCovers.isEmpty ? 'No membership claim required' : 'No Tombstone Claims initiated')),
           ..._claims.map((claim) {
             final claimId = claim['membership_claim_id']?.toString() ?? '';
             return Card(child: Column(children: [
@@ -401,7 +414,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         ]);
       case 5:
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _hint('Preview the selected cover, tombstone order and remaining customer balance. Only approved claims count as confirmed funding.'),
+          _hint('Preview the tombstone order and customer balance. Only approved membership claims count as funding; a family-funded request has no claim.'),
           ListTile(title: Text('Request ${_reference ?? '(not yet saved)'}'), subtitle: Text('Deceased: ${_deceasedName.text}')),
           ListTile(title: const Text('Order estimate'), trailing: Text(_money(_totalCents - ((double.tryParse(_discount.text) ?? 0) * 100).round()))),
           ..._claims.map((c) => ListTile(title: Text('${c['claim_no']}'), subtitle: Text('${c['status']}'),
@@ -416,14 +429,15 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _hint('The final step generates the operational Tombstone Order and its invoice exactly once.'),
           if (_orderId == null)
-            FilledButton.icon(onPressed: _busy || _claims.isEmpty ? null : _generate,
+            FilledButton.icon(onPressed: _busy || _requestId == null || (_chosenCovers.isNotEmpty && _claims.isEmpty) ? null : _generate,
               icon: const Icon(Icons.receipt_long), label: const Text('Generate Tombstone Order & Invoice')),
           if (_orderId != null) ...[
             const ListTile(leading: Icon(Icons.check_circle, color: Colors.green),
               title: Text('Order generated'), subtitle: Text('Manage production and installation in Tombstone Management.')),
-            FilledButton.icon(onPressed: _busy ? null : _applyFunding,
-              icon: const Icon(Icons.account_balance_wallet_outlined),
-              label: const Text('Apply approved Tombstone benefits')),
+            if (_claims.isNotEmpty)
+              FilledButton.icon(onPressed: _busy ? null : _applyFunding,
+                icon: const Icon(Icons.account_balance_wallet_outlined),
+                label: const Text('Apply approved Tombstone benefits')),
             const SizedBox(height: 12),
             FilledButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => TombstoneOrderDetailScreen(orderId: _orderId!))),
