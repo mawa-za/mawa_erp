@@ -378,6 +378,12 @@ class FeatureGroupRegistry {
   /// same workcenter in more than one group.
   static String? canonicalOwnerForWorkcenter(String workcenterId) {
     final id = normalize(workcenterId);
+    // Tombstone workcentres belong under Tombstone Operations, including
+    // Tombstone Reports (which would otherwise match the generic reports rule).
+    // Keep each child as its own route inside the existing group.
+    if (id.startsWith('TOMBSTONE_')) {
+      return 'tombstone-operations';
+    }
     if (id.startsWith('APPROVAL_') && id != 'APPROVAL_WORKFLOW') {
       return 'approvals';
     }
