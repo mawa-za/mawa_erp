@@ -25,6 +25,9 @@ class _ItemInput {
   final description = TextEditingController();
   final amount = TextEditingController(text: '0');
   final inscription = TextEditingController();
+  final material = TextEditingController();
+  final colour = TextEditingController();
+  final dimensions = TextEditingController();
   String? productId;
   String itemType;
 
@@ -36,10 +39,18 @@ class _ItemInput {
     amount.text = (product.priceCents / 100).toStringAsFixed(2);
   }
 
-  void dispose() { description.dispose(); amount.dispose(); inscription.dispose(); }
+  void dispose() {
+    description.dispose(); amount.dispose(); inscription.dispose();
+    material.dispose(); colour.dispose(); dimensions.dispose();
+  }
   Map<String, dynamic> toJson() => {
     if (productId != null) 'productId': productId,
     'description': description.text.trim(), 'itemType': itemType,
+    if (itemType == 'TOMBSTONE') ...{
+      'material': material.text.trim(),
+      'colour': colour.text.trim(),
+      'dimensions': dimensions.text.trim(),
+    },
     'inscriptionText': itemType == 'TOMBSTONE' && inscription.text.trim().isNotEmpty
         ? inscription.text.trim() : null,
     'quantity': 1,
@@ -184,6 +195,9 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         final input = _ItemInput();
         input.description.text = item['description']?.toString() ?? '';
         input.inscription.text = item['inscriptionText']?.toString() ?? '';
+        input.material.text = item['material']?.toString() ?? '';
+        input.colour.text = item['colour']?.toString() ?? '';
+        input.dimensions.text = item['dimensions']?.toString() ?? '';
         input.itemType = item['itemType']?.toString() ?? 'TOMBSTONE';
         input.productId = item['productId']?.toString();
         input.amount.text = ((item['unitPriceCents'] as num? ?? 0) / 100).toStringAsFixed(2);
@@ -253,6 +267,89 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     };
   }
 
+  // These are order/invoice and production prerequisites. Drafts may remain
+  // incomplete; claim initiation and final generation may not.
+  String? _requiredOrderDetailsError() {
+    if (_deceasedName.text.trim().isEmpty) return 'Enter the deceased full name (Step 1).';
+    if (_chosenCovers.isNotEmpty && _dateOfDeath == null) {
+      return 'Date of death is required when claiming membership cover (Step 1).';
+    }
+    if (_customer.text.trim().isEmpty) return 'Select or capture the invoice customer / family representative (Step 3).';
+    if (_representativeName.text.trim().isEmpty) return 'Enter the family representative name (Step 3).';
+    if (_representativeContact.text.trim().isEmpty) return 'Enter the family representative contact details for invoicing and installation (Step 3).';
+    final packages = _items.where((item) => item.itemType == 'TOMBSTONE').toList();
+    if (packages.length != 1) return 'Select exactly one Tombstone package (Step 4).';
+    final package = packages.single;
+    if (package.productId == null || package.productId!.trim().isEmpty) {
+      return 'Select a configured Tombstone product to invoice (Step 4).';
+    }
+    if (package.description.text.trim().isEmpty) return 'The Tombstone package needs an invoice description (Step 4).';
+    if ((double.tryParse(package.amount.text) ?? 0) <= 0) return 'The Tombstone package must have a positive configured price (Step 4).';
+    if (package.inscription.text.trim().isEmpty) return 'Enter the exact inscription / engraving text supplied by the family (Step 4).';
+    if (package.material.text.trim().isEmpty) return 'Enter the tombstone material for production (Step 4).';
+    if (package.colour.text.trim().isEmpty) return 'Enter the tombstone colour for production (Step 4).';
+    if (package.dimensions.text.trim().isEmpty) return 'Enter the tombstone dimensions for production (Step 4).';
+    if (_salesArea.text.trim().isEmpty) return 'Select an Installation Area (Step 4).';
+    if (_directions.text.trim().isEmpty) return 'Enter directions to the installation site (Step 4).';
+    for (final item in _items) {
+      if (item.productId == null || item.productId!.trim().isEmpty || item.description.text.trim().isEmpty) {
+        return 'Each selected product or extra needs its catalogue ID and invoice description (Step 4).';
+      }
+      if (double.tryParse(item.amount.text) == null || double.parse(item.amount.text) < 0) {
+        return 'Each selected product or extra needs a valid price (Step 4).';
+      }
+    }
+    final discount = double.tryParse(_discount.text);
+    if (discount == null || discount < 0 || _discountCents > _totalCents) {
+      return 'Enter a valid discount that does not exceed the order total (Step 4).';
+    }
+    return null;
+  }
+
+  void _showOrderDetailsError(String message) {
+    setState(() {
+      _error = message;
+      if (message.contains('Step 1')) {
+        _step = 0;
+      } else if (message.contains('Step 3')) {
+        _step = 2;
+      } else if (message.contains('Step 4')) {
+        _step = 3;
+      }
+    });
+  }
+
+  bool _validateStep(int step) {
+    if (step == 0 && _deceasedName.text.trim().isEmpty) {
+      _showOrderDetailsError('Enter the deceased full name (Step 1).'); return false;
+    }
+    if (step == 1 && _chosenCovers.isNotEmpty && _dateOfDeath == null) {
+      _showOrderDetailsError('Date of death is required when claiming membership cover (Step 1).'); return false;
+    }
+    if (step == 2) {
+      if (_customer.text.trim().isEmpty) {
+        _showOrderDetailsError('Select or capture the invoice customer / family representative (Step 3).'); return false;
+      }
+      if (_representativeName.text.trim().isEmpty || _representativeContact.text.trim().isEmpty) {
+        _showOrderDetailsError('Family representative name and contact details are required (Step 3).'); return false;
+      }
+    }
+    if (step == 3) {
+      final error = _requiredOrderDetailsError();
+      if (error != null) { _showOrderDetailsError(error); return false; }
+    }
+    return true;
+  }
+
+  void _goToStep(int destination) {
+    if (destination > _step) {
+      for (var i = 0; i < destination; i++) {
+        if (!_validateStep(i)) return;
+      }
+    }
+    setState(() { _error = null; _step = destination; });
+  }
+
   Future<void> _save() async {
     if (_deceasedName.text.trim().isEmpty) {
       setState(() => _error = 'Enter the deceased full name supplied by the family.'); return;
@@ -278,11 +375,16 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     });
   }
   Future<void> _initiate() async {
+    final missing = _requiredOrderDetailsError();
+    if (missing != null) { _showOrderDetailsError(missing); return; }
     if (_chosenCovers.isEmpty) {
       setState(() => _error = 'No claim is needed for a customer-funded installation.');
       return;
     }
-    if (_requestId == null) { await _save(); if (_requestId == null) return; }
+    // Persist any changed engraving, pricing or installation details before
+    // locking the request by initiating claims.
+    if (_isEditable) await _save();
+    if (_requestId == null || _error != null) return;
     await _run(() async {
       final response = await _service.initiateInstallationClaims(_requestId!);
       if (mounted) setState(() { _claims = (response['claims'] as List? ?? []).map((v) => Map<String, dynamic>.from(v as Map)).toList(); _status = response['status']?.toString(); });
@@ -312,7 +414,16 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     });
   }
   Future<void> _generate() async {
-    if (_requestId == null) { setState(() => _error = 'Save the installation request first.'); return; }
+    final missing = _requiredOrderDetailsError();
+    if (missing != null) { _showOrderDetailsError(missing); return; }
+    // Finalise draft edits before the backend creates an order and invoice.
+    if (_isEditable) await _save();
+    if (_requestId == null || _error != null) {
+      if (_requestId == null && _error == null) {
+        setState(() => _error = 'Save the installation request first.');
+      }
+      return;
+    }
     if (_chosenCovers.isNotEmpty && _claims.isEmpty) {
       setState(() => _error = 'Initiate Tombstone Claims for the selected cover first.'); return;
     }
@@ -513,7 +624,15 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
               title: Text(package.description.text),
               subtitle: const Text('Saved package (not in current product catalogue)'),
               trailing: Text(_money(((double.tryParse(package.amount.text) ?? 0) * 100).round())))),
-          if (package != null) _field(package.inscription, 'Inscription / wording supplied by family', lines: 3),
+          if (package != null) ...[
+            _field(package.inscription, 'Exact inscription / engraving wording', isRequired: true, lines: 4),
+            _hint('Confirm spelling, dates and wording with the family. The exact text will be sent to production.'),
+            _adaptiveSections(
+              left: _field(package.material, 'Tombstone material', isRequired: true),
+              right: _field(package.colour, 'Tombstone colour', isRequired: true),
+            ),
+            _field(package.dimensions, 'Tombstone dimensions', isRequired: true),
+          ],
           const SizedBox(height: 16),
           Row(children: [
             Expanded(child: Text('Optional Extras', style: Theme.of(context).textTheme.titleMedium)),
@@ -533,11 +652,11 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text('Installation Location', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
-          _locationDropdown(_salesArea, 'Installation area', _installationAreas, storeCode: true),
+          _locationDropdown(_salesArea, 'Installation area *', _installationAreas, storeCode: true),
           _locationDropdown(_cemetery, 'Cemetery (optional)', _cemeteryOptions),
           _locationDropdown(_cemeteryArea, 'Cemetery section (optional)', _cemeteryAreaOptions),
           _field(_grave, 'Grave number (if available)'),
-          _field(_directions, 'Directions', lines: 4),
+          _field(_directions, 'Directions to installation site', isRequired: true, lines: 4),
           ListTile(title: const Text('Expected installation date'),
             subtitle: Text(_date(_installationDate) ?? 'Not scheduled'),
             trailing: const Icon(Icons.calendar_month),
@@ -627,7 +746,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
                 icon: const Icon(Icons.person_search), label: const Text('Select family representative')),
               if (_customer.text.isNotEmpty) Text('Partner: ${_representativeName.text} • ${_customer.text}'),
             ]),
-            right: _field(_representativeContact, 'Representative contact details'),
+            right: _field(_representativeContact, 'Representative contact details for invoice and installation', isRequired: true),
           ),
         ]);
       case 3:
@@ -664,6 +783,18 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _hint('Preview the tombstone order and customer balance. Only approved membership claims count as funding; a family-funded request has no claim.'),
           ListTile(title: Text('Request ${_reference ?? '(not yet saved)'}'), subtitle: Text('Deceased: ${_deceasedName.text}')),
+          ListTile(title: const Text('Invoice customer / family representative'),
+            subtitle: Text('${_representativeName.text} • ${_representativeContact.text}')),
+          if (_package != null) ...[
+            ListTile(title: const Text('Tombstone package'),
+              subtitle: Text(_package!.description.text)),
+            ListTile(title: const Text('Engraving wording'),
+              subtitle: Text(_package!.inscription.text)),
+            ListTile(title: const Text('Production specification'),
+              subtitle: Text('${_package!.material.text} • ${_package!.colour.text} • ${_package!.dimensions.text}')),
+          ],
+          ListTile(title: const Text('Installation Area / Directions'),
+            subtitle: Text('${_salesArea.text} • ${_directions.text}')),
           ListTile(title: const Text('Order estimate'), trailing: Text(_money(_totalCents - ((double.tryParse(_discount.text) ?? 0) * 100).round()))),
           ..._claims.map((c) => ListTile(title: Text('${c['claim_no']}'), subtitle: Text('${c['status']}'),
             trailing: Text(_money((c['approvedAmountCents'] as num?)?.toInt() ?? 0)))),
@@ -706,7 +837,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
           child: Row(children: List.generate(_stepLabels.length, (index) => Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(label: Text('${index + 1}. ${_stepLabels[index]}'), selected: _step == index,
-              onSelected: (_) => setState(() => _step = index)),
+              onSelected: (_) => _goToStep(index)),
           )))),
         if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer,
           child: ListTile(title: Text(_error!), trailing: IconButton(onPressed: () => setState(() => _error = null), icon: const Icon(Icons.close)))),
@@ -727,13 +858,8 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
           if (_status == 'DRAFT' && _step != 4)
             OutlinedButton(onPressed: _busy ? null : _save, child: const Text('Save draft')),
           const SizedBox(width: 12),
-          FilledButton(onPressed: _step < 6 ? () {
-            if (_step == 3 && _package == null) {
-              setState(() => _error = 'Select one Tombstone package before continuing.');
-              return;
-            }
-            setState(() { _error = null; _step++; });
-          } : null, child: const Text('Next')),
+          FilledButton(onPressed: _step < 6 ? () => _goToStep(_step + 1) : null,
+            child: const Text('Next')),
         ])),
       ]),
     );
