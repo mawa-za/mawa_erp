@@ -376,6 +376,24 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     ));
   Widget _hint(String message) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(message, style: Theme.of(context).textTheme.bodyMedium));
 
+  // Keep the wizard fluid across the available width. On desktop, related
+  // sections sit side by side; narrow tablet/mobile viewports stack them.
+  Widget _adaptiveSections({required Widget left, required Widget right}) =>
+      LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth < 1000) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            left,
+            const SizedBox(height: 20),
+            right,
+          ]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: left),
+          const SizedBox(width: 28),
+          Expanded(child: right),
+        ]);
+      });
+
   // Cemetery and cemetery section are tenant-managed dropdowns; the grave
   // number stays free text. Keep old draft values visible even if removed from
   // reference data, instead of silently clearing an existing location.
@@ -468,68 +486,74 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     final extras = _items.where((item) => item.itemType != 'TOMBSTONE').toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _hint('Select one tombstone package for the deceased, then add optional extras. Quantities are fixed at one installation.'),
-      Text('Select Tombstone Package', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 12),
-      if (_catalogLoading) const LinearProgressIndicator(),
-      if (_catalogError != null) Text(_catalogError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-      if (!_catalogLoading && _tombstoneProducts.isEmpty)
-        const ListTile(leading: Icon(Icons.inventory_2_outlined),
-          title: Text('No Tombstone products configured'),
-          subtitle: Text('Configure Tombstone products and prices in Product Maintenance before creating an installation order.')),
-      ..._tombstoneProducts.map((product) {
-        final selected = package?.productId == product.id && product.id.isNotEmpty;
-        return Card(child: ListTile(
-          leading: Icon(selected ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: selected ? Theme.of(context).colorScheme.primary : null),
-          title: Text(product.description),
-          subtitle: product.code.isEmpty ? null : Text(product.code),
-          trailing: Text(_money(product.priceCents)),
-          selected: selected,
-          onTap: _isEditable ? () => _choosePackage(product) : null,
-        ));
-      }),
-      if (package != null && !_tombstoneProducts.any((p) => p.id == package.productId))
-        Card(child: ListTile(leading: const Icon(Icons.check_circle),
-          title: Text(package.description.text),
-          subtitle: const Text('Saved package (not in current product catalogue)'),
-          trailing: Text(_money(((double.tryParse(package.amount.text) ?? 0) * 100).round())))),
-      if (package != null) _field(package.inscription, 'Inscription / wording supplied by family', lines: 3),
-      const SizedBox(height: 16),
-      Row(children: [
-        Expanded(child: Text('Optional Extras', style: Theme.of(context).textTheme.titleMedium)),
-        TextButton.icon(onPressed: _isEditable && _extraProducts.isNotEmpty ? _addExtra : null,
-          icon: const Icon(Icons.add), label: const Text('Add extra')),
-      ]),
-      if (extras.isEmpty) const ListTile(title: Text('No extras selected')),
-      ...extras.map((extra) => ListTile(
-        title: Text(extra.description.text),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(_money(((double.tryParse(extra.amount.text) ?? 0) * 100).round())),
-          if (_isEditable) IconButton(icon: const Icon(Icons.delete_outline),
-            onPressed: () => setState(() { _items.remove(extra); extra.dispose(); })),
+      _adaptiveSections(
+        left: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Select Tombstone Package', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          if (_catalogLoading) const LinearProgressIndicator(),
+          if (_catalogError != null) Text(_catalogError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          if (!_catalogLoading && _tombstoneProducts.isEmpty)
+            const ListTile(leading: Icon(Icons.inventory_2_outlined),
+              title: Text('No Tombstone products configured'),
+              subtitle: Text('Configure Tombstone products and prices in Product Maintenance before creating an installation order.')),
+          ..._tombstoneProducts.map((product) {
+            final selected = package?.productId == product.id && product.id.isNotEmpty;
+            return Card(child: ListTile(
+              leading: Icon(selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: selected ? Theme.of(context).colorScheme.primary : null),
+              title: Text(product.description),
+              subtitle: product.code.isEmpty ? null : Text(product.code),
+              trailing: Text(_money(product.priceCents)),
+              selected: selected,
+              onTap: _isEditable ? () => _choosePackage(product) : null,
+            ));
+          }),
+          if (package != null && !_tombstoneProducts.any((p) => p.id == package.productId))
+            Card(child: ListTile(leading: const Icon(Icons.check_circle),
+              title: Text(package.description.text),
+              subtitle: const Text('Saved package (not in current product catalogue)'),
+              trailing: Text(_money(((double.tryParse(package.amount.text) ?? 0) * 100).round())))),
+          if (package != null) _field(package.inscription, 'Inscription / wording supplied by family', lines: 3),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: Text('Optional Extras', style: Theme.of(context).textTheme.titleMedium)),
+            TextButton.icon(onPressed: _isEditable && _extraProducts.isNotEmpty ? _addExtra : null,
+              icon: const Icon(Icons.add), label: const Text('Add extra')),
+          ]),
+          if (extras.isEmpty) const ListTile(title: Text('No extras selected')),
+          ...extras.map((extra) => ListTile(
+            title: Text(extra.description.text),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(_money(((double.tryParse(extra.amount.text) ?? 0) * 100).round())),
+              if (_isEditable) IconButton(icon: const Icon(Icons.delete_outline),
+                onPressed: () => setState(() { _items.remove(extra); extra.dispose(); })),
+            ]),
+          )),
         ]),
-      )),
-      const Divider(height: 36),
-      Text('Installation Location', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 12),
-      _locationDropdown(_salesArea, 'Installation area', _installationAreas, storeCode: true),
-      _locationDropdown(_cemetery, 'Cemetery (optional)', _cemeteryOptions),
-      _locationDropdown(_cemeteryArea, 'Cemetery section (optional)', _cemeteryAreaOptions),
-      _field(_grave, 'Grave number (if available)'),
-      _field(_directions, 'Directions', lines: 4),
-      ListTile(title: const Text('Expected installation date'),
-        subtitle: Text(_date(_installationDate) ?? 'Not scheduled'),
-        trailing: const Icon(Icons.calendar_month),
-        onTap: _isEditable ? () => _pickDate(installation: true) : null),
-      const SizedBox(height: 8),
-      _field(_discount, 'Overall discount (R)'),
-      _field(_notes, 'Additional instructions', lines: 3),
-      ListTile(title: const Text('Tombstone package'),
-        trailing: Text(_money(package == null ? 0 : ((double.tryParse(package.amount.text) ?? 0) * 100).round()))),
-      ListTile(title: const Text('Extras'),
-        trailing: Text(_money(extras.fold<int>(0, (sum, e) => sum + ((double.tryParse(e.amount.text) ?? 0) * 100).round())))),
-      ListTile(title: const Text('Estimated installation total'),
-        trailing: Text(_money((_totalCents - _discountCents).clamp(0, 999999999999).toInt()))),
+        right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Installation Location', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          _locationDropdown(_salesArea, 'Installation area', _installationAreas, storeCode: true),
+          _locationDropdown(_cemetery, 'Cemetery (optional)', _cemeteryOptions),
+          _locationDropdown(_cemeteryArea, 'Cemetery section (optional)', _cemeteryAreaOptions),
+          _field(_grave, 'Grave number (if available)'),
+          _field(_directions, 'Directions', lines: 4),
+          ListTile(title: const Text('Expected installation date'),
+            subtitle: Text(_date(_installationDate) ?? 'Not scheduled'),
+            trailing: const Icon(Icons.calendar_month),
+            onTap: _isEditable ? () => _pickDate(installation: true) : null),
+          const SizedBox(height: 8),
+          _field(_discount, 'Overall discount (R)'),
+          _field(_notes, 'Additional instructions', lines: 3),
+          const Divider(height: 36),
+          ListTile(title: const Text('Tombstone package'),
+            trailing: Text(_money(package == null ? 0 : ((double.tryParse(package.amount.text) ?? 0) * 100).round()))),
+          ListTile(title: const Text('Extras'),
+            trailing: Text(_money(extras.fold<int>(0, (sum, e) => sum + ((double.tryParse(e.amount.text) ?? 0) * 100).round())))),
+          ListTile(title: const Text('Estimated installation total'),
+            trailing: Text(_money((_totalCents - _discountCents).clamp(0, 999999999999).toInt()))),
+        ]),
+      ),
     ]);
   }
 
@@ -538,56 +562,73 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
       case 0:
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _hint("Capture details from the family's tombstone information form. We do not need to have conducted the funeral. No death certificate or mortuary admission is required."),
-          _field(_deceasedName, 'Deceased full name', isRequired: true,
-            onChanged: (_) {
-              if (_deceasedId.text.isNotEmpty) setState(() => _deceasedId.clear());
-            }),
-          _field(_identity, 'Deceased identity number (if available)',
-            onChanged: (_) {
-              if (_deceasedId.text.isNotEmpty) setState(() => _deceasedId.clear());
-            }),
-          OutlinedButton.icon(onPressed: _isEditable ? _selectDeceasedPartner : null,
-            icon: const Icon(Icons.person_search), label: const Text('Link existing deceased partner (optional)')),
-          if (_deceasedId.text.trim().isNotEmpty)
-            ListTile(title: const Text('Existing MAWA deceased record linked'),
-              trailing: _isEditable ? IconButton(onPressed: () => setState(() => _deceasedId.clear()),
-                tooltip: 'Unlink deceased', icon: const Icon(Icons.close)) : null),
-          ListTile(title: const Text('Date of death (required only for a membership claim)'),
-            subtitle: Text(_date(_dateOfDeath) ?? 'Not supplied by family'),
-            trailing: const Icon(Icons.calendar_month), onTap: _isEditable ? () => _pickDate(installation: false) : null),
+          _adaptiveSections(
+            left: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _field(_deceasedName, 'Deceased full name', isRequired: true,
+                onChanged: (_) {
+                  if (_deceasedId.text.isNotEmpty) setState(() => _deceasedId.clear());
+                }),
+              _field(_identity, 'Deceased identity number (if available)',
+                onChanged: (_) {
+                  if (_deceasedId.text.isNotEmpty) setState(() => _deceasedId.clear());
+                }),
+            ]),
+            right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              OutlinedButton.icon(onPressed: _isEditable ? _selectDeceasedPartner : null,
+                icon: const Icon(Icons.person_search), label: const Text('Link existing deceased partner (optional)')),
+              if (_deceasedId.text.trim().isNotEmpty)
+                ListTile(title: const Text('Existing MAWA deceased record linked'),
+                  trailing: _isEditable ? IconButton(onPressed: () => setState(() => _deceasedId.clear()),
+                    tooltip: 'Unlink deceased', icon: const Icon(Icons.close)) : null),
+              ListTile(title: const Text('Date of death (required only for a membership claim)'),
+                subtitle: Text(_date(_dateOfDeath) ?? 'Not supplied by family'),
+                trailing: const Icon(Icons.calendar_month), onTap: _isEditable ? () => _pickDate(installation: false) : null),
+            ]),
+          ),
         ]);
       case 1:
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _hint('Membership cover is optional. For a private installation paid by the family, leave all covers unselected. If claiming a Tombstone benefit, enter the deceased identity and date of death first.'),
-          OutlinedButton.icon(onPressed: _isEditable ? _lookup : null, icon: const Icon(Icons.search), label: const Text('Find eligible Tombstone benefits')),
-          if (_covers.isEmpty) const ListTile(title: Text('No Tombstone cover selected'),
-            subtitle: Text('You may continue with a customer-funded installation; no membership claim or grocery claim will be created.')),
-          ..._covers.map((cover) => CheckboxListTile(
-            value: _chosenCovers.contains(_coverKey(cover)),
-            onChanged: _isEditable ? (checked) => setState(() {
-              final key = _coverKey(cover);
-              if (checked == true && (_maxCovers <= 0 || _chosenCovers.length < _maxCovers)) {
-                _chosenCovers.add(key);
-                // A source tenant's partner ID is not a local deceased partner ID.
-                if (_deceasedId.text.trim().isEmpty &&
-                    (cover['tenantId']?.toString() ?? '').isEmpty) {
-                  _deceasedId.text = cover['deceasedPartnerId']?.toString() ?? '';
-                }
-              } else if (checked != true) { _chosenCovers.remove(key); }
-            }) : null,
-            title: Text('${cover['membershipNumber'] ?? cover['membershipId']} • ${cover['burialSocietyName'] ?? ''}'),
-            subtitle: Text('${cover['sourceTenantName'] ?? cover['tenantId'] ?? ''} • Tombstone ${_money((cover['tombstoneAmountCents'] as num?)?.toInt() ?? 0)}'),
-          )),
-          Text(_maxCovers > 0 ? '${_chosenCovers.length} of $_maxCovers covers selected'
-              : '${_chosenCovers.length} covers selected (no configured limit)'),
+          _adaptiveSections(
+            left: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              OutlinedButton.icon(onPressed: _isEditable ? _lookup : null, icon: const Icon(Icons.search), label: const Text('Find eligible Tombstone benefits')),
+              if (_covers.isEmpty) const ListTile(title: Text('No Tombstone cover selected'),
+                subtitle: Text('You may continue with a customer-funded installation; no membership claim or grocery claim will be created.')),
+            ]),
+            right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (_covers.isNotEmpty) Text('Available membership covers', style: Theme.of(context).textTheme.titleMedium),
+              ..._covers.map((cover) => CheckboxListTile(
+                value: _chosenCovers.contains(_coverKey(cover)),
+                onChanged: _isEditable ? (checked) => setState(() {
+                  final key = _coverKey(cover);
+                  if (checked == true && (_maxCovers <= 0 || _chosenCovers.length < _maxCovers)) {
+                    _chosenCovers.add(key);
+                    // A source tenant's partner ID is not a local deceased partner ID.
+                    if (_deceasedId.text.trim().isEmpty &&
+                        (cover['tenantId']?.toString() ?? '').isEmpty) {
+                      _deceasedId.text = cover['deceasedPartnerId']?.toString() ?? '';
+                    }
+                  } else if (checked != true) { _chosenCovers.remove(key); }
+                }) : null,
+                title: Text('${cover['membershipNumber'] ?? cover['membershipId']} • ${cover['burialSocietyName'] ?? ''}'),
+                subtitle: Text('${cover['sourceTenantName'] ?? cover['tenantId'] ?? ''} • Tombstone ${_money((cover['tombstoneAmountCents'] as num?)?.toInt() ?? 0)}'),
+              )),
+              Text(_maxCovers > 0 ? '${_chosenCovers.length} of $_maxCovers covers selected'
+                  : '${_chosenCovers.length} covers selected (no configured limit)'),
+            ]),
+          ),
         ]);
       case 2:
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _hint('Select or create a family representative using the existing partner workflow.'),
-          OutlinedButton.icon(onPressed: _isEditable ? _selectRepresentative : null,
-            icon: const Icon(Icons.person_search), label: const Text('Select family representative')),
-          if (_customer.text.isNotEmpty) Text('Partner: ${_representativeName.text} • ${_customer.text}'),
-          _field(_representativeContact, 'Representative contact details'),
+          _adaptiveSections(
+            left: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              OutlinedButton.icon(onPressed: _isEditable ? _selectRepresentative : null,
+                icon: const Icon(Icons.person_search), label: const Text('Select family representative')),
+              if (_customer.text.isNotEmpty) Text('Partner: ${_representativeName.text} • ${_customer.text}'),
+            ]),
+            right: _field(_representativeContact, 'Representative contact details'),
+          ),
         ]);
       case 3:
         return _packageStep();
@@ -670,9 +711,16 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer,
           child: ListTile(title: Text(_error!), trailing: IconButton(onPressed: () => setState(() => _error = null), icon: const Icon(Icons.close)))),
         if (_busy) const LinearProgressIndicator(),
-        Expanded(child: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Center(child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 950), child: _content(),
-        )))),
+        Expanded(child: LayoutBuilder(builder: (context, viewport) => SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: viewport.maxWidth >= 1000 ? 32 : (viewport.maxWidth >= 600 ? 24 : 16),
+            vertical: 20,
+          ),
+          child: SizedBox(
+            width: viewport.maxWidth - (viewport.maxWidth >= 1000 ? 64 : (viewport.maxWidth >= 600 ? 48 : 32)),
+            child: _content(),
+          ),
+        ))),
         Padding(padding: const EdgeInsets.all(12), child: Row(children: [
           OutlinedButton(onPressed: _step > 0 ? () => setState(() => _step--) : null, child: const Text('Back')),
           const Spacer(),
