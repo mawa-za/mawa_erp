@@ -99,6 +99,9 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   String? _error;
   bool _busy = false;
   int _maxCovers = 3;
+  String _membershipSourceMode = 'LOCAL_ONLY';
+  bool _externalLookupEnabled = false;
+  bool _coverLookupCompleted = false;
   int _step = 0;
 
   @override
@@ -112,7 +115,11 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   Future<void> _loadConfiguration() async {
     try {
       final config = await _service.installationRequestConfiguration();
-      if (mounted) setState(() => _maxCovers = (config['maxSelectedCovers'] as num?)?.toInt() ?? 3);
+      if (mounted) setState(() {
+        _maxCovers = (config['maxSelectedCovers'] as num?)?.toInt() ?? 3;
+        _membershipSourceMode = config['membershipSourceMode']?.toString() ?? 'LOCAL_ONLY';
+        _externalLookupEnabled = config['externalLookupEnabled'] == true;
+      });
     } catch (_) {
       // Backend still validates the configured maximum if settings cannot be loaded.
     }
@@ -158,6 +165,11 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   String? _date(DateTime? value) => value?.toIso8601String().split('T').first;
   DateTime? _parseDate(dynamic value) => value == null ? null : DateTime.tryParse(value.toString());
   String _coverKey(Map<String, dynamic> cover) => '${cover['tenantId']}:${cover['membershipId']}';
+  void _invalidateCovers() {
+    _covers.clear();
+    _chosenCovers.clear();
+    _coverLookupCompleted = false;
+  }
   String? _blank(String value) => value.trim().isEmpty ? null : value.trim();
   int get _discountCents => ((double.tryParse(_discount.text) ?? 0) * 100).round();
   int get _approvedCents => _claims.where((c) => c['status']?.toString() == 'APPROVED')
@@ -235,9 +247,14 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   Future<void> _lookup() async {
     if (_identity.text.trim().isEmpty) { setState(() => _error = 'Enter the deceased identity number to search for a membership benefit.'); return; }
     if (_dateOfDeath == null) { setState(() => _error = 'Enter the date of death to check historical membership benefits.'); return; }
+    // Discard old selections before searching a different deceased identity.
+    setState(() { _covers = []; _chosenCovers.clear(); _coverLookupCompleted = false; });
     await _run(() async {
       final result = await _service.lookupTombstoneCover(_identity.text.trim(), eventDate: _dateOfDeath);
-      if (mounted) setState(() { _covers = result; _chosenCovers.clear(); });
+      if (mounted) setState(() {
+        _covers = result;
+        _coverLookupCompleted = true;
+      });
     });
   }
 
@@ -445,6 +462,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
         if (installation) {
           _installationDate = selected;
         } else {
+          if (_dateOfDeath != selected) _invalidateCovers();
           _dateOfDeath = selected;
         }
       });
@@ -461,6 +479,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     );
     if (selection != null && mounted) {
       setState(() {
+        _invalidateCovers();
         _deceasedId.text = selection.id;
         _deceasedName.text = selection.fullName;
         if (selection.identityNumber.isNotEmpty) {
@@ -695,12 +714,14 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
           _adaptiveSections(
             left: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               _field(_deceasedName, 'Deceased full name', isRequired: true,
-                onChanged: (_) {
-                  if (_deceasedId.text.isNotEmpty) setState(() => _deceasedId.clear());
+                onChanged: (_) => setState(() {
+                  _deceasedId.clear();
+                  _invalidateCovers();
                 }),
               _field(_identity, 'Deceased identity number (if available)',
-                onChanged: (_) {
-                  if (_deceasedId.text.isNotEmpty) setState(() => _deceasedId.clear());
+                onChanged: (_) => setState(() {
+                  _deceasedId.clear();
+                  _invalidateCovers();
                 }),
             ]),
             right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -722,8 +743,22 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
           _adaptiveSections(
             left: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               OutlinedButton.icon(onPressed: _isEditable ? _lookup : null, icon: const Icon(Icons.search), label: const Text('Find eligible Tombstone benefits')),
-              if (_covers.isEmpty) const ListTile(title: Text('No Tombstone cover selected'),
-                subtitle: Text('You may continue with a customer-funded installation; no membership claim or grocery claim will be created.')),
+              if (_covers.isEmpty) ListTile(
+                title: Text(_coverLookupCompleted ? 'No eligible Tombstone cover found' : 'No Tombstone cover selected'),
+                subtitle: Text(_coverLookupCompleted
+                    ? 'No active membership with a positive TOMBSTONE entitlement was found in the enabled membership sources. '
+                      'Check the deceased identity, source membership and Tombstone payout configuration. '
+                      'If you expected membership funding, resolve this before continuing; otherwise you may proceed as family-funded.'
+                    : 'You may continue with a customer-funded installation; no membership claim or grocery claim will be created.')),
+              if (_coverLookupCompleted && _covers.isEmpty && !_externalLookupEnabled)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text(
+                    'External membership lookup is not enabled for this tenant (source mode: $_membershipSourceMode). '
+                    'Check the Funeral Tenant Integration settings and approved cross-tenant trust.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
             ]),
             right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               if (_covers.isNotEmpty) Text('Available membership covers', style: Theme.of(context).textTheme.titleMedium),
