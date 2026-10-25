@@ -1,5 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../../core/theme/mawa_design.dart';
+import '../../funeral/presentation/widgets/funeral_wizard_stepper.dart';
+import '../../../core/widgets/mawa_ui.dart';
 import '../../../core/files/download_bytes.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../funeral/presentation/widgets/family_representative_selector_dialog.dart';
@@ -487,21 +490,24 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     ));
   Widget _hint(String message) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(message, style: Theme.of(context).textTheme.bodyMedium));
 
-  // Keep the wizard fluid across the available width. On desktop, related
-  // sections sit side by side; narrow tablet/mobile viewports stack them.
-  Widget _adaptiveSections({required Widget left, required Widget right}) =>
+  // Use the same desktop breakpoint and proportions as the Funeral Service
+  // Request wizard. Package selection gets the main column, with installation
+  // details in a narrower sidebar. Other steps retain balanced columns.
+  Widget _adaptiveSections({required Widget left, required Widget right,
+      double? sidebarWidth}) =>
       LayoutBuilder(builder: (context, constraints) {
-        if (constraints.maxWidth < 1000) {
+        if (constraints.maxWidth < 980) {
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             left,
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             right,
           ]);
         }
         return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: left),
-          const SizedBox(width: 28),
-          Expanded(child: right),
+          const SizedBox(width: 20),
+          if (sidebarWidth == null) Expanded(child: right)
+          else SizedBox(width: sidebarWidth, child: right),
         ]);
       });
 
@@ -599,8 +605,11 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
       _hint('Select one tombstone package for the deceased, then add optional extras. Quantities are fixed at one installation.'),
       _adaptiveSections(
         left: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Select Tombstone Package', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
+          const MawaSectionHeader(
+            title: 'Select tombstone package',
+            description: 'Choose one package for the deceased, then confirm the engraving details and optional extras.',
+          ),
+          const SizedBox(height: 16),
           if (_catalogLoading) const LinearProgressIndicator(),
           if (_catalogError != null) Text(_catalogError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (!_catalogLoading && _tombstoneProducts.isEmpty)
@@ -649,8 +658,10 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
             ]),
           )),
         ]),
-        right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Installation Location', style: Theme.of(context).textTheme.titleLarge),
+        sidebarWidth: 380,
+        right: MawaSurface(padding: const EdgeInsets.all(20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Installation location & cost', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
           _locationDropdown(_salesArea, 'Installation area *', _installationAreas, storeCode: true),
           _locationDropdown(_cemetery, 'Cemetery (optional)', _cemeteryOptions),
@@ -671,7 +682,7 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
             trailing: Text(_money(extras.fold<int>(0, (sum, e) => sum + ((double.tryParse(e.amount.text) ?? 0) * 100).round())))),
           ListTile(title: const Text('Estimated installation total'),
             trailing: Text(_money((_totalCents - _discountCents).clamp(0, 999999999999).toInt()))),
-        ]),
+        ])),
       ),
     ]);
   }
@@ -828,40 +839,139 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     }
   }
 
+  Widget _buildBottomBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: MawaDesign.surface,
+        border: Border(top: BorderSide(color: MawaDesign.border)),
+        boxShadow: [BoxShadow(
+          color: Color(0x100F172A),
+          blurRadius: 18,
+          offset: Offset(0, -5),
+        )],
+      ),
+      child: SafeArea(
+        top: false,
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 600;
+          return Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 16 : 24,
+              vertical: 14,
+            ),
+            child: Row(children: [
+              if (_step > 0)
+                if (compact)
+                  IconButton(
+                    tooltip: 'Back',
+                    onPressed: _busy ? null : () => _goToStep(_step - 1),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _goToStep(_step - 1),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Back'),
+                  )
+              else
+                const SizedBox(width: 1),
+              const Spacer(),
+              if (_status == 'DRAFT' && _step != 4)
+                if (compact)
+                  IconButton(
+                    tooltip: 'Save draft',
+                    onPressed: _busy ? null : _save,
+                    icon: const Icon(Icons.save_outlined),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _save,
+                    icon: const Icon(Icons.save_outlined, size: 18),
+                    label: const Text('Save draft'),
+                  ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: _busy || (_step == 6 && _orderId == null)
+                    ? null
+                    : () {
+                        if (_step < 6) {
+                          _goToStep(_step + 1);
+                        } else {
+                          Navigator.of(context).maybePop();
+                        }
+                      },
+                iconAlignment: IconAlignment.end,
+                icon: Icon(_step == 6
+                    ? Icons.check_rounded : Icons.arrow_forward_rounded,
+                    size: 18),
+                label: Text(_step == 6 ? 'Done' : 'Continue'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size(compact ? 120 : 140, 48),
+                ),
+              ),
+            ]),
+          );
+        }),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_reference == null ? 'New Tombstone Installation Request' : 'Installation Request $_reference')),
+      backgroundColor: MawaDesign.page,
+      appBar: AppBar(
+        title: Text(_reference == null
+            ? 'Tombstone Installation Request Wizard'
+            : 'Installation Request $_reference'),
+        leading: IconButton(
+          tooltip: 'Close wizard',
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+      ),
       body: Column(children: [
-        SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.all(12),
-          child: Row(children: List.generate(_stepLabels.length, (index) => Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: ChoiceChip(label: Text('${index + 1}. ${_stepLabels[index]}'), selected: _step == index,
-              onSelected: (_) => _goToStep(index)),
-          )))),
-        if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer,
-          child: ListTile(title: Text(_error!), trailing: IconButton(onPressed: () => setState(() => _error = null), icon: const Icon(Icons.close)))),
+        // Same shared numbered stepper as the Funeral Service Request wizard.
+        FuneralWizardStepper(currentStep: _step, steps: _stepLabels),
+        if (_error != null)
+          Container(
+            width: double.infinity,
+            color: MawaDesign.redSoft,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(children: [
+              const Icon(Icons.error_outline_rounded, color: MawaDesign.red),
+              const SizedBox(width: 10),
+              Expanded(child: Text(_error!, style: const TextStyle(
+                color: MawaDesign.redDark, fontWeight: FontWeight.w600))),
+              IconButton(
+                tooltip: 'Dismiss',
+                icon: const Icon(Icons.close_rounded, size: 18),
+                color: MawaDesign.redDark,
+                onPressed: () => setState(() => _error = null),
+              ),
+            ]),
+          ),
         if (_busy) const LinearProgressIndicator(),
-        Expanded(child: LayoutBuilder(builder: (context, viewport) => SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: viewport.maxWidth >= 1000 ? 32 : (viewport.maxWidth >= 600 ? 24 : 16),
-            vertical: 20,
-          ),
-          child: SizedBox(
-            width: viewport.maxWidth - (viewport.maxWidth >= 1000 ? 64 : (viewport.maxWidth >= 600 ? 48 : 32)),
-            child: _content(),
-          ),
-        ))),
-        Padding(padding: const EdgeInsets.all(12), child: Row(children: [
-          OutlinedButton(onPressed: _step > 0 ? () => setState(() => _step--) : null, child: const Text('Back')),
-          const Spacer(),
-          if (_status == 'DRAFT' && _step != 4)
-            OutlinedButton(onPressed: _busy ? null : _save, child: const Text('Save draft')),
-          const SizedBox(width: 12),
-          FilledButton(onPressed: _step < 6 ? () => _goToStep(_step + 1) : null,
-            child: const Text('Next')),
-        ])),
+        Expanded(
+          child: LayoutBuilder(builder: (context, constraints) {
+            // Match the Funeral Service Request wizard: fill the viewport up
+            // to 1440px, and center the content on wider monitors.
+            final width = constraints.maxWidth > 1440
+                ? 1440.0 : constraints.maxWidth;
+            return Center(
+              child: SizedBox(
+                width: width,
+                height: constraints.maxHeight,
+                child: SingleChildScrollView(
+                  padding: MawaDesign.responsivePagePadding(width),
+                  child: _content(),
+                ),
+              ),
+            );
+          }),
+        ),
       ]),
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 }
