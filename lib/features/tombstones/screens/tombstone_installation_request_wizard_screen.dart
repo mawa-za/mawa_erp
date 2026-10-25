@@ -117,11 +117,13 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
   Future<void> _loadConfiguration() async {
     try {
       final config = await _service.installationRequestConfiguration();
-      if (mounted) setState(() {
-        _maxCovers = (config['maxSelectedCovers'] as num?)?.toInt() ?? 3;
-        _membershipSourceMode = config['membershipSourceMode']?.toString() ?? 'LOCAL_ONLY';
-        _externalLookupEnabled = config['externalLookupEnabled'] == true;
-      });
+      if (mounted) {
+        setState(() {
+          _maxCovers = (config['maxSelectedCovers'] as num?)?.toInt() ?? 3;
+          _membershipSourceMode = config['membershipSourceMode']?.toString() ?? 'LOCAL_ONLY';
+          _externalLookupEnabled = config['externalLookupEnabled'] == true;
+        });
+      }
     } catch (_) {
       // Backend still validates the configured maximum if settings cannot be loaded.
     }
