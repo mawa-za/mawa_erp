@@ -74,7 +74,7 @@ class _ClaimTypeConfigurationScreenState
               padding: const EdgeInsets.all(16),
               children: [
                 const Text(
-                  'Choose which claim types users may select when processing a claim.',
+                  'Choose which claim types users may create directly from the Claim Creation screen. This does not disable benefits used by Funeral Service or Tombstone Installation workflows.',
                 ),
                 const SizedBox(height: 12),
                 ..._rows.map(
