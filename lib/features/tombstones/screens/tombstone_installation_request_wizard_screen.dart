@@ -110,7 +110,9 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     _requestId = widget.requestId;
     _loadConfiguration();
     _loadStep4Options();
-    if (_requestId != null) _restore();
+    if (_requestId != null) {
+      _restore();
+    }
   }
   Future<void> _loadConfiguration() async {
     try {
@@ -251,10 +253,12 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
     setState(() { _covers = []; _chosenCovers.clear(); _coverLookupCompleted = false; });
     await _run(() async {
       final result = await _service.lookupTombstoneCover(_identity.text.trim(), eventDate: _dateOfDeath);
-      if (mounted) setState(() {
-        _covers = result;
-        _coverLookupCompleted = true;
-      });
+      if (mounted) {
+        setState(() {
+          _covers = result;
+          _coverLookupCompleted = true;
+        });
+      }
     });
   }
 
@@ -717,12 +721,12 @@ class _TombstoneInstallationRequestWizardScreenState extends State<TombstoneInst
                 onChanged: (_) => setState(() {
                   _deceasedId.clear();
                   _invalidateCovers();
-                }),
+                })),
               _field(_identity, 'Deceased identity number (if available)',
                 onChanged: (_) => setState(() {
                   _deceasedId.clear();
                   _invalidateCovers();
-                }),
+                })),
             ]),
             right: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               OutlinedButton.icon(onPressed: _isEditable ? _selectDeceasedPartner : null,
