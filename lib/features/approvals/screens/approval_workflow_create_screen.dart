@@ -61,6 +61,8 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'LAYBY_CANCELLATION',
     'LAYBY_REFUND',
     'MEMBERSHIP_DEPENDENT_CHANGE',
+    'MEMBERSHIP_DEPENDENT_DECEASED',
+    'MEMBERSHIP_DEPENDENT_CLAIM_ELIGIBILITY',
     'MEMBERSHIP_PLAN_CHANGE',
     'MEMBERSHIP_PREMIUM_EDIT',
     'MEMBERSHIP_PARTNER_IDENTITY_CORRECTION',
@@ -76,6 +78,10 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'SUPPLIER_ONBOARDING',
   ];
   
+  bool get _requiresManualApproval =>
+      _selectedApprovalType == 'MEMBERSHIP_DEPENDENT_DECEASED' ||
+      _selectedApprovalType == 'MEMBERSHIP_DEPENDENT_CLAIM_ELIGIBILITY';
+
   final List<String> _approverTypes = ['USER', 'ROLE', 'GROUP', 'MANAGER'];
 
   @override
@@ -275,7 +281,10 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
               items: _approvalTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
               onChanged: widget.workflow != null
                   ? null
-                  : (val) => setState(() => _selectedApprovalType = val!),
+                  : (val) => setState(() {
+                      _selectedApprovalType = val!;
+                      if (_requiresManualApproval) _autoApprove = false;
+                    }),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -301,10 +310,12 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
               contentPadding: EdgeInsets.zero,
               title: const Text('Auto approve'),
               subtitle: const Text(
-                'Create the approval request and audit actions, then approve it automatically without waiting for an approver.',
+                'Create the approval request and audit actions, then approve it automatically without waiting for an approver. Dedicated dependent actions always require manual approval.',
               ),
               value: _autoApprove,
-              onChanged: (value) => setState(() => _autoApprove = value),
+              onChanged: _requiresManualApproval
+                  ? null
+                  : (value) => setState(() => _autoApprove = value),
             ),
           ],
         ),

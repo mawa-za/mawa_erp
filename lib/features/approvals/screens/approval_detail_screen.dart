@@ -54,6 +54,8 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   List<ApprovalAction> _auditTrail = [];
   bool _isLoading = false;
   bool _isLoadingAudit = true;
+  bool _isLoadingApprovalDetails = true;
+  bool _approvalDetailsLoadFailed = false;
   final _commentController = TextEditingController();
   final Map<String, String> _userNameCache = {};
 
@@ -62,7 +64,68 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     super.initState();
     _approval = widget.approval;
     _resolveInitialNames();
+    _fetchApprovalDetails();
     _fetchAuditTrail();
+  }
+
+  /// The list item is only a navigation summary; always load the full approval
+  /// payload before making a decision, especially for membership date changes.
+  Future<void> _fetchApprovalDetails() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingApprovalDetails = true;
+        _approvalDetailsLoadFailed = false;
+      });
+    }
+    try {
+      final latest = await _service.getApprovalById(_approval.id);
+      if (!mounted) return;
+      setState(() {
+        _approval = latest;
+        _isLoadingApprovalDetails = false;
+      });
+      _resolveInitialNames();
+    } catch (error) {
+      debugPrint('Could not load full approval details: $error');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingApprovalDetails = false;
+        _approvalDetailsLoadFailed = true;
+      });
+    }
+  }
+
+  /// Reject placeholders and absent proposed dates. Old values may legitimately
+  /// be null for historical records, but their keys must still be present.
+  bool get _hasVerifiableMembershipDates {
+    if (_approval.approvalType != 'MEMBERSHIP_DATE_CHANGE') return true;
+    final payload = _decodedPayload;
+    if (payload is! Map) return false;
+    final current = payload['currentValues'];
+    final proposed = payload['proposedValues'];
+    if (current is! Map || proposed is! Map) return false;
+    if (!current.containsKey('startDate') ||
+        !current.containsKey('effectiveDate') ||
+        !proposed.containsKey('startDate') ||
+        !proposed.containsKey('effectiveDate')) return false;
+    bool isProvidedDate(dynamic value) {
+      if (value == null) return false;
+      if (value is List && value.length >= 3) {
+        return value.take(3).every((part) => part is int);
+      }
+      if (value is! String) return false;
+      final text = value.trim();
+      return RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text) &&
+          DateTime.tryParse(text) != null;
+    }
+    final oldStart = current['startDate'];
+    final oldEffective = current['effectiveDate'];
+    final newStart = proposed['startDate'];
+    final newEffective = proposed['effectiveDate'];
+    return isProvidedDate(newStart) &&
+        (oldStart == null || isProvidedDate(oldStart)) &&
+        (oldEffective == null || isProvidedDate(oldEffective)) &&
+        (newEffective == null || isProvidedDate(newEffective));
   }
 
   @override
@@ -223,6 +286,14 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       ).format(cents / 100);
 
   Future<void> _takeAction(String action) async {
+    if (action.toUpperCase() == 'APPROVE' &&
+        (_isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
+            !_hasVerifiableMembershipDates)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Approval is blocked until the original membership dates can be verified.'),
+      ));
+      return;
+    }
     int? arrearsMonths;
     if (action.toUpperCase() == 'APPROVE' &&
         _isClaimApprovalType(_approval.approvalType)) {
@@ -354,6 +425,15 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                         _buildHeroHeader(),
                         const SizedBox(height: 16),
                         _buildIdentificationSheet(),
+                        if (_isLoadingApprovalDetails)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 12),
+                            child: LinearProgressIndicator(),
+                          ),
+                        if (_approval.approvalType == 'MEMBERSHIP_DATE_CHANGE' &&
+                            !_isLoadingApprovalDetails &&
+                            (_approvalDetailsLoadFailed || !_hasVerifiableMembershipDates))
+                          _buildMissingDateWarning(),
                         if (_hasRequestDetails) ...[
                           const SizedBox(height: 16),
                           _buildRequestDetailsSection(),
@@ -372,6 +452,36 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildMissingDateWarning() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFF9A3412)),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Membership date comparison is unavailable or incomplete. '
+              'Approval is disabled until the original old and new dates are loaded.',
+              style: TextStyle(color: Color(0xFF9A3412), fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: _fetchApprovalDetails,
+            child: const Text('RETRY'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -967,6 +1077,13 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   }
 
   String _comparisonText(String key, dynamic value) {
+    // Older Jackson payloads can encode LocalDate as [year, month, day].
+    if (key.toLowerCase().endsWith('date') &&
+        value is List && value.length >= 3 &&
+        value.take(3).every((part) => part is int)) {
+      final iso = '${value[0]}-${value[1].toString().padLeft(2, '0')}-${value[2].toString().padLeft(2, '0')}';
+      return _formatPayloadValue(key, iso);
+    }
     if (value is Map || value is List) {
       try {
         return const JsonEncoder.withIndent('  ').convert(value);
@@ -1156,7 +1273,9 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: () => _takeAction('APPROVE'),
+                  onPressed: (_isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
+                          !_hasVerifiableMembershipDates)
+                      ? null : () => _takeAction('APPROVE'),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF10B981),
                     padding: const EdgeInsets.symmetric(vertical: 16),
