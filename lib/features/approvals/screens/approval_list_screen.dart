@@ -259,6 +259,8 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
       case 'SUPPLIER_BANKING_DETAILS':
         return Icons.account_balance_outlined;
       case 'MEMBERSHIP_DEPENDENT_CHANGE':
+      case 'MEMBERSHIP_DEPENDENT_DECEASED':
+      case 'MEMBERSHIP_DEPENDENT_CLAIM_ELIGIBILITY':
         return Icons.family_restroom_outlined;
       case 'MEMBERSHIP_PARTNER_IDENTITY_CORRECTION':
         return Icons.badge_outlined;
