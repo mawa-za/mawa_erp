@@ -90,13 +90,13 @@ class FeatureGroupRegistry {
       iconKey: 'tombstone',
       displayOrder: 30,
       childWorkcenterIds: [
-        'tombstone-orders', 'tombstone-laybys',
+        'tombstone-installation-requests', 'tombstone-orders', 'tombstone-laybys',
         'tombstone-site-assessments', 'tombstone-design-approvals',
         'tombstone-production-jobs', 'tombstone-installation-planning',
         'tombstone-installation-calendar', 'tombstone-installation-teams',
         'tombstone-rework-jobs', 'tombstone-reports',
       ],
-      aliases: ['tombstone-management', 'tombstones'],
+      aliases: ['tombstone-management', 'tombstones', 'tombstone-installation-requests'],
     ),
     FeatureGroupDefinition(
       id: 'legal-practice',
@@ -378,6 +378,12 @@ class FeatureGroupRegistry {
   /// same workcenter in more than one group.
   static String? canonicalOwnerForWorkcenter(String workcenterId) {
     final id = normalize(workcenterId);
+    // Tombstone workcentres belong under Tombstone Operations, including
+    // Tombstone Reports (which would otherwise match the generic reports rule).
+    // Keep each child as its own route inside the existing group.
+    if (id.startsWith('TOMBSTONE_')) {
+      return 'tombstone-operations';
+    }
     if (id.startsWith('APPROVAL_') && id != 'APPROVAL_WORKFLOW') {
       return 'approvals';
     }
@@ -492,5 +498,8 @@ class FeatureGroupRegistry {
     }.contains(normalize(workcenterId));
   }
 
+  /// Keep Tombstone Operations and other workcentre cards inside their
+  /// feature-group landing pages. A card is an independent workcentre once
+  /// opened, not a top-level home card.
   static bool isStandaloneCard(String workcenterId, [String? description]) => false;
 }

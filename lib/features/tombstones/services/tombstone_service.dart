@@ -6,6 +6,50 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 class TombstoneService {
   final ApiClient _api = ApiClient();
 
+  static const _requestPath = '/v2/tombstones/installation-requests';
+
+  Future<Map<String, dynamic>> installationRequestConfiguration() async =>
+      _map(await _api.get('$_requestPath/configuration'));
+
+  Future<List<Map<String, dynamic>>> installationRequests() async =>
+      _list(await _api.get(_requestPath));
+
+  Future<Map<String, dynamic>> installationRequest(String id) async =>
+      _map(await _api.get('$_requestPath/$id'));
+
+  Future<List<Map<String, dynamic>>> lookupTombstoneCover(String identityNumber, {DateTime? eventDate}) async =>
+      _list(await _api.get('$_requestPath/cover', queryParameters: {
+        'identityNumber': identityNumber,
+        if (eventDate != null) 'eventDate': eventDate.toIso8601String().split('T').first,
+      }));
+
+  Future<Map<String, dynamic>> createInstallationRequest(Map<String, dynamic> body) async =>
+      _map(await _api.post(_requestPath, body: body));
+
+  Future<Map<String, dynamic>> updateInstallationRequest(String id, Map<String, dynamic> body) async =>
+      _map(await _api.put('$_requestPath/$id', body: body));
+
+  Future<Map<String, dynamic>> initiateInstallationClaims(String id) async =>
+      _map(await _api.post('$_requestPath/$id/claims'));
+
+  Future<List<int>> tombstoneClaimForm(String id, String claimId) async {
+    final response = await _api.get('$_requestPath/$id/claims/$claimId/form', accept: 'application/pdf');
+    if (response.statusCode != 200) throw Exception('Unable to download claim form: ${response.body}');
+    return response.bodyBytes;
+  }
+
+  Future<Map<String, dynamic>> submitInstallationClaim(String id, String claimId) async =>
+      _map(await _api.post('$_requestPath/$id/claims/$claimId/submit'));
+
+  Future<Map<String, dynamic>> applyInstallationFunding(String id) async =>
+      _map(await _api.post('$_requestPath/$id/funding'));
+
+  Future<Map<String, dynamic>> generateInstallationOrder(String id) async =>
+      _map(await _api.post('$_requestPath/$id/generate'));
+
+  Future<Map<String, dynamic>> cancelInstallationRequest(String id, String reason) async =>
+      _map(await _api.post('$_requestPath/$id/cancel', body: {'reason': reason}));
+
   Future<TombstoneDashboard> dashboard() async {
     final response = await _api.get('/v2/tombstones/dashboard');
     return TombstoneDashboard(_map(response));
