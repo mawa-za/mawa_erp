@@ -112,7 +112,8 @@ class MembershipChange {
   bool get isTransfer => changeType == 'TRANSFER';
   bool get isPlanChange => changeType == 'PLAN_CHANGE';
   bool get isDependentChange => const {
-    'ADD_DEPENDENT', 'REMOVE_DEPENDENT', 'REPLACE_DEPENDENT'
+    'ADD_DEPENDENT', 'REMOVE_DEPENDENT', 'REPLACE_DEPENDENT',
+    'MARK_DEPENDENT_DECEASED', 'OVERRIDE_DEPENDENT_WAITING_PERIOD'
   }.contains(changeType);
 
   String get displayTitle {
@@ -122,6 +123,8 @@ class MembershipChange {
       case 'ADD_DEPENDENT': return 'Add Dependent';
       case 'REMOVE_DEPENDENT': return 'Remove Dependent';
       case 'REPLACE_DEPENDENT': return 'Replace Dependent';
+      case 'MARK_DEPENDENT_DECEASED': return 'Mark Dependent Deceased';
+      case 'OVERRIDE_DEPENDENT_WAITING_PERIOD': return 'Make Dependent Claim Eligible';
       case 'MERGE': return 'Membership Merge';
       case 'DATE_CHANGE': return 'Membership Date Change';
       default: return changeType.replaceAll('_', ' ');
@@ -135,6 +138,8 @@ class MembershipChange {
       case 'ADD_DEPENDENT': return '$newDependentName (${newDependentType.replaceAll('_', ' ')})';
       case 'REMOVE_DEPENDENT': return oldDependentName;
       case 'REPLACE_DEPENDENT': return '$oldDependentName → $newDependentName';
+      case 'MARK_DEPENDENT_DECEASED': return '$oldDependentName • Date of death: ${effectiveDate ?? '-'}';
+      case 'OVERRIDE_DEPENDENT_WAITING_PERIOD': return '$oldDependentName • Eligible from: ${effectiveDate ?? '-'}';
       case 'MERGE': return '$sourceMembershipId → $membershipId';
       case 'DATE_CHANGE': return 'Start ${oldStartDate ?? '-'} → ${newStartDate ?? '-'}; effective ${oldMembershipEffectiveDate ?? '-'} → ${newMembershipEffectiveDate ?? '-'}';
       default: return '';

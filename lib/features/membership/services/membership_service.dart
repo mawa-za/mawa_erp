@@ -194,6 +194,30 @@ class MembershipService {
     throw AppException(_errorMessage(response.body, 'Failed to add dependent: ${response.statusCode}'));
   }
 
+  Future<MembershipChange> requestDependentDeceased(
+      String membershipId, String dependentId, String deceasedDate, String reason) async {
+    final response = await ApiClient().post(
+      '/v2/membership/$membershipId/dependents/$dependentId/deceased',
+      body: {'deceasedDate': deceasedDate, 'reason': reason},
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw AppException(_errorMessage(response.body, 'Failed to request historic death correction'));
+  }
+
+  Future<MembershipChange> requestDependentClaimEligibility(
+      String membershipId, String dependentId, String eligibleFrom, String reason) async {
+    final response = await ApiClient().post(
+      '/v2/membership/$membershipId/dependents/$dependentId/claim-eligibility',
+      body: {'eligibleFrom': eligibleFrom, 'reason': reason},
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return MembershipChange.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw AppException(_errorMessage(response.body, 'Failed to request dependent claim eligibility'));
+  }
+
   Future<MembershipChange> replaceDependent(
       String membershipId, String dependentId, Map<String, dynamic> payload) async {
     final response = await ApiClient().put(

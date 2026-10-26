@@ -403,6 +403,10 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
         return Icons.person_remove_outlined;
       case 'REPLACE_DEPENDENT':
         return Icons.find_replace_outlined;
+      case 'MARK_DEPENDENT_DECEASED':
+        return Icons.event_busy_outlined;
+      case 'OVERRIDE_DEPENDENT_WAITING_PERIOD':
+        return Icons.verified_user_outlined;
       case 'MERGE':
         return Icons.merge_outlined;
       case 'DATE_CHANGE':

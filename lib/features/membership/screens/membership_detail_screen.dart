@@ -59,17 +59,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
 
   bool get _isLapsedMembership => _normalizedMembershipStatus == 'LAPSED';
   bool get _isMergedMembership => _normalizedMembershipStatus == 'MERGED';
-  int get _dependentsCountedTowardCapacity => _dependents.where((dependent) {
-        if (dependent.membershipStatus == 'ACTIVE') return true;
-        if (dependent.membershipStatus != 'DECEASED') return false;
-        return _claims.any((claim) {
-          final finalised = const {
-            'APPROVED', 'PAYMENT_PENDING', 'PAYMENT_PROCESSING',
-            'PAYMENT_FAILED', 'PAID'
-          }.contains(claim.status.trim().toUpperCase());
-          return finalised && claim.deceasedPartnerId == dependent.dependentPartnerId;
-        });
-      }).length;
+  int get _dependentsCountedTowardCapacity => _dependents.where((dependent) =>
+      dependent.membershipStatus == 'ACTIVE' || dependent.membershipStatus == 'DECEASED').length;
   int get _remainingDependentCapacity =>
       (_plan?.maxDependents ?? 0) <= 0
           ? -1
@@ -190,6 +181,109 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       ),
     );
     if (result == true) _fetchData();
+  }
+
+  Future<void> _requestHistoricDependentDeceased(Dependent dependent) async {
+    var deathDate = DateTime.now();
+    final reasonController = TextEditingController();
+    final displayName = _dependentPartners[dependent.dependentPartnerId]?.fullName ?? dependent.fullName;
+    final membershipStart = DateTime.tryParse(_detail?.startDate ?? '') ?? DateTime(1900);
+    final firstDate = membershipStart.isAfter(DateTime.now()) ? DateTime.now() : membershipStart;
+    if (deathDate.isBefore(firstDate)) deathDate = firstDate;
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Mark Historic Dependent Deceased'),
+        content: SizedBox(width: 490, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Record the historical death of $displayName on this membership. The action requires approval and will not create a claim.'),
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Date of death *'),
+            subtitle: Text(DateFormat('dd MMM yyyy').format(deathDate)),
+            trailing: const Icon(Icons.calendar_month_outlined),
+            onTap: () async {
+              final chosen = await showDatePicker(context: context, initialDate: deathDate,
+                firstDate: firstDate, lastDate: DateTime.now());
+              if (chosen != null) setDialogState(() => deathDate = chosen);
+            },
+          ),
+          TextField(controller: reasonController, maxLines: 3,
+            onChanged: (_) => setDialogState(() {}),
+            decoration: const InputDecoration(labelText: 'Reason / supporting evidence *', border: OutlineInputBorder())),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          FilledButton(onPressed: reasonController.text.trim().isEmpty ? null : () => Navigator.pop(context, true),
+            child: const Text('SUBMIT FOR APPROVAL')),
+        ],
+      )),
+    );
+    if (approved != true) { reasonController.dispose(); return; }
+    try {
+      await MembershipService().requestDependentDeceased(widget.membershipId, dependent.id,
+        DateFormat('yyyy-MM-dd').format(deathDate), reasonController.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Historic deceased status submitted for approval')));
+      _fetchData();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red));
+    } finally { reasonController.dispose(); }
+  }
+
+  Future<void> _requestDependentClaimEligibility(Dependent dependent) async {
+    final reasonController = TextEditingController();
+    var eligibleFrom = DateTime.now();
+    final parsedStart = DateTime.tryParse(_detail?.startDate ?? '') ?? DateTime(1900);
+    final membershipStart = parsedStart.isAfter(DateTime.now()) ? DateTime.now() : parsedStart;
+    final displayName = _dependentPartners[dependent.dependentPartnerId]?.fullName ?? dependent.fullName;
+    final approved = await showDialog<bool>(context: context,
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Request Claim Eligibility'),
+        content: SizedBox(width: 490, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Request an approval to waive the dependent waiting period for $displayName.'),
+          const SizedBox(height: 10),
+          Text('Current eligible-from date: ${_formatDependentDate(dependent.effectiveFrom)}. '
+            'Select the requested eligibility date. Backdating requires explicit approval. '
+            'Membership waiting periods and other claim checks continue to apply.'),
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Requested eligible-from date *'),
+            subtitle: Text(DateFormat('dd MMM yyyy').format(eligibleFrom)),
+            trailing: const Icon(Icons.event_available_outlined),
+            onTap: () async {
+              final chosen = await showDatePicker(context: context,
+                initialDate: eligibleFrom, firstDate: membershipStart,
+                lastDate: DateTime.now());
+              if (chosen != null) setDialogState(() => eligibleFrom = chosen);
+            },
+          ),
+          const SizedBox(height: 14),
+          TextField(controller: reasonController, maxLines: 3, onChanged: (_) => setDialogState(() {}),
+            decoration: const InputDecoration(labelText: 'Reason for waiting-period override *', border: OutlineInputBorder())),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          FilledButton(onPressed: reasonController.text.trim().isEmpty ? null : () => Navigator.pop(context, true),
+            child: const Text('SUBMIT FOR APPROVAL')),
+        ],
+      )),
+    );
+    if (approved != true) { reasonController.dispose(); return; }
+    try {
+      await MembershipService().requestDependentClaimEligibility(widget.membershipId, dependent.id,
+        DateFormat('yyyy-MM-dd').format(eligibleFrom), reasonController.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Dependent claim eligibility submitted for approval')));
+      _fetchData();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(friendlyErrorMessage(e)), backgroundColor: Colors.red));
+    } finally { reasonController.dispose(); }
   }
 
   Future<void> _removeDependent(Dependent dependent) async {
@@ -1918,6 +2012,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         final hasSaId = displayIdType.trim().toUpperCase() == 'SA-ID' && displayId != 'N/A';
         final deceasedOnCurrentMembership = dependent.membershipStatus == 'DECEASED';
         final isDeceased = deceasedOnCurrentMembership;
+        final awaitingDependentEligibility = dependent.membershipStatus == 'ACTIVE' &&
+            (DateTime.tryParse(dependent.effectiveFrom ?? '')?.isAfter(DateTime.now()) ?? false);
         final canProcessClaim = canProcessMembershipClaim(
           currentMembershipId: widget.membershipId,
           deceasedPartnerId: dependent.dependentPartnerId,
@@ -1975,6 +2071,18 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                               label: const Text('REMOVE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                             ),
                           ],
+                          if (!isDeceased && !_isLapsedMembership && !_isMergedMembership)
+                            TextButton.icon(
+                              onPressed: () => _requestHistoricDependentDeceased(dependent),
+                              icon: const Icon(Icons.event_busy_outlined, size: 16),
+                              label: const Text('MARK DECEASED', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            ),
+                          if (awaitingDependentEligibility && !_isLapsedMembership && !_isMergedMembership)
+                            TextButton.icon(
+                              onPressed: () => _requestDependentClaimEligibility(dependent),
+                              icon: const Icon(Icons.verified_user_outlined, size: 16),
+                              label: const Text('MAKE CLAIM ELIGIBLE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            ),
                           if (canProcessClaim && !_isLapsedMembership)
                             TextButton(
                               onPressed: () async {

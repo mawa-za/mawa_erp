@@ -47,6 +47,7 @@ class ApprovalItemNavigator {
       case 'MEMBERSHIP_PREMIUM_EDIT':
       case 'MEMBERSHIP_PARTNER_IDENTITY_CORRECTION':
       case 'MEMBERSHIP_DEPENDENT_CHANGE':
+      case 'MEMBERSHIP_DATE_CHANGE':
       case 'PREMIUM_PAYMENT_DELETION':
         final membershipId = _payloadField(approval.payloadJson, 'membershipId');
         return membershipId == null ? null : MembershipDetailScreen(membershipId: membershipId);
