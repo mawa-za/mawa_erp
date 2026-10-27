@@ -163,7 +163,7 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
               approval.title,
               approval.description,
               approval.referenceNo,
-              approval.requesterId,
+              approval.requesterName,
               approval.approvalType,
             ].join(' ').toLowerCase();
             return haystack.contains(query);
@@ -210,7 +210,7 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              '${approval.description}\n${approval.referenceNo} • ${approval.requesterId}',
+              '${approval.description}\n${approval.referenceNo} • ${approval.requesterName}',
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/attachment_section.dart';
+import '../../approvals/widgets/approval_history_section.dart';
 import '../models/cashup.dart';
 import '../services/cashup_service.dart';
 import '../../settings/services/pos_printing_service.dart';
@@ -485,6 +486,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSummaryHeader(cashup, colorScheme),
+          ApprovalHistorySection(referenceId: widget.cashupId),
           const SizedBox(height: 16),
           _buildInfoSection(cashup),
           const SizedBox(height: 16),

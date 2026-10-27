@@ -56,6 +56,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   bool _isLoadingAudit = true;
   bool _isLoadingApprovalDetails = true;
   bool _approvalDetailsLoadFailed = false;
+  String? _currentUserId;
   final _commentController = TextEditingController();
   final Map<String, String> _userNameCache = {};
 
@@ -64,9 +65,19 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     super.initState();
     _approval = widget.approval;
     _resolveInitialNames();
+    _loadCurrentUser();
     _fetchApprovalDetails();
     _fetchAuditTrail();
   }
+
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _currentUserId = prefs.getString('userId'));
+  }
+
+  bool get _isOwnRequest => !_approval.canSelfApprove &&
+      _currentUserId != null && _currentUserId!.isNotEmpty &&
+      _currentUserId == _approval.requesterId;
 
   /// The list item is only a navigation summary; always load the full approval
   /// payload before making a decision, especially for membership date changes.
@@ -153,17 +164,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     } catch (e) {
       debugPrint('Error resolving user $userId: $e');
     }
-  }
-
-  String _getDisplayName(String id) {
-    if (_userNameCache.containsKey(id)) {
-      return _userNameCache[id]!;
-    }
-    // If it's a UUID, show a shortened version while loading
-    if (id.length > 20 && id.contains('-')) {
-      return 'ID: ${id.split('-').first}...';
-    }
-    return id;
   }
 
   Future<void> _fetchAuditTrail() async {
@@ -286,6 +286,12 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       ).format(cents / 100);
 
   Future<void> _takeAction(String action) async {
+    if (_isOwnRequest && (action == 'APPROVE' || action == 'REJECT')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('A separate approver must decide this request.'),
+      ));
+      return;
+    }
     if (action.toUpperCase() == 'APPROVE' &&
         (_isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
             !_hasVerifiableMembershipDates)) {
@@ -600,11 +606,13 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                 ? _approval.referenceNo
                 : _approval.referenceId,
           ),
-          _buildInfoRow('Requester', _getDisplayName(_approval.requesterId)),
+          _buildInfoRow('Requester', _userNameCache[_approval.requesterId] ?? _approval.requesterName),
           _buildInfoRow('Workflow Step', 'Step ${_approval.currentStepNo}'),
-          _buildInfoRow('Created', _formatShortDate(_approval.createdAt)),
+          _buildInfoRow('Submitted at', _formatShortDate(_approval.createdAt)),
+          if (_approval.finalActionAt != null)
+            _buildInfoRow('Final decision at', _formatShortDate(_approval.finalActionAt!)),
           if (_approval.finalActionBy != null)
-            _buildInfoRow('Processed By', _getDisplayName(_approval.finalActionBy!)),
+            _buildInfoRow('Processed By', _userNameCache[_approval.finalActionBy!] ?? _approval.finalActionByName ?? 'Unknown user'),
           const Divider(height: 24, color: Color(0xFFF1F5F9)),
           SizedBox(
             width: double.infinity,
@@ -1205,7 +1213,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text('by ${_getDisplayName(action.actionBy)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text('by ${_userNameCache[action.actionBy] ?? action.actionByName}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500)),
                   if (action.comments != null && action.comments!.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(top: 10),
@@ -1240,6 +1248,11 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_isOwnRequest) const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Text('You submitted this request. Another approver must review it.',
+              style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w600)),
+          ),
           const Text('DECISION HUB', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFF20D1A), fontSize: 11, letterSpacing: 1.5)),
           const SizedBox(height: 16),
           TextField(
@@ -1260,7 +1273,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _takeAction('REJECT'),
+                  onPressed: _isOwnRequest ? null : () => _takeAction('REJECT'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFEF4444),
                     side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
@@ -1273,7 +1286,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: (_isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
+                  onPressed: (_isOwnRequest || _isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
                           !_hasVerifiableMembershipDates)
                       ? null : () => _takeAction('APPROVE'),
                   style: FilledButton.styleFrom(

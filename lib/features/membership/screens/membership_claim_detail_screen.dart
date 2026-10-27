@@ -14,6 +14,7 @@ import '../../../core/widgets/attachment_section.dart';
 import '../../../core/files/download_bytes.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
+import '../../approvals/widgets/approval_history_section.dart';
 import '../../payments/screens/payment_request_detail_screen.dart';
 import '../../tombstones/screens/tombstone_order_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -271,6 +272,7 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildStatusBanner(claim, colorScheme),
+          ApprovalHistorySection(referenceId: claim.id),
           const SizedBox(height: 24),
           _buildAmountCard(claim, colorScheme),
           const SizedBox(height: 20),

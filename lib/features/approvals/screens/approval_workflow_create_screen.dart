@@ -30,6 +30,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   bool _isSaving = false;
   bool _active = true;
   bool _autoApprove = false;
+  bool _allowRequesterApproval = false;
   List<Role> _roles = const [];
   List<User> _users = const [];
   List<Map<String, dynamic>> _employments = const [];
@@ -97,6 +98,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
       _steps = List.from(widget.workflow!.steps);
       _active = widget.workflow!.active;
       _autoApprove = widget.workflow!.autoApprove;
+      _allowRequesterApproval = widget.workflow!.allowRequesterApproval;
     }
     _loadLeaveApproverOptions();
   }
@@ -185,6 +187,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
         description: _descriptionController.text.trim(),
         active: _active,
         autoApprove: _autoApprove,
+        allowRequesterApproval: _allowRequesterApproval,
         steps: _steps,
       );
 
@@ -305,6 +308,13 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
               subtitle: const Text('Requests use this workflow when it is active.'),
               value: _active,
               onChanged: (value) => setState(() => _active = value),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Allow requesters to approve their own requests'),
+              subtitle: const Text('Off by default. Enable only where separation of duties is not required. Applies to manual approval and rejection.'),
+              value: _allowRequesterApproval,
+              onChanged: (value) => setState(() => _allowRequesterApproval = value),
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
