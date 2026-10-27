@@ -285,6 +285,23 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         decimalDigits: 2,
       ).format(cents / 100);
 
+  /// A few older approval rows have no createdAt. The membership change
+  /// submission timestamp is still stored inside the immutable request detail.
+  /// Preserve the distinction between approval-row creation and request time.
+  dynamic get _displayRequestTime {
+    if (AppDateUtils.parse(_approval.createdAt) != null) {
+      return _approval.createdAt;
+    }
+    final payload = _decodedPayload;
+    if (payload is Map && payload['requestSummary'] is Map) {
+      return (payload['requestSummary'] as Map)['requestedAt'];
+    }
+    return null;
+  }
+
+  bool get _hasApprovalCreationTime =>
+      AppDateUtils.parse(_approval.createdAt) != null;
+
   Future<void> _takeAction(String action) async {
     if (_isOwnRequest && (action == 'APPROVE' || action == 'REJECT')) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -513,7 +530,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
             children: [
               _buildModernBadge(_approval.status, statusColor),
               Text(
-                _formatFullDate(_approval.createdAt),
+                AppDateUtils.displayDateTimePattern(_displayRequestTime, 'EEEE, d MMMM yyyy'),
                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
             ],
@@ -608,7 +625,10 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
           ),
           _buildInfoRow('Requester', _userNameCache[_approval.requesterId] ?? _approval.requesterName),
           _buildInfoRow('Workflow Step', 'Step ${_approval.currentStepNo}'),
-          _buildInfoRow('Submitted at', _formatShortDate(_approval.createdAt)),
+          _buildInfoRow(
+            _hasApprovalCreationTime ? 'Submitted at' : 'Requested at',
+            AppDateUtils.displayDateTimePattern(_displayRequestTime, 'dd MMM yyyy, HH:mm'),
+          ),
           if (_approval.finalActionAt != null)
             _buildInfoRow('Final decision at', _formatShortDate(_approval.finalActionAt!)),
           if (_approval.finalActionBy != null)
@@ -700,7 +720,9 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   Widget _buildPayloadValue(dynamic value, {required int level, String? fieldName}) {
     if (value is Map) {
       final entries = value.entries
-          .where((entry) => entry.key.toString() != 'attachmentObjectIds')
+          .where((entry) => entry.key.toString() != 'attachmentObjectIds'
+              // Already displayed in the header and identification section.
+              && !(level == 0 && entry.key.toString() == 'approvalSummary'))
           .toList();
       if (entries.isEmpty) return const Text('No additional request details were supplied.');
 
@@ -1104,6 +1126,9 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
   String _fieldLabel(String key) {
     final withSpaces = key
+        // Amounts stored in cents are converted to rand for display.
+        .replaceAll('Cents', '')
+        .replaceAll('_cents', '')
         .replaceAll('_', ' ')
         .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (match) => '${match.group(1)} ${match.group(2)}');
     return withSpaces
@@ -1120,9 +1145,22 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     if (value is bool) return value ? 'Yes' : 'No';
     final text = value.toString();
     final normalizedKey = key?.toLowerCase() ?? '';
-    if (normalizedKey.endsWith('cents')) {
+    // Use the resolved requester's identity rather than echoing a database ID.
+    if (normalizedKey == 'requestedby' && text == _approval.requesterId) {
+      return _userNameCache[_approval.requesterId] ?? _approval.requesterName;
+    }
+    // Financial field names also include suffixes such as BeforeNewStart.
+    if (normalizedKey.contains('cents')) {
       final cents = num.tryParse(text);
-      if (cents != null) return NumberFormat.currency(symbol: 'R ').format(cents / 100);
+      if (cents != null) return _money(cents.round());
+    }
+    // Periods are persisted as YYYYMM, never display them as opaque numbers.
+    if (normalizedKey == 'paiduptoperiod' && RegExp(r'^\d{6}$').hasMatch(text)) {
+      final year = int.parse(text.substring(0, 4));
+      final month = int.parse(text.substring(4, 6));
+      if (month >= 1 && month <= 12) {
+        return DateFormat('MMMM yyyy').format(DateTime.utc(year, month));
+      }
     }
     if (RegExp(r'^\d{4}-\d{2}-\d{2}(T.*)?$').hasMatch(text)) {
       try {
