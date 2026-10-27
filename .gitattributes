@@ -1,0 +1,4 @@
+# Preserve Linux-compatible line endings for Cloud Build and Cloud Run scripts
+# regardless of Git core.autocrlf on Windows developer machines.
+*.sh text eol=lf
+*.bash text eol=lf
