@@ -26,6 +26,7 @@ import 'capture_premium_payment_dialog.dart';
 import 'capture_manual_premium_receipt_dialog.dart';
 import 'transfer_premium_payment_dialog.dart';
 import '../widgets/membership_change_section.dart';
+import '../../approvals/widgets/approval_history_section.dart';
 import '../utils/membership_claim_eligibility.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -528,6 +529,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 12),
           _buildMembershipInfoCard(detail, colorScheme),
           const SizedBox(height: 32),
+          ApprovalHistorySection(referenceId: widget.membershipId, objectType: 'MEMBERSHIP'),
           _buildSectionHeader(Icons.swap_horiz, 'MEMBERSHIP CHANGES'),
           const SizedBox(height: 12),
           MembershipChangeSection(membership: detail, onChanged: _fetchData, readOnly: _isLapsedMembership || _isMergedMembership),

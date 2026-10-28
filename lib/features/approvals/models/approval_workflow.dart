@@ -97,6 +97,7 @@ class ApprovalWorkflow {
   final double? maxAmount;
   final bool active;
   final bool autoApprove;
+  final bool allowRequesterApproval;
   final List<ApprovalStep> steps;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -110,6 +111,7 @@ class ApprovalWorkflow {
     this.maxAmount,
     this.active = true,
     this.autoApprove = false,
+    this.allowRequesterApproval = false,
     required this.steps,
     this.createdAt,
     this.updatedAt,
@@ -146,6 +148,7 @@ class ApprovalWorkflow {
       maxAmount: (json['maxAmount'] as num?)?.toDouble(),
       active: json['active'] == true,
       autoApprove: json['autoApprove'] == true,
+      allowRequesterApproval: json['allowRequesterApproval'] == true,
       steps: (json['steps'] as List? ?? [])
           .map((step) => ApprovalStep.fromJson(Map<String, dynamic>.from(step)))
           .toList(),
@@ -164,6 +167,7 @@ class ApprovalWorkflow {
       if (maxAmount != null) 'maxAmount': maxAmount,
       'active': active,
       'autoApprove': autoApprove,
+      'allowRequesterApproval': allowRequesterApproval,
       'steps': steps.map((step) => step.toJson()).toList(),
     };
   }

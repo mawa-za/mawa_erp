@@ -36,9 +36,35 @@ class AppDateUtils {
     'Africa/Maputo': 2,
   };
 
+  /// Java APIs may encode instants as epoch milliseconds (number or string),
+  /// while older endpoints also use epoch seconds. Never interpret a business
+  /// number such as a YYYYMM premium period as a date.
+  static DateTime? _parseEpoch(String value) {
+    final digits = value.startsWith('-') ? value.substring(1) : value;
+    if (!RegExp(r'^\d+$').hasMatch(digits)) return null;
+    try {
+      if (digits.length == 13) {
+        return DateTime.fromMillisecondsSinceEpoch(int.parse(value), isUtc: true);
+      }
+      if (digits.length == 10) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          int.parse(value) * 1000,
+          isUtc: true,
+        );
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
   static DateTime? parse(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
+    if (value is num) {
+      if (!value.isFinite || value != value.toInt()) return null;
+      return _parseEpoch(value.toInt().toString());
+    }
 
     if (value is List && value.length >= 3) {
       int part(int index, [int fallback = 0]) {
@@ -94,8 +120,20 @@ class AppDateUtils {
 
     final text = value.toString().trim();
     if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    final epoch = _parseEpoch(text);
+    if (epoch != null) return epoch;
+
+    // A LocalDate is a calendar date, not an instant with an offset. Dart
+    // cannot parse YYYY-MM-DDZ (the previous implementation appended Z to
+    // every value). Use midnight UTC to preserve the supplied calendar date.
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) {
+      final date = DateTime.tryParse('${text}T00:00:00Z');
+      return date != null && _apiDate.format(date) == text ? date : null;
+    }
+
     final iso = text.replaceFirst(' ', 'T');
-    final hasZone = RegExp(r'(Z|[+-]\d\d:\d\d)$').hasMatch(iso);
+    final hasZone = RegExp(r'(Z|[+-]\d\d:\d\d)$', caseSensitive: false)
+        .hasMatch(iso);
     return DateTime.tryParse(hasZone ? iso : '${iso}Z');
   }
 

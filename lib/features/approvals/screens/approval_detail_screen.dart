@@ -56,6 +56,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   bool _isLoadingAudit = true;
   bool _isLoadingApprovalDetails = true;
   bool _approvalDetailsLoadFailed = false;
+  String? _currentUserId;
   final _commentController = TextEditingController();
   final Map<String, String> _userNameCache = {};
 
@@ -64,9 +65,19 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     super.initState();
     _approval = widget.approval;
     _resolveInitialNames();
+    _loadCurrentUser();
     _fetchApprovalDetails();
     _fetchAuditTrail();
   }
+
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _currentUserId = prefs.getString('userId'));
+  }
+
+  bool get _isOwnRequest => !_approval.canSelfApprove &&
+      _currentUserId != null && _currentUserId!.isNotEmpty &&
+      _currentUserId == _approval.requesterId;
 
   /// The list item is only a navigation summary; always load the full approval
   /// payload before making a decision, especially for membership date changes.
@@ -153,17 +164,6 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     } catch (e) {
       debugPrint('Error resolving user $userId: $e');
     }
-  }
-
-  String _getDisplayName(String id) {
-    if (_userNameCache.containsKey(id)) {
-      return _userNameCache[id]!;
-    }
-    // If it's a UUID, show a shortened version while loading
-    if (id.length > 20 && id.contains('-')) {
-      return 'ID: ${id.split('-').first}...';
-    }
-    return id;
   }
 
   Future<void> _fetchAuditTrail() async {
@@ -285,7 +285,30 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
         decimalDigits: 2,
       ).format(cents / 100);
 
+  /// A few older approval rows have no createdAt. The membership change
+  /// submission timestamp is still stored inside the immutable request detail.
+  /// Preserve the distinction between approval-row creation and request time.
+  dynamic get _displayRequestTime {
+    if (AppDateUtils.parse(_approval.createdAt) != null) {
+      return _approval.createdAt;
+    }
+    final payload = _decodedPayload;
+    if (payload is Map && payload['requestSummary'] is Map) {
+      return (payload['requestSummary'] as Map)['requestedAt'];
+    }
+    return null;
+  }
+
+  bool get _hasApprovalCreationTime =>
+      AppDateUtils.parse(_approval.createdAt) != null;
+
   Future<void> _takeAction(String action) async {
+    if (_isOwnRequest && (action == 'APPROVE' || action == 'REJECT')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('A separate approver must decide this request.'),
+      ));
+      return;
+    }
     if (action.toUpperCase() == 'APPROVE' &&
         (_isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
             !_hasVerifiableMembershipDates)) {
@@ -507,7 +530,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
             children: [
               _buildModernBadge(_approval.status, statusColor),
               Text(
-                _formatFullDate(_approval.createdAt),
+                AppDateUtils.displayDateTimePattern(_displayRequestTime, 'EEEE, d MMMM yyyy'),
                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
             ],
@@ -600,11 +623,16 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                 ? _approval.referenceNo
                 : _approval.referenceId,
           ),
-          _buildInfoRow('Requester', _getDisplayName(_approval.requesterId)),
+          _buildInfoRow('Requester', _userNameCache[_approval.requesterId] ?? _approval.requesterName),
           _buildInfoRow('Workflow Step', 'Step ${_approval.currentStepNo}'),
-          _buildInfoRow('Created', _formatShortDate(_approval.createdAt)),
+          _buildInfoRow(
+            _hasApprovalCreationTime ? 'Submitted at' : 'Requested at',
+            AppDateUtils.displayDateTimePattern(_displayRequestTime, 'dd MMM yyyy, HH:mm'),
+          ),
+          if (_approval.finalActionAt != null)
+            _buildInfoRow('Final decision at', _formatShortDate(_approval.finalActionAt!)),
           if (_approval.finalActionBy != null)
-            _buildInfoRow('Processed By', _getDisplayName(_approval.finalActionBy!)),
+            _buildInfoRow('Processed By', _userNameCache[_approval.finalActionBy!] ?? _approval.finalActionByName ?? 'Unknown user'),
           const Divider(height: 24, color: Color(0xFFF1F5F9)),
           SizedBox(
             width: double.infinity,
@@ -692,7 +720,9 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
   Widget _buildPayloadValue(dynamic value, {required int level, String? fieldName}) {
     if (value is Map) {
       final entries = value.entries
-          .where((entry) => entry.key.toString() != 'attachmentObjectIds')
+          .where((entry) => entry.key.toString() != 'attachmentObjectIds'
+              // Already displayed in the header and identification section.
+              && !(level == 0 && entry.key.toString() == 'approvalSummary'))
           .toList();
       if (entries.isEmpty) return const Text('No additional request details were supplied.');
 
@@ -1096,6 +1126,9 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
 
   String _fieldLabel(String key) {
     final withSpaces = key
+        // Amounts stored in cents are converted to rand for display.
+        .replaceAll('Cents', '')
+        .replaceAll('_cents', '')
         .replaceAll('_', ' ')
         .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (match) => '${match.group(1)} ${match.group(2)}');
     return withSpaces
@@ -1112,9 +1145,22 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
     if (value is bool) return value ? 'Yes' : 'No';
     final text = value.toString();
     final normalizedKey = key?.toLowerCase() ?? '';
-    if (normalizedKey.endsWith('cents')) {
+    // Use the resolved requester's identity rather than echoing a database ID.
+    if (normalizedKey == 'requestedby' && text == _approval.requesterId) {
+      return _userNameCache[_approval.requesterId] ?? _approval.requesterName;
+    }
+    // Financial field names also include suffixes such as BeforeNewStart.
+    if (normalizedKey.contains('cents')) {
       final cents = num.tryParse(text);
-      if (cents != null) return NumberFormat.currency(symbol: 'R ').format(cents / 100);
+      if (cents != null) return _money(cents.round());
+    }
+    // Periods are persisted as YYYYMM, never display them as opaque numbers.
+    if (normalizedKey == 'paiduptoperiod' && RegExp(r'^\d{6}$').hasMatch(text)) {
+      final year = int.parse(text.substring(0, 4));
+      final month = int.parse(text.substring(4, 6));
+      if (month >= 1 && month <= 12) {
+        return DateFormat('MMMM yyyy').format(DateTime.utc(year, month));
+      }
     }
     if (RegExp(r'^\d{4}-\d{2}-\d{2}(T.*)?$').hasMatch(text)) {
       try {
@@ -1205,7 +1251,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text('by ${_getDisplayName(action.actionBy)}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text('by ${_userNameCache[action.actionBy] ?? action.actionByName}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500)),
                   if (action.comments != null && action.comments!.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(top: 10),
@@ -1240,6 +1286,11 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_isOwnRequest) const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Text('You submitted this request. Another approver must review it.',
+              style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.w600)),
+          ),
           const Text('DECISION HUB', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFF20D1A), fontSize: 11, letterSpacing: 1.5)),
           const SizedBox(height: 16),
           TextField(
@@ -1260,7 +1311,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () => _takeAction('REJECT'),
+                  onPressed: _isOwnRequest ? null : () => _takeAction('REJECT'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFEF4444),
                     side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
@@ -1273,7 +1324,7 @@ class _ApprovalDetailScreenState extends State<ApprovalDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: (_isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
+                  onPressed: (_isOwnRequest || _isLoadingApprovalDetails || _approvalDetailsLoadFailed ||
                           !_hasVerifiableMembershipDates)
                       ? null : () => _takeAction('APPROVE'),
                   style: FilledButton.styleFrom(

@@ -63,6 +63,17 @@ class ApprovalService {
     }
   }
 
+  /// All requests for one business object, including previously finalised requests.
+  Future<List<Approval>> getObjectApprovalHistory(String referenceId, {String? objectType}) async {
+    final response = await _apiClient.get('/v2/approval/history',
+        queryParameters: {'referenceId': referenceId, if (objectType != null) 'objectType': objectType});
+    if (response.statusCode != 200) {
+      throw AppException('Unable to load previous approvals: ${response.statusCode}');
+    }
+    final data = jsonDecode(response.body) as List;
+    return data.map((item) => Approval.fromJson(Map<String, dynamic>.from(item))).toList();
+  }
+
   Future<Approval> getApprovalById(String id) async {
     final response = await _apiClient.get('/v2/approval/$id');
 

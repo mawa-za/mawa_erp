@@ -182,6 +182,14 @@ class CaseManagementService {
     throw AppException('Failed to create party: ${response.body}');
   }
 
+  Future<CaseParty> updateParty(String partyId, Map<String, dynamic> request) async {
+    final response = await ApiClient().put('/v2/cases/parties/$partyId', body: request);
+    if (response.statusCode == 200) {
+      return CaseParty.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw AppException('Failed to update party: ${response.body}');
+  }
+
   Future<void> deleteParty(String partyId) async {
     final response = await ApiClient().delete('/v2/cases/parties/$partyId');
     if (response.statusCode != 200 && response.statusCode != 204) {
@@ -225,6 +233,14 @@ class CaseManagementService {
       return CaseEvent.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
     }
     throw AppException('Failed to create event: ${response.body}');
+  }
+
+  Future<CaseEvent> updateEvent(String eventId, Map<String, dynamic> request) async {
+    final response = await ApiClient().put('/v2/cases/events/$eventId', body: request);
+    if (response.statusCode == 200) {
+      return CaseEvent.fromJson(Map<String, dynamic>.from(jsonDecode(response.body)));
+    }
+    throw AppException('Failed to update event: ${response.body}');
   }
 
   Future<CaseEvent> updateEventStatus(String eventId, String status, {String? updatedBy}) async {
@@ -273,6 +289,15 @@ class CaseManagementService {
       return data.map((json) => CaseEvent.fromJson(Map<String, dynamic>.from(json))).toList();
     }
     throw AppException('Failed to load upcoming events');
+  }
+
+  Future<List<LegalCase>> getUnbilledCases() async {
+    final response = await ApiClient().get('/v2/cases/billing/unbilled');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => LegalCase.fromJson(Map<String, dynamic>.from(json))).toList();
+    }
+    throw AppException('Failed to load unbilled cases: ${response.statusCode}');
   }
 
   Future<List<CaseTimeEntry>> getUnbilledTimeEntries({String? caseId}) async {

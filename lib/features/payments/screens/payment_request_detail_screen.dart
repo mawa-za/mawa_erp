@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/widgets/attachment_section.dart';
 import '../../approvals/models/approval.dart';
 import '../../approvals/services/approval_service.dart';
+import '../../approvals/widgets/approval_history_section.dart';
 import '../models/payment_request.dart';
 import '../services/payment_request_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
@@ -386,6 +387,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSummaryHeader(colorScheme),
+          ApprovalHistorySection(referenceId: widget.paymentId),
           const SizedBox(height: 24),
           _buildSectionTitle('General Information'),
           _buildInfoCard([
