@@ -68,13 +68,34 @@ if [[ "${ALLOW_UNAUTHENTICATED:-true}" != "true" && -n "${BUILD_SERVICE_ACCOUNT_
   gcloud run services add-iam-policy-binding "${SERVICE_NAME}"     --project="${PROJECT_ID}" --region="${REGION}"     --member="serviceAccount:${BUILD_SERVICE_ACCOUNT_EMAIL}" --role="roles/run.invoker" --quiet >/dev/null
 fi
 
-service_url="$(gcloud run services describe "${SERVICE_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
-health_path="${HEALTH_PATH:-/actuator/health/readiness}"
+# Some CLI/trigger outputs can carry CRLF or surrounding whitespace. Do not
+# pass control characters to curl, and fail with a useful error if Cloud Run
+# did not return a single valid service URL. Never print identity tokens.
+raw_service_url="$(gcloud run services describe "${SERVICE_NAME}" \
+  --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
+service_url="$(printf '%s' "${raw_service_url}" | tr -d '\r\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+health_path="$(printf '%s' "${HEALTH_PATH:-/actuator/health/readiness}" | tr -d '\r\n')"
+
+if [[ ! "${service_url}" =~ ^https://[[:alnum:].-]+(:[0-9]+)?/?$ ]]; then
+  printf 'Invalid Cloud Run URL from services describe for %s: %q\n' \
+    "${SERVICE_NAME}" "${raw_service_url}" >&2
+  exit 1
+fi
+if [[ "${health_path}" != /* || "${health_path}" =~ [[:space:][:cntrl:]] ]]; then
+  printf 'Invalid health path for %s: %q\n' "${SERVICE_NAME}" "${health_path}" >&2
+  exit 1
+fi
+
+probe_url="${service_url%/}${health_path}"
+echo "Verifying ${SERVICE_NAME} readiness at ${probe_url}"
 if [[ "${ALLOW_UNAUTHENTICATED:-true}" == "true" ]]; then
-  curl -fsS --retry 8 --retry-delay 5 --retry-all-errors "${service_url}${health_path}" >/dev/null
+  curl -fsS --retry 8 --retry-delay 5 --retry-all-errors "${probe_url}" >/dev/null
 else
   token="$(gcloud auth print-identity-token --audiences="${service_url}")"
-  curl -fsS --retry 8 --retry-delay 5 --retry-all-errors -H "Authorization: Bearer ${token}" "${service_url}${health_path}" >/dev/null
+  token="$(printf '%s' "${token}" | tr -d '\r\n')"
+  [[ -n "${token}" ]] || { echo "Unable to obtain Cloud Run identity token for ${SERVICE_NAME}." >&2; exit 1; }
+  curl -fsS --retry 8 --retry-delay 5 --retry-all-errors \
+    -H "Authorization: Bearer ${token}" "${probe_url}" >/dev/null
 fi
 
 echo "Deployed ${SERVICE_NAME} at ${service_url} using ${IMAGE_REF}."
