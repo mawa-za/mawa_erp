@@ -744,6 +744,17 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       FuneralClaimCard(claim: claim),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _downloadClaimForm(claim),
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: Text(claim.claimFormPrinted
+                              ? 'Reprint Claim Form'
+                              : 'Download Claim Form'),
+                        ),
+                      ),
                       if (claim.rawStatus == 'DRAFT') ...[
                         const SizedBox(height: 12),
                         const Text(
@@ -763,15 +774,6 @@ class _FuneralClaimsPageState extends State<FuneralClaimsPage> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            OutlinedButton.icon(
-                              onPressed: () => _downloadClaimForm(claim),
-                              icon: Icon(claim.claimFormPrinted
-                                  ? Icons.check_circle_outline
-                                  : Icons.download_outlined),
-                              label: Text(claim.claimFormPrinted
-                                  ? 'Claim Form Downloaded'
-                                  : 'Download Claim Form'),
-                            ),
                             FilledButton.icon(
                               onPressed: () => _submitMembershipClaim(claim),
                               icon: const Icon(Icons.approval_outlined),
