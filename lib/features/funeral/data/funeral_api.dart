@@ -281,6 +281,69 @@ class FuneralApi {
     throw AppException('Failed to load funeral service request: ${response.body}');
   }
 
+  Future<int> restoreFuneralClaimContext(String serviceId) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceId/claim-documents/restore-context',
+    );
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as Map)['claimsUpdated'] as int? ?? 0;
+    }
+    throw AppException('Unable to refresh claim document context: ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> previewPackageAmendment(String serviceId, String packageId) async {
+    final response = await _apiClient.get(
+      '/v2/funeral/service-request/$serviceId/package-amendments/preview',
+      queryParameters: {'newPackageId': packageId},
+    );
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    }
+    throw AppException('Unable to preview funeral package amendment: ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> submitPackageAmendment(
+    String serviceId, String packageId, String reason,
+  ) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceId/package-amendments',
+      body: {
+        'newPackageId': packageId,
+        'reason': reason,
+        'customerAcknowledged': true,
+      },
+    );
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    }
+    throw AppException('Unable to submit package amendment: ${response.body}');
+  }
+
+  Future<List<Map<String, dynamic>>> getPackageAmendments(String serviceId) async {
+    final response = await _apiClient.get(
+      '/v2/funeral/service-request/$serviceId/package-amendments',
+    );
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as List)
+          .map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    throw AppException('Unable to load package amendments: ${response.body}');
+  }
+
+  Future<List<int>> downloadPackageAmendment(String amendmentId) async {
+    final response = await _apiClient.get('/v2/funeral/package-amendments/$amendmentId/pdf');
+    if (response.statusCode == 200) return response.bodyBytes;
+    throw AppException('Unable to download package amendment: ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> applyApprovedPackageAmendment(String amendmentId) async {
+    final response = await _apiClient.post('/v2/funeral/package-amendments/$amendmentId/apply');
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    }
+    throw AppException('Unable to apply the approved amendment: ${response.body}');
+  }
+
   Future<FuneralServiceRequestDto> cancelServiceRequest(String id) async {
     final response = await _apiClient.post('/v2/funeral/service-request/$id/cancel');
     if (response.statusCode < 200 || response.statusCode >= 300) {

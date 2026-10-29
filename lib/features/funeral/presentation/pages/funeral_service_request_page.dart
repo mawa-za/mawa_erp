@@ -91,6 +91,219 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
     await _load();
   }
 
+  Future<void> _changePackage(FuneralServiceRequestDto request) async {
+    final serviceId = request.id;
+    if (serviceId == null || serviceId.isEmpty) return;
+    try {
+      final packages = await _api.getFuneralPackages();
+      final options = packages.where((p) => p.id != request.packageId).toList();
+      if (!mounted) return;
+      String? selected;
+      String reason = '';
+      bool acknowledged = false;
+      bool submitting = false;
+      String? previewError;
+      Map<String, dynamic>? preview;
+      final submitted = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, redraw) => AlertDialog(
+            title: Text('Change Package - ${request.serviceRequestNo ?? ''}'),
+            content: SizedBox(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Current arrangement: ${request.deceasedName}'),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(labelText: 'Replacement funeral package'),
+                      value: selected,
+                      isExpanded: true,
+                      items: options.map((p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text('${p.name} - R ${(p.basePriceCents / 100).toStringAsFixed(2)}'),
+                      )).toList(),
+                      onChanged: submitting ? null : (next) async {
+                        redraw(() { selected = next; preview = null; previewError = null; });
+                        if (next == null) return;
+                        try {
+                          final result = await _api.previewPackageAmendment(serviceId, next);
+                          if (dialogContext.mounted && selected == next) redraw(() => preview = result);
+                        } catch (error) {
+                          if (dialogContext.mounted) redraw(() => previewError = friendlyErrorMessage(error));
+                        }
+                      },
+                    ),
+                    if (preview != null) ...[
+                      const SizedBox(height: 12),
+                      Text('Current total: R ${((preview!['currentTotalCents'] as num) / 100).toStringAsFixed(2)}'),
+                      Text('Revised total: R ${((preview!['revisedTotalCents'] as num) / 100).toStringAsFixed(2)}'),
+                      Text('Difference: R ${((preview!['differenceCents'] as num) / 100).toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (preview!['historicPackageSnapshotAvailable'] == false)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text('Historical package items were not snapshotted. Verify the original agreement before submitting.'),
+                        ),
+                      if (preview!['requiresFundingReconciliation'] == true)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text('Funding reconciliation will be required before this amendment can be applied.'),
+                        ),
+                    ],
+                    if (previewError != null) Text(previewError!,
+                      style: TextStyle(color: Theme.of(dialogContext).colorScheme.error)),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      minLines: 2,
+                      maxLines: 4,
+                      enabled: !submitting,
+                      decoration: const InputDecoration(labelText: 'Reason for package change'),
+                      onChanged: (v) => redraw(() => reason = v),
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: acknowledged,
+                      title: const Text('Customer or authorised family representative has acknowledged the revised arrangement'),
+                      onChanged: submitting ? null : (v) => redraw(() => acknowledged = v ?? false),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                    const Text('The original invoices and claims will be preserved. Financial adjustments need approval.'),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: submitting ? null : () => Navigator.pop(dialogContext, false),
+                child: const Text('CANCEL')),
+              FilledButton(
+                onPressed: submitting || selected == null || preview == null || !acknowledged || reason.trim().isEmpty
+                    ? null : () async {
+                  redraw(() => submitting = true);
+                  try {
+                    await _api.submitPackageAmendment(serviceId, selected!, reason);
+                    if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                  } catch (error) {
+                    if (dialogContext.mounted) {
+                      redraw(() { submitting = false; previewError = friendlyErrorMessage(error); });
+                    }
+                  }
+                },
+                child: Text(submitting ? 'SUBMITTING...' : 'SUBMIT FOR APPROVAL'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (submitted == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Package change submitted for approval.')));
+        await _load();
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage(error))));
+    }
+  }
+
+  Future<void> _restoreClaimDocuments(FuneralServiceRequestDto request) async {
+    final serviceId = request.id;
+    if (serviceId == null) return;
+    try {
+      final restored = await _api.restoreFuneralClaimContext(serviceId);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Refreshed claim details for $restored claims. Print new forms to see the corrected details.'),
+      ));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(friendlyErrorMessage(error)),
+      ));
+    }
+  }
+
+  Future<void> _downloadAmendmentPdf(Map<String, dynamic> amendment) async {
+    try {
+      final id = amendment['id'].toString();
+      final bytes = await _api.downloadPackageAmendment(id);
+      await downloadBytes(
+        bytes: Uint8List.fromList(bytes),
+        fileName: 'funeral-amendment-${amendment['amendmentNo'] ?? id}.pdf',
+        mimeType: 'application/pdf',
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage(error))));
+    }
+  }
+
+  Future<void> _showPackageAmendments(FuneralServiceRequestDto request) async {
+    final serviceId = request.id;
+    if (serviceId == null) return;
+    try {
+      final amendments = await _api.getPackageAmendments(serviceId);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Package Amendment History - ${request.serviceRequestNo ?? ''}'),
+          content: SizedBox(
+            width: 560,
+            child: amendments.isEmpty
+                ? const Text('No amendments recorded.')
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: amendments.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (_, i) {
+                      final item = amendments[i];
+                      final amount = ((item['newTotalCents'] as num) - (item['oldTotalCents'] as num)) / 100;
+                      return ListTile(
+                        title: Text(item['amendmentNo']?.toString() ?? 'Amendment'),
+                        subtitle: Text('${item['status']} | R ${amount.toStringAsFixed(2)}\n'
+                            '${item['reason'] ?? ''}\n${item['reconciliationNote'] ?? ''}'),
+                        isThreeLine: true,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Download amendment PDF',
+                              onPressed: () => _downloadAmendmentPdf(item),
+                              icon: const Icon(Icons.picture_as_pdf_outlined),
+                            ),
+                            if (item['status'] == 'RECONCILIATION_REQUIRED')
+                              TextButton(
+                                onPressed: () async {
+                                  try {
+                                    await _api.applyApprovedPackageAmendment(item['id'].toString());
+                                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                                    await _load();
+                                  } catch (error) {
+                                    if (dialogContext.mounted) {
+                                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                        SnackBar(content: Text(friendlyErrorMessage(error))));
+                                    }
+                                  }
+                                },
+                                child: const Text('RECHECK'),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('CLOSE'))],
+        ),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyErrorMessage(error))));
+    }
+  }
+
   Future<void> _cancelRequest(FuneralServiceRequestDto request) async {
     final id = request.id;
     if (id == null || id.isEmpty) return;
@@ -359,6 +572,23 @@ class _FuneralServiceRequestPageState extends State<FuneralServiceRequestPage> {
                         icon: const Icon(Icons.assignment_outlined),
                         label: const Text('Service Request Form'),
                         ),
+                        if (completed) ...[
+                          OutlinedButton.icon(
+                            onPressed: id.isEmpty ? null : () => _restoreClaimDocuments(request),
+                            icon: const Icon(Icons.sync),
+                            label: const Text('Refresh Claim Documents'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: id.isEmpty ? null : () => _changePackage(request),
+                            icon: const Icon(Icons.change_circle_outlined),
+                            label: const Text('Change Package'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: id.isEmpty ? null : () => _showPackageAmendments(request),
+                            icon: const Icon(Icons.history),
+                            label: const Text('Amendment History'),
+                          ),
+                        ],
                         if (!completed)
                           OutlinedButton.icon(
                           onPressed: id.isEmpty ? null : () => _cancelRequest(request),

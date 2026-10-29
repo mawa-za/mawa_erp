@@ -251,6 +251,8 @@ class _ApprovalListViewState extends State<_ApprovalListView> {
       case 'PAYMENT_REQUEST':
       case 'PREMIUM_PAYMENT_DELETION':
         return Icons.payments_outlined;
+      case 'FUNERAL_PACKAGE_AMENDMENT':
+        return Icons.change_circle_outlined;
       case 'PURCHASE_ORDER':
       case 'SUPPLIER_INVOICE':
         return Icons.shopping_cart_checkout_outlined;

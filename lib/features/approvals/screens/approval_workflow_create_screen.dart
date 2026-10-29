@@ -51,6 +51,7 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
     'EMPLOYEE_SUSPENSION',
     'EMPLOYEE_TERMINATION',
     'FUNERAL_COVER_STATUS_CHANGE',
+    'FUNERAL_PACKAGE_AMENDMENT',
     'FUNERAL_UNDERWRITING',
     'GROUP_SOCIETY_BALANCE_ADJUSTMENT',
     'GROUP_SOCIETY_FUNERAL_CLAIM',
@@ -81,7 +82,8 @@ class _ApprovalWorkflowCreateScreenState extends State<ApprovalWorkflowCreateScr
   
   bool get _requiresManualApproval =>
       _selectedApprovalType == 'MEMBERSHIP_DEPENDENT_DECEASED' ||
-      _selectedApprovalType == 'MEMBERSHIP_DEPENDENT_CLAIM_ELIGIBILITY';
+      _selectedApprovalType == 'MEMBERSHIP_DEPENDENT_CLAIM_ELIGIBILITY' ||
+      _selectedApprovalType == 'FUNERAL_PACKAGE_AMENDMENT';
 
   final List<String> _approverTypes = ['USER', 'ROLE', 'GROUP', 'MANAGER'];
 

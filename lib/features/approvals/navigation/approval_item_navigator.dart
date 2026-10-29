@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../funeral/presentation/pages/funeral_service_request_page.dart';
 
 import '../../cashup/screens/cashup_detail_screen.dart';
 import '../../invoicing/screens/invoice_detail_screen.dart';
@@ -27,6 +28,8 @@ class ApprovalItemNavigator {
     final type = approval.approvalType.toUpperCase();
 
     switch (type) {
+      case 'FUNERAL_PACKAGE_AMENDMENT':
+        return const FuneralServiceRequestPage();
       case 'INVOICE':
         return InvoiceDetailScreen(invoiceId: id);
       case 'CLAIM':
