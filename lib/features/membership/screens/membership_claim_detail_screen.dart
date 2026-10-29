@@ -193,6 +193,12 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
         scrolledUnderElevation: 2,
         actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetchDetails),
+          if (_claim != null)
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: 'Print / reprint claim form',
+              onPressed: _isSubmitting ? null : _downloadClaimForm,
+            ),
           if (_claim != null && _claim!.status.toUpperCase() == 'DRAFT')
             IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => _showEditDialog()),
           const SizedBox(width: 8),
@@ -276,8 +282,9 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           const SizedBox(height: 24),
           _buildAmountCard(claim, colorScheme),
           const SizedBox(height: 20),
-          if (claim.claimType.toUpperCase() == 'CASH' && claim.status.toUpperCase() == 'DRAFT')
-            _buildClaimFormCard(claim, colorScheme),
+          // Claim forms are read-only documents once submitted: allow reprinting
+          // even when a claim is APPROVED, PAID, REJECTED or CANCELLED.
+          _buildClaimFormCard(claim, colorScheme),
           if (claim.claimType.toUpperCase() == 'CASH' &&
               (claim.paymentRequestId?.isNotEmpty ?? false)) ...[
             const SizedBox(height: 20),
@@ -550,6 +557,8 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
   }
 
   Widget _buildClaimFormCard(MembershipClaim claim, ColorScheme colorScheme) {
+    final isDraft = claim.status.trim().toUpperCase() == 'DRAFT';
+    final isDraftCash = isDraft && claim.claimType.trim().toUpperCase() == 'CASH';
     final downloaded = claim.claimFormDownloadCount > 0;
     return Container(
       padding: const EdgeInsets.all(20),
@@ -572,12 +581,16 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Generated claim form', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Claim form', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Text(
-                      downloaded
-                          ? 'Downloaded ${claim.claimFormDownloadCount} time${claim.claimFormDownloadCount == 1 ? '' : 's'}. Print it, obtain signatures, then attach the signed form to this claim.'
-                          : 'Download this form at least once before submitting. The generated PDF is not added to claim attachments automatically.',
+                      isDraftCash
+                          ? (downloaded
+                              ? 'Downloaded ${claim.claimFormDownloadCount} time${claim.claimFormDownloadCount == 1 ? '' : 's'}. Print, obtain signatures and attach the signed form before submitting.'
+                              : 'Download the generated claim form before submitting this CASH claim. Print and attach a signed copy.')
+                          : isDraft
+                              ? 'Download the claim form for printing and signatures.'
+                              : 'Print or reprint this claim form at any time. This does not change the claim or payment status.',
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
@@ -589,7 +602,9 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
           OutlinedButton.icon(
             onPressed: _isSubmitting ? null : _downloadClaimForm,
             icon: Icon(downloaded ? Icons.download_done_outlined : Icons.download_outlined),
-            label: Text(downloaded ? 'DOWNLOAD CLAIM FORM AGAIN' : 'DOWNLOAD CLAIM FORM'),
+            label: Text(isDraft
+                ? (downloaded ? 'DOWNLOAD CLAIM FORM AGAIN' : 'DOWNLOAD CLAIM FORM')
+                : 'PRINT / REPRINT CLAIM FORM'),
           ),
         ],
       ),
@@ -610,7 +625,11 @@ class _MembershipClaimDetailScreenState extends State<MembershipClaimDetailScree
       await _fetchDetails();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Claim form downloaded. Print it for signatures and attach the signed copy to the claim.')),
+          SnackBar(content: Text(
+            claim.status.trim().toUpperCase() == 'DRAFT'
+                ? 'Claim form downloaded. Print and attach a signed copy where required.'
+                : 'Claim form downloaded. The claim and payment status are unchanged.',
+          )),
         );
       }
     } catch (error) {
