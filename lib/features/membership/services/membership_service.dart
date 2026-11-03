@@ -18,6 +18,14 @@ import '../models/membership_change.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class MembershipService {
+  Future<Map<String, bool>> getPremiumPaymentPermissions() async {
+    final response = await ApiClient().get('/v2/payment-batches/membership-premiums/permissions');
+    if (response.statusCode != 200) {
+      throw AppException('Unable to load premium payment permissions');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return data.map((key, value) => MapEntry(key, value == true));
+  }
   static final MembershipService _instance = MembershipService._internal();
   factory MembershipService() => _instance;
   MembershipService._internal();
