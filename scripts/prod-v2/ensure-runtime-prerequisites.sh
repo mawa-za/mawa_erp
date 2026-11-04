@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Cloud SDK images can provide Python only through gcloud's bundled runtime.
+if ! command -v python3 >/dev/null 2>&1; then
+  python_path="$(gcloud info --format='value(basic.python_location)')"
+  test -x "${python_path}"
+  export PATH="$(dirname "${python_path}"):${PATH}"
+fi
+
 : "${PROJECT_ID:?PROJECT_ID is required}"
 : "${RUNTIME_SERVICE_ACCOUNT:?RUNTIME_SERVICE_ACCOUNT is required}"
 : "${SECRETS_FILE:?SECRETS_FILE is required}"
