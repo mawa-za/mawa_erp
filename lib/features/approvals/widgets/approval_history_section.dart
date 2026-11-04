@@ -8,7 +8,8 @@ import '../services/approval_service.dart';
 class ApprovalHistorySection extends StatefulWidget {
   final String referenceId;
   final String? objectType;
-  const ApprovalHistorySection({super.key, required this.referenceId, this.objectType});
+  final int refreshRevision;
+  const ApprovalHistorySection({super.key, required this.referenceId, this.objectType, this.refreshRevision = 0});
 
   @override
   State<ApprovalHistorySection> createState() => _ApprovalHistorySectionState();
@@ -18,6 +19,7 @@ class _ApprovalHistorySectionState extends State<ApprovalHistorySection> {
   List<Approval> _items = [];
   bool _loading = true;
   String? _error;
+  int _requestNumber = 0;
 
   @override
   void initState() {
@@ -28,19 +30,20 @@ class _ApprovalHistorySectionState extends State<ApprovalHistorySection> {
   @override
   void didUpdateWidget(covariant ApprovalHistorySection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.referenceId != widget.referenceId || oldWidget.objectType != widget.objectType) {
+    if (oldWidget.referenceId != widget.referenceId || oldWidget.objectType != widget.objectType || oldWidget.refreshRevision != widget.refreshRevision) {
       _load();
     }
   }
 
   Future<void> _load() async {
+    final requestNumber = ++_requestNumber;
     if (mounted) setState(() { _loading = true; _error = null; });
     try {
       final items = await ApprovalService().getObjectApprovalHistory(
         widget.referenceId, objectType: widget.objectType);
-      if (mounted) setState(() { _items = items; _loading = false; });
+      if (mounted && requestNumber == _requestNumber) setState(() { _items = items; _loading = false; });
     } catch (_) {
-      if (mounted) setState(() { _loading = false; _error = 'Approval history could not be loaded.'; });
+      if (mounted && requestNumber == _requestNumber) setState(() { _loading = false; _error = 'Approval history could not be loaded.'; });
     }
   }
 
@@ -58,7 +61,7 @@ class _ApprovalHistorySectionState extends State<ApprovalHistorySection> {
           Row(children: [
             const Icon(Icons.history, size: 20),
             const SizedBox(width: 8),
-            const Expanded(child: Text('Approval history', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            const Expanded(child: Text('Approval History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
             IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh approval history'),
           ]),
           if (_loading) const LinearProgressIndicator()
@@ -85,7 +88,7 @@ class _ApprovalHistorySectionState extends State<ApprovalHistorySection> {
               await Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => ApprovalDetailScreen(approval: item),
               ));
-              _load();
+              if (mounted) _load();
             },
           )),
         ]),

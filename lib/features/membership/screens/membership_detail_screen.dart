@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import '../../../core/utils/app_date_utils.dart';
 import 'package:intl/intl.dart';
@@ -48,6 +46,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   List<Premium> _premiums = [];
   List<MembershipClaim> _claims = [];
   bool _allowPremiumPaymentTransfer = false;
+  Map<String, bool> _paymentPermissions = {};
+  int _historyRevision = 0;
   bool _allowDeleteWithoutCashupValidation = false;
   bool _hasPendingMembershipStatusChange = false;
   bool _isRecalculatingPremiums = false;
@@ -97,6 +97,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         MembershipService().getPendingMembershipStatusChange(widget.membershipId).catchError(
           (e) => <String, dynamic>{'pending': false},
         ),
+        MembershipService().getPremiumPaymentPermissions().catchError((_) => <String, bool>{}),
       ]);
 
       final member = results[0] as Partner;
@@ -160,6 +161,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _allowDeleteWithoutCashupValidation = allowDeleteWithoutCashupValidation;
           _hasPendingMembershipStatusChange = pendingStatusChange['pending'] == true;
           _pendingMembershipStatusAction = pendingStatusChange['action']?.toString();
+          _paymentPermissions = results[5] as Map<String, bool>;
+          _historyRevision++;
           _isLoading = false;
         });
       }
@@ -516,7 +519,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           if (_isLapsedMembership) ...[
             const SizedBox(height: 12),
             _buildLapsedRestrictionNotice(),
-          ] else if (!_isMergedMembership) ...[
+          ],
+          if (!_isMergedMembership && _paymentPermissions['create'] == true) ...[
             const SizedBox(height: 16),
             _buildCapturePaymentButton(colorScheme),
             const SizedBox(height: 10),
@@ -529,7 +533,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 12),
           _buildMembershipInfoCard(detail, colorScheme),
           const SizedBox(height: 32),
-          ApprovalHistorySection(referenceId: widget.membershipId, objectType: 'MEMBERSHIP'),
+          ApprovalHistorySection(referenceId: widget.membershipId, objectType: 'MEMBERSHIP', refreshRevision: _historyRevision),
           _buildSectionHeader(Icons.swap_horiz, 'MEMBERSHIP CHANGES'),
           const SizedBox(height: 12),
           MembershipChangeSection(membership: detail, onChanged: _fetchData, readOnly: _isLapsedMembership || _isMergedMembership),
@@ -538,7 +542,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             children: [
               Expanded(child: _buildSectionHeader(Icons.payments_outlined, 'PAYMENT HISTORY')),
               OutlinedButton.icon(
-                onPressed: _isRecalculatingPremiums ? null : _recalculatePremiums,
+                onPressed: _isRecalculatingPremiums || _isLapsedMembership || _isMergedMembership || _paymentPermissions['edit'] != true ? null : _recalculatePremiums,
                 icon: _isRecalculatingPremiums
                     ? const SizedBox(
                         width: 16,
@@ -619,7 +623,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'This membership is lapsed and is read-only. Reactivate it and wait for the reactivation approval to be completed before any other membership action becomes available.',
+              'This membership is lapsed. Authorised users may collect premiums, but payment does not restore cover. Reactivation approval is required before other membership actions become available.',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
@@ -659,6 +663,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     final actions = <MapEntry<String, String>>[];
     switch (normalizedStatus) {
       case 'ACTIVE':
+      case 'WAITING_PERIOD':
+      case 'UPGRADE_WAITING_PERIOD':
         actions.addAll(const [
           MapEntry('SUSPEND', 'Suspend'),
           MapEntry('DEACTIVATE', 'Deactivate'),
@@ -1802,7 +1808,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                     )
                     .toList(),
               ),
-              if (!_isMergedMembership &&
+              if (!_isMergedMembership && !_isLapsedMembership && _paymentPermissions['edit'] == true &&
                   premium.status.toUpperCase() != 'CANCELLED' &&
                   !const {'REVERSED', 'CANCELLED'}.contains(premium.status.toUpperCase())) ...[
                 const SizedBox(height: 10),
@@ -1815,7 +1821,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                   ),
                 ),
               ],
-              if (!_isLapsedMembership &&
+              if (!_isLapsedMembership && !_isMergedMembership &&
                   (premium.paymentCount > 0 || premium.receiptId?.trim().isNotEmpty == true)) ...[
                 const SizedBox(height: 10),
                 Align(
@@ -1829,18 +1835,18 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                         icon: const Icon(Icons.print_outlined, size: 18),
                         label: const Text('REPRINT RECEIPT'),
                       ),
-                      OutlinedButton.icon(
+                      if (_paymentPermissions['edit'] == true) OutlinedButton.icon(
                         onPressed: () => _requestPremiumPaymentEdit(premium),
                         icon: const Icon(Icons.edit_note_outlined, size: 18),
                         label: const Text('EDIT PAYMENT'),
                       ),
-                      if (_allowPremiumPaymentTransfer)
+                      if (_allowPremiumPaymentTransfer && _paymentPermissions['transfer'] == true)
                         OutlinedButton.icon(
                           onPressed: () => _transferPremiumPayment(premium),
                           icon: const Icon(Icons.swap_horiz, size: 18),
                           label: const Text('TRANSFER PAYMENT'),
                         ),
-                      OutlinedButton.icon(
+                      if (_paymentPermissions['cancel'] == true) OutlinedButton.icon(
                         onPressed: () => _requestPremiumPaymentCancellation(premium),
                         icon: const Icon(Icons.cancel_outlined, size: 18),
                         label: const Text('CANCEL RECEIPT'),
@@ -1957,7 +1963,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       case 'UNPAID': return Colors.red;
       case 'CANCELLED': return Colors.grey;
       case 'REVERSED': return Colors.purple;
-      case 'CANCELLED': return Colors.red;
       default: return Colors.blue;
     }
   }
