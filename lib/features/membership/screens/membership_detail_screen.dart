@@ -519,7 +519,8 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           if (_isLapsedMembership) ...[
             const SizedBox(height: 12),
             _buildLapsedRestrictionNotice(),
-          ] else if (!_isMergedMembership && _paymentPermissions['create'] == true) ...[
+          ],
+          if (!_isMergedMembership && _paymentPermissions['create'] == true) ...[
             const SizedBox(height: 16),
             _buildCapturePaymentButton(colorScheme),
             const SizedBox(height: 10),
@@ -622,7 +623,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'This membership is lapsed and is read-only. Reactivate it and wait for the reactivation approval to be completed before any other membership action becomes available.',
+              'This membership is lapsed. Authorised users may collect premiums, but payment does not restore cover. Reactivation approval is required before other membership actions become available.',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
