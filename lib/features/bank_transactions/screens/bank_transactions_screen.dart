@@ -94,8 +94,10 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
             leading: Icon(item.amountCents >= 0 ? Icons.south_west : Icons.north_east,
               color: item.amountCents >= 0 ? Colors.green : Colors.red),
             title: Text('${item.depositId}   •   R ${(item.amountCents / 100).toStringAsFixed(2)}'),
-            subtitle: Text('${item.date}  |  ${item.reference}\nAccount ${item.accountNumber}  |  ${item.status}  |  Available R ${(item.availableCents / 100).toStringAsFixed(2)}'),
-              maxLines: 3),
+            subtitle: Text(
+              '${item.date}  |  ${item.reference}\nAccount ${item.accountNumber}  |  ${item.status}  |  Available R ${(item.availableCents / 100).toStringAsFixed(2)}',
+              maxLines: 3,
+            ),
             trailing: IconButton(icon: const Icon(Icons.copy), tooltip: 'Copy Deposit ID',
               onPressed: item.amountCents <= 0 ? null : () async {
               await Clipboard.setData(ClipboardData(text: item.depositId));
