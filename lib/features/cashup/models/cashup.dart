@@ -206,6 +206,7 @@ class CashupDeposit {
   final String paymentMethod;
   final String bankName;
   final String referenceNo;
+  final String bankDepositId;
   final String notes;
   final String createdBy;
   final String proofAttachmentId;
@@ -218,6 +219,7 @@ class CashupDeposit {
     required this.paymentMethod,
     required this.bankName,
     required this.referenceNo,
+    required this.bankDepositId,
     required this.notes,
     required this.createdBy,
     required this.proofAttachmentId,
@@ -234,6 +236,7 @@ class CashupDeposit {
       paymentMethod: json['paymentMethod']?.toString() ?? '',
       bankName: json['bankName']?.toString() ?? '',
       referenceNo: json['referenceNo']?.toString() ?? '',
+      bankDepositId: json['bankDepositId']?.toString() ?? '',
       notes: json['notes']?.toString() ?? '',
       createdBy: json['createdBy']?.toString() ?? '',
       proofAttachmentId: json['proofAttachmentId']?.toString() ?? '',
@@ -249,6 +252,7 @@ class CashupDeposit {
       'paymentMethod': paymentMethod,
       'bankName': bankName,
       'referenceNo': referenceNo,
+      'bankDepositId': bankDepositId,
       'notes': notes,
       'createdBy': createdBy,
       'proofAttachmentId': proofAttachmentId,

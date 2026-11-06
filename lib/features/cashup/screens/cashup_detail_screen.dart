@@ -13,6 +13,7 @@ import '../../settings/services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import '../../bank_transactions/widgets/bank_deposit_id_field.dart';
 
 class CashupDetailScreen extends StatefulWidget {
   final String cashupId;
@@ -168,7 +169,9 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
   bool _canSubmitCashup(Cashup cashup) {
     final status = cashup.status.toUpperCase();
     if (!cashup.depositRequired) return status == 'OPEN' || status == 'AWAITING_DEPOSITS';
-    return (status == 'AWAITING_DEPOSITS' || status == 'COMPLETED') && cashup.deposits.isNotEmpty;
+    return (status == 'AWAITING_DEPOSITS' || status == 'COMPLETED') &&
+        cashup.deposits.isNotEmpty &&
+        cashup.deposits.every((deposit) => deposit.bankDepositId.isNotEmpty);
   }
 
   bool _canEditCashup(Cashup cashup) {
@@ -181,6 +184,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
     final amountController = TextEditingController();
     final referenceController = TextEditingController();
+    final bankDepositIdController = TextEditingController();
     String? selectedBankName;
     final notesController = TextEditingController();
     String paymentMethod = 'CASH';
@@ -256,6 +260,8 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  BankDepositIdField(controller: bankDepositIdController),
                   const SizedBox(height: 12),
                   AppDropdownField(
                     field: 'BANK-NAME',
@@ -357,6 +363,10 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                   setDialogState(() => validationError = 'A valid amount is required.');
                   return;
                 }
+                if (!RegExp(r'^DEP-\d+$', caseSensitive: false).hasMatch(bankDepositIdController.text.trim())) {
+                  setDialogState(() => validationError = 'A valid bank Deposit ID is required.');
+                  return;
+                }
                 if (attachmentFile == null || attachmentExtension == null) {
                   setDialogState(() =>
                       validationError = 'A proof-of-deposit attachment is required.');
@@ -367,6 +377,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                   'paymentMethod': paymentMethod,
                   'depositDate': DateFormat('yyyy-MM-dd').format(depositDate),
                   'referenceNo': referenceController.text.trim(),
+                  'bankDepositId': bankDepositIdController.text.trim(),
                   'bankName': selectedBankName,
                   'notes': notesController.text.trim(),
                   'attachmentFile': attachmentFile,
@@ -383,6 +394,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
     amountController.dispose();
     referenceController.dispose();
+    bankDepositIdController.dispose();
     notesController.dispose();
 
     if (result == null) return;
@@ -695,6 +707,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                       deposit.depositDate,
                       deposit.paymentMethod,
                       if (deposit.referenceNo.isNotEmpty) deposit.referenceNo,
+                      if (deposit.bankDepositId.isNotEmpty) 'Deposit ID ${deposit.bankDepositId}',
                     ].where((value) => value.isNotEmpty).join(' • ')),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

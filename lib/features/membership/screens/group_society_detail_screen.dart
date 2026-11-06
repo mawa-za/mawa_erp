@@ -18,6 +18,7 @@ import '../../partners/screens/partner_detail_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import '../../bank_transactions/widgets/bank_deposit_id_field.dart';
 
 class GroupSocietyDetailScreen extends StatefulWidget {
   final String societyId;
@@ -172,6 +173,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
 
   Future<void> _showAddPaymentDialog() async {
     final amountController = TextEditingController();
+    final bankDepositIdController = TextEditingController();
     final refController = TextEditingController();
     final notesController = TextEditingController();
     DateTime selectedDate = DateTime.now();
@@ -228,6 +230,10 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     const SizedBox(height: 10),
                     const Text('The card terminal assigned to your user in User Maintenance will be used automatically.'),
                   ],
+                  if (selectedMethod == 'EFT') ...[
+                    const SizedBox(height: 12),
+                    BankDepositIdField(controller: bankDepositIdController),
+                  ],
                   const SizedBox(height: 12),
                   TextFormField(controller: refController, decoration: const InputDecoration(labelText: 'Reference Number')),
                   const SizedBox(height: 12),
@@ -263,6 +269,11 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a payment method.')));
                   return;
                 }
+                if (selectedMethod == 'EFT' && !RegExp(r'^DEP-\d+$', caseSensitive: false)
+                    .hasMatch(bankDepositIdController.text.trim())) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a valid bank Deposit ID.')));
+                  return;
+                }
                 final printerStatus = await PosPrintingService().receiptPrinterAvailability();
                 if (!context.mounted) return;
                 if (!printerStatus.online) {
@@ -283,6 +294,7 @@ class _GroupSocietyDetailScreenState extends State<GroupSocietyDetailScreen> wit
                     'amountCents': (amount * 100).round(),
                     'paymentDate': DateFormat('yyyy-MM-dd').format(selectedDate),
                     'paymentMethod': selectedMethod!,
+                    'bankDepositId': selectedMethod == 'EFT' ? bankDepositIdController.text.trim() : null,
                     'referenceNo': refController.text.trim(),
                     'notes': notesController.text.trim(),
                     'createdBy': prefs.getString('userId') ?? 'unknown',

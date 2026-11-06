@@ -12,6 +12,7 @@ import '../../settings/services/pos_printing_service.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import '../../bank_transactions/widgets/bank_deposit_id_field.dart';
 
 class CapturePremiumPaymentDialog extends StatefulWidget {
   final MembershipDetail membership;
@@ -31,6 +32,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
+  final _bankDepositIdController = TextEditingController();
 
   String? _paymentMethod;
   bool _isSubmitting = false;
@@ -118,6 +120,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
   void dispose() {
     _amountController.dispose();
     _notesController.dispose();
+    _bankDepositIdController.dispose();
     super.dispose();
   }
 
@@ -193,6 +196,7 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
         location: prefs.getString('location'),
         employeeResponsible: userId,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
+        bankDepositId: _paymentMethod == 'EFT' ? _bankDepositIdController.text.trim() : null,
       );
 
       final printFailures = <String>[];
@@ -413,6 +417,10 @@ class _CapturePremiumPaymentDialogState extends State<CapturePremiumPaymentDialo
                       if (_paymentMethod == 'CARD') ...[
                         const SizedBox(height: 10),
                         const Text('The card terminal assigned to your user in User Maintenance will be used automatically.'),
+                      ],
+                      if (_paymentMethod == 'EFT') ...[
+                        const SizedBox(height: 12),
+                        BankDepositIdField(controller: _bankDepositIdController),
                       ],
                       const SizedBox(height: 16),
                       TextFormField(

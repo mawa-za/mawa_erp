@@ -198,6 +198,7 @@ class FeatureGroupRegistry {
       childWorkcenterIds: [
         'invoice', 'invoices', 'receipt', 'receipts', 'payment-request',
         'payment-requests', 'cashup', 'cashups', 'deposit', 'deposits',
+        'bank-transactions',
       ],
       aliases: ['finance-management', 'finance'],
     ),
