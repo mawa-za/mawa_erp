@@ -68,6 +68,29 @@ class BankTransactionService {
     if (response.statusCode != 200) throw AppException('Could not save bank mailbox configuration: ${response.body}');
   }
 
+  Future<Map<String, dynamic>> getMicrosoftAppInfo() async {
+    final response = await ApiClient().get('/v2/bank-transactions/microsoft/info');
+    if (response.statusCode != 200) throw AppException('MAWA Microsoft 365 application is not configured: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<String> connectMicrosoft() async {
+    final response = await ApiClient().post('/v2/bank-transactions/microsoft/connect', body: {});
+    if (response.statusCode != 200) throw AppException('Could not start Microsoft sign-in: ${response.body}');
+    return (jsonDecode(response.body) as Map)['authorizationUrl']?.toString() ?? '';
+  }
+
+  Future<Map<String, dynamic>> verifyMicrosoft() async {
+    final response = await ApiClient().post('/v2/bank-transactions/microsoft/verify', body: {});
+    if (response.statusCode != 200) throw AppException('Microsoft mailbox verification failed: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<void> disconnectMicrosoft() async {
+    final response = await ApiClient().post('/v2/bank-transactions/microsoft/disconnect', body: {});
+    if (response.statusCode != 200) throw AppException('Could not disconnect Microsoft 365: ${response.body}');
+  }
+
   Future<Map<String, dynamic>> syncNow() async {
     final response = await ApiClient().post('/v2/bank-transactions/sync', body: {});
     if (response.statusCode != 200) throw AppException('Bank statement sync failed: ${response.body}');
