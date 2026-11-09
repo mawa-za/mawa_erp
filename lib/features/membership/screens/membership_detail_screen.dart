@@ -47,6 +47,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   List<MembershipClaim> _claims = [];
   bool _allowPremiumPaymentTransfer = false;
   Map<String, bool> _paymentPermissions = {};
+  String? _paymentPermissionError;
   int _historyRevision = 0;
   bool _allowDeleteWithoutCashupValidation = false;
   bool _hasPendingMembershipStatusChange = false;
@@ -97,7 +98,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         MembershipService().getPendingMembershipStatusChange(widget.membershipId).catchError(
           (e) => <String, dynamic>{'pending': false},
         ),
-        MembershipService().getPremiumPaymentPermissions().catchError((_) => <String, bool>{}),
+        MembershipService().getPremiumPaymentPermissions()
+            .then((value) => <String, dynamic>{'permissions': value})
+            .catchError((Object error) => <String, dynamic>{'error': friendlyErrorMessage(error)}),
       ]);
 
       final member = results[0] as Partner;
@@ -161,7 +164,9 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _allowDeleteWithoutCashupValidation = allowDeleteWithoutCashupValidation;
           _hasPendingMembershipStatusChange = pendingStatusChange['pending'] == true;
           _pendingMembershipStatusAction = pendingStatusChange['action']?.toString();
-          _paymentPermissions = results[5] as Map<String, bool>;
+          final permissionResult = results[5] as Map<String, dynamic>;
+          _paymentPermissions = (permissionResult['permissions'] as Map<String, bool>?) ?? {};
+          _paymentPermissionError = permissionResult['error'] as String?;
           _historyRevision++;
           _isLoading = false;
         });
@@ -520,6 +525,14 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             const SizedBox(height: 12),
             _buildLapsedRestrictionNotice(),
           ],
+          if (_paymentPermissionError != null) Card(
+            child: ListTile(
+              leading: const Icon(Icons.error_outline, color: Colors.red),
+              title: const Text('Payment permissions could not be loaded'),
+              subtitle: Text(_paymentPermissionError!),
+              trailing: TextButton(onPressed: _fetchData, child: const Text('RETRY')),
+            ),
+          ),
           if (!_isMergedMembership && _paymentPermissions['create'] == true) ...[
             const SizedBox(height: 16),
             _buildCapturePaymentButton(colorScheme),
