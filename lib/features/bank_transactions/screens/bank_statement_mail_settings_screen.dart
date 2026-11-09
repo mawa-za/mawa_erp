@@ -137,8 +137,24 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
     setState(() { _saving = true; _error = null; _notice = null; });
     try {
       final response = await _service.syncNow();
+      final filtered = <String>[
+        if ((response['rejectedSenderOrSubject'] ?? 0) > 0)
+          '${response['rejectedSenderOrSubject']} sender/subject mismatch',
+        if ((response['rejectedDmarc'] ?? 0) > 0)
+          '${response['rejectedDmarc']} failed DMARC',
+        if ((response['unsupportedAttachments'] ?? 0) > 0)
+          '${response['unsupportedAttachments']} unsupported attachments',
+        if ((response['unreadableAttachments'] ?? 0) > 0)
+          '${response['unreadableAttachments']} unreadable/oversized attachments',
+        if ((response['accountMismatchAttachments'] ?? 0) > 0)
+          '${response['accountMismatchAttachments']} rejected account number',
+      ];
+      final scanned = response['candidateMessages'];
       if (mounted) setState(() => _notice =
-        'Import completed: ${response['newTransactions']} new transactions in ${response['attachments']} attachments; ${response['failures']} failed.');
+        'Import scan completed: ${response['newTransactions']} new transactions in '
+        '${response['attachments']} CSV files; ${response['failures']} failed. '
+        '${scanned == null ? '' : '$scanned candidate messages scanned. '}'
+        '${filtered.isEmpty ? '' : 'Filtered: ${filtered.join(', ')}.'}');
       await _load();
     } catch (e) { if (mounted) setState(() => _error = e.toString()); }
     finally { if (mounted) setState(() => _saving = false); }
@@ -215,7 +231,7 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
               keyboardType: TextInputType.number,
               validator: (v) { final d = int.tryParse(v ?? ''); return d == null || d < 1 || d > 365 ? 'Enter 1–365' : null; }),
             const SizedBox(height: 16),
-            Text('Last successful import: ${_lastSync ?? 'Not yet'}'),
+            Text('Last completed successful mailbox scan: ${_lastSync ?? 'Not yet'}'),
             const SizedBox(height: 12),
             if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
             if (_notice != null) Text(_notice!, style: const TextStyle(color: Colors.green)),
@@ -226,7 +242,7 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
                 icon: const Icon(Icons.sync), label: const Text('Import Now')),
             ]),
             const SizedBox(height: 12),
-            const Text('Supported attachments: FNB Account Transaction History CSV. '
+            const Text('Supported attachments: FNB Account Transaction History CSV or ZIP containing CSV. '
               'Microsoft uses an organization-specific Exchange Online RBAC Application Mail.Read assignment. '
               'Gmail requires a consented Gmail read-only refresh token.'),
           ],
