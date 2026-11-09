@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/app_date_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:printing/printing.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
@@ -10,6 +11,7 @@ import '../models/membership_plan.dart' hide DependentType;
 import '../models/membership_claim.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
+import '../services/membership_details_pdf_service.dart';
 import '../services/receipt_cancellation_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -52,6 +54,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   bool _allowDeleteWithoutCashupValidation = false;
   bool _hasPendingMembershipStatusChange = false;
   bool _isRecalculatingPremiums = false;
+  bool _isPrintingMembership = false;
   String? _pendingMembershipStatusAction;
   String? _error;
   String _dependentSearch = '';
@@ -178,6 +181,35 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _printMembershipDetails() async {
+    if (_isPrintingMembership || _detail == null || _member == null || _plan == null) return;
+    setState(() => _isPrintingMembership = true);
+    try {
+      final membership = _detail!;
+      final bytes = await MembershipDetailsPdfService().buildPdf(
+        membership: membership,
+        holder: _member!,
+        plan: _plan!,
+        // Do not use the search-filtered dependant list: include every relationship.
+        dependents: List<Dependent>.of(_dependents),
+        dependentPartners: Map<String, Partner>.of(_dependentPartners),
+      );
+      await Printing.layoutPdf(
+        name: 'Membership_${membership.membershipNo.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.pdf',
+        onLayout: (_) async => bytes,
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Unable to print membership details: ${friendlyErrorMessage(error)}'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isPrintingMembership = false);
     }
   }
 
@@ -542,7 +574,36 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 24),
           if (_member != null) _buildMemberCard(_member!, colorScheme),
           const SizedBox(height: 32),
-          _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION'),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final printButton = OutlinedButton.icon(
+                onPressed: _isPrintingMembership || _member == null || _plan == null
+                    ? null
+                    : _printMembershipDetails,
+                icon: _isPrintingMembership
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.print_outlined, size: 18),
+                label: const Text('PRINT MEMBERSHIP DETAILS'),
+              );
+              if (constraints.maxWidth < 590) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION'),
+                    const SizedBox(height: 10),
+                    printButton,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION')),
+                  const SizedBox(width: 12),
+                  printButton,
+                ],
+              );
+            },
+          ),
           const SizedBox(height: 12),
           _buildMembershipInfoCard(detail, colorScheme),
           const SizedBox(height: 32),
