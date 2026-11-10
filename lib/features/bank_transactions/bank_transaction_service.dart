@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../../core/api_client.dart';
+import '../../core/utils/app_date_utils.dart';
 import '../../core/errors/app_error.dart';
 
 class BankTransaction {
@@ -17,7 +18,7 @@ class BankTransaction {
 
   factory BankTransaction.fromJson(Map<String, dynamic> json) => BankTransaction(
     depositId: json['depositId']?.toString() ?? '',
-    date: json['date']?.toString() ?? '',
+    date: AppDateUtils.normalizeDate(json['date']),
     amountCents: (json['amountCents'] as num?)?.toInt() ?? 0,
     availableCents: (json['availableCents'] as num?)?.toInt() ?? 0,
     reference: json['reference']?.toString() ?? '',

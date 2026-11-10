@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../bank_transaction_service.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 class BankTransactionsScreen extends StatefulWidget {
   const BankTransactionsScreen({super.key});
@@ -58,7 +59,7 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
             : ListView(children: allocations.map((a) => ListTile(
               leading: Icon(a['releasedAt'] == null ? Icons.link : Icons.link_off),
               title: Text('${a['type']}  •  R ${((a['amountCents'] as num? ?? 0) / 100).toStringAsFixed(2)}'),
-              subtitle: Text('Record ${a['objectId']}\nBy ${a['createdBy'] ?? '-'} • ${a['createdAt'] ?? ''}'),
+              subtitle: Text('Record ${a['objectId']}\nBy ${a['createdBy'] ?? '-'} • ${AppDateUtils.displayDateTime(a['createdAt'], fallback: '-')}'),
               trailing: a['releasedAt'] == null ? const Text('Active') : const Text('Released'),
             )).toList())),
         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
@@ -77,8 +78,8 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
         SizedBox(width: 140, child: TextField(controller: _amount, onSubmitted: (_) => _load(),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'Exact amount (R)'))),
-        OutlinedButton(onPressed: () => _pickDate(true), child: Text(_from == null ? 'From date' : '${_from!.year}-${_from!.month}-${_from!.day}')),
-        OutlinedButton(onPressed: () => _pickDate(false), child: Text(_to == null ? 'To date' : '${_to!.year}-${_to!.month}-${_to!.day}')),
+        OutlinedButton(onPressed: () => _pickDate(true), child: Text(_from == null ? 'From date' : AppDateUtils.displayDate(_from))),
+        OutlinedButton(onPressed: () => _pickDate(false), child: Text(_to == null ? 'To date' : AppDateUtils.displayDate(_to))),
         FilterChip(label: const Text('Credits only'), selected: _creditsOnly, onSelected: (value) { setState(() => _creditsOnly = value); _load(); }),
         FilledButton.icon(onPressed: _loading ? null : () => _load(), icon: const Icon(Icons.search), label: const Text('Search')),
       ]),
@@ -95,7 +96,7 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
               color: item.amountCents >= 0 ? Colors.green : Colors.red),
             title: Text('${item.depositId}   •   R ${(item.amountCents / 100).toStringAsFixed(2)}'),
             subtitle: Text(
-              '${item.date}  |  ${item.reference}\nAccount ${item.accountNumber}  |  ${item.status}  |  Available R ${(item.availableCents / 100).toStringAsFixed(2)}',
+              '${AppDateUtils.displayDate(item.date)}  |  ${item.reference}\nAccount ${item.accountNumber}  |  ${item.status}  |  Available R ${(item.availableCents / 100).toStringAsFixed(2)}',
               maxLines: 3,
             ),
             trailing: IconButton(icon: const Icon(Icons.copy), tooltip: 'Copy Deposit ID',

@@ -74,7 +74,7 @@ void main() {
         createdBy: 'test',
       ),
     ];
-    final pdf = await MembershipDetailsPdfService().buildPdf(
+    final pdf = await MembershipDetailsPdfService(useGoogleFonts: false).buildPdf(
       membership: membership,
       holder: holder,
       plan: plan,
@@ -88,7 +88,7 @@ void main() {
   });
 
   test('generates a PDF when no dependants are linked', () async {
-    final pdf = await MembershipDetailsPdfService().buildPdf(
+    final pdf = await MembershipDetailsPdfService(useGoogleFonts: false).buildPdf(
       membership: membership,
       holder: holder,
       plan: plan,
@@ -111,7 +111,7 @@ void main() {
       lastName: '$index',
       createdBy: 'test',
     ));
-    final pdf = await MembershipDetailsPdfService().buildPdf(
+    final pdf = await MembershipDetailsPdfService(useGoogleFonts: false).buildPdf(
       membership: membership,
       holder: holder,
       plan: plan,
