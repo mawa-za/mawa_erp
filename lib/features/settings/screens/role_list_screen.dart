@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/role.dart';
 import '../services/role_service.dart';
-import 'role_workcenter_assignment_screen.dart';
+import 'role_access_management_screen.dart';
+import 'role_permission_assignment_screen.dart';
 import 'role_vat_permission_screen.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
@@ -245,13 +246,13 @@ class _RoleListScreenState extends State<RoleListScreen> {
                         ),
                         subtitle: Text(
                           '${role.description}\n'
-                          '${role.accessAllWorkcentres ? 'Automatically includes future workcentres' : 'Configured through role workcentre maintenance'}',
+                          '${role.accessAllWorkcentres ? 'Automatically includes future workcentres' : 'Configure workcentres and permissions separately'}',
                         ),
                         isThreeLine: true,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => RoleWorkcenterAssignmentScreen(
+                            builder: (_) => RoleAccessManagementScreen(
                               role: role,
                             ),
                           ),
@@ -263,10 +264,19 @@ class _RoleListScreenState extends State<RoleListScreen> {
                                 builder: (_) => RoleVatPermissionScreen(roleId: role.id),
                               ));
                             }
+                            if (value == 'permissions') {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => RolePermissionAssignmentScreen(role: role),
+                              ));
+                            }
                             if (value == 'edit') _edit(role);
                             if (value == 'delete') _delete(role);
                           },
                           itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'permissions',
+                              child: Text('Business permissions'),
+                            ),
                             const PopupMenuItem(
                               value: 'vat',
                               child: Text('VAT permissions'),

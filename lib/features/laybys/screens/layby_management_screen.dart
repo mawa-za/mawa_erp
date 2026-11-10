@@ -11,6 +11,8 @@ import '../../partners/models/partner.dart';
 import '../../partners/screens/partner_create_screen.dart';
 import '../../settings/services/pos_printing_service.dart';
 import '../services/layby_service.dart';
+import '../../bank_transactions/widgets/bank_deposit_id_field.dart';
+import '../../bank_transactions/bank_transaction_service.dart';
 
 class LaybyManagementScreen extends StatefulWidget {
   const LaybyManagementScreen({super.key, this.initialLaybyId});
@@ -276,8 +278,13 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
   }
 
   Future<void> _payment() async {
+    bool requireDepositId;
+    try { requireDepositId = await BankTransactionService().requireDepositIdNow(); }
+    catch (e) { if (mounted) setState(() => _error = 'Could not load bank verification policy: $e'); return; }
+    if (!mounted) return;
     final amount = TextEditingController();
     final notes = TextEditingController();
+    final bankDepositId = TextEditingController();
     String method = '';
     final accepted = await showDialog<bool>(
       context: context,
@@ -305,6 +312,10 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
             const SizedBox(height: 10),
             const Text('The card terminal assigned to your user in User Maintenance will be used automatically.'),
           ],
+          if (method == 'EFT') ...[
+            const SizedBox(height: 12),
+            BankDepositIdField(controller: bankDepositId, isRequired: requireDepositId),
+          ],
           const SizedBox(height: 12),
           TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
         ])),
@@ -322,10 +333,16 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
       }
       return;
     }
+    if (method == 'EFT' && !BankTransactionService.depositIdAccepted(bankDepositId.text,
+        isRequired: requireDepositId)) {
+      if (mounted) setState(() => _error = 'Select a bank Deposit ID for the EFT payment.');
+      return;
+    }
     await _run(() async {
       await widget.service.capturePayment(widget.laybyId, {
         'amountCents': (value * 100).round(),
         'paymentMethod': method,
+        'bankDepositId': method == 'EFT' ? bankDepositId.text.trim() : null,
         if (notes.text.trim().isNotEmpty) 'notes': notes.text.trim(),
       });
     });

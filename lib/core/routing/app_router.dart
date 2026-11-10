@@ -34,6 +34,8 @@ import '../../features/admin/message_queue/message_queue_admin_screen.dart';
 import '../../features/device_sync/screens/device_sync_workcenter_screen.dart';
 import '../../features/appointments/screens/appointment_calendar_screen.dart';
 import '../../features/cashup/screens/cashup_list_screen.dart';
+import '../../features/bank_transactions/screens/bank_transactions_screen.dart';
+import '../../features/bank_transactions/screens/bank_statement_mail_settings_screen.dart';
 import '../../features/payments/screens/payment_request_list_screen.dart';
 import '../../features/leave_management/screens/leave_management_screen.dart';
 import '../../features/employment/screens/employment_management_screen.dart';
@@ -377,6 +379,14 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.cashups,
         builder: (context, state) => const CashupListScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.bankTransactions,
+        builder: (context, state) => const BankTransactionsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.bankStatementMailSettings,
+        builder: (context, state) => const BankStatementMailSettingsScreen(),
       ),
       GoRoute(
         path: AppRoutes.paymentRequests,

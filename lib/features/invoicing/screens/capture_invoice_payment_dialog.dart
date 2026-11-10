@@ -9,6 +9,7 @@ import '../models/invoice_detail.dart';
 import '../services/invoice_service.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
+import '../../bank_transactions/widgets/bank_deposit_id_field.dart';
 
 class CaptureInvoicePaymentDialog extends StatefulWidget {
   final InvoiceDetail invoice;
@@ -29,6 +30,7 @@ class _CaptureInvoicePaymentDialogState
   final _amountController = TextEditingController();
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
+  final _bankDepositIdController = TextEditingController();
 
   String? _paymentMethod;
   DateTime _paymentDate = DateTime.now();
@@ -45,6 +47,7 @@ class _CaptureInvoicePaymentDialogState
     _amountController.dispose();
     _referenceController.dispose();
     _notesController.dispose();
+    _bankDepositIdController.dispose();
     super.dispose();
   }
 
@@ -89,6 +92,7 @@ class _CaptureInvoicePaymentDialogState
           'amountCents': amountCents,
           'paymentDate': DateFormat('yyyy-MM-dd').format(_paymentDate),
           'paymentMethod': _paymentMethod!,
+          'bankDepositId': _paymentMethod == 'EFT' ? _bankDepositIdController.text.trim() : null,
           'reference': _referenceController.text.trim(),
           'notes': _notesController.text.trim(),
           'createdBy': userId,
@@ -223,6 +227,10 @@ class _CaptureInvoicePaymentDialogState
                 if (_paymentMethod == 'CARD') ...[
                   const SizedBox(height: 10),
                   const Text('The card terminal assigned to your user in User Maintenance will be used automatically.'),
+                ],
+                if (_paymentMethod == 'EFT') ...[
+                  const SizedBox(height: 10),
+                  BankDepositIdField(controller: _bankDepositIdController),
                 ],
                 const SizedBox(height: 14),
                 InkWell(

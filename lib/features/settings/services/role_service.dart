@@ -2,10 +2,37 @@ import 'dart:convert';
 import '../../../core/api_client.dart';
 import '../../home/models/workcenter.dart';
 import '../models/role.dart';
+import '../models/role_permission.dart';
 import 'package:mawa_erp/core/errors/app_error.dart';
 
 class RoleService {
   final ApiClient _apiClient = ApiClient();
+
+  Future<List<RolePermission>> getAllPermissions() async {
+    final response = await _apiClient.get('/v2/permissions');
+    if (response.statusCode != 200) {
+      throw AppException('Unable to load permission catalogue (HTTP ${response.statusCode}): ${response.body}');
+    }
+    final items = jsonDecode(response.body) as List<dynamic>;
+    return items.map((item) => RolePermission.fromJson(Map<String, dynamic>.from(item as Map))).toList();
+  }
+
+  Future<Set<String>> getRolePermissions(String roleId) async {
+    final path = '/v2/role/${Uri.encodeComponent(roleId)}/permissions';
+    final response = await _apiClient.get(path);
+    if (response.statusCode != 200) {
+      throw AppException('Unable to load role permissions (HTTP ${response.statusCode}): ${response.body}');
+    }
+    return (jsonDecode(response.body) as List<dynamic>).map((item) => item.toString()).toSet();
+  }
+
+  Future<void> saveRolePermissions(String roleId, Set<String> codes) async {
+    final path = '/v2/role/${Uri.encodeComponent(roleId)}/permissions';
+    final response = await _apiClient.put(path, body: codes.toList()..sort());
+    if (response.statusCode != 200) {
+      throw AppException('Unable to save role permissions (HTTP ${response.statusCode}): ${response.body}');
+    }
+  }
 
   Future<List<Role>> getRoles() async {
     final response = await _apiClient.get('/v2/role');

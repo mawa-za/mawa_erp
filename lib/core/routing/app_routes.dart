@@ -43,6 +43,8 @@ class AppRoutes {
   static const String calendar = '/calendar';
   static const String appointments = '/appointments';
   static const String cashups = '/cashups';
+  static const String bankTransactions = '/bank-transactions';
+  static const String bankStatementMailSettings = '/system-configuration/bank-statement-mail';
   static const String paymentRequests = '/payment-requests';
   static const String employment = '/employment';
   static const String employeeRequests = '/employee-requests';

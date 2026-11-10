@@ -1195,6 +1195,7 @@ class MembershipService {
     String? location,
     String? employeeResponsible,
     String? notes,
+    String? bankDepositId,
   }) async {
     try {
       final payload = {
@@ -1208,6 +1209,7 @@ class MembershipService {
         'location': location,
         'employeeResponsible': employeeResponsible,
         'notes': notes,
+        'bankDepositId': bankDepositId,
       };
 
       final response = await ApiClient().post('/v2/payment-batches/membership-premiums', body: payload);
