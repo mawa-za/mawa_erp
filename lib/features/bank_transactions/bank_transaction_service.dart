@@ -34,6 +34,14 @@ class BankTransactionsPage {
 }
 
 class BankTransactionService {
+  /// Empty IDs are allowed only while tenant enforcement is not active.
+  /// Non-empty IDs must always be syntactically valid, even during transition.
+  static bool depositIdAccepted(String? value, {required bool isRequired}) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return !isRequired;
+    return RegExp(r'^DEP-\d{1,18}$', caseSensitive: false).hasMatch(text);
+  }
+
   Future<BankTransactionsPage> search({String search = '', bool creditsOnly = false,
     DateTime? fromDate, DateTime? toDate, int? amountCents, int page = 0}) async {
     final response = await ApiClient().get('/v2/bank-transactions', queryParameters: {
@@ -49,6 +57,41 @@ class BankTransactionService {
     return BankTransactionsPage((json['content'] as List? ?? [])
       .whereType<Map>().map((e) => BankTransaction.fromJson(Map<String, dynamic>.from(e))).toList(),
       json['last'] == true);
+  }
+
+  /// Readable by signed-in cashiers; bank statement settings are separately restricted.
+  Future<Map<String, dynamic>> getDepositPolicy() async {
+    final response = await ApiClient().get('/v2/bank-transactions/deposit-policy');
+    if (response.statusCode != 200) throw AppException('Could not load bank deposit policy: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<bool> requireDepositIdNow() async => (await getDepositPolicy())['requiredNow'] == true;
+
+  Future<void> saveDepositPolicy({required bool requireDepositId, String? effectiveFrom}) async {
+    final response = await ApiClient().put('/v2/bank-transactions/deposit-policy', body: {
+      'requireDepositId': requireDepositId, 'effectiveFrom': effectiveFrom,
+    });
+    if (response.statusCode != 200) throw AppException('Could not update deposit enforcement: ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> pendingVerification({required String type, String search = '', int page = 0}) async {
+    final response = await ApiClient().get('/v2/bank-transactions/pending-verification',
+      queryParameters: {'type': type, 'search': search, 'page': page, 'size': 30});
+    if (response.statusCode != 200) throw AppException('Could not load pending bank verifications: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<bool> canReconcile() async {
+    final response = await ApiClient().get('/v2/bank-transactions/reconcile-permission');
+    if (response.statusCode != 200) throw AppException('Could not load reconciliation permission: ${response.body}');
+    return (jsonDecode(response.body) as Map)['allowed'] == true;
+  }
+
+  Future<void> reconcile({required String type, required String objectId, required String depositId}) async {
+    final response = await ApiClient().post('/v2/bank-transactions/reconcile',
+      body: {'type': type, 'objectId': objectId, 'depositId': depositId});
+    if (response.statusCode != 200) throw AppException('Could not reconcile bank transaction: ${response.body}');
   }
 
   Future<Map<String, dynamic>> getConfiguration() async {

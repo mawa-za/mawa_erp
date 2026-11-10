@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../bank_transaction_service.dart';
 import '../../../core/utils/app_date_utils.dart';
+import 'pending_bank_verification_screen.dart';
 
 class BankTransactionsScreen extends StatefulWidget {
   const BankTransactionsScreen({super.key});
@@ -69,6 +70,9 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
 
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Bank Transactions'), actions: [
+      TextButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => const PendingBankVerificationScreen())),
+        icon: const Icon(Icons.rule_folder_outlined), label: const Text('Pending Bank Verification')),
       IconButton(onPressed: _loading ? null : () => _load(), icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
     ]),
     body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [

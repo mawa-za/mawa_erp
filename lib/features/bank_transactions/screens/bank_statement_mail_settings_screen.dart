@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../bank_transaction_service.dart';
+import '../../../core/utils/app_date_utils.dart';
 
 class BankStatementMailSettingsScreen extends StatefulWidget {
   const BankStatementMailSettingsScreen({super.key});
@@ -26,6 +28,11 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
   String _centralAppId = '';
   String? _infoError;
   String? _lastSync;
+  bool _enforceDepositId = false;
+  DateTime? _enforceFrom;
+  bool _policyLoaded = false;
+  bool _savingPolicy = false;
+  String? _policyError;
   bool _enabled = false;
   bool _requireDmarc = true;
   bool _loading = true;
@@ -62,6 +69,15 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
         _enabled = c['enabled'] == true;
       });
       try {
+        final policy = await _service.getDepositPolicy();
+        if (mounted) setState(() {
+          _enforceDepositId = policy['requireDepositId'] == true;
+          _enforceFrom = AppDateUtils.parse(policy['effectiveFrom']);
+          _policyLoaded = true;
+          _policyError = null;
+        });
+      } catch (e) { if (mounted) setState(() => _policyError = e.toString()); }
+      try {
         final info = await _service.getMicrosoftAppInfo();
         if (mounted) setState(() { _centralAppId = info['applicationId']?.toString() ?? ''; _infoError = null; });
       } catch (e) { if (mounted) setState(() => _infoError = e.toString()); }
@@ -87,6 +103,33 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
       if (mounted) setState(() => _notice = 'Tenant mailbox settings saved.');
     } catch (e) { if (mounted) setState(() => _error = e.toString()); }
     finally { if (mounted) setState(() => _saving = false); }
+  }
+
+  Future<void> _saveDepositPolicy() async {
+    if (!_policyLoaded) return;
+    if (_enforceDepositId && _enforceFrom == null) {
+      setState(() => _policyError = 'Select an enforcement effective date');
+      return;
+    }
+    setState(() { _savingPolicy = true; _policyError = null; });
+    try {
+      final date = _enforceFrom == null ? null :
+        '${_enforceFrom!.year.toString().padLeft(4,'0')}-${_enforceFrom!.month.toString().padLeft(2,'0')}-${_enforceFrom!.day.toString().padLeft(2,'0')}';
+      await _service.saveDepositPolicy(requireDepositId: _enforceDepositId, effectiveFrom: date);
+      if (mounted) setState(() => _notice = 'Deposit verification policy saved and audited.');
+      await _load();
+    } catch (e) { if (mounted) setState(() => _policyError = e.toString()); }
+    finally { if (mounted) setState(() => _savingPolicy = false); }
+  }
+
+  Future<void> _pickEnforcementDate() async {
+    final today = DateTime.now();
+    final first = DateTime(today.year, today.month, today.day);
+    final initial = _enforceFrom == null || _enforceFrom!.isBefore(first) ? first : _enforceFrom!;
+    final selected = await showDatePicker(context: context, initialDate: initial,
+      firstDate: first,
+      lastDate: today.add(const Duration(days: 3650)));
+    if (selected != null && mounted) setState(() => _enforceFrom = selected);
   }
 
   Future<void> _connectMicrosoft() async {
@@ -230,6 +273,35 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
             TextFormField(controller: _lookback, decoration: const InputDecoration(labelText: 'Lookback window (1–365 days)'),
               keyboardType: TextInputType.number,
               validator: (v) { final d = int.tryParse(v ?? ''); return d == null || d < 1 || d > 365 ? 'Enter 1–365' : null; }),
+            const SizedBox(height: 20),
+            const Divider(),
+            const Text('Bank Deposit Verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            const Text('Independent of bank statement imports. During transition, EFT and cashup deposits can be captured without a Deposit ID and reconciled later.'),
+            if (_policyLoaded) ...[
+              SwitchListTile(
+                title: const Text('Require Bank Deposit ID for new EFT and cashup deposits'),
+                subtitle: Text(_enforceDepositId ? 'Enforced from the effective date (CAT)' : 'Transition mode: Deposit IDs optional'),
+                value: _enforceDepositId, onChanged: _savingPolicy ? null : (enabled) => setState(() {
+                  _enforceDepositId = enabled;
+                  if (enabled) {
+                    final today = DateTime.now();
+                    final start = DateTime(today.year, today.month, today.day);
+                    if (_enforceFrom == null || _enforceFrom!.isBefore(start)) _enforceFrom = start;
+                  }
+                })),
+              if (_enforceDepositId)
+                OutlinedButton.icon(onPressed: _savingPolicy ? null : _pickEnforcementDate,
+                  icon: const Icon(Icons.event),
+                  label: Text(_enforceFrom == null ? 'Select effective date' :
+                    'Effective from ${DateFormat('dd MMM yyyy').format(_enforceFrom!)}')),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(onPressed: _savingPolicy ? null : _saveDepositPolicy,
+                icon: const Icon(Icons.verified_user_outlined), label: const Text('Save Deposit Verification Policy')),
+              const Text('Only protected tenant administrators can change this setting. Changes are audited.'),
+            ] else const Text('Bank deposit policy unavailable.'),
+            if (_policyError != null) Text(_policyError!, style: const TextStyle(color: Colors.red)),
+            const Divider(),
             const SizedBox(height: 16),
             Text('Last completed successful mailbox scan: ${_lastSync ?? 'Not yet'}'),
             const SizedBox(height: 12),

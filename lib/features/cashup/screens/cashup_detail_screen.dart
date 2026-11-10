@@ -14,6 +14,7 @@ import 'package:mawa_erp/core/errors/app_error.dart';
 
 import 'package:mawa_erp/core/widgets/searchable_dropdown_form_field.dart';
 import '../../bank_transactions/widgets/bank_deposit_id_field.dart';
+import '../../bank_transactions/bank_transaction_service.dart';
 
 class CashupDetailScreen extends StatefulWidget {
   final String cashupId;
@@ -169,9 +170,10 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
   bool _canSubmitCashup(Cashup cashup) {
     final status = cashup.status.toUpperCase();
     if (!cashup.depositRequired) return status == 'OPEN' || status == 'AWAITING_DEPOSITS';
+    // Backend enforces effective-date policy on each deposit; do not block
+    // older transition-period cashups merely because their IDs are blank.
     return (status == 'AWAITING_DEPOSITS' || status == 'COMPLETED') &&
-        cashup.deposits.isNotEmpty &&
-        cashup.deposits.every((deposit) => deposit.bankDepositId.isNotEmpty);
+        cashup.deposits.isNotEmpty;
   }
 
   bool _canEditCashup(Cashup cashup) {
@@ -181,6 +183,10 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
 
   Future<void> _showDepositDialog() async {
     if (_cashup == null) return;
+    bool requireDepositId;
+    try { requireDepositId = await BankTransactionService().requireDepositIdNow(); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not load bank verification policy: $e'))); return; }
+    if (!mounted) return;
 
     final amountController = TextEditingController();
     final referenceController = TextEditingController();
@@ -261,7 +267,7 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  BankDepositIdField(controller: bankDepositIdController),
+                  BankDepositIdField(controller: bankDepositIdController, isRequired: requireDepositId),
                   const SizedBox(height: 12),
                   AppDropdownField(
                     field: 'BANK-NAME',
@@ -363,7 +369,8 @@ class _CashupDetailScreenState extends State<CashupDetailScreen> {
                   setDialogState(() => validationError = 'A valid amount is required.');
                   return;
                 }
-                if (!RegExp(r'^DEP-\d+$', caseSensitive: false).hasMatch(bankDepositIdController.text.trim())) {
+                if (!BankTransactionService.depositIdAccepted(bankDepositIdController.text,
+                      isRequired: requireDepositId)) {
                   setDialogState(() => validationError = 'A valid bank Deposit ID is required.');
                   return;
                 }

@@ -12,6 +12,7 @@ import '../../partners/screens/partner_create_screen.dart';
 import '../../settings/services/pos_printing_service.dart';
 import '../services/layby_service.dart';
 import '../../bank_transactions/widgets/bank_deposit_id_field.dart';
+import '../../bank_transactions/bank_transaction_service.dart';
 
 class LaybyManagementScreen extends StatefulWidget {
   const LaybyManagementScreen({super.key, this.initialLaybyId});
@@ -277,6 +278,10 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
   }
 
   Future<void> _payment() async {
+    bool requireDepositId;
+    try { requireDepositId = await BankTransactionService().requireDepositIdNow(); }
+    catch (e) { if (mounted) setState(() => _error = 'Could not load bank verification policy: $e'); return; }
+    if (!mounted) return;
     final amount = TextEditingController();
     final notes = TextEditingController();
     final bankDepositId = TextEditingController();
@@ -309,7 +314,7 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
           ],
           if (method == 'EFT') ...[
             const SizedBox(height: 12),
-            BankDepositIdField(controller: bankDepositId),
+            BankDepositIdField(controller: bankDepositId, isRequired: requireDepositId),
           ],
           const SizedBox(height: 12),
           TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder())),
@@ -328,7 +333,8 @@ class _LaybyDetailDialogState extends State<_LaybyDetailDialog> {
       }
       return;
     }
-    if (method == 'EFT' && !RegExp(r'^DEP-\d+$', caseSensitive: false).hasMatch(bankDepositId.text.trim())) {
+    if (method == 'EFT' && !BankTransactionService.depositIdAccepted(bankDepositId.text,
+        isRequired: requireDepositId)) {
       if (mounted) setState(() => _error = 'Select a bank Deposit ID for the EFT payment.');
       return;
     }
