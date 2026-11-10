@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/app_date_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:printing/printing.dart';
 import '../models/membership_detail.dart';
 import '../models/dependent.dart';
 import '../models/premium.dart';
@@ -11,7 +10,6 @@ import '../models/membership_plan.dart' hide DependentType;
 import '../models/membership_claim.dart';
 import '../../partners/models/partner.dart';
 import '../services/membership_service.dart';
-import '../services/membership_details_pdf_service.dart';
 import '../services/receipt_cancellation_service.dart';
 import '../../partners/partner_service.dart';
 import '../../partners/screens/partner_detail_screen.dart';
@@ -49,12 +47,10 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
   List<MembershipClaim> _claims = [];
   bool _allowPremiumPaymentTransfer = false;
   Map<String, bool> _paymentPermissions = {};
-  String? _paymentPermissionError;
   int _historyRevision = 0;
   bool _allowDeleteWithoutCashupValidation = false;
   bool _hasPendingMembershipStatusChange = false;
   bool _isRecalculatingPremiums = false;
-  bool _isPrintingMembership = false;
   String? _pendingMembershipStatusAction;
   String? _error;
   String _dependentSearch = '';
@@ -101,9 +97,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         MembershipService().getPendingMembershipStatusChange(widget.membershipId).catchError(
           (e) => <String, dynamic>{'pending': false},
         ),
-        MembershipService().getPremiumPaymentPermissions()
-            .then((value) => <String, dynamic>{'permissions': value})
-            .catchError((Object error) => <String, dynamic>{'error': friendlyErrorMessage(error)}),
+        MembershipService().getPremiumPaymentPermissions().catchError((_) => <String, bool>{}),
       ]);
 
       final member = results[0] as Partner;
@@ -167,9 +161,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _allowDeleteWithoutCashupValidation = allowDeleteWithoutCashupValidation;
           _hasPendingMembershipStatusChange = pendingStatusChange['pending'] == true;
           _pendingMembershipStatusAction = pendingStatusChange['action']?.toString();
-          final permissionResult = results[5] as Map<String, dynamic>;
-          _paymentPermissions = (permissionResult['permissions'] as Map<String, bool>?) ?? {};
-          _paymentPermissionError = permissionResult['error'] as String?;
+          _paymentPermissions = results[5] as Map<String, bool>;
           _historyRevision++;
           _isLoading = false;
         });
@@ -181,35 +173,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _isLoading = false;
         });
       }
-    }
-  }
-
-  Future<void> _printMembershipDetails() async {
-    if (_isPrintingMembership || _detail == null || _member == null || _plan == null) return;
-    setState(() => _isPrintingMembership = true);
-    try {
-      final membership = _detail!;
-      final bytes = await MembershipDetailsPdfService().buildPdf(
-        membership: membership,
-        holder: _member!,
-        plan: _plan!,
-        // Do not use the search-filtered dependant list: include every relationship.
-        dependents: List<Dependent>.of(_dependents),
-        dependentPartners: Map<String, Partner>.of(_dependentPartners),
-      );
-      await Printing.layoutPdf(
-        name: 'Membership_${membership.membershipNo.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.pdf',
-        onLayout: (_) async => bytes,
-      );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Unable to print membership details: ${friendlyErrorMessage(error)}'),
-          backgroundColor: Colors.red,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _isPrintingMembership = false);
     }
   }
 
@@ -557,14 +520,6 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
             const SizedBox(height: 12),
             _buildLapsedRestrictionNotice(),
           ],
-          if (_paymentPermissionError != null) Card(
-            child: ListTile(
-              leading: const Icon(Icons.error_outline, color: Colors.red),
-              title: const Text('Payment permissions could not be loaded'),
-              subtitle: Text(_paymentPermissionError!),
-              trailing: TextButton(onPressed: _fetchData, child: const Text('RETRY')),
-            ),
-          ),
           if (!_isMergedMembership && _paymentPermissions['create'] == true) ...[
             const SizedBox(height: 16),
             _buildCapturePaymentButton(colorScheme),
@@ -574,43 +529,18 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           const SizedBox(height: 24),
           if (_member != null) _buildMemberCard(_member!, colorScheme),
           const SizedBox(height: 32),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final printButton = OutlinedButton.icon(
-                onPressed: _isPrintingMembership || _member == null || _plan == null
-                    ? null
-                    : _printMembershipDetails,
-                icon: _isPrintingMembership
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.print_outlined, size: 18),
-                label: const Text('PRINT MEMBERSHIP DETAILS'),
-              );
-              if (constraints.maxWidth < 590) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION'),
-                    const SizedBox(height: 10),
-                    printButton,
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION')),
-                  const SizedBox(width: 12),
-                  printButton,
-                ],
-              );
-            },
-          ),
+          _buildSectionHeader(Icons.info_outline, 'MEMBERSHIP INFORMATION'),
           const SizedBox(height: 12),
           _buildMembershipInfoCard(detail, colorScheme),
           const SizedBox(height: 32),
-          ApprovalHistorySection(referenceId: widget.membershipId, objectType: 'MEMBERSHIP', refreshRevision: _historyRevision),
           _buildSectionHeader(Icons.swap_horiz, 'MEMBERSHIP CHANGES'),
           const SizedBox(height: 12),
-          MembershipChangeSection(membership: detail, onChanged: _fetchData, readOnly: _isLapsedMembership || _isMergedMembership),
+          MembershipChangeSection(
+            membership: detail,
+            onChanged: _fetchData,
+            readOnly: _isLapsedMembership || _isMergedMembership,
+            onApprovalHistory: _showMembershipApprovalHistory,
+          ),
           const SizedBox(height: 32),
           Row(
             children: [
@@ -644,6 +574,67 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
           _buildAttachmentSection(detail.id),
           const SizedBox(height: 80),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showMembershipApprovalHistory() async {
+    final colors = Theme.of(context).colorScheme;
+    final viewport = MediaQuery.sizeOf(context);
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: SizedBox(
+          width: 760,
+          height: (viewport.height - 40).clamp(160.0, 690.0),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: colors.primaryContainer,
+                      child: Icon(Icons.approval_outlined, color: colors.onPrimaryContainer),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Approval history', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                        Text('Membership ${_detail?.membershipNo ?? ''}',
+                            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                      ],
+                    )),
+                    IconButton(
+                      tooltip: 'Close approval history',
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(18),
+                  child: ApprovalHistorySection(
+                    referenceId: widget.membershipId,
+                    objectType: 'MEMBERSHIP',
+                    refreshRevision: _historyRevision,
+                    timeline: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -913,84 +904,129 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
       claims: _claims,
       deceasedOnCurrentMembership: isDeceased,
     );
-    final themeColor = isDeceased ? Colors.purple : colorScheme.primary;
+    final accent = isDeceased ? Colors.purple : colorScheme.primary;
+    final needsIdentityCorrection =
+        (member.idType ?? '').trim().toUpperCase() != 'SA-ID' ||
+        member.identityNumber.trim().isEmpty;
+    final details = <MapEntry<IconData, MapEntry<String, String>>>[
+      MapEntry(Icons.badge_outlined, MapEntry('Identity',
+          member.identityNumber.trim().isEmpty ? 'Not recorded' :
+          '${member.idType ?? 'ID'}: ${member.identityNumber}')),
+      MapEntry(Icons.cake_outlined, MapEntry('Birth date', AppDateUtils.displayDate(member.birthDate))),
+      MapEntry(Icons.wc_outlined, MapEntry('Gender', _displayPremiumValue(member.gender))),
+      if (member.phone.trim().isNotEmpty)
+        MapEntry(Icons.phone_outlined, MapEntry('Phone', member.phone)),
+      if (member.email.trim().isNotEmpty)
+        MapEntry(Icons.email_outlined, MapEntry('Email', member.email)),
+    ];
 
     return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 8))],
-        border: Border.all(color: isDeceased ? Colors.purple.withOpacity(0.2) : Colors.white),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.7)),
       ),
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => PartnerDetailScreen(partnerId: member.id, title: 'Member Details', isMemberContext: true)),
-        ),
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: themeColor.withOpacity(0.1),
-                    child: Text(member.name2.isNotEmpty ? member.name2[0].toUpperCase() : '?',
-                      style: TextStyle(color: themeColor, fontWeight: FontWeight.w900, fontSize: 24)),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${member.title ?? ''} ${member.fullName}'.trim(), 
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, 
-                            decoration: isDeceased ? TextDecoration.lineThrough : null, color: isDeceased ? Colors.purple[900] : null)),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: themeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                          child: Text('MEMBER NO: ${member.number}', style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 10)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _buildStatusChip(isDeceased ? 'DECEASED' : _detail?.memberStatus ?? 'ACTIVE', isCompact: false),
-                ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: accent.withOpacity(0.09),
+              child: Text(
+                member.name2.trim().isNotEmpty ? member.name2.trim()[0].toUpperCase() : '?',
+                style: TextStyle(color: accent, fontSize: 21, fontWeight: FontWeight.w800),
               ),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
-              _buildProfileRow(Icons.badge_outlined, 'Identity', '${member.idType ?? 'ID'}: ${member.identityNumber}'),
-              if ((member.idType ?? '').trim().toUpperCase() != 'SA-ID' || member.identityNumber.trim().isEmpty)
-                Align(alignment: Alignment.centerRight, child: TextButton.icon(
-                  onPressed: () => _resolveSaId(), icon: const Icon(Icons.badge_outlined), label: const Text('ADD / RESOLVE SA-ID'))),
-              _buildProfileRow(Icons.cake_outlined, 'Birth Date', member.birthDate ?? 'N/A'),
-              _buildProfileRow(Icons.wc_outlined, 'Gender', member.gender ?? 'N/A'),
-              if (member.email.isNotEmpty) _buildProfileRow(Icons.email_outlined, 'Email', member.email),
-              if (member.phone.isNotEmpty) _buildProfileRow(Icons.phone_outlined, 'Phone', member.phone),
-              if (canProcessClaim && !_isLapsedMembership) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () async {
-                      final result = await Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => MembershipClaimCreateScreen(membership: _detail!, member: _member!, deceasedPartner: _member!)),
-                      );
-                      if (result == true) _fetchData();
-                    },
-                    icon: const Icon(Icons.request_quote_outlined, size: 18),
-                    label: const Text('PROCESS CLAIM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFF20D1A)),
-                  ),
-                ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${member.title ?? ''} ${member.fullName}'.trim(),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18,
+                        decoration: isDeceased ? TextDecoration.lineThrough : null)),
+                const SizedBox(height: 5),
+                Text('Member no. ${member.number}',
+                    style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
               ],
+            )),
+            _buildStatusChip(isDeceased ? 'DECEASED' : _detail?.memberStatus ?? 'ACTIVE', isCompact: false),
+          ]),
+          const SizedBox(height: 14),
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          const SizedBox(height: 14),
+          LayoutBuilder(builder: (context, constraints) {
+            final count = constraints.maxWidth >= 760 ? 3 : constraints.maxWidth >= 450 ? 2 : 1;
+            const spacing = 12.0;
+            final width = (constraints.maxWidth - spacing * (count - 1)) / count;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: 12,
+              children: details.map((entry) => SizedBox(
+                width: width,
+                child: _memberFact(entry.key, entry.value.key, entry.value.value, colorScheme),
+              )).toList(),
+            );
+          }),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: colorScheme.outlineVariant),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => PartnerDetailScreen(
+                    partnerId: member.id, title: 'Member Details', isMemberContext: true,
+                  ),
+                )),
+                icon: const Icon(Icons.open_in_new_outlined, size: 17),
+                label: const Text('VIEW MEMBER'),
+              ),
+              if (needsIdentityCorrection)
+                OutlinedButton.icon(
+                  onPressed: () => _resolveSaId(),
+                  icon: const Icon(Icons.badge_outlined, size: 17),
+                  label: const Text('ADD / RESOLVE SA-ID'),
+                ),
+              if (canProcessClaim && !_isLapsedMembership)
+                FilledButton.icon(
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => MembershipClaimCreateScreen(
+                        membership: _detail!, member: _member!, deceasedPartner: _member!,
+                      ),
+                    ));
+                    if (result == true) _fetchData();
+                  },
+                  icon: const Icon(Icons.request_quote_outlined, size: 17),
+                  label: const Text('PROCESS CLAIM'),
+                ),
             ],
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _memberFact(IconData icon, String label, String value, ColorScheme colorScheme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
+        const SizedBox(width: 9),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 11)),
+            const SizedBox(height: 2),
+            SelectableText(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ],
+        )),
+      ],
     );
   }
 
@@ -1732,208 +1768,144 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
     );
   }
 
-  Widget _buildPremiumHistoryRow(
-    Premium premium,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildPremiumHistoryRow(Premium premium, ColorScheme colorScheme) {
     final statusColor = _getPremiumStatusColor(premium.status);
-    final hasPaymentDate = premium.paymentDate?.trim().isNotEmpty == true;
-    final hasCashier = premium.cashier?.trim().isNotEmpty == true;
-    final hasReceipt = premium.receiptNo?.trim().isNotEmpty == true;
-    final hasMethod = premium.paymentMethod?.trim().isNotEmpty == true;
-    final hasLocation = premium.paymentLocation?.trim().isNotEmpty == true;
-    final hasDevice = premium.deviceId?.trim().isNotEmpty == true;
-
     final facts = <MapEntry<String, String>>[
-      MapEntry(
-        'Paid',
-        'R ${premium.paidAmount.toStringAsFixed(2)}',
-      ),
-      MapEntry(
-        'Balance',
-        'R ${premium.balance.toStringAsFixed(2)}',
-      ),
-      if (hasPaymentDate)
-        MapEntry(
-          'Payment date',
-          _formatPremiumPaymentDate(premium.paymentDate),
-        ),
-      if (hasCashier)
-        MapEntry(
-          'Cashier / collector',
-          _displayPremiumValue(premium.cashier),
-        ),
-      if (hasReceipt)
-        MapEntry(
-          'Receipt',
-          _displayPremiumValue(premium.receiptNo),
-        ),
-      if (hasMethod)
-        MapEntry(
-          'Method',
-          _displayPremiumValue(premium.paymentMethod),
-        ),
-      if (hasLocation)
-        MapEntry(
-          'Location',
-          _displayPremiumValue(premium.paymentLocation),
-        ),
-      if (hasDevice)
-        MapEntry(
-          'Terminal / device',
-          _displayPremiumValue(premium.deviceId),
-        ),
+      if (premium.paymentDate?.trim().isNotEmpty == true)
+        MapEntry('Payment date', _formatPremiumPaymentDate(premium.paymentDate)),
+      if (premium.cashier?.trim().isNotEmpty == true)
+        MapEntry('Cashier / collector', _displayPremiumValue(premium.cashier)),
+      if (premium.receiptNo?.trim().isNotEmpty == true)
+        MapEntry('Receipt', _displayPremiumValue(premium.receiptNo)),
+      if (premium.paymentMethod?.trim().isNotEmpty == true)
+        MapEntry('Method', _displayPremiumValue(premium.paymentMethod)),
+      if (premium.paymentLocation?.trim().isNotEmpty == true)
+        MapEntry('Location', _displayPremiumValue(premium.paymentLocation)),
+      if (premium.deviceId?.trim().isNotEmpty == true)
+        MapEntry('Terminal / device', _displayPremiumValue(premium.deviceId)),
       if (premium.paymentCount > 1)
-        MapEntry(
-          'Payments',
-          '${premium.paymentCount} receipts',
-        ),
+        MapEntry('Payments', '${premium.paymentCount} receipts'),
     ];
-
+    final canEditPremium = !_isMergedMembership && !_isLapsedMembership &&
+        _paymentPermissions['edit'] == true &&
+        !const {'REVERSED', 'CANCELLED'}.contains(premium.status.toUpperCase());
+    final hasReceipt = premium.paymentCount > 0 ||
+        premium.receiptId?.trim().isNotEmpty == true;
+    final canManageReceipt = !_isMergedMembership && !_isLapsedMembership && hasReceipt;
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 8, 14, 4),
-      padding: EdgeInsets.all(
-        MediaQuery.sizeOf(context).width < 640 ? 12 : 15,
-      ),
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFBFCFD),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withOpacity(0.7),
-        ),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.75)),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 520;
-          final gap = compact ? 10.0 : 18.0;
-          final factWidth = compact
-              ? ((constraints.maxWidth - gap) / 2)
-                  .clamp(105.0, 220.0)
-                  .toDouble()
-              : 170.0;
-
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 540;
+          final columns = constraints.maxWidth >= 980 ? 4 :
+              constraints.maxWidth >= 660 ? 3 : constraints.maxWidth >= 390 ? 2 : 1;
+          const gap = 12.0;
+          final factWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (compact) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                _premiumPeriodSummary(premium, colorScheme),
+                const SizedBox(height: 8),
+                Wrap(spacing: 10, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
-                      child: _premiumPeriodSummary(
-                        premium,
-                        colorScheme,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'R ${premium.amount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: colorScheme.primary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 7),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _premiumStatusChip(
-                    premium.status,
-                    statusColor,
-                  ),
-                ),
-              ] else
-                Row(
-                  children: [
-                    Expanded(
-                      child: _premiumPeriodSummary(
-                        premium,
-                        colorScheme,
-                      ),
-                    ),
-                    _premiumStatusChip(
-                      premium.status,
-                      statusColor,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'R ${premium.amount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: colorScheme.primary,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: gap,
-                runSpacing: compact ? 7 : 10,
-                children: facts
-                    .map(
-                      (fact) => _premiumFact(
-                        fact.key,
-                        fact.value,
-                        width: factWidth,
-                      ),
-                    )
-                    .toList(),
-              ),
-              if (!_isMergedMembership && !_isLapsedMembership && _paymentPermissions['edit'] == true &&
-                  premium.status.toUpperCase() != 'CANCELLED' &&
-                  !const {'REVERSED', 'CANCELLED'}.contains(premium.status.toUpperCase())) ...[
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _requestGeneratedPremiumEdit(premium),
-                    icon: const Icon(Icons.price_change_outlined, size: 18),
-                    label: const Text('EDIT PREMIUM'),
-                  ),
+                    _premiumStatusChip(premium.status, statusColor),
+                    Text('R ${premium.amount.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: colorScheme.primary)),
+                  ]),
+              ] else Row(children: [
+                Expanded(child: _premiumPeriodSummary(premium, colorScheme)),
+                _premiumStatusChip(premium.status, statusColor),
+                const SizedBox(width: 14),
+                Text('R ${premium.amount.toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: colorScheme.primary)),
+              ]),
+              const SizedBox(height: 12),
+              Wrap(spacing: 10, runSpacing: 8, children: [
+                _premiumAmountSummary('Paid', premium.paidAmount, Colors.green, colorScheme),
+                _premiumAmountSummary('Balance', premium.balance,
+                  premium.balance > 0 ? Colors.orange : Colors.green, colorScheme),
+              ]),
+              if (facts.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: gap,
+                  runSpacing: 12,
+                  children: facts.map((fact) => _premiumFact(
+                    fact.key, fact.value, width: factWidth,
+                  )).toList(),
                 ),
               ],
-              if (!_isLapsedMembership && !_isMergedMembership &&
-                  (premium.paymentCount > 0 || premium.receiptId?.trim().isNotEmpty == true)) ...[
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
+              if (canEditPremium || canManageReceipt) ...[
+                const SizedBox(height: 14),
+                Divider(height: 1, color: colorScheme.outlineVariant),
+                const SizedBox(height: 12),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (canEditPremium)
+                      OutlinedButton.icon(
+                        onPressed: () => _requestGeneratedPremiumEdit(premium),
+                        icon: const Icon(Icons.price_change_outlined, size: 17),
+                        label: const Text('EDIT PREMIUM'),
+                      ),
+                    if (canManageReceipt) ...[
                       OutlinedButton.icon(
                         onPressed: () => _reprintPremiumReceipt(premium),
-                        icon: const Icon(Icons.print_outlined, size: 18),
+                        icon: const Icon(Icons.print_outlined, size: 17),
                         label: const Text('REPRINT RECEIPT'),
                       ),
-                      if (_paymentPermissions['edit'] == true) OutlinedButton.icon(
-                        onPressed: () => _requestPremiumPaymentEdit(premium),
-                        icon: const Icon(Icons.edit_note_outlined, size: 18),
-                        label: const Text('EDIT PAYMENT'),
-                      ),
+                      if (_paymentPermissions['edit'] == true)
+                        OutlinedButton.icon(
+                          onPressed: () => _requestPremiumPaymentEdit(premium),
+                          icon: const Icon(Icons.edit_note_outlined, size: 17),
+                          label: const Text('EDIT PAYMENT'),
+                        ),
                       if (_allowPremiumPaymentTransfer && _paymentPermissions['transfer'] == true)
                         OutlinedButton.icon(
                           onPressed: () => _transferPremiumPayment(premium),
-                          icon: const Icon(Icons.swap_horiz, size: 18),
+                          icon: const Icon(Icons.swap_horiz, size: 17),
                           label: const Text('TRANSFER PAYMENT'),
                         ),
-                      if (_paymentPermissions['cancel'] == true) OutlinedButton.icon(
-                        onPressed: () => _requestPremiumPaymentCancellation(premium),
-                        icon: const Icon(Icons.cancel_outlined, size: 18),
-                        label: const Text('CANCEL RECEIPT'),
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                      ),
+                      if (_paymentPermissions['cancel'] == true)
+                        OutlinedButton.icon(
+                          onPressed: () => _requestPremiumPaymentCancellation(premium),
+                          icon: const Icon(Icons.cancel_outlined, size: 17),
+                          label: const Text('CANCEL RECEIPT'),
+                          style: OutlinedButton.styleFrom(foregroundColor: colorScheme.error),
+                        ),
                     ],
-                  ),
+                  ],
                 ),
               ],
             ],
           );
-        },
+        }),
       ),
+    );
+  }
+
+  Widget _premiumAmountSummary(String label, double amount, Color accent, ColorScheme colors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: accent.withOpacity(0.065),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant)),
+        const SizedBox(height: 2),
+        Text('R ${amount.toStringAsFixed(2)}',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.onSurface)),
+      ]),
     );
   }
 
@@ -1953,7 +1925,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
         ),
         const SizedBox(height: 2),
         Text(
-          'Due ${premium.dueDate ?? 'N/A'}',
+          'Due ${AppDateUtils.displayDate(premium.dueDate)}',
           style: TextStyle(
             fontSize: 11,
             color: colorScheme.onSurfaceVariant,
@@ -2124,7 +2096,7 @@ class _MembershipDetailScreenState extends State<MembershipDetailScreen> {
                       const Divider(),
                       const SizedBox(height: 12),
                       _buildProfileRow(Icons.badge_outlined, 'Identity', '$displayIdType: $displayId'),
-                      _buildProfileRow(Icons.cake_outlined, 'Birth Date', partner?.birthDate ?? dependent.birthDate ?? 'N/A'),
+                      _buildProfileRow(Icons.cake_outlined, 'Birth Date', AppDateUtils.displayDate(partner?.birthDate ?? dependent.birthDate)),
                       _buildProfileRow(Icons.person_add_alt_1_outlined, 'Date Added', _formatDependentDate(dependent.createdAt)),
                       _buildProfileRow(Icons.event_available_outlined, 'Effective Date', _formatDependentDate(dependent.effectiveFrom)),
                       if (isDeceased)

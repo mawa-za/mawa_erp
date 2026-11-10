@@ -14,11 +14,13 @@ class MembershipChangeSection extends StatefulWidget {
   final MembershipDetail membership;
   final VoidCallback onChanged;
   final bool readOnly;
+  final VoidCallback? onApprovalHistory;
   const MembershipChangeSection({
     super.key,
     required this.membership,
     required this.onChanged,
     this.readOnly = false,
+    this.onApprovalHistory,
   });
 
   @override
@@ -449,24 +451,95 @@ class _MembershipChangeSectionState extends State<MembershipChangeSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (!widget.readOnly)
-        Wrap(spacing: 12, runSpacing: 12, children: [
-          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestTransfer, icon: const Icon(Icons.swap_horiz), label: const Text('TRANSFER MEMBERSHIP')),
-          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestPlanChange, icon: const Icon(Icons.upgrade), label: const Text('CHANGE PLAN')),
-          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestDateChange, icon: const Icon(Icons.date_range_outlined), label: const Text('CHANGE DATES')),
-          OutlinedButton.icon(onPressed: _hasOpenChange ? null : _requestMerge, icon: const Icon(Icons.merge_outlined), label: const Text('MERGE MEMBERSHIP')),
-        ]),
-      if (!widget.readOnly && _hasOpenChange) ...[
-        const SizedBox(height: 8),
-        const Text('A pending or scheduled membership change must be completed before another change can be requested.', style: TextStyle(color: Colors.orange)),
+    if (_loading) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(20), child: CircularProgressIndicator(),
+      ));
+    }
+    final colors = Theme.of(context).colorScheme;
+    final actions = <Widget>[
+      if (!widget.readOnly) ...[
+        OutlinedButton.icon(
+          onPressed: _hasOpenChange ? null : _requestTransfer,
+          icon: const Icon(Icons.swap_horiz, size: 18),
+          label: const Text('TRANSFER MEMBERSHIP'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _hasOpenChange ? null : _requestPlanChange,
+          icon: const Icon(Icons.upgrade_outlined, size: 18),
+          label: const Text('CHANGE PLAN'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _hasOpenChange ? null : _requestDateChange,
+          icon: const Icon(Icons.date_range_outlined, size: 18),
+          label: const Text('CHANGE DATES'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _hasOpenChange ? null : _requestMerge,
+          icon: const Icon(Icons.merge_outlined, size: 18),
+          label: const Text('MERGE MEMBERSHIP'),
+        ),
       ],
-      const SizedBox(height: 16),
-      Wrap(spacing: 12, runSpacing: 12, children: [
-        OutlinedButton.icon(onPressed: () => _showHistory(audit: false), icon: const Icon(Icons.history), label: Text('CHANGE HISTORY (${_changes.length})')),
-        OutlinedButton.icon(onPressed: () => _showHistory(audit: true), icon: const Icon(Icons.fact_check_outlined), label: Text('AUDIT TRAIL (${_audit.length})')),
-      ]),
-    ]);
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.outlineVariant.withOpacity(0.75)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (actions.isNotEmpty) ...[
+            Text('Membership actions',
+                style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w800, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text('Changes are submitted through the existing approval workflow.',
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+            const SizedBox(height: 14),
+            Wrap(spacing: 10, runSpacing: 10, children: actions),
+            if (_hasOpenChange) ...[
+              const SizedBox(height: 12),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.schedule_outlined, size: 17, color: colors.tertiary),
+                const SizedBox(width: 7),
+                Expanded(child: Text(
+                    'A pending or scheduled change must be completed before another can be requested.',
+                    style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant))),
+              ]),
+            ],
+            const SizedBox(height: 18),
+            Divider(height: 1, color: colors.outlineVariant),
+            const SizedBox(height: 15),
+          ],
+          Text('History & audit',
+              style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w800, fontSize: 14)),
+          const SizedBox(height: 4),
+          Text('Open an activity record without leaving Membership Detail.',
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 10, runSpacing: 10, children: [
+            if (widget.onApprovalHistory != null)
+              OutlinedButton.icon(
+                onPressed: widget.onApprovalHistory,
+                icon: const Icon(Icons.approval_outlined, size: 18),
+                label: const Text('APPROVAL HISTORY'),
+              ),
+            OutlinedButton.icon(
+              onPressed: () => _showHistory(audit: false),
+              icon: const Icon(Icons.history_outlined, size: 18),
+              label: Text('CHANGE HISTORY (${_changes.length})'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _showHistory(audit: true),
+              icon: const Icon(Icons.fact_check_outlined, size: 18),
+              label: Text('AUDIT TRAIL (${_audit.length})'),
+            ),
+          ]),
+        ],
+      ),
+    );
   }
 }
