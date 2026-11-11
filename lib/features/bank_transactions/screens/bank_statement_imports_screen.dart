@@ -196,7 +196,7 @@ class _BankStatementImportsScreenState extends State<BankStatementImportsScreen>
                 '${f['importedCount']} new transactions, ${f['failedCsvCount']} failed'
                 '${f['lastError'] == null ? '' : '\n${f['lastError']}'}'),
               isThreeLine: true,
-              trailing: Wrap(mainAxisSize: MainAxisSize.min, spacing: 8, children: [
+              trailing: Wrap(spacing: 8, children: [
                 if (f['stored'] == true) IconButton(
                   onPressed: () => _download(f), icon: const Icon(Icons.download_outlined),
                   tooltip: 'Download original statement'),
