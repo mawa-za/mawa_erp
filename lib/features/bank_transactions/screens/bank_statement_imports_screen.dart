@@ -68,9 +68,11 @@ class _BankStatementImportsScreenState extends State<BankStatementImportsScreen>
     setState(() { _busy = true; _error = null; _notice = null; });
     try {
       final result = await _service.uploadStatement(fileName: file.name, bytes: bytes);
-      if (mounted) setState(() => _notice =
-        'File #${result['id']}: ${result['status']} — ${result['importedCount']} new transactions. '
-        'Original statement archived in GCS.');
+      if (mounted) {
+        setState(() => _notice =
+          'File #${result['id']}: ${result['status']} — ${result['importedCount']} new transactions. '
+          'Original statement archived in GCS.');
+      }
     } catch (e) { if (mounted) setState(() => _error = e.toString()); }
     finally {
       if (mounted) { setState(() => _busy = false); await _load(); }
@@ -82,8 +84,10 @@ class _BankStatementImportsScreenState extends State<BankStatementImportsScreen>
     setState(() { _busy = true; _error = null; _notice = null; });
     try {
       final result = await _service.retryStatement(id);
-      if (mounted) setState(() => _notice =
-        'File #$id reprocessed: ${result['status']}; total imported ${result['importedCount']}.');
+      if (mounted) {
+        setState(() => _notice =
+          'File #$id reprocessed: ${result['status']}; total imported ${result['importedCount']}.');
+      }
     } catch (e) { if (mounted) setState(() => _error = e.toString()); }
     finally {
       if (mounted) { setState(() => _busy = false); await _load(); }
