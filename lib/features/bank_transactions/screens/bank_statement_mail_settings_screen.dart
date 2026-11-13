@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../bank_transaction_service.dart';
+import 'bank_statement_imports_screen.dart';
 import '../../../core/utils/app_date_utils.dart';
 
 class BankStatementMailSettingsScreen extends StatefulWidget {
@@ -195,7 +196,7 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
       final scanned = response['candidateMessages'];
       if (mounted) setState(() => _notice =
         'Import scan completed: ${response['newTransactions']} new transactions in '
-        '${response['attachments']} CSV files; ${response['failures']} failed. '
+        '${response['attachments']} statement attachments; ${response['failures']} failed. '
         '${scanned == null ? '' : '$scanned candidate messages scanned. '}'
         '${filtered.isEmpty ? '' : 'Filtered: ${filtered.join(', ')}.'}');
       await _load();
@@ -313,6 +314,12 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
               OutlinedButton.icon(onPressed: _saving || !_enabled ? null : _sync,
                 icon: const Icon(Icons.sync), label: const Text('Import Now')),
             ]),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => const BankStatementImportsScreen())),
+              icon: const Icon(Icons.folder_open_outlined),
+              label: const Text('Statement Files & Processing History')),
             const SizedBox(height: 12),
             const Text('Supported attachments: FNB Account Transaction History CSV or ZIP containing CSV. '
               'Microsoft uses an organization-specific Exchange Online RBAC Application Mail.Read assignment. '

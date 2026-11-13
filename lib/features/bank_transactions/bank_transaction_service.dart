@@ -141,5 +141,48 @@ class BankTransactionService {
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
+  /// Import register: the original ZIP/CSV is retained on tenant-scoped GCS.
+  Future<Map<String, dynamic>> statementImports({String source = '', String status = '',
+    String search = '', int page = 0}) async {
+    final response = await ApiClient().get('/v2/bank-transactions/imports',
+      queryParameters: {'source': source, 'status': status, 'search': search, 'page': page, 'size': 25});
+    if (response.statusCode != 200) throw AppException('Could not load bank statement imports: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<bool> canUploadStatements() async {
+    final response = await ApiClient().get('/v2/bank-transactions/imports/upload-permission');
+    if (response.statusCode != 200) return false;
+    return (jsonDecode(response.body) as Map)['allowed'] == true;
+  }
+
+  Future<Map<String, dynamic>> uploadStatement({required String fileName, required List<int> bytes}) async {
+    final name = fileName.toLowerCase();
+    final response = await ApiClient().postMultipartBytes('/v2/bank-transactions/imports/upload',
+      bytes: bytes, fileName: fileName,
+      contentType: name.endsWith('.zip') ? 'application/zip' : 'text/csv');
+    if (response.statusCode != 200) throw AppException('Bank statement upload failed: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<Map<String, dynamic>> retryStatement(int id) async {
+    final response = await ApiClient().post('/v2/bank-transactions/imports/$id/retry', body: {});
+    if (response.statusCode != 200) throw AppException('Could not retry bank statement: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  Future<List<int>> downloadOriginalStatement(int id) async {
+    final response = await ApiClient().get('/v2/bank-transactions/imports/$id/download');
+    if (response.statusCode != 200) throw AppException('Could not download original statement file');
+    return response.bodyBytes;
+  }
+
+  Future<List<Map<String, dynamic>>> statementHistory(int id) async {
+    final response = await ApiClient().get('/v2/bank-transactions/imports/$id/history');
+    if (response.statusCode != 200) throw AppException('Could not load processing history: ${response.body}');
+    return (jsonDecode(response.body) as List)
+      .whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
   static String _date(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
