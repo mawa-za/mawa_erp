@@ -95,13 +95,14 @@ class _PendingBankVerificationScreenState extends State<PendingBankVerificationS
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) return const Text('Suggestions unavailable; use Find bank Deposit ID above.');
-              final options = snapshot.data?.content.where((e) => e.availableCents >= amountCents).toList() ?? [];
+              final options = snapshot.data?.content.where((e) => e.isCredit
+                  && e.depositId != null && e.availableCents >= amountCents).toList() ?? [];
               if (options.isEmpty) return const Center(child: Text('No exact-amount candidates. Search manually.'));
               return ListView(children: options.map((bank) => ListTile(
                 dense: true,
-                title: Text('${bank.depositId}  •  ${bank.reference}'),
+                title: Text('${bank.displayId}  •  ${bank.reference}'),
                 subtitle: Text('${AppDateUtils.displayDate(bank.date)}  •  Account ${bank.accountNumber}'),
-                onTap: () => update(() => depositId.text = bank.depositId),
+                onTap: () => update(() => depositId.text = bank.depositId!),
               )).toList());
             })),
           if (validation != null) Text(validation!, style: const TextStyle(color: Colors.red)),

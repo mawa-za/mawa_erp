@@ -50,7 +50,8 @@ class _BankDepositIdFieldState extends State<BankDepositIdField> {
           update(() { loading = true; error = null; });
           try {
             final page = await BankTransactionService().search(search: searchController.text, creditsOnly: true);
-            if (context.mounted) update(() => results = page.content);
+            if (context.mounted) update(() => results = page.content
+                .where((t) => t.isCredit && t.depositId != null).toList());
           } catch (e) {
             if (context.mounted) update(() => error = e.toString());
           } finally {
@@ -69,12 +70,14 @@ class _BankDepositIdFieldState extends State<BankDepositIdField> {
             if (error != null) Text(error!, style: const TextStyle(color: Colors.red)),
             Expanded(child: ListView.builder(itemCount: results.length, itemBuilder: (context, i) {
               final t = results[i];
+              final depositId = t.depositId;
+              final selectable = t.isCredit && depositId != null && t.availableCents > 0;
               return ListTile(
-                enabled: t.availableCents > 0,
-                title: Text('${t.depositId}  •  R ${(t.amountCents / 100).toStringAsFixed(2)}'),
+                enabled: selectable,
+                title: Text('${t.displayId}  •  R ${(t.amountCents / 100).toStringAsFixed(2)}'),
                 subtitle: Text('${AppDateUtils.displayDate(t.date)}  •  ${t.reference}  •  Available R ${(t.availableCents / 100).toStringAsFixed(2)}'),
                 trailing: Text(t.status),
-                onTap: t.availableCents > 0 ? () => Navigator.pop(context, t.depositId) : null,
+                onTap: selectable ? () => Navigator.pop(context, depositId) : null,
               );
             })),
           ])),
