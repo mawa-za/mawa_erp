@@ -73,11 +73,6 @@ class _PendingBankVerificationScreenState extends State<PendingBankVerificationS
     final id = record['objectId']?.toString() ?? '';
     final docNo = record['documentNo']?.toString() ?? id;
     final amountCents = (record['amountCents'] as num?)?.toInt() ?? 0;
-    final date = AppDateUtils.parse(record['date']);
-    // Suggestions are advisory only; the operator must confirm the actual bank credit.
-    final suggestions = _service.search(creditsOnly: true, amountCents: amountCents,
-      fromDate: date?.subtract(const Duration(days: 7)),
-      toDate: date?.add(const Duration(days: 7)));
     final linked = await showDialog<bool>(context: context, builder: (dialogContext) {
       return StatefulBuilder(builder: (dialogContext, update) => AlertDialog(
         title: const Text('Verify historical bank deposit'),
@@ -87,24 +82,6 @@ class _PendingBankVerificationScreenState extends State<PendingBankVerificationS
           const Text('Select an imported bank credit. Confirm the payer, date, reference and amount before linking. This does not change the payment or cashup approval.'),
           const SizedBox(height: 14),
           BankDepositIdField(controller: depositId, isRequired: true),
-          const SizedBox(height: 10),
-          const Align(alignment: Alignment.centerLeft, child: Text('Suggested bank credits (same amount, ±7 days):')),
-          SizedBox(height: 170, child: FutureBuilder<BankTransactionsPage>(future: suggestions,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) return const Text('Suggestions unavailable; use Find bank Deposit ID above.');
-              final options = snapshot.data?.content.where((e) => e.isCredit
-                  && e.depositId != null && e.availableCents >= amountCents).toList() ?? [];
-              if (options.isEmpty) return const Center(child: Text('No exact-amount candidates. Search manually.'));
-              return ListView(children: options.map((bank) => ListTile(
-                dense: true,
-                title: Text('${bank.displayId}  •  ${bank.reference}'),
-                subtitle: Text('${AppDateUtils.displayDate(bank.date)}  •  Account ${bank.accountNumber}'),
-                onTap: () => update(() => depositId.text = bank.depositId!),
-              )).toList());
-            })),
           if (validation != null) Text(validation!, style: const TextStyle(color: Colors.red)),
         ])),
         actions: [
