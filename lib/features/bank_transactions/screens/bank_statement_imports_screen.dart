@@ -4,6 +4,7 @@ import '../../../core/files/download_bytes.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/app_date_utils.dart';
 import '../bank_transaction_service.dart';
+import '../bank_history_test_reset_service.dart';
 
 /// Tenant-scoped manual uploads and the shared email/manual processing register.
 class BankStatementImportsScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class BankStatementImportsScreen extends StatefulWidget {
 
 class _BankStatementImportsScreenState extends State<BankStatementImportsScreen> {
   final _service = BankTransactionService();
+  final _testReset = BankHistoryTestResetService();
   final _search = TextEditingController();
   List<Map<String, dynamic>> _files = [];
   String _source = '';
@@ -23,17 +25,100 @@ class _BankStatementImportsScreenState extends State<BankStatementImportsScreen>
   bool _loading = true;
   bool _busy = false;
   bool _canUpload = false;
+  Map<String, dynamic>? _resetPreview;
   bool _last = true;
   int _page = 0;
 
   @override
-  void initState() { super.initState(); _load(); _permissions(); }
+  void initState() { super.initState(); _load(); _permissions(); _loadResetPreview(); }
   @override
   void dispose() { _search.dispose(); super.dispose(); }
 
   Future<void> _permissions() async {
     final allowed = await _service.canUploadStatements();
     if (mounted) setState(() => _canUpload = allowed);
+  }
+
+  Future<void> _loadResetPreview() async {
+    try {
+      final preview = await _testReset.preview();
+      if (mounted) setState(() => _resetPreview = preview);
+    } catch (_) {
+      // Do not offer destructive test controls when permissions or environment cannot be confirmed.
+      if (mounted) setState(() => _resetPreview = null);
+    }
+  }
+
+  Future<void> _resetTestBankHistory() async {
+    // Always fetch current counts, not a stale value from when the page was opened.
+    Map<String, dynamic>? preview;
+    try {
+      preview = await _testReset.preview();
+      if (!mounted || preview == null) return;
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+      return;
+    }
+    final p = preview;
+    final tenantId = p['tenantId']?.toString() ?? '';
+    final confirmation = BankHistoryTestResetService.confirmationFor(tenantId);
+    final blocked = BankHistoryTestResetService.canConfirm(p)
+      ? null : (p['blockedReason']?.toString() ?? 'Reset unavailable');
+    final controller = TextEditingController();
+    bool confirmed = false;
+    try {
+      confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Reset test bank transaction history'),
+          content: SizedBox(width: 520, child: Column(mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Testing tenant: $tenantId'),
+              Text('Transactions to remove: ${p['transactions']}'),
+              Text('Import envelopes to remove: ${p['importEnvelopes']}'),
+              Text('Archived files ready for retry: ${p['filesToRearm']}'),
+              const SizedBox(height: 12),
+              const Text('Only for testing. Original files in GCS and processing attempts remain. '
+                'No payments, cashups or bank allocations will be removed.'),
+              if (blocked != null) Padding(padding: const EdgeInsets.only(top: 12),
+                child: Text(blocked, style: const TextStyle(color: Colors.red))),
+              if (blocked == null) ...[
+                const SizedBox(height: 12),
+                Text('To confirm, type: $confirmation'),
+                TextField(controller: controller, onChanged: (_) => setDialogState(() {}),
+                  decoration: const InputDecoration(labelText: 'Type the exact confirmation')),
+              ],
+            ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+            FilledButton(onPressed: blocked != null || controller.text != confirmation
+              ? null : () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Reset test history')),
+          ],
+        ),
+      )) ?? false;
+    } finally { controller.dispose(); }
+    if (!mounted || !confirmed) return;
+    setState(() { _busy = true; _error = null; _notice = null; });
+    try {
+      final result = await _testReset.reset(
+        tenantId: tenantId, confirmation: confirmation,
+        expectedTransactions: (p['transactions'] as num).toInt(),
+        expectedImports: (p['importEnvelopes'] as num).toInt(),
+        expectedFilesToRearm: (p['filesToRearm'] as num).toInt());
+      if (!mounted) return;
+      setState(() => _notice =
+        'Test bank history reset: ${result['transactionsRemoved']} transactions and '
+        '${result['importsRemoved']} import envelopes removed; '
+        '${result['filesRearmed']} archived files can be retried.');
+    } catch (e) { if (mounted) setState(() => _error = e.toString()); }
+    finally {
+      if (mounted) {
+        setState(() => _busy = false);
+        await _load();
+        await _loadResetPreview();
+      }
+    }
   }
 
   Future<void> _load({bool more = false}) async {
@@ -156,6 +241,10 @@ class _BankStatementImportsScreenState extends State<BankStatementImportsScreen>
         Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center, children: [
           if (_canUpload) FilledButton.icon(onPressed: _busy ? null : _upload,
             icon: const Icon(Icons.upload_file), label: const Text('Upload bank CSV / ZIP')),
+          if (_resetPreview != null) OutlinedButton.icon(
+            onPressed: _busy || _loading ? null : _resetTestBankHistory,
+            icon: const Icon(Icons.delete_sweep_outlined),
+            label: const Text('Reset test bank history')),
           SizedBox(width: 240, child: TextField(controller: _search, onSubmitted: (_) => _load(),
             decoration: const InputDecoration(labelText: 'Filename or uploaded by', prefixIcon: Icon(Icons.search)))),
           DropdownButton<String>(value: _source, items: const [
