@@ -3,10 +3,15 @@ import '../bank_transaction_service.dart';
 import '../../../core/utils/app_date_utils.dart';
 
 /// Shared bank deposit lookup for cashier deposits and ERP EFT payment forms.
+/// A Deposit ID must be selected from a matched, available bank credit;
+/// operators cannot paste or type arbitrary IDs into payment forms.
 class BankDepositIdField extends StatefulWidget {
   final TextEditingController controller;
   final bool? isRequired;
-  const BankDepositIdField({super.key, required this.controller, this.isRequired});
+  /// Injectable solely to permit deterministic widget tests without network I/O.
+  final Future<BankTransactionsPage> Function(String query)? lookupCredits;
+  const BankDepositIdField({super.key, required this.controller, this.isRequired,
+    this.lookupCredits});
 
   @override
   State<BankDepositIdField> createState() => _BankDepositIdFieldState();
@@ -44,40 +49,71 @@ class _BankDepositIdFieldState extends State<BankDepositIdField> {
     List<BankTransaction> results = [];
     String? error;
     bool loading = false;
+    bool searched = false;
+    // Ignore a delayed response if the user has edited the search query.
+    int generation = 0;
     final selected = await showDialog<String>(context: context, builder: (context) {
       return StatefulBuilder(builder: (context, update) {
+        final canSearch = BankTransactionService.canSearchDepositCredits(searchController.text);
         Future<void> search() async {
-          update(() { loading = true; error = null; });
+          final query = searchController.text.trim();
+          if (!BankTransactionService.canSearchDepositCredits(query) || loading) return;
+          final request = ++generation;
+          update(() { loading = true; error = null; results = []; searched = false; });
           try {
-            final page = await BankTransactionService().search(search: searchController.text, creditsOnly: true);
-            if (context.mounted) update(() => results = page.content
-                .where((t) => t.isCredit && t.depositId != null).toList());
+            final page = await (widget.lookupCredits?.call(query)
+                ?? BankTransactionService().lookupAvailableCredits(query));
+            if (context.mounted && request == generation) update(() {
+              results = page.content.where((t) => t.isCredit
+                && t.depositId != null && t.availableCents > 0).toList();
+              searched = true;
+            });
           } catch (e) {
-            if (context.mounted) update(() => error = e.toString());
+            if (context.mounted && request == generation) update(() {
+              error = e.toString();
+              searched = true;
+            });
           } finally {
-            if (context.mounted) update(() => loading = false);
+            if (context.mounted && request == generation) update(() => loading = false);
           }
         }
         return AlertDialog(
           title: const Text('Find bank Deposit ID'),
           content: SizedBox(width: 650, height: 410, child: Column(children: [
             Row(children: [
-              Expanded(child: TextField(controller: searchController, onSubmitted: (_) => search(),
-                decoration: const InputDecoration(labelText: 'Deposit ID, bank reference or account'))),
-              IconButton(onPressed: loading ? null : search, icon: const Icon(Icons.search), tooltip: 'Search'),
+              Expanded(child: TextField(
+                controller: searchController,
+                autofocus: true,
+                onChanged: (_) {
+                  ++generation;
+                  update(() { results = []; error = null; searched = false; loading = false; });
+                },
+                onSubmitted: (_) => search(),
+                decoration: const InputDecoration(
+                  labelText: 'Deposit ID, bank reference or account',
+                  helperText: 'Enter at least 5 characters to search',
+                ),
+              )),
+              IconButton(
+                onPressed: canSearch && !loading ? search : null,
+                icon: const Icon(Icons.search), tooltip: 'Search available credits',
+              ),
             ]),
             if (loading) const LinearProgressIndicator(),
             if (error != null) Text(error!, style: const TextStyle(color: Colors.red)),
+            if (!canSearch) const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('Type at least 5 characters to find matching bank credits.'),
+            ),
+            if (canSearch && searched && results.isEmpty && error == null)
+              const Padding(padding: EdgeInsets.all(12), child: Text('No matching available credits found.')),
             Expanded(child: ListView.builder(itemCount: results.length, itemBuilder: (context, i) {
               final t = results[i];
-              final depositId = t.depositId;
-              final selectable = t.isCredit && depositId != null && t.availableCents > 0;
               return ListTile(
-                enabled: selectable,
                 title: Text('${t.displayId}  •  R ${(t.amountCents / 100).toStringAsFixed(2)}'),
                 subtitle: Text('${AppDateUtils.displayDate(t.date)}  •  ${t.reference}  •  Available R ${(t.availableCents / 100).toStringAsFixed(2)}'),
                 trailing: Text(t.status),
-                onTap: selectable ? () => Navigator.pop(context, depositId) : null,
+                onTap: () => Navigator.pop(context, t.depositId!),
               );
             })),
           ])),
@@ -92,13 +128,17 @@ class _BankDepositIdFieldState extends State<BankDepositIdField> {
   @override
   Widget build(BuildContext context) => TextFormField(
     controller: widget.controller,
-    textCapitalization: TextCapitalization.characters,
+    readOnly: true,
+    showCursor: false,
+    enableInteractiveSelection: false,
+    onTap: _lookup,
     decoration: InputDecoration(labelText: 'Bank Deposit ID${_isRequired ? ' *' : ''}',
-      hintText: 'DEP-00000123', helperText: _policyError ?? (_policyLoading && widget.isRequired == null
+      hintText: 'Select a bank credit', helperText: _policyError ?? (_policyLoading && widget.isRequired == null
           ? 'Loading bank deposit policy...' : _isRequired
-            ? 'Select an imported credit from Bank Transactions'
+            ? 'Search and select an imported bank credit (minimum 5 characters)'
             : 'Optional during transition. Leave blank to verify later.'),
-      suffixIcon: IconButton(onPressed: _lookup, icon: const Icon(Icons.search), tooltip: 'Search bank transactions')),
+      suffixIcon: IconButton(onPressed: _lookup, icon: const Icon(Icons.search),
+        tooltip: 'Find bank credit')),
     validator: (value) {
       if (!_isRequired && (value == null || value.trim().isEmpty)) return null;
       return BankTransactionService.depositIdAccepted(value, isRequired: _isRequired)

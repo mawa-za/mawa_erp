@@ -76,6 +76,30 @@ class BankTransactionService {
       json['last'] == true);
   }
 
+  /// Lookup for the Deposit ID selector (not the unrestricted bank ledger).
+  /// Backend also enforces minimum length, credit status, and available balance.
+  static const int depositLookupMinCharacters = 5;
+
+  static bool canSearchDepositCredits(String? query) =>
+      (query?.trim().length ?? 0) >= depositLookupMinCharacters;
+
+  Future<BankTransactionsPage> lookupAvailableCredits(String query, {int page = 0}) async {
+    final term = query.trim();
+    if (!canSearchDepositCredits(term)) {
+      throw ArgumentError('Enter at least 5 characters to search bank credits');
+    }
+    final response = await ApiClient().get('/v2/bank-transactions/deposit-lookup',
+      queryParameters: {'search': term, 'page': page, 'size': 20});
+    if (response.statusCode != 200) throw AppException.fromHttp(
+      statusCode: response.statusCode, responseBody: response.body,
+      fallback: 'Could not search available bank credits');
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return BankTransactionsPage((json['content'] as List? ?? [])
+      .whereType<Map>().map((e) => BankTransaction.fromJson(Map<String, dynamic>.from(e)))
+      .where((t) => t.isCredit && t.depositId != null && t.availableCents > 0)
+      .toList(), json['last'] == true);
+  }
+
   /// Readable by signed-in cashiers; bank statement settings are separately restricted.
   Future<Map<String, dynamic>> getDepositPolicy() async {
     final response = await ApiClient().get('/v2/bank-transactions/deposit-policy');
