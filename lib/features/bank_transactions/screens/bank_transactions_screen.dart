@@ -51,11 +51,24 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
   }
 
   Future<void> _showAllocations(BankTransaction item) async {
+    // Outgoing transactions are statement history, never allocatable deposits.
+    if (!item.isCredit || item.depositId == null) {
+      await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+        title: Text('Transaction ${item.displayId}'),
+        content: Text('Date: ${AppDateUtils.displayDate(item.date)}\n'
+          'Amount: R ${(item.amountCents / 100).toStringAsFixed(2)}\n'
+          'Reference: ${item.reference}\nAccount: ${item.accountNumber}\n'
+          'Status: ${item.status}'),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+      ));
+      return;
+    }
+    final depositId = item.depositId!;
     try {
-      final allocations = await _service.allocations(item.depositId);
+      final allocations = await _service.allocations(depositId);
       if (!mounted) return;
       await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
-        title: Text('Deposit ${item.depositId}'),
+        title: Text('Deposit $depositId'),
         content: SizedBox(width: 540, height: 320,
           child: allocations.isEmpty ? const Center(child: Text('No payments or cashups linked yet.'))
             : ListView(children: allocations.map((a) => ListTile(
@@ -82,7 +95,7 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
     body: Padding(padding: const EdgeInsets.all(20), child: Column(children: [
       Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center, children: [
         SizedBox(width: 290, child: TextField(controller: _search, onSubmitted: (_) => _load(),
-          decoration: const InputDecoration(labelText: 'Deposit ID / reference / account', prefixIcon: Icon(Icons.search)))),
+          decoration: const InputDecoration(labelText: 'Transaction / Deposit ID / reference / account', prefixIcon: Icon(Icons.search)))),
         SizedBox(width: 140, child: TextField(controller: _amount, onSubmitted: (_) => _load(),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'Exact amount (R)'))),
@@ -98,19 +111,25 @@ class _BankTransactionsScreenState extends State<BankTransactionsScreen> {
         ? Center(child: Text(_loading ? 'Loading transactions...' : 'No matching bank transactions.'))
         : ListView.builder(itemCount: _transactions.length, itemBuilder: (context, index) {
           final item = _transactions[index];
+          final availabilityText = item.isCredit
+              ? '  |  Available R ${(item.availableCents / 100).toStringAsFixed(2)}' : '';
           return Card(child: ListTile(
             onTap: () => _showAllocations(item),
-            leading: Icon(item.amountCents >= 0 ? Icons.south_west : Icons.north_east,
-              color: item.amountCents >= 0 ? Colors.green : Colors.red),
-            title: Text('${item.depositId}   •   R ${(item.amountCents / 100).toStringAsFixed(2)}'),
+            leading: Icon(item.amountCents == 0 ? Icons.remove
+                : item.isCredit ? Icons.south_west : Icons.north_east,
+              color: item.amountCents == 0 ? Colors.grey
+                : item.isCredit ? Colors.green : Colors.red),
+            title: Text('${item.displayId}   •   R ${(item.amountCents / 100).toStringAsFixed(2)}'),
             subtitle: Text(
-              '${AppDateUtils.displayDate(item.date)}  |  ${item.reference}\nAccount ${item.accountNumber}  |  ${item.status}  |  Available R ${(item.availableCents / 100).toStringAsFixed(2)}',
+              '${AppDateUtils.displayDate(item.date)}  |  ${item.reference}\nAccount ${item.accountNumber}  |  ${item.status}$availabilityText',
               maxLines: 3,
             ),
-            trailing: IconButton(icon: const Icon(Icons.copy), tooltip: 'Copy Deposit ID',
-              onPressed: item.amountCents <= 0 ? null : () async {
-              await Clipboard.setData(ClipboardData(text: item.depositId));
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item.depositId} copied')));
+            trailing: IconButton(icon: const Icon(Icons.copy),
+              tooltip: item.isCredit ? 'Copy Deposit ID' : 'Copy Transaction ID',
+              onPressed: item.displayId.isEmpty ? null : () async {
+              await Clipboard.setData(ClipboardData(text: item.displayId));
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${item.displayId} copied')));
             }),
           ));
         })),

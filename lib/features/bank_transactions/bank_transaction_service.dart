@@ -4,7 +4,10 @@ import '../../core/utils/app_date_utils.dart';
 import '../../core/errors/app_error.dart';
 
 class BankTransaction {
-  final String depositId;
+  /// Only positive bank credits have a usable Deposit ID.
+  final String? depositId;
+  /// Neutral identifier shared by incoming and outgoing statement rows.
+  final String transactionId;
   final String date;
   final int amountCents;
   final int availableCents;
@@ -12,19 +15,33 @@ class BankTransaction {
   final String accountNumber;
   final String status;
 
-  const BankTransaction({required this.depositId, required this.date,
-    required this.amountCents, required this.availableCents,
+  const BankTransaction({required this.depositId, required this.transactionId,
+    required this.date, required this.amountCents, required this.availableCents,
     required this.reference, required this.accountNumber, required this.status});
 
-  factory BankTransaction.fromJson(Map<String, dynamic> json) => BankTransaction(
-    depositId: json['depositId']?.toString() ?? '',
-    date: AppDateUtils.normalizeDate(json['date']),
-    amountCents: (json['amountCents'] as num?)?.toInt() ?? 0,
-    availableCents: (json['availableCents'] as num?)?.toInt() ?? 0,
-    reference: json['reference']?.toString() ?? '',
-    accountNumber: json['accountNumber']?.toString() ?? '',
-    status: json['status']?.toString() ?? '',
-  );
+  bool get isCredit => amountCents > 0;
+  String get displayId => isCredit ? (depositId ?? transactionId) : transactionId;
+
+  factory BankTransaction.fromJson(Map<String, dynamic> json) {
+    final amountCents = (json['amountCents'] as num?)?.toInt() ?? 0;
+    final rawDepositId = json['depositId']?.toString();
+    final rawTransactionId = json['transactionId']?.toString();
+    // Older APIs supplied DEP- even for debits. Never expose it as an allocatable
+    // Deposit ID, and derive the stable neutral reference during a rolling deploy.
+    final legacyReference = rawDepositId == null ? null
+        : rawDepositId.replaceFirst(RegExp(r'^DEP-', caseSensitive: false), 'TXN-');
+    return BankTransaction(
+      depositId: amountCents > 0 ? rawDepositId : null,
+      transactionId: rawTransactionId?.isNotEmpty == true
+          ? rawTransactionId! : (legacyReference ?? ''),
+      date: AppDateUtils.normalizeDate(json['date']),
+      amountCents: amountCents,
+      availableCents: (json['availableCents'] as num?)?.toInt() ?? 0,
+      reference: json['reference']?.toString() ?? '',
+      accountNumber: json['accountNumber']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+    );
+  }
 }
 
 class BankTransactionsPage {
