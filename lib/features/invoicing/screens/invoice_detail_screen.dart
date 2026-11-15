@@ -206,7 +206,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       await InvoiceService().sendInvoiceEmail(_detail!.id, email: email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice emailed successfully'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+          const SnackBar(content: Text('Invoice email submitted. Delivery is not yet confirmed.'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
         );
       }
     } catch (e) {
