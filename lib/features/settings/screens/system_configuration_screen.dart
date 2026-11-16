@@ -35,6 +35,7 @@ import 'membership_lapse_settings_screen.dart';
 import 'membership_policy_configuration_screen.dart';
 import 'number_range_configuration_screen.dart';
 import 'payment_request_invoice_email_configuration_screen.dart';
+import 'outgoing_email_configuration_screen.dart';
 import 'premium_generation_settings_screen.dart';
 import 'premium_payment_settings_screen.dart';
 import 'purple_configuration_screen.dart';
@@ -334,6 +335,17 @@ class _SystemConfigurationScreenState extends State<SystemConfigurationScreen> {
           icon: Icons.sync_alt_rounded,
           category: _ConfigurationCategory.finance,
           onTap: () => _open(context, const XeroIntegrationScreen()),
+        ),
+        _ConfigurationItem(
+          title: 'Outgoing Email',
+          description:
+              'Configure the tenant sender name, Reply-To and Microsoft 365 sending account.',
+          icon: Icons.outgoing_mail,
+          category: _ConfigurationCategory.integrations,
+          onTap: () => _open(
+            context,
+            const OutgoingEmailConfigurationScreen(),
+          ),
         ),
         _ConfigurationItem(
           title: 'Supplier Invoice Email',
