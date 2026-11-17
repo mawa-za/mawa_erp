@@ -11,6 +11,7 @@ import '../../features/home/home_page.dart';
 import '../../features/home/screens/feature_group_screen.dart';
 import '../../features/membership/screens/membership_detail_screen.dart';
 import '../../features/membership/screens/member_list_screen.dart';
+import '../../features/membership/screens/bulk_membership_premium_edits_screen.dart';
 import '../../features/invoicing/screens/invoice_pdf_preview_screen.dart';
 import '../../features/invoicing/screens/invoice_list_screen.dart';
 import '../../features/service_orders/screens/service_order_list_screen.dart';
@@ -201,6 +202,10 @@ class AppRouter {
         builder: (context, state) => FeatureGroupScreen(
           groupId: state.pathParameters['groupId']!,
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.bulkPremiumEdits,
+        builder: (context, state) => const BulkMembershipPremiumEditsScreen(),
       ),
       GoRoute(
         path: AppRoutes.memberships,
