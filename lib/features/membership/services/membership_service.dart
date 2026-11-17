@@ -381,6 +381,37 @@ class MembershipService {
     }
   }
 
+  Future<Map<String, bool>> getBulkPremiumEditAccess() async {
+    final response = await ApiClient().get('/v2/membership-premium-bulk-edits/access');
+    if (response.statusCode != 200) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'Unable to check bulk premium edit access.',
+      );
+    }
+    final decoded = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    return decoded.map((key, value) => MapEntry(key, value == true));
+  }
+
+  Future<Map<String, dynamic>> submitBulkPremiumEdits({
+    required String reason,
+    required List<Map<String, dynamic>> lines,
+  }) async {
+    final response = await ApiClient().post(
+      '/v2/membership-premium-bulk-edits',
+      body: {'reason': reason, 'lines': lines},
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw AppException.fromHttp(
+        statusCode: response.statusCode,
+        responseBody: response.body,
+        fallback: 'The bulk premium edit requests could not be submitted.',
+      );
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   Future<void> requestGeneratedPremiumEdit({
     required String membershipId,
     required String premiumId,

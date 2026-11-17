@@ -4,6 +4,8 @@ class WorkcenterRouteRegistry {
   static const Map<String, String> _mappings = {
     'MEMBERSHIP': AppRoutes.memberships,
     'MEMBERSHIPS': AppRoutes.memberships,
+    'BULK_MEMBERSHIP_PREMIUM_EDITS': AppRoutes.bulkPremiumEdits,
+    'MEMBERSHIP_PREMIUM_BULK_EDITS': AppRoutes.bulkPremiumEdits,
     'MEMBER': '/partners/MEMBER',
     'MEMBERS': '/partners/MEMBER',
     'INVOICE': AppRoutes.invoices,

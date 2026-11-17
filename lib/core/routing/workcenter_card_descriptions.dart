@@ -49,6 +49,9 @@ class WorkcenterCardDescriptions {
       return 'Receive customer purchase orders, confirm capacity, reserve resources and invoice completed services.';
     }
 
+    if (identity.contains('BULK') && identity.contains('PREMIUM')) {
+      return 'Review and submit bulk changes to membership premium amounts through approval.';
+    }
     if (identity.contains('MEMBERSHIP_CLAIM')) {
       return 'Search, review and track membership claims through approval and settlement.';
     }

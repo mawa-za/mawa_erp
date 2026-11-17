@@ -6,6 +6,7 @@ class AppRoutes {
   static const String adminHandoff = '/admin-handoff';
   static const String home = '/home';
   static const String memberships = '/memberships';
+  static const String bulkPremiumEdits = '/memberships/bulk-premium-edits';
   static const String membershipDetail = '/memberships/:id';
   static const String invoices = '/invoices';
   static const String serviceOrders = '/service-orders';
