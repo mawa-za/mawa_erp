@@ -22,6 +22,7 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
   final _clientSecretRef = TextEditingController();
   final _refreshTokenRef = TextEditingController();
   final _lookback = TextEditingController(text: '14');
+  final _dailyRunTime = TextEditingController(text: '04:00');
   final _accounts = TextEditingController();
   String _provider = 'MICROSOFT_365_SAAS';
   String _microsoftStatus = 'DISCONNECTED';
@@ -43,7 +44,7 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
 
   @override void initState() { super.initState(); _load(); }
   @override void dispose() {
-    for (final c in [_mailbox, _sender, _subject, _tenant, _client, _clientSecretRef, _refreshTokenRef, _lookback, _accounts]) { c.dispose(); }
+    for (final c in [_mailbox, _sender, _subject, _tenant, _client, _clientSecretRef, _refreshTokenRef, _lookback, _dailyRunTime, _accounts]) { c.dispose(); }
     super.dispose();
   }
 
@@ -64,6 +65,7 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
         _clientSecretRef.text = c['clientSecretRef']?.toString() ?? '';
         _refreshTokenRef.text = c['refreshTokenRef']?.toString() ?? '';
         _lookback.text = c['lookbackDays']?.toString() ?? '14';
+        _dailyRunTime.text = c['dailyRunTime']?.toString() ?? '04:00';
         _accounts.text = c['accountNumbers']?.toString() ?? '';
         _requireDmarc = c['requireDmarc'] != false;
         _lastSync = c['lastSuccessDate']?.toString();
@@ -93,8 +95,28 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
     'clientSecretRef': _clientSecretRef.text.trim(),
     'refreshTokenRef': _refreshTokenRef.text.trim(),
     'lookbackDays': int.tryParse(_lookback.text) ?? 14,
+    'dailyRunTime': _dailyRunTime.text,
     'accountNumbers': _accounts.text.trim(), 'requireDmarc': _requireDmarc,
   };
+
+  Future<void> _pickDailyRunTime() async {
+    final parts = _dailyRunTime.text.split(':');
+    final hour = parts.length == 2 ? int.tryParse(parts[0]) ?? 4 : 4;
+    final minute = parts.length == 2 ? int.tryParse(parts[1]) ?? 0 : 0;
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: hour, minute: minute),
+      helpText: 'Select daily import time (CAT)',
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _dailyRunTime.text =
+          '${selected.hour.toString().padLeft(2, '0')}:${selected.minute.toString().padLeft(2, '0')}');
+    }
+  }
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
@@ -214,7 +236,7 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
       SingleChildScrollView(padding: const EdgeInsets.all(24), child: Center(child:
         ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760), child: Form(key: _form, child: Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Each MAWA tenant configures its own bank mailbox. For Microsoft 365, customers use the single MAWA-managed application. Imports run after 04:00 CAT.',
+            const Text('Each MAWA tenant configures its own bank mailbox and daily import time. For Microsoft 365, customers use the single MAWA-managed application.',
               style: TextStyle(fontSize: 15)),
             const SizedBox(height: 12),
             SwitchListTile(title: const Text('Enable automatic bank statement imports'), value: _enabled,
@@ -274,6 +296,24 @@ class _BankStatementMailSettingsScreenState extends State<BankStatementMailSetti
             TextFormField(controller: _lookback, decoration: const InputDecoration(labelText: 'Lookback window (1–365 days)'),
               keyboardType: TextInputType.number,
               validator: (v) { final d = int.tryParse(v ?? ''); return d == null || d < 1 || d > 365 ? 'Enter 1–365' : null; }),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _dailyRunTime,
+              readOnly: true,
+              onTap: _saving ? null : _pickDailyRunTime,
+              decoration: InputDecoration(
+                labelText: 'Daily automatic import time (CAT)',
+                helperText: '24-hour time, Africa/Johannesburg. Default 04:00. Runs at or after this time.',
+                suffixIcon: IconButton(
+                  tooltip: 'Choose import time',
+                  icon: const Icon(Icons.schedule),
+                  onPressed: _saving ? null : _pickDailyRunTime,
+                ),
+              ),
+              validator: (v) => v == null ||
+                  !RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$').hasMatch(v)
+                  ? 'Select a valid HH:mm time' : null,
+            ),
             const SizedBox(height: 20),
             const Divider(),
             const Text('Bank Deposit Verification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
