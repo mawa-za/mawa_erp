@@ -371,7 +371,21 @@ class FeatureGroupRegistry {
 
   static String? routeForGroup(String id) => groupById(id)?.routePath;
 
-  static bool isGroupId(String id) => groupById(id) != null;
+  /// Group aliases are supported for legacy navigation, but an alias must not
+  /// hide a real child workcentre from role maintenance or home navigation.
+  /// For example, `tombstone-installation-requests` is a workcentre, not a group.
+  static bool isGroupId(String id) {
+    final normalized = normalize(id);
+    if (groups.any((group) => normalize(group.id) == normalized)) {
+      return true;
+    }
+    if (groups.any((group) => group.childWorkcenterIds.any(
+          (childId) => normalize(childId) == normalized,
+        ))) {
+      return false;
+    }
+    return groupById(id) != null;
+  }
 
   /// Returns the single business workspace that owns a cross-module workcenter.
   /// This prevents sales/procurement documents from being repeated under the

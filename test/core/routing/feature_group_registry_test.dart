@@ -57,6 +57,29 @@ void main() {
       expect(FeatureGroupRegistry.isStandaloneCard('tombstone-management'), isFalse);
     });
 
+    test('Tombstone Installation Requests is an assignable workcentre, not a group alias', () {
+      expect(FeatureGroupRegistry.isGroupId('tombstone-operations'), isTrue);
+      expect(FeatureGroupRegistry.isGroupId('tombstone-management'), isTrue,
+          reason: 'Legacy tombstone group aliases must remain supported');
+      expect(FeatureGroupRegistry.groupById('tombstone-installation-requests')?.id,
+          'tombstone-operations',
+          reason: 'Legacy group lookups remain backward compatible');
+      expect(FeatureGroupRegistry.isGroupId('tombstone-installation-requests'), isFalse);
+      final group = FeatureGroupRegistry.groupById('tombstone-operations')!;
+      expect(group.childWorkcenterIds, hasLength(11));
+      for (final id in group.childWorkcenterIds) {
+        expect(FeatureGroupRegistry.isGroupId(id), isFalse,
+            reason: '$id must be selectable in Role Workcentres');
+      }
+    });
+
+    test('Child workcentres take precedence over colliding legacy group aliases', () {
+      // Legal Cases is also configured as a group alias, but is a real child.
+      expect(FeatureGroupRegistry.isGroupId('legal-cases'), isFalse);
+      expect(FeatureGroupRegistry.isGroupId('legal-practice'), isTrue);
+      expect(FeatureGroupRegistry.isGroupId('legal-management'), isTrue);
+    });
+
     test('Tombstone Operations cards resolve to separate routes', () {
       final expected = <String, String>{
         'tombstone-installation-requests': '/tombstones/installation-requests',
