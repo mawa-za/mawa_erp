@@ -82,6 +82,46 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   // Step 7: Generated Invoices
   GenerateFuneralInvoicesResponseDto? generationResponse;
 
+  // Previous persisted financing; changes to an issued arrangement require
+  // explicit acknowledgement and credit notes before resubmitting claims.
+  String? _persistedStatus;
+  String? _persistedPackageId;
+  int? _persistedTotalCents;
+  Set<String> _persistedCoverKeys = {};
+  bool _fundingReopened = false;
+
+  bool get needsFundingReopen {
+    if (_fundingReopened || _persistedStatus?.toUpperCase() != 'INVOICED') {
+      return false;
+    }
+    final coversNow = selectedCovers.map(_coverSelectionId).whereType<String>().toSet();
+    return _persistedPackageId != effectiveSelectedPackage?.id ||
+        _persistedTotalCents != arrangementTotalCents ||
+        !coversNow.containsAll(_persistedCoverKeys) ||
+        !_persistedCoverKeys.containsAll(coversNow);
+  }
+
+  Future<bool> reopenFunding(String reason) async {
+    if (serviceRequestId == null || !needsFundingReopen) return true;
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _api.reopenFuneralFunding(serviceRequestId!, reason);
+      _fundingReopened = true;
+      _persistedStatus = 'ARRANGEMENT_CREATED';
+      generationResponse = null;
+      previewLines = [];
+      return true;
+    } catch (e) {
+      errorMessage = friendlyErrorMessage('Unable to reverse previous invoices: $e');
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> loadInitialData({String? resumeServiceRequestId}) async {
     isLoading = true;
     errorMessage = null;
@@ -118,6 +158,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   Future<void> _restoreArrangement(String id) async {
     final request = await _api.getServiceRequest(id);
     serviceRequestId = request.id ?? id;
+    _persistedStatus = request.status;
+    _persistedPackageId = request.packageId;
+    _persistedTotalCents = request.totalAmountCents;
+    _fundingReopened = false;
     selectedDeceased = _firstWhereOrNull(inventory, (item) => item.id == request.mortuaryInventoryId);
     selectedDeceased ??= MortuaryInventoryDto(
       id: request.mortuaryInventoryId,
@@ -172,6 +216,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
       }).toList();
       if (currentStep < 4) currentStep = 4;
     }
+    _persistedCoverKeys = selectedCovers.map(_coverSelectionId).whereType<String>().toSet();
     if (currentStep >= 5) {
       await loadInvoicePreview();
     }
@@ -362,7 +407,10 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
-      if (claims.isEmpty) {
+      {
+        // The backend reconciles existing primary claims by source cover,
+        // upgrades an unsubmitted FUNERAL to COMBINATION, and creates only
+        // genuinely additional claims; retries must not duplicate grocery.
         final selectionIds = selectedCovers
             .map((c) => c.sourceReference ?? c.membershipId)
             .whereType<String>()
@@ -695,7 +743,7 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
   }
 
   String? _coverSelectionId(FuneralMembershipCoverDto cover) =>
-      cover.membershipId ?? cover.sourceReference;
+      cover.sourceReference ?? cover.membershipId;
 
   void _synchroniseSelectedPackage() {
     final selectedId = selectedPackage?.id;
