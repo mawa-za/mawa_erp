@@ -850,6 +850,48 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     );
   }
 
+  Future<void> _showFundingReversalAudit() async {
+    try {
+      final rows = await _controller.loadFundingReversalHistory();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Prior funeral funding reversals'),
+          content: SizedBox(
+            width: 620,
+            height: 350,
+            child: rows.isEmpty
+                ? const Center(child: Text('No reconciled claim reversals recorded.'))
+                : ListView.builder(
+                    itemCount: rows.length,
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      final cents = (row['paid_amount_cents'] as num?)?.toInt() ?? 0;
+                      return ListTile(
+                        title: Text('Original claim: ${row['original_claim_id']}'),
+                        subtitle: Text('Previous ${row['original_claim_type']} (${row['original_claim_status']})'
+                            '\nFinance ref: ${row['finance_reference']}'
+                            '\nRecovered: ZAR ${(cents / 100).toStringAsFixed(2)}'
+                            '\nRecovery bank transaction: ${row['recovery_bank_transaction_id'] ?? 'None'}'
+                            '\nReason: ${row['reason']}'),
+                        isThreeLine: true,
+                      );
+                    },
+                  ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(friendlyErrorMessage('Unable to view finance reversal audit: $error')),
+      ));
+    }
+  }
+
   Widget _buildClaimsStep() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -858,7 +900,14 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Initiated Claims', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            IconButton(onPressed: _controller.loadClaims, icon: const Icon(Icons.refresh)),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                tooltip: 'View finance reversal audit',
+                onPressed: _showFundingReversalAudit,
+                icon: const Icon(Icons.history),
+              ),
+              IconButton(onPressed: _controller.loadClaims, icon: const Icon(Icons.refresh)),
+            ]),
           ],
         ),
         const SizedBox(height: 8),
@@ -1812,6 +1861,71 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     }
   }
 
+  /// Paid claims require bank credit evidence. No payout or EFT is reversed
+  /// merely by recording the finance-reconciliation reference.
+  Future<bool> _confirmClaimFundingReconciliation(String claimId,
+      String claimLabel, String rawStatus, String amendmentReason) async {
+    final reference = TextEditingController();
+    final depositId = TextEditingController();
+    final status = rawStatus.toUpperCase();
+    final paid = status == 'PAID';
+    try {
+      final submitted = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Reconcile claim $claimLabel'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(paid
+                  ? 'Claim $claimLabel is already PAID. Finance must first recover the original payout. '
+                    'Enter the ID of the imported positive bank transaction in the cover-owning tenant. '
+                    'MAWA verifies and reserves the recovery amount; it does not initiate a bank refund.'
+                  : 'Claim $claimLabel is $status. Withdraw any pending approval or bank payment instruction '
+                    'in the owning tenant before proceeding. The previous approval and claim history will be retained.'),
+              const SizedBox(height: 16),
+              TextField(controller: reference,
+                decoration: const InputDecoration(
+                  labelText: 'Finance reconciliation reference *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(controller: depositId,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Imported recovery bank transaction ID (if paid)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel')),
+            ElevatedButton(onPressed: () {
+              if (reference.text.trim().length < 4) return;
+              if (paid && int.tryParse(depositId.text) == null) return;
+              Navigator.pop(dialogContext, true);
+            }, child: const Text('Record reconciliation')),
+          ],
+        ),
+      );
+      if (submitted != true) return false;
+      return _controller.reconcileClaimFunding(claimId,
+        reason: amendmentReason.length >= 10
+            ? amendmentReason
+            : '$amendmentReason — funeral funding amendment',
+        reference: reference.text.trim(),
+        recoveryBankTransactionId: int.tryParse(depositId.text),
+      );
+    } finally {
+      reference.dispose();
+      depositId.dispose();
+    }
+  }
+
   Future<void> _onNextPressed() async {
     if (_controller.currentStep == 0) {
       if (_controller.selectedDeceased == null) {
@@ -1873,6 +1987,17 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       if (_controller.needsFundingReopen) {
         final reason = await _requestFundingAmendmentReason();
         if (reason == null || !mounted) return;
+        // Reconcile every historical primary claim before issuing credit notes.
+        // A GROCERY benefit remains independent and is never cancelled here.
+        final pendingFinancialClaims = _controller.claims.where((claim) =>
+            const {'FUNERAL', 'COMBINATION', 'STILLBORN'}.contains(claim.claimType)
+            && !const {'DRAFT', 'CANCELLED', 'REJECTED'}.contains(claim.rawStatus)).toList();
+        for (final claim in pendingFinancialClaims) {
+          final settled = await _confirmClaimFundingReconciliation(
+            claim.id, claim.claimNumber ?? claim.id,
+            claim.rawStatus, reason);
+          if (!settled || !mounted) return;
+        }
         final reopened = await _controller.reopenFunding(reason);
         if (!reopened || !mounted) return;
       }

@@ -318,6 +318,37 @@ class FuneralApi {
     }
   }
 
+  /// Finance-only: preserve original approved/paid claim and link imported recovery.
+  Future<void> reconcileFuneralClaimFunding(String serviceId, String claimId, {
+    required String reason,
+    required String reference,
+    int? recoveryBankTransactionId,
+  }) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceId/funding-claims/$claimId/reconcile',
+      body: {
+        'reason': reason,
+        'reference': reference,
+        if (recoveryBankTransactionId != null)
+          'recoveryBankTransactionId': recoveryBankTransactionId,
+      },
+    );
+    if (response.statusCode != 200) {
+      throw AppException('Unable to reconcile existing claim: ${response.body}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFuneralFundingReversals(String serviceId) async {
+    final response = await _apiClient.get(
+      '/v2/funeral/service-request/$serviceId/funding-claim-reversals',
+    );
+    if (response.statusCode != 200) {
+      throw AppException('Unable to load finance reversal audit: ${response.body}');
+    }
+    return _decodeList(response.body)
+        .map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
   Future<void> updateWizardStep(String id, int wizardStep) async {
     final response = await _apiClient.put('/v2/funeral/service-request/$id/wizard-step/$wizardStep');
     if (response.statusCode != 200) {
