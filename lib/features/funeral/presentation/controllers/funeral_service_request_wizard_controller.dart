@@ -122,6 +122,38 @@ class FuneralServiceRequestWizardController extends ChangeNotifier {
     }
   }
 
+  Future<bool> reconcileClaimFunding(String claimId, {
+    required String reason,
+    required String reference,
+    int? recoveryBankTransactionId,
+  }) async {
+    if (serviceRequestId == null) return false;
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _api.reconcileFuneralClaimFunding(
+        serviceRequestId!, claimId,
+        reason: reason,
+        reference: reference,
+        recoveryBankTransactionId: recoveryBankTransactionId,
+      );
+      claims = await _api.getClaims(serviceRequestId!);
+      return true;
+    } catch (e) {
+      errorMessage = friendlyErrorMessage('Finance reconciliation failed: $e');
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> loadFundingReversalHistory() async {
+    if (serviceRequestId == null) return [];
+    return _api.getFuneralFundingReversals(serviceRequestId!);
+  }
+
   Future<void> loadInitialData({String? resumeServiceRequestId}) async {
     isLoading = true;
     errorMessage = null;
