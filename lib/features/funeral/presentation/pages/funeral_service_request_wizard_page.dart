@@ -806,7 +806,7 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
           const Padding(
             padding: EdgeInsets.all(8),
             child: Text(
-              'Select one or more memberships to use for claim initiation.',
+              'Select covers, including additional covers for an amended funeral. Existing settled claims must be reconciled before changing benefit type.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
@@ -1766,6 +1766,52 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
     }
   }
 
+  Future<String?> _requestFundingAmendmentReason() async {
+    final reasonController = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Reverse prior funeral invoices?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Changing the package or adding cover after invoicing starts a new funding cycle. '
+                  'Original invoices will be retained and credited. Already captured payments are not '
+                  'automatically refunded. Claims with approved or paid settlements must first be '
+                  'reconciled by finance in the owning tenant.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                maxLength: 800,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for amendment *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final reason = reasonController.text.trim();
+                if (reason.length >= 5) Navigator.pop(dialogContext, reason);
+              },
+              child: const Text('Credit and reopen'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      reasonController.dispose();
+    }
+  }
+
   Future<void> _onNextPressed() async {
     if (_controller.currentStep == 0) {
       if (_controller.selectedDeceased == null) {
@@ -1823,6 +1869,12 @@ class _FuneralServiceRequestWizardPageState extends State<FuneralServiceRequestW
       if (_controller.effectiveSelectedPackage == null) {
         _controller.errorMessage = 'Please select a funeral package.';
         return;
+      }
+      if (_controller.needsFundingReopen) {
+        final reason = await _requestFundingAmendmentReason();
+        if (reason == null || !mounted) return;
+        final reopened = await _controller.reopenFunding(reason);
+        if (!reopened || !mounted) return;
       }
       final success = await _controller.initiateArrangementAndClaims();
       if (success) {
