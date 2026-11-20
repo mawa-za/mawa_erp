@@ -306,6 +306,18 @@ class FuneralApi {
     throw AppException('Failed to update funeral arrangement: ${response.body}');
   }
 
+  /// Starts an auditable new funding cycle. Issued invoices are credited;
+  /// captured payments remain on the original invoices for finance reconciliation.
+  Future<void> reopenFuneralFunding(String serviceId, String reason) async {
+    final response = await _apiClient.post(
+      '/v2/funeral/service-request/$serviceId/reopen-funding',
+      body: {'reason': reason},
+    );
+    if (response.statusCode != 200) {
+      throw AppException('Unable to reopen funeral funding: ${response.body}');
+    }
+  }
+
   Future<void> updateWizardStep(String id, int wizardStep) async {
     final response = await _apiClient.put('/v2/funeral/service-request/$id/wizard-step/$wizardStep');
     if (response.statusCode != 200) {
