@@ -5,6 +5,7 @@ class FuneralClaimDto {
   final String id;
   final String? claimNumber;
   final String membershipNumber;
+  final String claimType;
   final String burialSocietyName;
   final int claimedAmountCents;
   final int approvedAmountCents;
@@ -23,6 +24,7 @@ class FuneralClaimDto {
     required this.id,
     this.claimNumber,
     required this.membershipNumber,
+    this.claimType = 'FUNERAL',
     required this.burialSocietyName,
     required this.claimedAmountCents,
     required this.approvedAmountCents,
@@ -45,6 +47,7 @@ class FuneralClaimDto {
       'id': id,
       if (claimNumber != null) 'claimNumber': claimNumber,
       'membershipNumber': membershipNumber,
+      'claimType': claimType,
       'burialSocietyName': burialSocietyName,
       'claimedAmountCents': claimedAmountCents,
       'approvedAmountCents': approvedAmountCents,
@@ -64,6 +67,7 @@ class FuneralClaimDto {
       id: (json['id'] ?? json['membershipClaimId'])?.toString() ?? '',
       claimNumber: (json['claimNumber'] ?? json['claimNo'])?.toString(),
       membershipNumber: json['membershipNumber']?.toString() ?? '',
+      claimType: json['claimType']?.toString().toUpperCase() ?? 'FUNERAL',
       burialSocietyName: json['burialSocietyName']?.toString() ??
           json['sourceTenantName']?.toString() ??
           '',
