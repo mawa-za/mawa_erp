@@ -48,15 +48,36 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     if (host.isNotEmpty) {
       _redirectUrlController.text = 'https://$host/xero/callback';
     }
-    _loadSecretNames();
-    _loadConnections(showErrors: false);
+    _refreshConnectionStatus(showErrors: false);
     _loadReconciliation();
   }
 
-  Future<void> _loadSecretNames() async {
+  /// After returning from Xero's browser consent screen, the backend callback
+  /// has already finished. Refresh both the persistent status and organisations.
+  Future<void> _refreshConnectionStatus({bool showErrors = true}) async {
+    final loaded = await _loadSecretNames();
+    if (!mounted || !loaded) return;
+    final status = (_integrationStatus ?? '').toUpperCase();
+    if (status == 'AUTHORISED' || status == 'PENDING_ORGANISATION_SELECTION') {
+      await _loadConnections(showErrors: showErrors);
+    } else {
+      setState(() {
+        _connections = const [];
+        _selectedTenantId = null;
+        _statusMessage = switch (status) {
+          'PENDING_AUTHORISATION' => 'Complete authorisation in Xero, then click Check connection.',
+          'REAUTHORISATION_REQUIRED' => 'Xero access has expired. Reconnect to authorise again.',
+          'DISABLED' => 'Xero synchronisation is disabled.',
+          _ => 'Configure Xero credentials and authorise your organisation to connect.',
+        };
+      });
+    }
+  }
+
+  Future<bool> _loadSecretNames() async {
     try {
       final result = await _service.secretNames();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
             result.invoiceIntegrationEnabled;
@@ -74,8 +95,11 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
           _paymentAccountCodeController.text = result.paymentAccountCode!;
         }
       });
-    } catch (_) {
-      // The activation call still generates and returns the same fixed names.
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      setState(() => _statusMessage = 'Unable to load Xero configuration: ${friendlyErrorMessage(error)}');
+      return false;
     }
   }
 
@@ -235,6 +259,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       if (!mounted) return;
       setState(() {
         _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ?? false;
+        _integrationStatus = result.integrationStatus;
         _selectedTenantId = null;
         _statusMessage = result.message;
       });
@@ -493,6 +518,12 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                           _statusMessage ?? 'Save the Xero application credentials, authorise access, then select the organisation used to synchronise customers, products and invoices.',
                           style: theme.textTheme.bodyMedium,
                         ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _loadingConnections ? null : _refreshConnectionStatus,
+                          icon: const Icon(Icons.sync),
+                          label: const Text('Check connection'),
+                        ),
                       ],
                     ),
                   ),
@@ -630,7 +661,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       ),
                       IconButton(
                         tooltip: 'Refresh organisations',
-                        onPressed: _loadingConnections ? null : () => _loadConnections(),
+                        onPressed: _loadingConnections ? null : _refreshConnectionStatus,
                         icon: _loadingConnections
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.refresh),
