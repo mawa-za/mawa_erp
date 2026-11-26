@@ -206,7 +206,18 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
     }
   }
 
-  Future<void> _retry(num id) async {
+  Future<void> _retry(num id, {bool xero = false}) async {
+    if (xero) {
+      final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: const Text('Retry suspended Xero transaction?'),
+        content: const Text('Only continue after verifying the original error and checking the selected Xero ledger for an existing record. Correct the accounting mapping first. Do not retry an uncertain write; use reconciliation instead.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Verified — retry')),
+        ],
+      ));
+      if (confirmed != true || !mounted) return;
+    }
     final response = await _api.post('/v2/message-queue/$id/retry');
     if (response.statusCode != 200 && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -518,7 +529,8 @@ class _MessageQueueAdminScreenState extends State<MessageQueueAdminScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: () => _retry(id),
+                onPressed: (item['type']?.toString().startsWith('XERO-') == true && status != 'FAILED')
+                    ? null : () => _retry(id, xero: item['type']?.toString().startsWith('XERO-') == true),
                 icon: const Icon(Icons.replay),
                 label: const Text('Retry'),
               ),

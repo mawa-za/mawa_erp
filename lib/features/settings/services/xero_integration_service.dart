@@ -90,6 +90,96 @@ class XeroActivationResult {
   }
 }
 
+/// Only identifiers and display values from the selected organisation are exposed.
+class XeroAccountingOption {
+  final String id;
+  final String code;
+  final String label;
+  const XeroAccountingOption({required this.id, required this.code, required this.label});
+
+  factory XeroAccountingOption.account(Map<String, dynamic> json) {
+    final code = json['code']?.toString() ?? '';
+    return XeroAccountingOption(
+      id: json['accountId']?.toString() ?? '',
+      code: code,
+      label: '$code — ${json['name'] ?? code} (${json['type'] ?? ''})',
+    );
+  }
+
+  factory XeroAccountingOption.tax(Map<String, dynamic> json) {
+    final type = json['taxType']?.toString() ?? '';
+    return XeroAccountingOption(
+      id: type,
+      code: type,
+      label: '${json['name'] ?? type} — ${json['displayRate'] ?? 0}% ($type)',
+    );
+  }
+}
+
+class XeroAccountingConfiguration {
+  final String organisationId;
+  final List<XeroAccountingOption> invoiceAccounts;
+  final List<XeroAccountingOption> paymentAccounts;
+  final List<XeroAccountingOption> taxRates;
+  final Map<String, dynamic>? mapping;
+  final String? legacyInvoiceAccountCode;
+  final String? legacyPaymentAccountCode;
+  final String? legacyInvoiceTaxType;
+  final bool mappingValid;
+  final bool invoiceIntegrationEnabled;
+
+  const XeroAccountingConfiguration({
+    required this.organisationId,
+    required this.invoiceAccounts,
+    required this.paymentAccounts,
+    required this.taxRates,
+    this.mapping,
+    this.legacyInvoiceAccountCode,
+    this.legacyPaymentAccountCode,
+    this.legacyInvoiceTaxType,
+    required this.mappingValid,
+    required this.invoiceIntegrationEnabled,
+  });
+
+  factory XeroAccountingConfiguration.fromJson(Map<String, dynamic> json) {
+    final options = Map<String, dynamic>.from(json['options'] as Map);
+    List<XeroAccountingOption> readOptions(String key, bool tax) {
+      return (options[key] as List? ?? const [])
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .map((row) => tax ? XeroAccountingOption.tax(row) : XeroAccountingOption.account(row))
+          .where((row) => row.id.isNotEmpty)
+          .toList(growable: false);
+    }
+    return XeroAccountingConfiguration(
+      organisationId: options['organisationId']?.toString() ?? '',
+      invoiceAccounts: readOptions('invoiceAccounts', false),
+      paymentAccounts: readOptions('paymentAccounts', false),
+      taxRates: readOptions('taxRates', true),
+      mapping: json['mapping'] is Map ? Map<String, dynamic>.from(json['mapping'] as Map) : null,
+      legacyInvoiceAccountCode: json['legacyInvoiceAccountCode']?.toString(),
+      legacyPaymentAccountCode: json['legacyPaymentAccountCode']?.toString(),
+      legacyInvoiceTaxType: json['legacyInvoiceTaxType']?.toString(),
+      mappingValid: json['mappingValid'] == true,
+      invoiceIntegrationEnabled: json['invoiceIntegrationEnabled'] == true,
+    );
+  }
+
+  // Retain only real options. Do not suggest a code from a previously connected organisation.
+  String? initialChoice(List<XeroAccountingOption> options, String mappingKey, String? legacyCode) {
+    if (mapping != null) {
+      if (mapping!['organisationId']?.toString() != organisationId) return null;
+      final id = mapping![mappingKey]?.toString();
+      return options.any((option) => option.id == id) ? id : null;
+    }
+    final matches = options.where((option) => option.code == legacyCode).toList();
+    return matches.length == 1 ? matches.first.id : null;
+  }
+
+  String? get invoiceAccountId => initialChoice(invoiceAccounts, 'invoiceAccountId', legacyInvoiceAccountCode);
+  String? get paymentAccountId => initialChoice(paymentAccounts, 'paymentAccountId', legacyPaymentAccountCode);
+  String? get invoiceTaxType => initialChoice(taxRates, 'invoiceTaxType', legacyInvoiceTaxType);
+}
+
 class XeroIntegrationService {
   static final XeroIntegrationService _instance = XeroIntegrationService._internal();
   factory XeroIntegrationService() => _instance;
@@ -107,7 +197,7 @@ class XeroIntegrationService {
     required String clientId,
     required String clientSecret,
     required String redirectUrl,
-    required String paymentAccountCode,
+    String paymentAccountCode = "",
     bool invoiceIntegrationEnabled = false,
   }) async {
     final response = await ApiClient().post(
@@ -126,6 +216,34 @@ class XeroIntegrationService {
     }
 
     return XeroActivationResult.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<XeroAccountingConfiguration> accountingConfiguration() async {
+    final response = await ApiClient().get('/v2/integrations/xero/accounting-configuration');
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to load Xero accounts and tax rates.'));
+    }
+    return XeroAccountingConfiguration.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  Future<XeroAccountingConfiguration> saveAccountingConfiguration({
+    required String organisationId,
+    required String invoiceAccountId,
+    required String paymentAccountId,
+    required String invoiceTaxType,
+  }) async {
+    final response = await ApiClient().post('/v2/integrations/xero/accounting-configuration', body: {
+      'organisationId': organisationId,
+      'invoiceAccountId': invoiceAccountId,
+      'paymentAccountId': paymentAccountId,
+      'invoiceTaxType': invoiceTaxType,
+    });
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to save Xero accounting configuration.'));
+    }
+    return XeroAccountingConfiguration.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<List<XeroConnection>> connections() async {
@@ -185,7 +303,7 @@ class XeroIntegrationService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw AppException('Failed to update Xero invoice integration: ${response.body}');
+      throw XeroIntegrationException(_errorMessage(response.body, fallback: 'Unable to update invoice integration.'));
     }
 
     return XeroActivationResult.fromJson(
