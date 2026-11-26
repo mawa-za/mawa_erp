@@ -42,6 +42,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   bool _updatingInvoiceIntegration = false;
   bool _obscureSecret = true;
   bool _loadingReconciliation = false;
+  bool _canCheckReconciliation = false;
   String? _checkingReconciliationId;
   String? _reconciliationNotice;
   List<Map<String, dynamic>> _reconciliationItems = const [];
@@ -477,8 +478,20 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
 
   Future<void> _loadReconciliation() async {
     if (_loadingReconciliation) return;
-    setState(() => _loadingReconciliation = true);
+    setState(() {
+      _loadingReconciliation = true;
+      _reconciliationNotice = null;
+      _reconciliationItems = const [];
+      _canCheckReconciliation = false;
+    });
     try {
+      final allowed = await _service.canCheckReconciliation();
+      if (!mounted) return;
+      setState(() => _canCheckReconciliation = allowed);
+      if (!allowed) {
+        setState(() => _reconciliationNotice = 'Xero reconciliation permission is required. Ask your tenant administrator to assign it in Role Maintenance.');
+        return;
+      }
       final items = await _service.pendingReconciliation();
       if (!mounted) return;
       setState(() { _reconciliationItems = items; });
@@ -619,7 +632,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         if (_loadingReconciliation) const LinearProgressIndicator(),
         if (_reconciliationNotice != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8),
             child: SelectableText(_reconciliationNotice!)),
-        if (!_loadingReconciliation && _reconciliationItems.isEmpty)
+        if (!_loadingReconciliation && _canCheckReconciliation && _reconciliationNotice == null && _reconciliationItems.isEmpty)
           const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No quarantined transactions found.')),
         for (final item in _reconciliationItems)
           ListTile(

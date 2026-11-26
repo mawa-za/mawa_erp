@@ -310,6 +310,15 @@ class XeroIntegrationService {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+  Future<bool> canCheckReconciliation() async {
+    final response = await ApiClient().get('/v2/integrations/xero/reconciliation/capability');
+    if (response.statusCode != 200) {
+      throw XeroIntegrationException(_errorMessage(response.body,
+          fallback: 'Unable to check Xero reconciliation permission'));
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['canCheck'] == true;
+  }
+
   Future<List<Map<String, dynamic>>> pendingReconciliation() async {
     final response = await ApiClient().get('/v2/integrations/xero/reconciliation/pending');
     if (response.statusCode != 200) {
