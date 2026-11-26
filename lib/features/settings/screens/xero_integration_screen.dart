@@ -17,8 +17,23 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   final _clientIdController = TextEditingController();
   final _clientSecretController = TextEditingController();
   final _redirectUrlController = TextEditingController();
-  final _paymentAccountCodeController = TextEditingController();
   final _service = XeroIntegrationService();
+  XeroAccountingConfiguration? _accountingConfiguration;
+  String? _invoiceAccountId;
+  String? _paymentAccountId;
+  String? _invoiceTaxType;
+  String? _accountingError;
+  bool _accountingBusy = false;
+  bool _selectingOrganisation = false;
+  int _accountingGeneration = 0;
+
+  bool get _configurationControlsBusy => _accountingBusy || _saving ||
+      _loadingConnections || _deactivating || _selectingOrganisation || _updatingInvoiceIntegration;
+
+  bool get _canSaveAccounting => !_configurationControlsBusy &&
+      !_invoiceIntegrationEnabled && _accountingConfiguration != null &&
+      _invoiceAccountId != null && _paymentAccountId != null && _invoiceTaxType != null;
+
 
   bool _invoiceIntegrationEnabled = false;
   bool _saving = false;
@@ -48,18 +63,40 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     if (host.isNotEmpty) {
       _redirectUrlController.text = 'https://$host/xero/callback';
     }
-    _loadSecretNames();
-    _loadConnections(showErrors: false);
+    _refreshConnectionStatus(showErrors: false);
     _loadReconciliation();
   }
 
-  Future<void> _loadSecretNames() async {
+  /// After returning from Xero's browser consent screen, the backend callback
+  /// has already finished. Refresh both the persistent status and organisations.
+  Future<void> _refreshConnectionStatus({bool showErrors = true}) async {
+    final loaded = await _loadSecretNames();
+    if (!mounted || !loaded) return;
+    final status = (_integrationStatus ?? '').toUpperCase();
+    if (status == 'AUTHORISED' || status == 'PENDING_ORGANISATION_SELECTION') {
+      await _loadConnections(showErrors: showErrors);
+      if (mounted) await _loadAccountingConfiguration();
+    } else {
+      setState(() {
+        _connections = const [];
+        _selectedTenantId = null;
+        _clearAccounting();
+        _statusMessage = switch (status) {
+          'PENDING_AUTHORISATION' => 'Complete authorisation in Xero, then click Check connection.',
+          'REAUTHORISATION_REQUIRED' => 'Xero access has expired. Reconnect to authorise again.',
+          'DISABLED' => 'Xero synchronisation is disabled.',
+          _ => 'Configure Xero credentials and authorise your organisation to connect.',
+        };
+      });
+    }
+  }
+
+  Future<bool> _loadSecretNames() async {
     try {
       final result = await _service.secretNames();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
-            result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
         _integrationStatus = result.integrationStatus;
         _selectedTenantId = result.selectedTenantId;
         _clientIdSecretName = result.clientIdSecret;
@@ -70,12 +107,13 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         if ((result.redirectUrl ?? '').trim().isNotEmpty) {
           _redirectUrlController.text = result.redirectUrl!;
         }
-        if ((result.paymentAccountCode ?? '').trim().isNotEmpty) {
-          _paymentAccountCodeController.text = result.paymentAccountCode!;
-        }
+
       });
-    } catch (_) {
-      // The activation call still generates and returns the same fixed names.
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      setState(() => _statusMessage = 'Unable to load Xero configuration: ${friendlyErrorMessage(error)}');
+      return false;
     }
   }
 
@@ -84,7 +122,6 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     _clientIdController.dispose();
     _clientSecretController.dispose();
     _redirectUrlController.dispose();
-    _paymentAccountCodeController.dispose();
     super.dispose();
   }
 
@@ -94,6 +131,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     setState(() {
       _saving = true;
       _statusMessage = null;
+      _clearAccounting();
     });
 
     try {
@@ -101,8 +139,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         clientId: _clientIdController.text.trim(),
         clientSecret: _clientSecretController.text,
         redirectUrl: _redirectUrlController.text.trim(),
-        paymentAccountCode: _paymentAccountCodeController.text.trim(),
-        invoiceIntegrationEnabled: _invoiceIntegrationEnabled,
+        invoiceIntegrationEnabled: false,
       );
 
       if (!mounted) return;
@@ -110,8 +147,9 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
         _statusMessage = result.message;
         _integrationStatus = result.integrationStatus;
         _authenticationUrl = result.authenticationUrl;
-        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
-            _invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _selectedTenantId = null;
+        _connections = const [];
         _clientIdSecretName = result.clientIdSecret;
         _clientSecretSecretName = result.clientSecretSecret;
         _refreshTokenSecretName = result.refreshTokenSecret;
@@ -173,6 +211,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       setState(() {
         _connections = const [];
         _selectedTenantId = null;
+        _clearAccounting();
         _statusMessage = message.isEmpty
             ? 'Unable to load Xero organisations. Activate or reconnect Xero.'
             : message;
@@ -186,13 +225,16 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
   }
 
   Future<void> _selectConnection(XeroConnection connection) async {
-    setState(() => _selectedTenantId = connection.tenantId);
+    if (_configurationControlsBusy || _selectedTenantId == connection.tenantId) return;
+    setState(() {
+      _selectingOrganisation = true;
+      _clearAccounting();
+    });
     try {
       final result = await _service.selectTenant(connection.tenantId);
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ??
-            result.invoiceIntegrationEnabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
         _integrationStatus = result.integrationStatus;
         _selectedTenantId = result.selectedTenantId ?? connection.tenantId;
         _statusMessage = result.message ?? 'Xero organisation selected.';
@@ -200,10 +242,14 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message ?? 'Xero organisation selected')),
       );
+      await _loadAccountingConfiguration();
     } catch (error) {
       if (!mounted) return;
       setState(() => _selectedTenantId = null);
       _showError('Unable to select Xero organisation', error);
+      await _refreshConnectionStatus(showErrors: false);
+    } finally {
+      if (mounted) setState(() => _selectingOrganisation = false);
     }
   }
 
@@ -234,8 +280,10 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.deactivate();
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ?? false;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
+        _integrationStatus = result.integrationStatus;
         _selectedTenantId = null;
+        _clearAccounting();
         _statusMessage = result.message;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,13 +306,14 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       final result = await _service.updateInvoiceIntegration(enabled);
       if (!mounted) return;
       setState(() {
-        _invoiceIntegrationEnabled = result.invoiceIntegrationRequested ?? enabled;
+        _invoiceIntegrationEnabled = result.invoiceIntegrationEnabled;
         _integrationStatus = result.integrationStatus ?? _integrationStatus;
         _statusMessage = result.message;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message ?? 'Xero configuration updated')),
       );
+      await _loadAccountingConfiguration();
     } catch (error) {
       if (!mounted) return;
       setState(() => _invoiceIntegrationEnabled = previous);
@@ -272,6 +321,151 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
     } finally {
       if (mounted) setState(() => _updatingInvoiceIntegration = false);
     }
+  }
+
+  void _clearAccounting() {
+    _accountingGeneration++;
+    _accountingBusy = false;
+    _accountingConfiguration = null;
+    _invoiceAccountId = null;
+    _paymentAccountId = null;
+    _invoiceTaxType = null;
+    _accountingError = null;
+  }
+
+  void _applyAccounting(XeroAccountingConfiguration configuration) {
+    _accountingConfiguration = configuration;
+    _invoiceAccountId = configuration.invoiceAccountId;
+    _paymentAccountId = configuration.paymentAccountId;
+    _invoiceTaxType = configuration.invoiceTaxType;
+    _invoiceIntegrationEnabled = configuration.invoiceIntegrationEnabled;
+  }
+
+  Future<void> _loadAccountingConfiguration() async {
+    if (!mounted) return;
+    final selected = _selectedTenantId;
+    setState(_clearAccounting);
+    if ((_integrationStatus ?? '').toUpperCase() != 'AUTHORISED' || selected == null) return;
+    final generation = _accountingGeneration;
+    setState(() => _accountingBusy = true);
+    try {
+      final result = await _service.accountingConfiguration();
+      if (!mounted || generation != _accountingGeneration || selected != _selectedTenantId) return;
+      if (result.organisationId != selected) {
+        throw const XeroIntegrationException('The connected organisation changed. Check the connection again.');
+      }
+      setState(() => _applyAccounting(result));
+    } catch (error) {
+      if (mounted && generation == _accountingGeneration) {
+        setState(() => _accountingError = friendlyErrorMessage(error));
+      }
+    } finally {
+      if (mounted && generation == _accountingGeneration) setState(() => _accountingBusy = false);
+    }
+  }
+
+  Future<void> _saveAccountingConfiguration() async {
+    if (!_canSaveAccounting) return;
+    final organisation = _accountingConfiguration!.organisationId;
+    final generation = _accountingGeneration;
+    setState(() {
+      _accountingBusy = true;
+      _accountingError = null;
+    });
+    try {
+      final result = await _service.saveAccountingConfiguration(
+        organisationId: organisation,
+        invoiceAccountId: _invoiceAccountId!,
+        paymentAccountId: _paymentAccountId!,
+        invoiceTaxType: _invoiceTaxType!,
+      );
+      if (!mounted || generation != _accountingGeneration) return;
+      if (result.organisationId != organisation || !result.mappingValid) {
+        throw const XeroIntegrationException('The saved configuration is not valid. Refresh accounts before enabling integration.');
+      }
+      setState(() => _applyAccounting(result));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Xero accounting configuration saved. You can now enable invoice integration.'),
+      ));
+    } catch (error) {
+      if (mounted && generation == _accountingGeneration) {
+        setState(() => _accountingError = friendlyErrorMessage(error));
+      }
+    } finally {
+      if (mounted && generation == _accountingGeneration) setState(() => _accountingBusy = false);
+    }
+  }
+
+  Widget _accountingCard() {
+    final theme = Theme.of(context);
+    final configuration = _accountingConfiguration;
+    final authorised = (_integrationStatus ?? '').toUpperCase() == 'AUTHORISED' && _selectedTenantId != null;
+    final selectedOrganisation = _connections.where((c) => c.tenantId == _selectedTenantId);
+    final dirty = configuration != null && (_invoiceAccountId != configuration.invoiceAccountId ||
+        _paymentAccountId != configuration.paymentAccountId || _invoiceTaxType != configuration.invoiceTaxType);
+    final canEnable = authorised && configuration != null && configuration.mappingValid && !dirty &&
+        _accountingError == null;
+    final canEdit = !_configurationControlsBusy && !_invoiceIntegrationEnabled && configuration != null;
+    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Expanded(child: Text('Accounting configuration', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+          OutlinedButton.icon(
+            onPressed: !authorised || _configurationControlsBusy ? null : _loadAccountingConfiguration,
+            icon: const Icon(Icons.refresh), label: const Text('Refresh accounts'),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        if (selectedOrganisation.isNotEmpty)
+          Text('Connected organisation: ${selectedOrganisation.first.tenantName ?? selectedOrganisation.first.tenantId}'),
+        if (!authorised) const Text('Authorise Xero and select an organisation to retrieve its accounts and tax rates.'),
+        if (_accountingBusy) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: LinearProgressIndicator()),
+        if (_accountingError != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(_accountingError!, style: TextStyle(color: theme.colorScheme.error))),
+        if (configuration != null) ...[
+          if (!configuration.mappingValid) Text(
+            'Accounting configuration is missing or no longer valid for this Xero organisation. Select and save valid accounts and tax rate before enabling synchronisation.',
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+          if (_invoiceIntegrationEnabled) const Padding(padding: EdgeInsets.only(top: 8),
+            child: Text('Disable invoice integration to edit accounting configuration. Pending queue items are retained.')),
+          if (configuration.mapping == null && configuration.legacyInvoiceAccountCode != null && configuration.invoiceAccountId == null)
+            Text('Previous invoice account ${configuration.legacyInvoiceAccountCode} is unavailable in Xero.'),
+          if (configuration.mapping == null && configuration.legacyPaymentAccountCode != null && configuration.paymentAccountId == null)
+            Text('Previous payment account ${configuration.legacyPaymentAccountCode} is unavailable in Xero.'),
+          const SizedBox(height: 12),
+          _XeroSearchableDropdown(label: 'Default invoice sales account',
+            helper: 'Active revenue accounts from the selected Xero organisation.',
+            options: configuration.invoiceAccounts, value: _invoiceAccountId, enabled: canEdit,
+            onChanged: (value) => setState(() => _invoiceAccountId = value)),
+          const SizedBox(height: 12),
+          _XeroSearchableDropdown(label: 'Default payment account',
+            helper: 'Active bank or payment-enabled accounts.',
+            options: configuration.paymentAccounts, value: _paymentAccountId, enabled: canEdit,
+            onChanged: (value) => setState(() => _paymentAccountId = value)),
+          const SizedBox(height: 12),
+          _XeroSearchableDropdown(label: 'Default invoice tax type',
+            helper: 'Active Xero tax rates compatible with revenue accounts.',
+            options: configuration.taxRates, value: _invoiceTaxType, enabled: canEdit,
+            onChanged: (value) => setState(() => _invoiceTaxType = value)),
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: _canSaveAccounting ? _saveAccountingConfiguration : null,
+            icon: const Icon(Icons.save_outlined), label: const Text('Save accounting configuration')),
+          if (configuration.mappingValid && !dirty)
+            const Padding(padding: EdgeInsets.only(top: 8), child: Text('Saved account configuration validated against Xero.')),
+        ],
+        const Divider(height: 28),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _invoiceIntegrationEnabled,
+          onChanged: _configurationControlsBusy || (!_invoiceIntegrationEnabled && !canEnable)
+              ? null : _updateInvoiceIntegration,
+          title: const Text('Enable invoice integration'),
+          subtitle: const Text('Synchronise customers, products and invoices to Xero. Existing or suspended transactions are not automatically replayed; use approved reconciliation or message queue retry.'),
+        ),
+      ],
+    )));
   }
 
   void _showError(String title, Object error) {
@@ -493,6 +687,12 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                           _statusMessage ?? 'Save the Xero application credentials, authorise access, then select the organisation used to synchronise customers, products and invoices.',
                           style: theme.textTheme.bodyMedium,
                         ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _configurationControlsBusy ? null : _refreshConnectionStatus,
+                          icon: const Icon(Icons.sync),
+                          label: const Text('Check connection'),
+                        ),
                       ],
                     ),
                   ),
@@ -500,6 +700,8 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _accountingCard(),
           const SizedBox(height: 12),
           Card(
             child: Padding(
@@ -568,36 +770,13 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                         return uri == null || !uri.hasScheme || uri.host.isEmpty ? 'Enter a valid redirect URL' : null;
                       },
                     ),
-                    const SizedBox(height: 4),
-                    TextFormField(
-                      controller: _paymentAccountCodeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Xero payment account code',
-                        helperText: 'Bank account code used when MAWA payments are posted to Xero.',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) => _invoiceIntegrationEnabled &&
-                              (value == null || value.trim().isEmpty)
-                          ? 'Xero payment account code is required'
-                          : null,
-                    ),
-                    const SizedBox(height: 4),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _invoiceIntegrationEnabled,
-                      onChanged: _updatingInvoiceIntegration
-                          ? null
-                          : _updateInvoiceIntegration,
-                      title: const Text('Enable invoice integration'),
-                      subtitle: const Text('Synchronise MAWA customers, products and invoices to the selected Xero organisation. Historical records are not queued automatically. Existing transactions require a separate approved reconciliation and backfill.'),
-                    ),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 12,
                       runSpacing: 8,
                       children: [
                         FilledButton.icon(
-                          onPressed: _saving ? null : _activate,
+                          onPressed: _configurationControlsBusy ? null : _activate,
                           icon: _saving
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.link_outlined),
@@ -630,7 +809,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                       ),
                       IconButton(
                         tooltip: 'Refresh organisations',
-                        onPressed: _loadingConnections ? null : () => _loadConnections(),
+                        onPressed: _configurationControlsBusy ? null : _refreshConnectionStatus,
                         icon: _loadingConnections
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.refresh),
@@ -647,7 +826,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                     RadioGroup<String>(
                       groupValue: _selectedTenantId,
                       onChanged: (tenantId) {
-                        if (tenantId == null) return;
+                        if (tenantId == null || _configurationControlsBusy) return;
                         for (final connection in _connections) {
                           if (connection.tenantId == tenantId) {
                             _selectConnection(connection);
@@ -673,7 +852,7 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
                     ),
                   const Divider(height: 28),
                   OutlinedButton.icon(
-                    onPressed: _deactivating ? null : _deactivate,
+                    onPressed: _configurationControlsBusy ? null : _deactivate,
                     icon: _deactivating
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.link_off_outlined),
@@ -735,5 +914,63 @@ class _XeroIntegrationScreenState extends State<XeroIntegrationScreen> {
       default:
         return theme.colorScheme.onSurfaceVariant;
     }
+  }
+}
+
+/// Dropdown-style selector with a searchable popup. Free text is never a selection.
+class _XeroSearchableDropdown extends StatelessWidget {
+  final String label;
+  final String helper;
+  final List<XeroAccountingOption> options;
+  final String? value;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  const _XeroSearchableDropdown({required this.label, required this.helper,
+    required this.options, required this.value, required this.enabled, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = options.where((option) => option.id == value);
+    final selected = matches.isEmpty ? null : matches.first;
+    final selectable = enabled && options.isNotEmpty;
+    return InkWell(
+      onTap: selectable ? () async {
+        var filter = '';
+        final chosen = await showDialog<String>(context: context, builder: (context) {
+          return StatefulBuilder(builder: (context, update) {
+            final filtered = options.where((option) => option.label.toLowerCase().contains(filter)).toList();
+            return AlertDialog(
+              title: Text(label),
+              content: SizedBox(width: 540, height: 360, child: Column(children: [
+                TextField(autofocus: true, decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search), hintText: 'Search by code or name', border: OutlineInputBorder(),
+                ), onChanged: (text) => update(() => filter = text.trim().toLowerCase())),
+                const SizedBox(height: 8),
+                Expanded(child: filtered.isEmpty ? const Center(child: Text('No matching Xero values')) : ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final option = filtered[index];
+                    return ListTile(title: Text(option.label), selected: option.id == value,
+                      trailing: option.id == value ? const Icon(Icons.check) : null,
+                      onTap: () => Navigator.pop(context, option.id));
+                  },
+                )),
+              ])),
+              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
+            );
+          });
+        });
+        if (chosen != null && context.mounted) onChanged(chosen);
+      } : null,
+      child: InputDecorator(
+        decoration: InputDecoration(labelText: label, helperText: helper,
+          border: const OutlineInputBorder(), enabled: selectable,
+          suffixIcon: const Icon(Icons.arrow_drop_down)),
+        isEmpty: selected == null,
+        child: Text(selected?.label ?? (options.isEmpty ? 'No eligible Xero values' : 'Select from Xero'),
+          style: selected == null ? Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant) : null),
+      ),
+    );
   }
 }
